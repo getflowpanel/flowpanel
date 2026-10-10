@@ -54,9 +54,9 @@ export function DataTableHeader<Row>({
   const labels = useLabels();
   return (
     <thead className={LABEL_TEXT}>
-      <tr className="border-b border-fp-border-1">
+      <tr className="fp-border-b fp-border-line">
         {selectionEnabled ? (
-          <th scope="col" className="w-10 px-4 py-2">
+          <th scope="col" className="fp-w-10 fp-px-4 fp-py-2">
             <Checkbox
               checked={allOnPageSelected}
               aria-label={allOnPageSelected ? labels.table.deselectAll : labels.table.selectAll}
@@ -89,12 +89,14 @@ export function DataTableHeader<Row>({
                 ? { style: cssVars as React.CSSProperties }
                 : {})}
               className={cn(
-                "group px-4 py-2.5 font-normal select-none",
+                "fp-group fp-px-4 fp-py-2.5 fp-font-normal fp-select-none",
                 ALIGN_CLASS[c.align ?? "left"],
-                wCss !== undefined && "w-[var(--fp-col-w)]",
-                meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-1 z-[2]",
-                meta.side === "right" && "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-1 z-[2]",
-                meta.side === "none" && "relative",
+                wCss !== undefined && "fp-w-[var(--fp-col-w)]",
+                meta.side === "left" &&
+                  "fp-sticky fp-left-[var(--fp-col-pin-left)] fp-bg-surface fp-z-[2]",
+                meta.side === "right" &&
+                  "fp-sticky fp-right-[var(--fp-col-pin-right)] fp-bg-surface fp-z-[2]",
+                meta.side === "none" && "fp-relative",
                 c.className,
               )}
             >
@@ -103,22 +105,22 @@ export function DataTableHeader<Row>({
                   type="button"
                   onClick={() => onHeaderClick(c)}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-fp-sm transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
-                    c.align === "right" && "flex-row-reverse",
-                    active && "text-fp-text-1",
+                    "fp-inline-flex fp-items-center fp-gap-1 fp-rounded-sm fp-transition-colors hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+                    c.align === "right" && "fp-flex-row-reverse",
+                    active && "fp-text-ink",
                   )}
                 >
                   {resolveFieldLabel(c.label, c.field)}
                   {active ? (
                     sort?.dir === "asc" ? (
-                      <ArrowUp aria-hidden className="h-3 w-3" />
+                      <ArrowUp aria-hidden className="fp-h-3 fp-w-3" />
                     ) : (
-                      <ArrowDown aria-hidden className="h-3 w-3" />
+                      <ArrowDown aria-hidden className="fp-h-3 fp-w-3" />
                     )
                   ) : (
                     <ChevronsUpDown
                       aria-hidden
-                      className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60"
+                      className="fp-h-3 fp-w-3 fp-opacity-0 fp-transition-opacity group-hover:fp-opacity-60"
                     />
                   )}
                 </button>
@@ -164,8 +166,8 @@ export function DataTableHeader<Row>({
           );
         })}
         {rowEndCell ? (
-          <th scope="col" className="w-10 px-4 py-2 text-right">
-            <span className="sr-only">{rowEndCellLabel}</span>
+          <th scope="col" className="fp-w-10 fp-px-4 fp-py-2 fp-text-right">
+            <span className="fp-sr-only">{rowEndCellLabel}</span>
           </th>
         ) : null}
       </tr>

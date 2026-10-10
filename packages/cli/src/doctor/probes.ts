@@ -4,6 +4,7 @@ import * as path from "node:path";
 import semver from "semver";
 import { hasMarker } from "../eject/marker";
 import { findAdminConfig } from "../scaffold/config-target";
+import { noConfigMessage } from "../utils/config-problem";
 import { detectAppDir, fileExists } from "../utils/detect";
 import { inspectDependency } from "../utils/project-packages";
 
@@ -70,7 +71,7 @@ export function firstDiagnostics(e: unknown, limit = 5): string | null {
  */
 export async function fixPrecondition(cwd: string, dlx = "pnpm dlx"): Promise<string | undefined> {
   if ((await findAdminConfig(cwd)) !== null) return undefined;
-  return `no flowpanel.config.ts in ${cwd}, so FlowPanel is not set up here yet. Run \`${dlx} @flowpanel/cli init\` first.`;
+  return noConfigMessage(cwd, dlx);
 }
 
 const TYPEGEN_SINCE = "15.5.0";

@@ -43,14 +43,14 @@ describe("threshold direction at defineAdmin", () => {
         metric("Success", async () => 97, { tones: { warn: 95, err: 90, goodWhen: "down" } }),
       ),
     ).toThrow(
-      'dashboard "/" sections[0].widgets[0] tones { warn: 95, err: 90 } read as lower is worse, but its goodWhen is "down". Swap warn and err, or set goodWhen: "up".',
+      '[flowpanel] dashboard "/" sections[0].widgets[0] tones: { warn: 95, err: 90 } reads as lower is worse, but its goodWhen is "down". Swap warn and err, or set goodWhen: "up".',
     );
   });
 
   it("throws when the card's goodWhen contradicts its threshold", () => {
     expect(() =>
       boardWith(tracker({ goodWhen: "up", tones: { warn: 1, err: 5 }, rows: async () => [] })),
-    ).toThrow(/read as higher is worse, but the card's goodWhen is "up"/);
+    ).toThrow(/reads as higher is worse, but the card's goodWhen is "up"/);
   });
 
   it("checks a column format's threshold too", () => {

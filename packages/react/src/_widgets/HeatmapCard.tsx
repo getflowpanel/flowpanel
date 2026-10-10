@@ -33,18 +33,18 @@ export interface HeatmapCardProps {
   caption?: WidgetCaption;
 }
 
-const EMPTY = "bg-fp-bg-3";
+const EMPTY = "fp-bg-fill";
 const STEP: Record<string, number> = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -7, ArrowRight: 7 };
 
 /** Levels 1 to 4 shade the fill's own alpha, so a focus ring on the cell keeps full strength. */
 const SHADES: Record<Tone, readonly [string, string, string, string]> = {
-  default: ["bg-fp-data/30", "bg-fp-data/50", "bg-fp-data/75", "bg-fp-data"],
-  accent: ["bg-fp-data/30", "bg-fp-data/50", "bg-fp-data/75", "bg-fp-data"],
-  ok: ["bg-fp-ok/30", "bg-fp-ok/50", "bg-fp-ok/75", "bg-fp-ok"],
-  warn: ["bg-fp-warn/30", "bg-fp-warn/50", "bg-fp-warn/75", "bg-fp-warn"],
-  err: ["bg-fp-err/30", "bg-fp-err/50", "bg-fp-err/75", "bg-fp-err"],
-  info: ["bg-fp-info/30", "bg-fp-info/50", "bg-fp-info/75", "bg-fp-info"],
-  muted: ["bg-fp-text-3/30", "bg-fp-text-3/50", "bg-fp-text-3/75", "bg-fp-text-3"],
+  default: ["fp-bg-data/30", "fp-bg-data/50", "fp-bg-data/75", "fp-bg-data"],
+  accent: ["fp-bg-data/30", "fp-bg-data/50", "fp-bg-data/75", "fp-bg-data"],
+  ok: ["fp-bg-ok/30", "fp-bg-ok/50", "fp-bg-ok/75", "fp-bg-ok"],
+  warn: ["fp-bg-warn/30", "fp-bg-warn/50", "fp-bg-warn/75", "fp-bg-warn"],
+  err: ["fp-bg-err/30", "fp-bg-err/50", "fp-bg-err/75", "fp-bg-err"],
+  info: ["fp-bg-info/30", "fp-bg-info/50", "fp-bg-info/75", "fp-bg-info"],
+  muted: ["fp-bg-faint/30", "fp-bg-faint/50", "fp-bg-faint/75", "fp-bg-faint"],
 };
 
 function shade(level: number, tone: Tone): string {
@@ -64,8 +64,8 @@ function moveBetweenDays(event: KeyboardEvent<HTMLDivElement>) {
 }
 
 function Cell({ cell, tone, stop }: { cell: HeatmapCardCell | null; tone: Tone; stop: boolean }) {
-  if (!cell) return <span aria-hidden className="h-3 w-3" />;
-  const box = cn("block h-3 w-3 rounded-[2px]", shade(cell.level, tone));
+  if (!cell) return <span aria-hidden className="fp-h-3 fp-w-3" />;
+  const box = cn("fp-block fp-h-3 fp-w-3 fp-rounded-[2px]", shade(cell.level, tone));
   return cell.href ? (
     // biome-ignore lint/a11y/useAnchorContent: aria-label carries the accessible name; the box is a decorative fill.
     <a
@@ -76,7 +76,7 @@ function Cell({ cell, tone, stop }: { cell: HeatmapCardCell | null; tone: Tone; 
       tabIndex={stop ? 0 : -1}
       className={cn(
         box,
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+        "focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
       )}
     />
   ) : (
@@ -101,30 +101,30 @@ export function HeatmapCard({
     .reverse()
     .find((cell) => cell?.href)?.key;
   return (
-    <Card className="h-full">
+    <Card className="fp-h-full">
       <CardHeading label={label} caption={caption} />
-      <CardContent className={cn("space-y-2", label || caption ? "pt-0" : "")}>
-        <p className="text-xs text-fp-text-3" aria-hidden={emptyState ? undefined : true}>
+      <CardContent className={cn("fp-space-y-2", label || caption ? "fp-pt-0" : "")}>
+        <p className="fp-text-xs fp-text-faint" aria-hidden={emptyState ? undefined : true}>
           {summary}
         </p>
         {emptyState ? (
           <EmptyLine>{emptyState}</EmptyLine>
         ) : (
-          <div className="overflow-x-auto">
-            <div className="inline-flex gap-1">
-              <div className="grid grid-rows-7 gap-0.5 pt-4 text-[10px] leading-3 text-fp-text-3">
+          <div className="fp-overflow-x-auto">
+            <div className="fp-inline-flex fp-gap-1">
+              <div className="fp-grid fp-grid-rows-7 fp-gap-0.5 fp-pt-4 fp-text-[10px] fp-leading-3 fp-text-faint">
                 {Array.from({ length: 7 }, (_, row) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: weekday rows are positional
                   <span key={row}>{weekdays.find((w) => w.row === row)?.label ?? ""}</span>
                 ))}
               </div>
               <div>
-                <div className="flex h-4 gap-0.5 text-[10px] leading-3 text-fp-text-3">
+                <div className="fp-flex fp-h-4 fp-gap-0.5 fp-text-[10px] fp-leading-3 fp-text-faint">
                   {weeks.map((_, index) => (
                     <span
                       // biome-ignore lint/suspicious/noArrayIndexKey: week columns are positional
                       key={index}
-                      className="w-3 overflow-visible whitespace-nowrap"
+                      className="fp-w-3 fp-overflow-visible fp-whitespace-nowrap"
                     >
                       {months.find((month) => month.index === index)?.label ?? ""}
                     </span>
@@ -134,7 +134,7 @@ export function HeatmapCard({
                 <div
                   role={stop ? "group" : "img"}
                   aria-label={summary}
-                  className="grid grid-flow-col grid-rows-7 gap-0.5"
+                  className="fp-grid fp-grid-flow-col fp-grid-rows-7 fp-gap-0.5"
                   onKeyDown={stop ? moveBetweenDays : undefined}
                 >
                   {weeks.flatMap((week, w) =>
@@ -150,13 +150,13 @@ export function HeatmapCard({
                 </div>
               </div>
             </div>
-            <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-fp-text-3">
+            <div className="fp-mt-1 fp-flex fp-items-center fp-justify-end fp-gap-1 fp-text-[10px] fp-text-faint">
               <span>{legend.less}</span>
               {[0, 1, 2, 3, 4].map((level) => (
                 <span
                   key={level}
                   aria-hidden
-                  className={cn("h-2.5 w-2.5 rounded-[2px]", shade(level, tone))}
+                  className={cn("fp-h-2.5 fp-w-2.5 fp-rounded-[2px]", shade(level, tone))}
                 />
               ))}
               <span>{legend.more}</span>

@@ -76,7 +76,7 @@ describe("DataTable under host slot overrides", () => {
       <DataTable columns={columns} rows={[]} total={0} page={1} pageSize={20} rowKey="email" />,
     );
     expect(screen.getByText("No results")).toBeTruthy();
-    expect(container.querySelector(".font-medium")?.textContent).toBe("No results");
+    expect(container.querySelector(".fp-font-medium")?.textContent).toBe("No results");
   });
 
   it("uses the host's EmptyState in the mobile card list too", () => {

@@ -7,12 +7,12 @@ import { cn } from "../lib/cn";
 export type DrawerWidth = "sm" | "md" | "lg" | "xl" | "2xl" | "full";
 
 const WIDTH_CLASS: Record<DrawerWidth, string> = {
-  sm: "w-full sm:w-[360px]",
-  md: "w-full sm:w-[480px]",
-  lg: "w-full sm:w-[640px]",
-  xl: "w-full sm:w-[820px]",
-  "2xl": "w-full sm:w-[960px]",
-  full: "w-full sm:w-[min(100vw,1200px)]",
+  sm: "fp-w-full sm:fp-w-[360px]",
+  md: "fp-w-full sm:fp-w-[480px]",
+  lg: "fp-w-full sm:fp-w-[640px]",
+  xl: "fp-w-full sm:fp-w-[820px]",
+  "2xl": "fp-w-full sm:fp-w-[960px]",
+  full: "fp-w-full sm:fp-w-[min(100vw,1200px)]",
 };
 
 export interface DrawerProps {
@@ -40,7 +40,7 @@ export function Drawer({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           data-flowpanel-portal=""
-          className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/70"
+          className="fp-anim-overlay fp-fixed fp-inset-0 fp-z-50 fp-bg-overlay/70"
         />
         <DialogPrimitive.Content
           data-flowpanel-portal=""
@@ -49,27 +49,27 @@ export function Drawer({
             (event.currentTarget as HTMLElement | null)?.focus();
           }}
           className={cn(
-            "fp-anim-sheet-right fixed right-0 top-0 z-50 flex h-dvh max-w-full flex-col border-l border-fp-border-1 bg-fp-bg-1 shadow-fp-lg",
+            "fp-anim-sheet-right fp-fixed fp-right-0 fp-top-0 fp-z-50 fp-flex fp-h-dvh fp-max-w-full fp-flex-col fp-border-l fp-border-line fp-bg-surface fp-shadow-lg",
             WIDTH_CLASS[width],
-            "focus:outline-none",
+            "focus:fp-outline-none",
             className,
           )}
         >
           {title ? (
-            <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="fp-sr-only">{title}</DialogPrimitive.Title>
           ) : (
-            <DialogPrimitive.Title className="sr-only">Drawer</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="fp-sr-only">Drawer</DialogPrimitive.Title>
           )}
-          <DialogPrimitive.Description className="sr-only">
+          <DialogPrimitive.Description className="fp-sr-only">
             {description ?? "Side drawer"}
           </DialogPrimitive.Description>
           {children}
           <DialogPrimitive.Close
             aria-label="Close drawer"
-            className="absolute right-4 top-4 rounded-fp-sm p-1 text-fp-text-3 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
+            className="fp-absolute fp-right-4 fp-top-4 fp-rounded-sm fp-p-1 fp-text-faint fp-transition-colors hover:fp-bg-fill/70 hover:fp-text-ink focus:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
           >
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
+            <X className="fp-h-4 fp-w-4" />
+            <span className="fp-sr-only">Close</span>
           </DialogPrimitive.Close>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -85,7 +85,7 @@ export function DrawerHeader({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-start justify-between gap-4 border-b border-fp-border-1 px-6 py-4",
+        "fp-flex fp-shrink-0 fp-items-start fp-justify-between fp-gap-4 fp-border-b fp-border-line fp-px-6 fp-py-4",
         className,
       )}
       {...props}
@@ -101,7 +101,10 @@ export function DrawerContent({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-4", className)} {...props}>
+    <div
+      className={cn("fp-min-h-0 fp-flex-1 fp-overflow-y-auto fp-px-6 fp-py-4", className)}
+      {...props}
+    >
       {children}
     </div>
   );
@@ -115,7 +118,7 @@ export function DrawerFooter({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-end gap-2 border-t border-fp-border-1 px-6 py-4",
+        "fp-flex fp-shrink-0 fp-items-center fp-justify-end fp-gap-2 fp-border-t fp-border-line fp-px-6 fp-py-4",
         className,
       )}
       {...props}

@@ -1,24 +1,15 @@
 import { writeTarget } from "../internal/write-target";
 import { RU_LABELS } from "../locales/ru";
-import { reservedNameError } from "../reserved-names";
+import { assertNotReservedName } from "../reserved-names";
 import { resolveResourceName } from "../resource-name";
 import type { ResourceIntrospection } from "../types/adapter";
 import type { CompiledAdmin, CompiledResource } from "../types/compiled";
 import type { AdminDefinition, ResolvedAdminConfig } from "../types/config";
+import { FlowpanelConfigError } from "../types/config-error";
 import type { DashboardConfig, PageConfig } from "../types/dashboard";
 import { type LabelsConfig, mergeLabels } from "../types/labels";
 import type { QueueConfig } from "../types/queue";
 import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
-import { validateDashboardFilters } from "../validate-dashboard-filters";
-import { type LinkCheck, validateLinks } from "../validate-links";
-import { validateRealtime } from "../validate-realtime";
-import { validateRecordSources } from "../validate-record-sources";
-import { assertNoRemovedConfigKeys, assertNoRequireRole } from "../validate-removed-keys";
-import { validateResourceColumns } from "../validate-resource-columns";
-import { validateResourceRefs } from "../validate-resource-refs";
-import { validateThresholds } from "../validate-thresholds";
-import { createFieldWarnings, warnCreateFieldsOnce } from "../warn-create-fields";
-import { warnIfNoAccessControl } from "../warn-open-admin";
 import { createBuiltinBulkDelete } from "./builtin-bulk-delete";
 import { resolveDetailWidgets } from "./detail-widgets";
 import { withEnumOptions } from "./enum-options";
@@ -31,8 +22,20 @@ import {
   assertCanonicalFieldAccess,
   assertProductionAuth,
   assertServableActionForm,
+  assertTrustedProxies,
   assertUniqueActionKeys,
-} from "./validate-config";
+  rateLimitKeyWarning,
+} from "./validate/config";
+import { validateDashboardFilters } from "./validate/dashboard-filters";
+import { type LinkCheck, validateLinks } from "./validate/links";
+import { validateRealtime } from "./validate/realtime";
+import { validateRecordSources } from "./validate/record-sources";
+import { assertNoRemovedConfigKeys, assertNoRemovedResourceKeys } from "./validate/removed-keys";
+import { validateResourceColumns } from "./validate/resource-columns";
+import { validateResourceRefs } from "./validate/resource-refs";
+import { validateThresholds } from "./validate/thresholds";
+import { createFieldWarnings, warnCreateFieldsOnce } from "./validate/warn-create-fields";
+import { warnIfNoAccessControl } from "./validate/warn-open-admin";
 import { viewResource } from "./view-resource";
 
 function readOnlyResource(resource: ResourceConfig): ResourceConfig {
@@ -73,11 +76,11 @@ function withRowKey(
   return { ...resource, options: { ...resource.options, rowKey } };
 }
 
-function normalizeDeclaredRoutePath(raw: string): string {
+function normalizeDeclaredRoutePath(raw: string, where: string): string {
   if (raw.trim() === "") {
-    throw new Error('Declare the root route explicitly as "/" instead of an empty path.');
+    throw new FlowpanelConfigError(where, 'the path is empty. Declare the root route as "/".');
   }
-  return normalizeRoutePath(raw);
+  return normalizeRoutePath(raw, where);
 }
 
 /** A Russian `formatting.locale` makes `RU_LABELS` the base the host's labels merge over. */
@@ -93,34 +96,38 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
 ): CompiledAdmin {
   assertNoRemovedConfigKeys(config as unknown as Record<string, unknown>);
   assertProductionAuth(config);
+  assertTrustedProxies(config);
+  const rateLimitWarning = rateLimitKeyWarning(config);
   const resources: ResourceConfig[] = [];
   const resourcesByName = new Map<string, ResourceConfig>();
   const compiledResourcesByName = new Map<string, CompiledResource>();
   const routeNames = new RouteNameRegistry();
-  const warnings: string[] = [];
+  const warnings: string[] = rateLimitWarning ? [rateLimitWarning] : [];
 
   for (const raw of config.resources ?? []) {
     const name = resolveResourceName(raw);
     if (resourcesByName.has(name)) {
-      throw new Error(`Duplicate resource name: "${name}". Each resource name must be unique.`);
+      throw new FlowpanelConfigError(
+        `resource "${name}"`,
+        "two resources have this name. Set name on one of them so each is unique.",
+      );
     }
-    const reserved = reservedNameError("resource", name, "options.name");
-    if (reserved) throw new Error(reserved);
+    assertNotReservedName("resource", name, "name");
     routeNames.add("resource", name);
     routeNames.addPath("resource", `/${name}`, name);
 
     if (raw.options.rowClick === "drawer" && raw.options.drawer === undefined) {
-      throw new Error(
-        `resource "${name}" sets rowClick: "drawer" but has no drawer config. ` +
-          `Add drawer: { fields: "*" } or change rowClick.`,
+      throw new FlowpanelConfigError(
+        `resource "${name}" rowClick`,
+        `it is "drawer" but the resource has no drawer. Add drawer: { fields: "*" }, or change rowClick.`,
       );
     }
-    assertNoRequireRole(name, raw.options as Record<string, unknown>);
-    assertUniqueActionKeys(raw.options.actions, name, "options.actions");
-    assertUniqueActionKeys(raw.options.bulkActions, name, "options.bulkActions");
-    assertUniqueActionKeys(raw.options.drawer?.actions, name, "options.drawer.actions");
-    assertServableActionForm(raw.options.actions, name, "options.actions");
-    assertServableActionForm(raw.options.bulkActions, name, "options.bulkActions");
+    assertNoRemovedResourceKeys(name, raw.options as Record<string, unknown>);
+    assertUniqueActionKeys(raw.options.actions, name, "actions");
+    assertUniqueActionKeys(raw.options.bulkActions, name, "bulkActions");
+    assertUniqueActionKeys(raw.options.drawer?.actions, name, "drawer.actions");
+    assertServableActionForm(raw.options.actions, name, "actions");
+    assertServableActionForm(raw.options.bulkActions, name, "bulkActions");
     assertBulkActionLimits(raw, name);
     const probe = tryIntrospect(config.adapter, raw.ref);
     const introspection = probe.introspection;
@@ -145,9 +152,10 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     const columns = introspection?.columns ?? null;
     if (resource.options.columns === undefined) {
       if (columns === null || columns.length === 0) {
-        throw new Error(
-          `resource "${name}" omits options.columns, but the adapter could not introspect its ` +
-            "ref, so there is nothing to fill them from. Declare options.columns explicitly.",
+        throw new FlowpanelConfigError(
+          `resource "${name}" columns`,
+          "they are omitted, and the adapter could not introspect the table to fill them in. " +
+            "Declare columns.",
           probe.error === undefined ? undefined : { cause: probe.error },
         );
       }
@@ -176,36 +184,54 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
 
   const dashboards = (config.dashboards ?? []).map(withDashboardTimelineIds);
   const dashboardsByPath = new Map<string, DashboardConfig>();
-  for (const dashboard of dashboards) {
-    const path = normalizeDeclaredRoutePath(dashboard.path);
+  for (const [index, dashboard] of dashboards.entries()) {
+    const path = normalizeDeclaredRoutePath(dashboard.path, `dashboards[${index}].path`);
     if (dashboardsByPath.has(path)) {
-      throw new Error(`Duplicate dashboard path: "${dashboard.path}".`);
+      throw new FlowpanelConfigError(
+        `dashboard "${dashboard.path}"`,
+        "two dashboards use this path. Give each dashboard its own path.",
+      );
     }
     routeNames.addPath("dashboard", path, dashboard.path);
     dashboardsByPath.set(path, dashboard);
   }
 
   const pagesByPath = new Map<string, PageConfig>();
-  for (const page of config.pages ?? []) {
-    const path = normalizeDeclaredRoutePath(page.path);
-    if (pagesByPath.has(path)) throw new Error(`Duplicate page path: "${page.path}".`);
+  for (const [index, page] of (config.pages ?? []).entries()) {
+    const path = normalizeDeclaredRoutePath(page.path, `pages[${index}].path`);
+    if (pagesByPath.has(path)) {
+      throw new FlowpanelConfigError(
+        `page "${page.path}"`,
+        "two pages use this path. Give each page its own path.",
+      );
+    }
     if (dashboardsByPath.has(path)) {
-      throw new Error(`Page path "${page.path}" collides with a dashboard at the same path.`);
+      throw new FlowpanelConfigError(
+        `page "${page.path}"`,
+        "a dashboard already uses this path. Move the page or the dashboard to another path.",
+      );
     }
     routeNames.addPath("page", path, page.path);
     pagesByPath.set(path, page);
   }
 
   const queuesByKey = new Map<string, QueueConfig>();
-  for (const queue of config.queues ?? []) {
+  for (const [index, queue] of (config.queues ?? []).entries()) {
     const name = queue.ref?.name;
     const key = queue.options.key ?? name;
-    if (!key) throw new Error("queue() requires options.key when the queue has no .name");
-    if (queuesByKey.has(key)) {
-      throw new Error(`Duplicate queue key: "${key}". Each queue key must be unique.`);
+    if (!key) {
+      throw new FlowpanelConfigError(
+        `queues[${index}]`,
+        "the queue has no name to key it by. Set key in its options.",
+      );
     }
-    const reserved = reservedNameError("queue", key, "options.key");
-    if (reserved) throw new Error(reserved);
+    if (queuesByKey.has(key)) {
+      throw new FlowpanelConfigError(
+        `queue "${key}"`,
+        "two queues use this key. Give each queue its own key.",
+      );
+    }
+    assertNotReservedName("queue", key, "key");
     routeNames.add("queue", key);
     routeNames.addPath("queue", `/queues/${key}`, key);
     queuesByKey.set(key, queue);
@@ -230,7 +256,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     paths: new Set([...dashboardsByPath.keys(), ...pagesByPath.keys()]),
     dashboardFilters: new Map(
       dashboards.map((d) => [
-        normalizeRoutePath(d.path),
+        normalizeRoutePath(d.path, `dashboard "${d.path}"`),
         (d.filters ?? []).map((filter) => filter.key),
       ]),
     ),
@@ -241,8 +267,8 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   warnCreateFieldsOnce(warnings);
 
   const paths = {
-    admin: normalizeRoutePath(config.paths?.admin ?? "/admin"),
-    api: normalizeRoutePath(config.paths?.api ?? "/api/flowpanel"),
+    admin: normalizeRoutePath(config.paths?.admin ?? "/admin", "paths.admin"),
+    api: normalizeRoutePath(config.paths?.api ?? "/api/flowpanel", "paths.api"),
   };
   const labels = localeLabels(config.formatting?.locale, config.labels);
   const resolved: ResolvedAdminConfig<Resources> = {

@@ -1,0 +1,78 @@
+# FlowPanel — Getting started — Drizzle setup
+
+## Drizzle setup
+
+Connect FlowPanel to an existing Drizzle ORM project on PostgreSQL, MySQL or SQLite.
+
+Docs: https://flowpanel.tech/docs/introduction/drizzle
+
+The Drizzle adapter reads row types and columns from your schema and runs queries through your `db` client. Import it from `@flowpanel/kit/drizzle`. PostgreSQL, MySQL and SQLite are supported; version ranges are in [Getting started](/docs/introduction/getting-started#before-you-start).
+
+### Configure the adapter
+
+```ts
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { getSession } from "@/server/lib/auth";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+    // Every table and view in the schema becomes a typed resource name and row.
+    schema: typeof schema;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
+  }
+}
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: {
+    session: getSession,
+    role: (s) => s?.user.role ?? "guest",
+    access: "admin",
+  },
+  resources: [
+    resource(schema.users, {
+      columns: ["email", "name", "role", "createdAt"],
+      search: ["email", "name"],
+      defaultSort: { field: "createdAt", dir: "desc" },
+    }),
+  ],
+});
+```
+
+Pass the `db` and schema namespace your app already uses. The dialect is inferred from a table in `schema`; set `dialect` only when the schema has no Drizzle table. With `schema` registered in `FlowpanelTypes`, every table and view is a typed resource name and row.
+
+Search and filters are dialect-aware, pagination is offset-based, and a configured soft-delete field is set instead of deleting the row.
+
+### Views
+
+A resource can read a SQL view, so the list sorts and filters by numbers the view computes per row. Declare the view with `.existing()` so drizzle-kit leaves it alone, and create it in your own migration:
+
+```ts
+import { integer, pgView, text } from "drizzle-orm/pg-core";
+
+export const adminUserRow = pgView("admin_user_row", {
+  id: text("id").primaryKey(),
+  name: text("name"),
+  sent30d: integer("sent_30d"),
+}).existing();
+```
+
+```sql
+create view admin_user_row as
+select u.id, u.name,
+  (select count(*) from response r
+    where r.user_id = u.id and r.sent_at > now() - interval '30 days')::int as sent_30d
+from "user" u;
+```
+
+Write each per-row number as a correlated subquery rather than a `group by` over the table: reading one record stays an index lookup, and sorting computes the number only for the page's rows.
+
+`resource(adminUserRow, { name: "user", writeTo: user })` reads the view and writes edits to `user`. Without `writeTo` the resource is read-only. See [Reading a view](/docs/reference/resources#reading-a-view).
+
+### Limitation
+
+Relations declared with `relations()` do not become joined list columns. Use a [reference field](/docs/build/forms#relation-fields), a [column renderer](/docs/customization/column-renderers) or a view.

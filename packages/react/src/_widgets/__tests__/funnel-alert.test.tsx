@@ -21,22 +21,22 @@ describe("the worst funnel drop", () => {
     render(<FunnelCard steps={steps} alertDrop={0.5} />);
     const paid = stepOf("Paid");
     expect(paid.getAttribute("data-tone")).toBe("warn");
-    expect(screen.getByText("Paid").className).toContain("text-fp-text-2");
-    expect(screen.getByText("Paid").className).not.toContain("text-fp-warn-text");
-    expect(paid.querySelector(".bg-fp-warn")).toBeTruthy();
-    expect(screen.getByText("−90%").className).toContain("text-fp-warn-text");
-    expect(paid.querySelector(".sr-only")?.textContent).toBe("Warning ");
+    expect(screen.getByText("Paid").className).toContain("fp-text-soft");
+    expect(screen.getByText("Paid").className).not.toContain("fp-text-warn-ink");
+    expect(paid.querySelector(".fp-bg-warn")).toBeTruthy();
+    expect(screen.getByText("−90%").className).toContain("fp-text-warn-ink");
+    expect(paid.querySelector(".fp-sr-only")?.textContent).toBe("Warning ");
     expect(stepOf("Signed up").getAttribute("data-tone")).toBeNull();
-    expect(stepOf("Signed up").querySelector(".sr-only")).toBeNull();
-    expect(stepOf("Signed up").querySelector(".bg-fp-data")).toBeTruthy();
+    expect(stepOf("Signed up").querySelector(".fp-sr-only")).toBeNull();
+    expect(stepOf("Signed up").querySelector(".fp-bg-data")).toBeTruthy();
   });
 
   it("tones nothing without an alertDrop, and prints drops in muted text", () => {
     render(<FunnelCard steps={steps} />);
     expect(document.querySelector("[data-tone='warn']")).toBeNull();
-    expect(document.querySelector(".bg-fp-warn")).toBeNull();
-    expect(screen.getByText("−90%").className).toContain("text-fp-text-3");
-    expect(screen.getByText("−60%").className).toContain("text-fp-text-3");
+    expect(document.querySelector(".fp-bg-warn")).toBeNull();
+    expect(screen.getByText("−90%").className).toContain("fp-text-faint");
+    expect(screen.getByText("−60%").className).toContain("fp-text-faint");
   });
 
   it("marks nothing when no drop exceeds alertDrop", () => {
@@ -115,6 +115,6 @@ describe("the worst funnel drop", () => {
     );
     expect(container.textContent).toContain("+50%");
     expect(container.textContent).not.toContain("−-");
-    expect(screen.getByText("+50%").className).toContain("text-fp-text-3");
+    expect(screen.getByText("+50%").className).toContain("fp-text-faint");
   });
 });

@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { type ArrayLiteralExpression, Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
-import { lineIndent } from "../eject/addResource";
+import { lineIndent } from "../eject/add-resource";
 import { aliasOf, detectPathAlias } from "../utils/detect";
 
 function parse(source: string): SourceFile {

@@ -15,11 +15,11 @@ FlowPanel reads the session from your existing auth provider and checks a role o
 | `withLucia(opts)` | the Lucia instance you pass | `user.role` |
 | `devAuth(role?)` | a fixed `{ id: "dev" }` | the `role` argument, default `"admin"` |
 
-A missing role resolves to `guest`. `devAuth()` authenticates nobody; use it only locally.
+A missing role resolves to `guest`. `devAuth()` authenticates nobody, so it throws when `NODE_ENV` is `production`, whatever `auth.access` says. Use it only locally.
 
 ## better-auth
 
-```ts excerpt
+```ts
 import { defineAdmin } from "@flowpanel/kit";
 import { withBetterAuth } from "@flowpanel/kit/auth";
 import { auth } from "@/lib/auth";
@@ -40,7 +40,7 @@ export default defineAdmin({
 
 When the role lives in your own table, `role` can be async:
 
-```ts excerpt
+```ts as="AdminDefinition"
 auth: withBetterAuth({
   auth,
   access: "admin",
@@ -62,7 +62,7 @@ It runs on every request, so keep it to one indexed read. FlowPanel does not cac
 
 Clerk must already protect the app: `clerkMiddleware()` covering the admin, API and stream paths, and `ClerkProvider` at the root. See [`examples/with-clerk`](https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk).
 
-```ts excerpt
+```ts
 import { defineAdmin } from "@flowpanel/kit";
 import { withClerk } from "@flowpanel/kit/auth";
 
@@ -81,7 +81,7 @@ Set the user's `publicMetadata.role`, and add `"publicMetadata": "{{user.public_
 
 ## Your own session
 
-```ts excerpt
+```ts as="AdminDefinition"
 auth: {
   session: getSession,
   role: (session) => session?.user?.role ?? "guest",

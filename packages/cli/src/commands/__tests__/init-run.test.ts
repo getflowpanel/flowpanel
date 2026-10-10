@@ -1,4 +1,3 @@
-// LOC-OK: one hermetic end-to-end harness; each scenario runs the real init process.
 import { execFile } from "node:child_process";
 import * as fs from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -489,6 +488,12 @@ describe("init end to end", () => {
     );
   });
 
+  it("marks an incomplete init with a warning line when piped", async () => {
+    const result = await initRun({ FP_FAKE: "fail" }, ["init", "--yes"]);
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain("! FlowPanel init is incomplete\n\nTo finish\n");
+  });
+
   it("says the development identity is open when --dev-auth is given", async () => {
     const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION }, [
       "init",
@@ -516,7 +521,7 @@ describe("init end to end", () => {
       const result = await initRun(installed, ["init", "--yes", "--dev-auth"]);
       expect(result.code).toBe(0);
       expect(result.stdout).toBe(
-        "Wrote src/server/lib/auth.ts\n! src/server/lib/auth.ts signs every request in as an admin in development and throws under `next start`. Replace it with your auth provider before deploying.\nAdmin: http://localhost:3000/admin\n",
+        "Wrote\n  src/server/lib/auth.ts\n! src/server/lib/auth.ts signs every request in as an admin in development and throws under `next start`. Replace it with your auth provider before deploying.\n\nAdmin: http://localhost:3000/admin\n",
       );
       const written = await fs.readFile(sessionFile(), "utf8");
       expect(written).not.toBe(closed);
@@ -555,7 +560,7 @@ describe("init end to end", () => {
       await fs.writeFile(sessionFile(), CUSTOMISED);
       const result = await initRun(installed, ["init", "--yes", "--dev-auth"]);
       expect(result.code).toBe(1);
-      expect(result.stderr).toBe(`${ownModule}\n`);
+      expect(result.stderr).toBe(`✗ ${ownModule}\n`);
       expect(result.stdout).toBe("");
       expect(await fs.readFile(sessionFile(), "utf8")).toBe(CUSTOMISED);
     });
@@ -573,7 +578,7 @@ describe("init end to end", () => {
       await fs.writeFile(sessionFile(), own);
       const result = await initRun(installed, ["init", "--yes", "--dev-auth"]);
       expect(result.code).toBe(1);
-      expect(result.stderr).toBe(`${ownModule}\n`);
+      expect(result.stderr).toBe(`✗ ${ownModule}\n`);
       expect(await fs.readFile(sessionFile(), "utf8")).toBe(own);
     });
 
@@ -581,7 +586,7 @@ describe("init end to end", () => {
       await fs.writeFile(sessionFile(), CUSTOMISED);
       const result = await initRun(installed, ["init", "--yes", "--dev-auth"]);
       expect(result.code).toBe(1);
-      expect(result.stderr).toBe(`${exportsGetSession}\n`);
+      expect(result.stderr).toBe(`✗ ${exportsGetSession}\n`);
       expect(await fs.readFile(sessionFile(), "utf8")).toBe(CUSTOMISED);
       await expect(fs.access(path.join(project, "flowpanel.config.ts"))).rejects.toThrow();
     });
@@ -626,7 +631,7 @@ describe("init end to end", () => {
     await initRun(installed, ["init", "--yes"]);
     const result = await initRun(installed, ["init", "--yes"]);
     expect(result.code).toBe(0);
-    expect(result.stdout.startsWith("Already set up; nothing changed.\n")).toBe(true);
+    expect(result.stdout.startsWith("✓ Already set up; nothing changed.\n")).toBe(true);
     expect(result.stdout).toContain("! src/server/lib/auth.ts returns no session");
   });
 
@@ -639,7 +644,7 @@ describe("init end to end", () => {
     const before = await fs.readFile(tsx, "utf8");
     const result = await initRun(installed, ["init", "--yes"]);
     expect(result.code).toBe(0);
-    expect(result.stdout.startsWith("Already set up; nothing changed.\n")).toBe(true);
+    expect(result.stdout.startsWith("✓ Already set up; nothing changed.\n")).toBe(true);
     await expect(fs.access(ts)).rejects.toThrow();
     expect(await fs.readFile(tsx, "utf8")).toBe(before);
   });

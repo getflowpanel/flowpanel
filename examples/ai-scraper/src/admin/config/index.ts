@@ -40,6 +40,7 @@ export default defineAdmin({
     },
   },
   rateLimit: { driver: "memory", limit: 240, windowMs: 60_000, per: "ip", enabled: true },
+  security: { trustedProxies: 1 },
   auth: {
     session: (req) => getDemoSession(req),
     role: (s) => s?.role ?? "guest",

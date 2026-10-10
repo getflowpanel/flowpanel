@@ -87,15 +87,15 @@ export function DataTableRow<Row extends Record<string, unknown>>({
       onClick={() => onRowClick?.(row)}
       className={cn(
         // Not `transition-colors`: that list includes `outline-color`, which would fade the ring in on every move.
-        "group/row border-t border-fp-border-1 text-fp-text-1 transition-[background-color]",
-        onRowClick && "cursor-pointer hover:bg-fp-bg-2/70",
-        isSelected && "bg-fp-accent/5",
-        active && "bg-fp-accent/5 outline outline-2 -outline-offset-2 outline-fp-focus/60",
+        "fp-group/row fp-border-t fp-border-line fp-text-ink fp-transition-[background-color]",
+        onRowClick && "fp-cursor-pointer hover:fp-bg-canvas/70",
+        isSelected && "fp-bg-accent/5",
+        active && "fp-bg-accent/5 fp-outline fp-outline-2 -fp-outline-offset-2 fp-outline-focus/60",
         entering && "fp-row-enter",
       )}
     >
       {selectionEnabled ? (
-        <td className={cn("px-4", rowPadding)}>
+        <td className={cn("fp-px-4", rowPadding)}>
           <Checkbox
             checked={isSelected}
             disabled={rowKeyValue === null}
@@ -127,12 +127,14 @@ export function DataTableRow<Row extends Record<string, unknown>>({
             key={c.field}
             {...(Object.keys(cssVars).length > 0 ? { style: cssVars as React.CSSProperties } : {})}
             className={cn(
-              "px-4",
+              "fp-px-4",
               rowPadding,
               ALIGN_CLASS[c.align ?? "left"],
-              c.align === "right" && "tabular-nums",
-              meta.side === "left" && "sticky left-[var(--fp-col-pin-left)] bg-fp-bg-1 z-[1]",
-              meta.side === "right" && "sticky right-[var(--fp-col-pin-right)] bg-fp-bg-1 z-[1]",
+              c.align === "right" && "fp-tabular-nums",
+              meta.side === "left" &&
+                "fp-sticky fp-left-[var(--fp-col-pin-left)] fp-bg-surface fp-z-[1]",
+              meta.side === "right" &&
+                "fp-sticky fp-right-[var(--fp-col-pin-right)] fp-bg-surface fp-z-[1]",
               c.className,
             )}
           >
@@ -141,7 +143,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
         );
       })}
       {rowEndCell ? (
-        <td className={cn("px-4", rowPadding, "text-right")}>{rowEndCell(row, rowIndex)}</td>
+        <td className={cn("fp-px-4", rowPadding, "fp-text-right")}>{rowEndCell(row, rowIndex)}</td>
       ) : null}
     </tr>
   );

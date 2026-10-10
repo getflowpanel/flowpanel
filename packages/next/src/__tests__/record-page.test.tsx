@@ -189,12 +189,12 @@ describe("the record page", () => {
       detail: { aside: [stat("Seats", 3)], tabs: twoTabs },
     });
     const layout = first(tree, (el) => el.props["data-record-layout"] !== undefined);
-    expect(layout?.props.className).toContain("lg:grid-cols-12");
+    expect(layout?.props.className).toContain("lg:fp-grid-cols-12");
     const [main, side] = layout!.props.children as ReactElement<Props>[];
     expect(main?.type).not.toBe("aside");
-    expect(main?.props.className).toContain("lg:col-span-8");
+    expect(main?.props.className).toContain("lg:fp-col-span-8");
     expect(side?.type).toBe("aside");
-    expect(side?.props.className).toContain("lg:col-span-4");
+    expect(side?.props.className).toContain("lg:fp-col-span-4");
   });
 
   it("lays a widgets tab with spans on 12 columns", async () => {

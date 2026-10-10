@@ -65,7 +65,7 @@ function DeltaLine({
   const view = describeDelta({ ...delta, goodWhen }, value, format, print);
   if (Math.abs(delta.value) < NEUTRAL_BAND) {
     return (
-      <p data-delta="flat" className="mt-1 text-xs text-fp-text-3">
+      <p data-delta="flat" className="fp-mt-1 fp-text-xs fp-text-faint">
         {noChangeLabel ?? DEFAULT_LABELS.widget.noChange} {delta.vs}
       </p>
     );
@@ -77,14 +77,14 @@ function DeltaLine({
           value: print.value(delta.previous),
         });
   return (
-    <div className="mt-1 flex flex-wrap items-baseline gap-x-2 text-xs tabular-nums">
+    <div className="fp-mt-1 fp-flex fp-flex-wrap fp-items-baseline fp-gap-x-2 fp-text-xs fp-tabular-nums">
       <span
         data-delta={view.mood}
         className={view.material ? MOOD_TEXT[view.mood] : MOOD_TEXT.flat}
       >
         {view.text} {delta.vs}
       </span>
-      {previous ? <span className="text-fp-text-3">{previous}</span> : null}
+      {previous ? <span className="fp-text-faint">{previous}</span> : null}
     </div>
   );
 }
@@ -113,29 +113,34 @@ export function DefaultMetricCard(props: MetricCardProps) {
   const display = typeof value === "number" ? formatNumber(value, format, formatting) : value;
   const body = (
     <>
-      <CardHeader className="flex items-center justify-between pb-1">
-        <span className="min-w-0">
-          <span className={cn("block text-sm text-fp-text-2", TWO_LINES)} {...fullTextTitle(label)}>
+      <CardHeader className="fp-flex fp-items-center fp-justify-between fp-pb-1">
+        <span className="fp-min-w-0">
+          <span
+            className={cn("fp-block fp-text-sm fp-text-soft", TWO_LINES)}
+            {...fullTextTitle(label)}
+          >
             {label}
           </span>
           <CaptionLine caption={caption} />
         </span>
         {icon ? (
-          <span className="text-fp-text-3" aria-hidden>
+          <span className="fp-text-faint" aria-hidden>
             {icon}
           </span>
         ) : null}
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
-          <div className="grow basis-0 max-w-full">
-            <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-              <span className={cn("min-w-0 truncate", FIGURE, toneTextClass[tone])}>{display}</span>
-              {unit ? <span className="shrink-0 text-sm text-fp-text-3">{unit}</span> : null}
+      <CardContent className="fp-pt-0">
+        <div className="fp-flex fp-flex-wrap fp-items-end fp-justify-between fp-gap-x-3 fp-gap-y-2">
+          <div className="fp-grow fp-basis-0 fp-max-w-full">
+            <div className="fp-flex fp-items-baseline fp-gap-1.5 fp-whitespace-nowrap">
+              <span className={cn("fp-min-w-0 fp-truncate", FIGURE, toneTextClass[tone])}>
+                {display}
+              </span>
+              {unit ? <span className="fp-shrink-0 fp-text-sm fp-text-faint">{unit}</span> : null}
             </div>
             {sublabel ? (
               <div
-                className={cn(TWO_LINES, "mt-0.5 text-xs text-fp-text-3")}
+                className={cn(TWO_LINES, "fp-mt-0.5 fp-text-xs fp-text-faint")}
                 {...fullTextTitle(sublabel)}
               >
                 {sublabel}
@@ -160,7 +165,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
               width={96}
               height={32}
               fill="hsl(var(--fp-data) / 0.12)"
-              className="shrink-0 text-fp-data"
+              className="fp-shrink-0 fp-text-data"
             />
           ) : null}
         </div>
@@ -169,14 +174,14 @@ export function DefaultMetricCard(props: MetricCardProps) {
   );
   const card = plain ? (
     <div
-      className="h-full w-full bg-fp-bg-1 transition-colors group-hover:bg-fp-bg-2"
+      className="fp-h-full fp-w-full fp-bg-surface fp-transition-colors group-hover:fp-bg-canvas"
       data-tone={tone}
       data-plain=""
     >
       {body}
     </div>
   ) : (
-    <Card className="h-full w-full" data-tone={tone}>
+    <Card className="fp-h-full fp-w-full" data-tone={tone}>
       {body}
     </Card>
   );
@@ -185,8 +190,10 @@ export function DefaultMetricCard(props: MetricCardProps) {
       <a
         href={drilldown}
         className={cn(
-          "group block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
-          plain ? "focus-visible:ring-inset" : "rounded-fp-lg transition-shadow hover:shadow-fp-sm",
+          "fp-group fp-block fp-h-full fp-w-full focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+          plain
+            ? "focus-visible:fp-ring-inset"
+            : "fp-rounded-lg fp-transition-shadow hover:fp-shadow-sm",
         )}
         aria-label={label}
       >

@@ -46,7 +46,7 @@ export async function renderDetailTab<Row extends Record<string, unknown>>({
   if (tab.render) return tab.render(row, tabContextOf(shared));
   if (tab.widgets !== undefined && tab.resource) {
     return (
-      <div className="space-y-4">
+      <div className="fp-space-y-4">
         {await renderWidgetsTab(config, reqCtx, row, tab, req, rowKey, name, shared)}
         {await renderRelatedTab(config, reqCtx, row, tab, req, searchParams)}
       </div>

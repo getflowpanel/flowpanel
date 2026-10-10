@@ -37,9 +37,9 @@ function fieldsBlock<Row extends Record<string, unknown>>({
   emptyState,
 }: BlockArgs<Row>): ReactNode {
   return (
-    <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
+    <div className="fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
       {fields.length === 0 ? (
-        <p className="text-sm text-fp-text-3">{emptyState}</p>
+        <p className="fp-text-sm fp-text-faint">{emptyState}</p>
       ) : (
         <KV>
           {fields.map(({ name, label }) => (
@@ -96,7 +96,7 @@ export async function renderFieldsTab<Row extends Record<string, unknown>>(
 
   if (sections) {
     return (
-      <div className="space-y-5">
+      <div className="fp-space-y-5">
         {sections.map((section) => (
           <Section key={section.label} label={section.label}>
             {block(section.list)}

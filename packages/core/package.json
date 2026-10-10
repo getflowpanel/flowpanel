@@ -12,6 +12,9 @@
       "auth": [
         "./dist/auth.d.ts"
       ],
+      "class-names": [
+        "./dist/class-names.d.ts"
+      ],
       "format": [
         "./dist/format.d.ts"
       ],
@@ -54,6 +57,16 @@
       "require": {
         "types": "./dist/auth.d.cts",
         "default": "./dist/auth.cjs"
+      }
+    },
+    "./class-names": {
+      "import": {
+        "types": "./dist/class-names.d.ts",
+        "default": "./dist/class-names.mjs"
+      },
+      "require": {
+        "types": "./dist/class-names.d.cts",
+        "default": "./dist/class-names.cjs"
       }
     },
     "./format": {
@@ -176,6 +189,10 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "clsx": "catalog:",
+    "tailwind-merge": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

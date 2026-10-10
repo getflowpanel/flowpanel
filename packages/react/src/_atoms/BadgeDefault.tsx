@@ -10,13 +10,13 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 }
 
 const toneClasses: Record<BadgeTone, string> = {
-  default: "bg-fp-bg-3/50 text-fp-text-2 border-fp-border-1",
-  accent: "bg-fp-accent/10 text-fp-accent-badge-text border-fp-accent/25",
-  ok: "bg-fp-ok/10 text-fp-ok-text border-fp-ok/25",
-  warn: "bg-fp-warn/10 text-fp-warn-text border-fp-warn/25",
-  err: "bg-fp-err/10 text-fp-err-text border-fp-err/25",
-  info: "bg-fp-info/10 text-fp-info-text border-fp-info/25",
-  muted: "bg-fp-bg-3/50 text-fp-text-3 border-fp-border-1",
+  default: "fp-bg-fill/50 fp-text-soft fp-border-line",
+  accent: "fp-bg-accent/10 fp-text-accent-ink fp-border-accent/25",
+  ok: "fp-bg-ok/10 fp-text-ok-ink fp-border-ok/25",
+  warn: "fp-bg-warn/10 fp-text-warn-ink fp-border-warn/25",
+  err: "fp-bg-err/10 fp-text-err-ink fp-border-err/25",
+  info: "fp-bg-info/10 fp-text-info-ink fp-border-info/25",
+  muted: "fp-bg-fill/50 fp-text-faint fp-border-line",
 };
 
 /** Pure renderer — no context dependency. Used as the registry default. */
@@ -24,7 +24,7 @@ export function DefaultBadge({ tone = "default", className, ...props }: BadgePro
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-fp-sm border px-2 py-0.5 text-xs font-medium",
+        "fp-inline-flex fp-items-center fp-gap-1 fp-rounded-sm fp-border fp-px-2 fp-py-0.5 fp-text-xs fp-font-medium",
         toneClasses[tone],
         className,
       )}

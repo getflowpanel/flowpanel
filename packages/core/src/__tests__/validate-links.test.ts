@@ -109,7 +109,7 @@ describe("static links at defineAdmin", () => {
       boot([metric("Runs", async () => 1, { drilldown: { resource: "scraper_rn" } })]),
     ).toThrow(
       new RegExp(
-        `${site}\\.options\\.drilldown names resource "scraper_rn", which does not exist\\. Did you mean "scraper_run"\\?`,
+        `${site}\\.options\\.drilldown: it names resource "scraper_rn", which does not exist\\. Did you mean "scraper_run"\\?`,
       ),
     );
   });
@@ -125,10 +125,10 @@ describe("static links at defineAdmin", () => {
     );
     expect(
       boot([table({ resource: "user", seeAll: { resource: "user", id: "u1", tab: "respones" } })]),
-    ).toThrow(/options\.seeAll names tab "respones" on "user".*Did you mean "responses"\?/);
+    ).toThrow(/options\.seeAll: it names tab "respones" on "user".*Did you mean "responses"\?/);
     expect(
       boot([kv({ items: [{ label: "R", value: 1, href: { resource: "scraper_rn" } }] })]),
-    ).toThrow(/options\.items\[0\]\.href names resource "scraper_rn"/);
+    ).toThrow(/options\.items\[0\]\.href: it names resource "scraper_rn"/);
   });
 
   it("names a filter that is not a column, or one the target's list would drop", () => {
@@ -139,7 +139,7 @@ describe("static links at defineAdmin", () => {
         }),
       ]),
     ).toThrow(
-      /drilldown\.filter names column "platfrom" on "scraper_run".*Did you mean "platform"\?/,
+      /drilldown\.filter: it names column "platfrom" on "scraper_run".*Did you mean "platform"\?/,
     );
     expect(
       boot([
@@ -152,7 +152,7 @@ describe("static links at defineAdmin", () => {
     expect(
       boot([metric("E", { count: "scraper_run", where: { status: ["error", "timeout"] } })]),
     ).toThrow(
-      /\.where filters "scraper_run" by "status" = \["error","timeout"\], but the list reads "status" as plain text, and this value needs a "multiselect" filter there/,
+      /\.where: it filters "scraper_run" by "status" = \["error","timeout"\], but the list reads "status" as plain text, and this value needs a "multiselect" filter there/,
     );
     expect(
       boot([
@@ -223,13 +223,13 @@ describe("static links at defineAdmin", () => {
 
   it("checks what a count metric counts", () => {
     expect(boot([metric("E", { count: "scraper_rn" })])).toThrow(
-      new RegExp(`${site}\\.count names resource "scraper_rn"`),
+      new RegExp(`${site}\\.count: it names resource "scraper_rn"`),
     );
     expect(boot([metric("E", { count: "scraper_run", where: { statuss: "error" } })])).toThrow(
-      /\.where names column "statuss" on "scraper_run".*Did you mean "status"\?/,
+      /\.where: it names column "statuss" on "scraper_run".*Did you mean "status"\?/,
     );
     expect(boot([metric("E", { count: "scraper_run", range: "platform" })])).toThrow(
-      /\.range counts "scraper_run" rows by "platform".*no daterange filter on "platform".*its own drilldown/s,
+      /\.range: it counts "scraper_run" rows by "platform".*no daterange filter on "platform".*its own drilldown/s,
     );
     expect(
       boot([metric("E", { count: "scraper_run", range: "platform" }, { drilldown: "/runs" })]),
@@ -244,14 +244,14 @@ describe("views and related tabs at defineAdmin", () => {
       { columns: ["id", "status"], views: [{ name: "E", filters: { stauts: "error" } }] },
     );
     expect(boot([], [typo, users, responses])).toThrow(
-      /resource "scraper_run" views\[0\]\.filters names column "stauts" on "scraper_run".*Did you mean "status"\?/,
+      /resource "scraper_run" views\[0\]\.filters: it names column "stauts" on "scraper_run".*Did you mean "status"\?/,
     );
     const sorted = resource(
       { __name: "scraper_run" },
       { columns: ["id"], views: [{ name: "E", sort: { field: "startedAtt", dir: "desc" } }] },
     );
     expect(boot([], [sorted, users, responses])).toThrow(
-      /views\[0\]\.sort\.field names column "startedAtt"/,
+      /views\[0\]\.sort\.field: it names column "startedAtt"/,
     );
   });
 
@@ -285,10 +285,10 @@ describe("views and related tabs at defineAdmin", () => {
         },
       );
     expect(boot([], [runs, tabbed(["usrId"], "sentAt"), responses])).toThrow(
-      /resource "user" detail\.tabs\[0\]\.hide names column "usrId" on "response".*Did you mean "userId"\?/,
+      /resource "user" detail\.tabs\[0\]\.hide: it names column "usrId" on "response".*Did you mean "userId"\?/,
     );
     expect(boot([], [runs, tabbed([], "sentat"), responses])).toThrow(
-      /detail\.tabs\[0\]\.sort\.field names column "sentat" on "response"/,
+      /detail\.tabs\[0\]\.sort\.field: it names column "sentat" on "response"/,
     );
   });
 
@@ -304,10 +304,12 @@ describe("views and related tabs at defineAdmin", () => {
           responses,
         ],
       ),
-    ).toThrow(/resource "user" detail\.stats\[0\]\.options\.drilldown names dashboard "\/sytem"/);
+    ).toThrow(
+      /resource "user" detail\.stats\[0\]\.options\.drilldown: it names dashboard "\/sytem"/,
+    );
     expect(
       boot([], [runs, carded({ stats: [metric("E", { count: "scraper_rn" })] }), responses]),
-    ).toThrow(/resource "user" detail\.stats\[0\]\.count names resource "scraper_rn"/);
+    ).toThrow(/resource "user" detail\.stats\[0\]\.count: it names resource "scraper_rn"/);
     expect(
       boot(
         [],
@@ -320,10 +322,10 @@ describe("views and related tabs at defineAdmin", () => {
         ],
       ),
     ).toThrow(
-      /resource "user" detail\.aside\[0\]\.options\.items\[0\]\.href names resource "scraper_rn"/,
+      /resource "user" detail\.aside\[0\]\.options\.items\[0\]\.href: it names resource "scraper_rn"/,
     );
     expect(boot([], [runs, carded({ aside: [table({ resource: "nope" })] }), responses])).toThrow(
-      /resource "user" points at resource "nope" via detail\.aside/,
+      /resource "user" detail\.aside.*: it points at resource "nope"/,
     );
   });
 

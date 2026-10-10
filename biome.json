@@ -55,7 +55,8 @@
       "!.turbo",
       "!**/.next",
       "!**/.source",
-      "!**/next-env.d.ts"
+      "!**/next-env.d.ts",
+      "!**/content/snippets/generated"
     ]
   }
 }

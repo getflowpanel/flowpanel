@@ -103,6 +103,6 @@ describe("dashboard rhythm", () => {
       req: reqCtx.req,
       reqCtx,
     });
-    expect((tree as ReactElement<Props>).props.className).toContain("space-y-8");
+    expect((tree as ReactElement<Props>).props.className).toContain("fp-space-y-8");
   });
 });

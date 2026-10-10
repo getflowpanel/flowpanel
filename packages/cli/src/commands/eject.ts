@@ -6,23 +6,24 @@ import {
   dashboardTemplateIntents,
   layoutTemplateIntents,
   resourceTemplateIntents,
-} from "../eject/copyTargets";
+} from "../eject/copy-targets";
 import {
   definesResource,
   editConfigToCommentDashboard,
   findSplitResourceFile,
   findSplitResourcesDir,
-} from "../eject/editConfig";
+} from "../eject/edit-config";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent, FilesystemPlan } from "../plan/types";
 import { findAdminConfig } from "../scaffold/config-target";
 import { readAdminMount } from "../utils/admin-path";
-import { detectAppDir } from "../utils/detect";
+import { configProblem, noConfigMessage } from "../utils/config-problem";
+import { detectAppDir, detectPackageManager, pmCommands } from "../utils/detect";
 import { CLI_VERSION, installedKitVersion, kitCompatibilityError } from "../utils/kit";
-import { writeJson, writePlanJson } from "../utils/output";
+import { planLines, writeJson, writePlanJson } from "../utils/output";
 import { noNextProject } from "../utils/project-root";
-import { createUi } from "../utils/ui";
+import { createUi, failCommand } from "../utils/ui";
 
 export type EjectTarget = "resource" | "dashboard" | "layout";
 
@@ -41,7 +42,7 @@ export async function createEjectPlan(opts: RunEjectOptions): Promise<Filesystem
   const cfg = await findAdminConfig(opts.cwd);
   if (!cfg) {
     throw new Error(
-      "flowpanel.config.ts not found. Run `pnpm dlx @flowpanel/cli init` first; eject works on a configured admin.",
+      noConfigMessage(opts.cwd, pmCommands(await detectPackageManager(opts.cwd)).dlx),
     );
   }
   const mount = await readAdminMount(opts.cwd);
@@ -69,7 +70,7 @@ export async function createEjectPlan(opts: RunEjectOptions): Promise<Filesystem
         const searched = splitDir
           ? `${path.relative(opts.cwd, cfg.file)} or ${path.relative(opts.cwd, splitDir)}`
           : path.relative(opts.cwd, cfg.file);
-        throw new Error(`eject: resource "${opts.name}" not found in ${searched}`);
+        throw new Error(configProblem("resources", `no resource "${opts.name}" in ${searched}.`));
       }
     }
     intents = await resourceTemplateIntents({ ...common, resourceName: opts.name });
@@ -123,11 +124,8 @@ export function ejectCommand(cli: Command): void {
       ) => {
         const ui = createUi(options.json);
         ui.intro(pc.bgYellow(pc.black(" FlowPanel eject ")));
-        const fail = (message: string): never => {
-          if (options.json) writeJson({ command: "eject", applied: false, error: message });
-          else ui.cancel(message);
-          process.exit(1);
-        };
+        const fail: (message: string) => never = (message) =>
+          failCommand("eject", options.json, message);
 
         const validTargets: ReadonlyArray<EjectTarget> = ["resource", "dashboard", "layout"];
         if (!validTargets.includes(target as EjectTarget)) {
@@ -148,20 +146,17 @@ export function ejectCommand(cli: Command): void {
             ...(options.force ? { force: true } : {}),
           });
           const conflicted = plan.operations.some((operation) => operation.kind === "conflict");
-          const planLines = publicPlan(plan)
-            .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
-            .join("\n");
           if (options.dryRun) {
             if (options.json) writePlanJson("eject", plan, false);
             else {
-              ui.note(planLines, "Filesystem plan (no changes applied)");
+              ui.note(planLines(plan), "Filesystem plan (no changes applied)");
               if (conflicted) ui.warn("Use --force to overwrite.");
               ui.outro(pc.dim("Dry run complete."));
             }
             return;
           }
           if (conflicted && !options.json) {
-            ui.note(planLines, "Filesystem plan");
+            ui.note(planLines(plan), "Filesystem plan");
             fail("Nothing was written. Use --force to overwrite.");
           }
           const written = await applyFilesystemPlan(plan);

@@ -11,7 +11,7 @@ Documented types: DrawerConfig, DrawerTabFields, DrawerTabResource, DrawerTabWid
 A drawer shows one row over the list. Declare `drawer` on a resource; a row click
 opens it unless `rowClick` says otherwise. Guide: [Record pages and drawers](/docs/build/detail-cards#drawer).
 
-```ts excerpt
+```ts
 resource(orders, {
   columns: ["id", "customerEmail", "status"],
   rowClick: "drawer",
@@ -119,7 +119,7 @@ Dashboard widgets, scoped to the open row.
 here, and the last four also fail at `defineAdmin`; use a record page tab. Each widget is serialized
 before it reaches the browser:
 
-```ts excerpt
+```ts
 type SerializedWidget =
   | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
   | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }

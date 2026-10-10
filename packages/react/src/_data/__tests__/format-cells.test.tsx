@@ -14,7 +14,7 @@ describe("rich column formats", () => {
     const { container } = render(renderFormatCell({ kind: "percent", heat: true }, 0.42));
     const cell = container.querySelector("[data-heat]");
     expect(cell?.getAttribute("data-heat")).toBe("2");
-    expect(cell?.className).toContain("bg-fp-data/20");
+    expect(cell?.className).toContain("fp-bg-data/20");
     expect(cell?.textContent).toBe("42%");
   });
 
@@ -47,7 +47,7 @@ describe("rich column formats", () => {
   it("reads a boolean glyph out as yes or no", () => {
     const { container } = render(renderFormatCell("boolean", false));
     expect(container.querySelector("[aria-hidden]")?.textContent).toBe("✕");
-    expect(container.querySelector(".sr-only")?.textContent).toBe("No");
+    expect(container.querySelector(".fp-sr-only")?.textContent).toBe("No");
   });
 
   it("keeps a same-site url in the tab and a script url as text", () => {
@@ -97,6 +97,6 @@ describe("rich column formats", () => {
     const texts = (selector: string) =>
       [...container.querySelectorAll(selector)].map((node) => node.textContent);
     expect(texts("[aria-hidden]")).toEqual(["✓", "✕"]);
-    expect(texts(".sr-only")).toEqual(["Yes", "No"]);
+    expect(texts(".fp-sr-only")).toEqual(["Yes", "No"]);
   });
 });

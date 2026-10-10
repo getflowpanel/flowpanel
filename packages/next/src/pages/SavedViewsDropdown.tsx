@@ -201,7 +201,7 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
   if (allViews.length === 0) {
     return (
       <>
-        <Button variant="outline" onClick={saveCurrent} className="rounded-full">
+        <Button variant="outline" onClick={saveCurrent} className="fp-rounded-full">
           {copy.saveTrigger}
         </Button>
         {nameDialog}
@@ -214,34 +214,38 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
       {nameDialog}
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="rounded-full">
+          <Button variant="outline" className="fp-rounded-full">
             {formatLabel(copy.current, { name: activeView?.name ?? labels.allOption })}
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuContent align="end" className="fp-w-56">
           <DropdownMenuLabel>{copy.label}</DropdownMenuLabel>
           {staticViews.length > 0
             ? staticViews.map((v) => (
                 <DropdownMenuItem key={`static:${v.name}`} onSelect={() => applyView(v)}>
                   {v.name}
-                  {activeView?.name === v.name ? <span className="ml-auto text-xs">✓</span> : null}
+                  {activeView?.name === v.name ? (
+                    <span className="fp-ml-auto fp-text-xs">✓</span>
+                  ) : null}
                 </DropdownMenuItem>
               ))
             : null}
           {userViews.length > 0 ? (
             <>
               {staticViews.length > 0 ? <DropdownMenuSeparator /> : null}
-              <DropdownMenuLabel className="text-xs text-fp-text-3">{copy.yours}</DropdownMenuLabel>
+              <DropdownMenuLabel className="fp-text-xs fp-text-faint">
+                {copy.yours}
+              </DropdownMenuLabel>
               {userViews.map((v) => (
                 <DropdownMenuItem
                   key={`user:${v.name}`}
                   onSelect={() => applyView(v)}
-                  className="flex items-center justify-between gap-2"
+                  className="fp-flex fp-items-center fp-justify-between fp-gap-2"
                 >
                   <span>{v.name}</span>
                   <button
                     type="button"
-                    className="text-xs text-fp-text-3 hover:text-fp-err"
+                    className="fp-text-xs fp-text-faint hover:fp-text-err"
                     onClick={(e) => {
                       e.stopPropagation();
                       deleteView(v.name);

@@ -316,6 +316,87 @@ describe.skipIf(!dockerAvailable)(
       expect(countAfter[0]?.c).toBe(before);
     });
 
+    it("SECURITY: update that sets the tenant column to another tenant is refused and the row is unchanged", async () => {
+      await pool.query("INSERT INTO items (id, name, company_id) VALUES (?, ?, ?)", [
+        "move1",
+        "Before",
+        "c1",
+      ]);
+      await expect(
+        itemsAdapter.update(
+          items,
+          mutCtx(
+            { name: "After", companyId: "c2" },
+            { id: "move1", boundScope: bindAdapterScope(applyScopeC1) },
+          ),
+        ),
+      ).rejects.toBeInstanceOf(FlowpanelAccessError);
+      const [rows] = (await pool.query("SELECT name, company_id FROM items WHERE id = ?", [
+        "move1",
+      ])) as unknown as [{ name: string; company_id: string }[], unknown];
+      expect(rows[0]).toEqual({ name: "Before", company_id: "c1" });
+    });
+
+    it("SECURITY: a driver without transactions, such as neon-http, still cannot move or misplace a row", async () => {
+      const noTx = Object.create(db) as typeof db;
+      Object.assign(noTx, {
+        transaction: async () => {
+          throw new Error("No transactions support in neon-http driver");
+        },
+      });
+      const scoped = { boundScope: bindAdapterScope(applyScopeC1), db: noTx };
+      await pool.query("INSERT INTO items (id, name, company_id) VALUES ('notx1', 'Before', 'c1')");
+      await expect(
+        itemsAdapter.update(items, mutCtx({ companyId: "c2" }, { id: "notx1", ...scoped })),
+      ).rejects.toBeInstanceOf(FlowpanelAccessError);
+      const [moved] = (await pool.query(
+        "SELECT company_id FROM items WHERE id = 'notx1'",
+      )) as unknown as [{ company_id: string }[], unknown];
+      expect(moved[0]?.company_id).toBe("c1");
+      expect(
+        await itemsAdapter.update(items, mutCtx({ name: "After" }, { id: "notx1", ...scoped })),
+      ).toMatchObject({ id: "notx1", name: "After", companyId: "c1" });
+      await expect(
+        itemsAdapter.create(items, mutCtx({ id: "notx2", name: "X", companyId: "c2" }, scoped)),
+      ).rejects.toBeInstanceOf(FlowpanelAccessError);
+      const [created] = (await pool.query(
+        "SELECT id FROM items WHERE id = 'notx2'",
+      )) as unknown as [unknown[], unknown];
+      expect(created).toHaveLength(0);
+      expect(
+        await itemsAdapter.create(
+          items,
+          mutCtx({ id: "notx3", name: "Y", companyId: "c1" }, scoped),
+        ),
+      ).toMatchObject({ id: "notx3", companyId: "c1" });
+    });
+
+    it("update inside the scope succeeds, and an out-of-scope id is not found", async () => {
+      await pool.query("INSERT INTO items (id, name, company_id) VALUES (?, ?, ?), (?, ?, ?)", [
+        "keep1",
+        "Before",
+        "c1",
+        "other1",
+        "Other",
+        "c2",
+      ]);
+      const scoped = { boundScope: bindAdapterScope(applyScopeC1) };
+      const row = await itemsAdapter.update(
+        items,
+        mutCtx({ name: "After", companyId: "c1" }, { id: "keep1", ...scoped }),
+      );
+      expect(row).toMatchObject({ id: "keep1", name: "After", companyId: "c1" });
+      const missing = await itemsAdapter.update(
+        items,
+        mutCtx({ name: "Hacked" }, { id: "other1", ...scoped }),
+      );
+      expect(missing).toBeUndefined();
+      const [rows] = (await pool.query("SELECT name FROM items WHERE id = ?", [
+        "other1",
+      ])) as unknown as [{ name: string }[], unknown];
+      expect(rows[0]?.name).toBe("Other");
+    });
+
     it("executes multi-statement files individually before recording the marker", async () => {
       const adapter = drizzleAdapter({ db, schema: { users } });
       await adapter.applyMigration?.(

@@ -26,7 +26,7 @@ A column's `format` covers badges, money, numbers, dates, durations, percentages
 
 ### Built-in formats
 
-```ts excerpt
+```ts
 columns: [
   "email",
   {
@@ -45,7 +45,7 @@ A formatted column still sorts, filters and exports by its stored value. All for
 
 ### A server cell
 
-```tsx excerpt
+```tsx
 columns: [
   {
     field: "customerId",
@@ -64,7 +64,7 @@ columns: [
 
 `render` may return a client component with serializable props:
 
-```tsx excerpt
+```tsx
 render: (row) => <CopyId value={String(row.id)} />
 ```
 
@@ -74,7 +74,7 @@ A mutation from a client cell goes through an authorized route, not through prop
 
 Omit `field` when the cell is computed from the row, and set `label`:
 
-```tsx excerpt
+```tsx
 {
   label: "Customer",
   render: (order) => `${order.firstName} ${order.lastName}`,
@@ -93,10 +93,14 @@ Docs: https://flowpanel.tech/docs/customization/custom-widgets
 
 ### Compute props on the server
 
-```ts excerpt
-// admin/config/dashboards/system.ts
-import { custom } from "@flowpanel/kit";
+```ts
+// src/admin/config/dashboards/system.ts
+import { custom, type Tone, type WidgetContext } from "@flowpanel/kit";
 import { Pipeline } from "@/admin/ui/Pipeline";
+
+const pipelineStages = (c: WidgetContext) =>
+  c.sql<{ label: string; count: number; tone: Tone; trend: number[] }>`
+    select label, count, tone, trend from pipeline_stages order by position`;
 
 export const pipelineWidget = custom(
   Pipeline,
@@ -113,8 +117,8 @@ The props function gets the same `ctx` as every widget: `ctx.link` builds an hre
 
 ### Build it from kit atoms
 
-```tsx excerpt
-// admin/ui/Pipeline.tsx
+```tsx
+// src/admin/ui/Pipeline.tsx
 import { type Tone, toneFillClass, toneTextClass } from "@flowpanel/kit";
 import { EmptyState, Sparkline, StatusDot } from "@flowpanel/kit/react";
 
@@ -159,7 +163,7 @@ export function Pipeline({ stages, runsHref, updated }: PipelineProps) {
 }
 ```
 
-`StatusDot`, `Sparkline`, `EmptyState`, `Card`, `CardHeader` and `CardContent` come from `@flowpanel/kit/react`. `toneTextClass` and `toneFillClass` map each `Tone` to the built-in classes; import them from `@flowpanel/kit` in a server component, because the React entry is a client boundary. The `fp-*` classes need the [Tailwind token bridge](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes).
+`StatusDot`, `Sparkline`, `EmptyState`, `Card`, `CardHeader` and `CardContent` come from `@flowpanel/kit/react`. `toneTextClass` and `toneFillClass` map each `Tone` to the built-in classes; import them from `@flowpanel/kit` in a server component, because the React entry is a client boundary. The `*-fp-*` token classes need the [Tailwind token bridge](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes); `toneTextClass` and `toneFillClass` return classes the admin stylesheet already carries.
 
 ### Options
 
@@ -172,7 +176,7 @@ export function Pipeline({ stages, runsHref, updated }: PipelineProps) {
 
 ### Test it
 
-```ts excerpt
+```ts
 import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
 import { expect, it } from "vitest";
 import { pipelineWidget } from "@/admin/config/dashboards/system";
@@ -196,7 +200,7 @@ Recharts draws the line, area, bar and pie charts and installs with the kit. The
 
 ### A dashboard chart
 
-```ts excerpt
+```ts
 import { lineChart } from "@flowpanel/kit";
 
 lineChart("Signups", async ({ db, dateRange }) => {
@@ -214,7 +218,7 @@ Without `y`, a chart widget plots every numeric key of its rows except `x`; that
 
 ### Client data
 
-```tsx excerpt
+```tsx
 "use client";
 
 import { LineChart } from "@flowpanel/kit/charts";
@@ -244,7 +248,7 @@ FlowPanel's stylesheet is precompiled and scoped to the admin, so it needs no Ta
 @import "@flowpanel/kit/styles/admin.css";
 ```
 
-Its utilities, variables and keyframes apply only under `[data-flowpanel-root]` and `[data-flowpanel-portal]`. Keep the import in the admin layout, not the root layout.
+Its utilities, variables and keyframes apply only under `[data-flowpanel-root]` and `[data-flowpanel-portal]`. Keep the import in the admin layout, not the root layout, so it loads after your own stylesheet: in a Tailwind 4 app its element defaults then join Tailwind's `components` layer, between Preflight and your utilities.
 
 ### Change design tokens
 
@@ -270,13 +274,16 @@ The default palette meets 4.5:1 for text and 3:1 for borders, chart colours and 
 
 `--fp-font-sans` reaches the admin and every portal. With `next/font`:
 
-```ts excerpt
+```ts
 import { IBM_Plex_Sans } from "next/font/google";
 
 const plex = IBM_Plex_Sans({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600"] });
 
-defineAdmin({
+export default defineAdmin({
+  adapter,
+  auth: flowpanelAuth,
   theme: { cssVars: { "--fp-font-sans": plex.style.fontFamily } },
+  resources,
 });
 ```
 
@@ -288,7 +295,7 @@ defineAdmin({
 
 `init` renders `ThemeScript` with the `x-nonce` request header. For your own inline script in a Server Component, import the builder from `@flowpanel/kit`:
 
-```tsx excerpt
+```tsx
 import { buildThemeInitScript } from "@flowpanel/kit";
 
 export function AdminThemeHead({ nonce }: { nonce: string }) {
@@ -308,16 +315,19 @@ Place it in the document head with the same default mode as the config. A stored
 A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. In the CSS file that imports Tailwind, such as `app/globals.css`, import the token bridge after Tailwind and point `@source` at your admin code, relative to that file:
 
 ```css
-@import "@flowpanel/kit/styles/admin.css";
+@layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "@flowpanel/kit/styles/admin.css";
 @import "@flowpanel/kit/styles/tailwind.css";
 @source "../admin";
 ```
 
 The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`. An app that already imports all of Tailwind keeps `@import "tailwindcss";` first and adds the two FlowPanel imports after it.
 
-FlowPanel renders its root, `[data-flowpanel-root]`, around the admin pages, and the `fp-*` utilities apply only inside it. Keep your app's header, layout and other pages outside that root, styled with your own classes; [`examples/ai-scraper`](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) wraps the admin in its own header that way. Inside the root, a class FlowPanel uses itself keeps FlowPanel's definition, so a variant of it from your build does not apply next to it: in a custom widget, `grid-cols-2 sm:grid-cols-4` stays at two columns. Write the base value as an arbitrary value, such as `grid-cols-[repeat(2,minmax(0,1fr))] sm:grid-cols-4`.
+FlowPanel renders its root, `[data-flowpanel-root]`, around the admin pages, and the `--fp-*` values these utilities read exist only inside it. Keep your app's header, layout and other pages outside that root, styled with your own classes; [`examples/ai-scraper`](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) wraps the admin in its own header that way.
+
+FlowPanel's own classes all start with `fp-`, such as `fp-px-4`, so they never share a name with yours. Inside the root your classes and their variants work as your build defines them, and a class you pass to a FlowPanel component through `className` replaces the FlowPanel class it conflicts with.
 
 `toneTextClass` and `toneFillClass` map each `Tone` to the classes the built-in cards use. Import them from `@flowpanel/kit` in a server component and from `@flowpanel/kit/react` in a client one.
 
@@ -325,7 +335,8 @@ FlowPanel renders its root, `[data-flowpanel-root]`, around the admin pages, and
 
 A theme slot replaces one component everywhere FlowPanel renders it:
 
-```tsx excerpt
+```tsx
+// src/admin/ui/ProductButton.tsx
 "use client";
 
 import { forwardRef } from "react";
@@ -338,10 +349,13 @@ export const ProductButton = forwardRef<HTMLButtonElement, ButtonProps>(
 );
 ```
 
-```ts excerpt
+```ts
+import { defineAdmin } from "@flowpanel/kit";
+import { ProductButton } from "@/admin/ui/ProductButton";
+
 export default defineAdmin({
   adapter,
-  auth,
+  auth: flowpanelAuth,
   theme: {
     components: { Button: ProductButton },
   },
@@ -385,7 +399,7 @@ pnpm flowpanel eject resource users --dry-run
 pnpm flowpanel eject resource users
 ```
 
-`--dry-run` prints the plan. The command writes list, create, detail, edit and action stubs under the admin mount (`paths.admin`, so `app/admin/users` by default). Next.js serves those files instead of the generated pages. The `resource(...)` entry stays in the config: `actions.ts` reads and writes rows through it, so access rules and scope still apply. The stubs are a starting point: queries and UI states are yours to implement. When next.config turns on `cacheComponents`, each ejected page exports `instant = false` so it can read the database before it renders; drop it once you wrap the data access in `<Suspense>`. File headers record the FlowPanel version. An ejected page renders outside FlowPanel's page, so it has none of the providers or the `data-flowpanel-root` element the admin stylesheet targets; wrap it in `FlowpanelGlobals` from `@flowpanel/kit/react` to use FlowPanel components there.
+`--dry-run` prints the plan. The command writes list, create, detail, edit and action stubs under the admin mount (`paths.admin`, so `app/admin/users` by default). Next.js serves those files instead of the generated pages. The `resource(...)` entry stays in the config: `actions.ts` reads and writes rows through it, so access rules and scope still apply. The stubs are a starting point: queries and UI states are yours to implement. When next.config turns on `cacheComponents`, each ejected page exports `instant = false` so it can read the database before it renders; drop it once you wrap the data access in `<Suspense>`. File headers record the FlowPanel version. An ejected page renders outside FlowPanel's page, so it has none of the providers or the `data-flowpanel-root` element the admin stylesheet targets; wrap it in `FlowpanelGlobals` from `@flowpanel/kit/react` to use FlowPanel components there. Ejected files use your Tailwind classes and FlowPanel's token bridge, such as `text-fp-text-2`; set up the bridge as the [styling guide](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes) shows.
 
 `eject` finds the resource in a root config that re-exports another module, and in a `resources` directory written by `flowpanel new --dir`.
 

@@ -1,35 +1,25 @@
-// LOC-OK: doctor runs its checks in one ordered pass, so the printed order is the documented one.
 import * as path from "node:path";
 import pc from "picocolors";
-import { noOrmMessage } from "../commands/init-output";
 import { createFilesystemPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FileIntent, FilesystemPlan } from "../plan/types";
 import { findAdminConfig } from "../scaffold/config-target";
-import {
-  type AdminMount,
-  findAdminRouteConflicts,
-  normalizeAdminPath,
-  readAdminMount,
-} from "../utils/admin-path";
+import { type AdminMount, normalizeAdminPath, readAdminMount } from "../utils/admin-path";
 import { inspectProjectCompatibility } from "../utils/compatibility";
 import {
-  configImportFor,
   detectAppDir,
   detectPackageManager,
   detectPathAlias,
-  fileExists,
   type PmCommands,
   pmCommands,
 } from "../utils/detect";
 import { installedKitVersion, kitCompatibilityError, pinnedSpec } from "../utils/kit";
-import { usesCacheComponents } from "../utils/next-config";
-import { configDialect, migrationTemplate } from "../utils/sql-dialect";
 import { cacheComponentsChecks } from "./cache-components";
 import type { Check } from "./check";
 import { type ConfigWarnings, firstLine, readConfigWarnings } from "./config-warnings";
 import { countKitInstances, fixPrecondition, staleEjectMarkers } from "./probes";
-import { FIXABLE_FILES, MIGRATION_REL_DEST, makeFix } from "./templates";
+import { routeFileChecks } from "./route-file-checks";
+import { stackChecks } from "./stack-checks";
 import { runTsc } from "./tsc-check";
 import { warningChecks } from "./warnings";
 
@@ -66,60 +56,11 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
     (mount.path === apiPath ||
       mount.path.startsWith(`${apiPath}/`) ||
       apiPath.startsWith(`${mount.path}/`));
-  const checks: Check[] = [];
   const compatibilityReport = await inspectProjectCompatibility(cwd);
-  const compatibility = compatibilityReport.findings;
-  const compatible = (name: string) => compatibility.find((finding) => finding.name === name);
-
-  const add = (
-    name: string,
-    ok: boolean,
-    hint?: string,
-    fixFn?: () => Promise<FileIntent>,
-  ): void => {
-    const c: Check = hint === undefined ? { name, ok } : { name, ok, hint };
-    if (fixFn) c.fix = fixFn;
-    checks.push(c);
+  const checks: Check[] = stackChecks(compatibilityReport, pmc);
+  const add = (name: string, ok: boolean, hint?: string): void => {
+    checks.push(hint === undefined ? { name, ok } : { name, ok, hint });
   };
-
-  const next = compatible("next");
-  const react = compatible("react");
-  const reactDom = compatible("react-dom");
-  const reactPair = compatible("React and React DOM versions match");
-  const typescript = compatible("typescript");
-  const node = compatible("Node.js");
-  const nextDeps = "next@^16 react@^19 react-dom@^19";
-  const nextVersion = next?.dependency.installed?.version;
-  add(
-    nextVersion ? `Next.js ${nextVersion} (15.5 or 16)` : "Next.js 15.5 or 16",
-    next?.ok ?? false,
-    next?.dependency.declaration === null
-      ? `Next.js is not in package.json. Install: ${pmc.addDisplay(nextDeps, false)}`
-      : `Found ${next?.observed}. Required ${next?.required}. ${next?.recovery}`,
-  );
-  add("React 19 installed", react?.ok ?? false, react?.recovery);
-  add("React DOM 19 installed", reactDom?.ok ?? false, reactDom?.recovery);
-  add("React and React DOM versions match", reactPair?.ok ?? false, reactPair?.recovery);
-  add("Node.js supported", node?.ok ?? false, node?.recovery);
-  add(
-    "TypeScript installed",
-    typescript?.ok ?? false,
-    `Install: ${pmc.addDisplay("typescript", true)}`,
-  );
-  const ormFinding = compatibilityReport.ormFinding;
-  const orm =
-    compatibilityReport.orm === "drizzle"
-      ? "Drizzle"
-      : compatibilityReport.orm === "prisma"
-        ? "Prisma"
-        : null;
-  add(
-    orm === null ? "ORM adapter (Drizzle or Prisma)" : `ORM adapter (${orm})`,
-    ormFinding?.ok ?? false,
-    orm === null
-      ? noOrmMessage(pmc)
-      : `Found ${ormFinding?.observed}. Required ${ormFinding?.required}. ${ormFinding?.recovery}`,
-  );
   const adminConfig = await findAdminConfig(cwd);
   const initialised = adminConfig !== null;
   add(
@@ -138,64 +79,11 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
       : `@flowpanel/kit is not installed. Run: ${pmc.addDisplay(pinnedSpec("@flowpanel/kit"), false)}`,
   );
   add("Admin mount configuration", !mount.error, mount.error);
+  checks.push(...(await routeFileChecks({ cwd, appDir, aliasMode, mount, pmc })));
 
-  const migrationTemplateName = migrationTemplate((await configDialect(cwd)) ?? "postgresql");
-  const cacheComponents = await usesCacheComponents(cwd);
-  for (const {
-    mount: mountKind,
-    relToMount,
-    templateName: fileTemplate,
-    label,
-    needsConfigImport,
-    optional,
-  } of FIXABLE_FILES) {
-    const templateName = mountKind === null ? migrationTemplateName : fileTemplate;
-    const isAdmin = mountKind === "admin";
-    if (isAdmin && !mount.path) continue;
-    // A configured but dynamic `paths.api` names files this run cannot know.
-    if (mountKind === "api" && apiPath === null) {
-      add(label, false, "paths.api is not a static string; pass its resolved URL to repair it.");
-      continue;
-    }
-    const relDest =
-      mountKind === null
-        ? MIGRATION_REL_DEST
-        : `${appDir}${mountKind === "admin" ? mount.path : apiPath}/${relToMount}`;
-    const dest = path.join(cwd, relDest);
-    const exists = await fileExists(dest);
-    const configImport = needsConfigImport
-      ? configImportFor(path.dirname(relDest), aliasMode)
-      : null;
-
-    const ownAdminPage = `${appDir}${mount.path}/[[...slug]]/page.tsx`;
-    const collisions =
-      isAdmin && mount.path
-        ? await findAdminRouteConflicts(cwd, appDir, mount.path, ownAdminPage)
-        : [];
-    if (collisions.length) {
-      add(
-        label,
-        false,
-        `Route overlaps ${collisions.join(", ")}. Choose a free mount; automatic repair is unsafe.`,
-      );
-      continue;
-    }
-
-    const hint = `Run: ${pmc.exec} flowpanel doctor --fix`;
-    const fix = exists
-      ? undefined
-      : async () => makeFix(relDest, templateName, configImport, cacheComponents);
-    if (optional) {
-      checks.push({
-        name: label,
-        ok: true,
-        ...(exists ? {} : { warn: true, hint }),
-        ...(fix ? { fix } : {}),
-      });
-    } else add(label, exists, hint, fix);
-  }
-
-  checks.push(...(await cacheComponentsChecks(cwd, compatibility, appDir, mount, aliasMode)));
+  checks.push(
+    ...(await cacheComponentsChecks(cwd, compatibilityReport.findings, appDir, mount, aliasMode)),
+  );
 
   const probe = async (name: string, run: () => Promise<void>): Promise<void> => {
     try {

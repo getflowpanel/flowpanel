@@ -18,9 +18,9 @@ describe("threshold cells", () => {
     );
     const cells = [...container.querySelectorAll("[data-tone]")];
     expect(cells.map((cell) => cell.getAttribute("data-tone"))).toEqual(["ok", "warn", "err"]);
-    expect(cells[2]?.className).toContain("text-fp-err-text");
+    expect(cells[2]?.className).toContain("fp-text-err-ink");
     expect(cells.map((cell) => cell.textContent)).toEqual(["OK 10%", "Warning 40%", "Error 60%"]);
-    expect(cells[1]?.querySelector(".sr-only")?.textContent).toBe("Warning ");
+    expect(cells[1]?.querySelector(".fp-sr-only")?.textContent).toBe("Warning ");
   });
 
   it("keeps a plain percent cell plain", () => {

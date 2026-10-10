@@ -144,8 +144,8 @@ describe("an editable cell", () => {
   it("shows the pencil on row hover", () => {
     render(<DataTable {...editable} onRowClick={vi.fn()} />);
     const pencil = editButtons()[0] as HTMLElement;
-    expect(pencil.closest("tr")?.className).toContain("group/row");
-    expect(pencil.className).toContain("group-hover/row:opacity-100");
-    expect(pencil.className).toContain("group-focus-within/edit:opacity-100");
+    expect(pencil.closest("tr")?.className).toContain("fp-group/row");
+    expect(pencil.className).toContain("group-hover/row:fp-opacity-100");
+    expect(pencil.className).toContain("group-focus-within/edit:fp-opacity-100");
   });
 });

@@ -13,7 +13,7 @@ pnpm add bullmq ioredis @bull-board/api @bull-board/express express
 
 ## Register a queue
 
-```ts excerpt
+```ts
 import { queue } from "@flowpanel/kit";
 import { emailQueue } from "@/server/queues";
 
@@ -32,7 +32,7 @@ The page embeds `boardUrl` in an iframe, and the board accepts a `?token=` query
 
 `flowpanel dev` starts `scripts/board-server.mts` (or `.ts`) when `REDIS_URL` is set, unless you pass `--no-board`:
 
-```ts excerpt
+```ts
 import { startBoardServer } from "@flowpanel/kit/bullmq/board";
 import { queuesByName } from "@/server/queues";
 

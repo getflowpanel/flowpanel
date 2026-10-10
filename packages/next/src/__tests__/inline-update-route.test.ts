@@ -90,6 +90,7 @@ function makeConfig(opts: {
     resourcesByName: new Map([["users", resource]]),
     dashboardsByPath: new Map(),
     paths: { admin: "/admin", api: "/api/flowpanel" },
+    security: { trustedProxies: 1 },
     __resolved: true,
   } as never;
   return config;

@@ -1,99 +1,24 @@
-// LOC-OK: one adapter contract implementation; the dialect branches in list/create/update only make sense read together.
-import type {
-  Adapter,
-  ItemQueryContext,
-  ListQueryContext,
-  ListResult,
-  MutationContext,
-} from "@flowpanel/core";
-import {
-  FlowpanelAccessError,
-  isFilterInValue,
-  isFilterRangeValue,
-  resolveScopeApplier,
-} from "@flowpanel/core";
-import {
-  type AnyColumn,
-  and,
-  asc,
-  desc,
-  eq,
-  gte,
-  inArray,
-  isNotNull,
-  isNull,
-  lte,
-  or,
-  type SQL,
-  sql,
-  type Table,
-} from "drizzle-orm";
+import type { Adapter, ItemQueryContext, ListResult, MutationContext } from "@flowpanel/core";
+import { type AnyColumn, and, asc, desc, eq, type SQL, sql, type Table } from "drizzle-orm";
 import { columnsOf } from "./columns";
 import { type DrizzleDialect, resolveDialect } from "./dialect";
+import {
+  type ColumnsRecord,
+  type DrizzleLikeDb,
+  firstRow,
+  isInvalidKeyText,
+  pkFor,
+  type WriteTarget,
+} from "./drizzle-db";
 import { introspect } from "./introspect";
 import { createMigrationMethods } from "./migration-executor";
 import type { MigrationDb } from "./migrations";
 import { inferSchema } from "./schema";
+import { captureScopeClauses } from "./scope";
 import { rawSqlRows } from "./sql-params";
+import { buildWhere, countRows } from "./where";
+import { DIALECT_WRITES } from "./writes";
 
-/** Postgres 22P02: the id is not even valid text for the key's type, such as "abc" for a uuid. */
-function isInvalidKeyText(err: unknown): boolean {
-  const seen = new Set<unknown>();
-  let current = err;
-  while (typeof current === "object" && current !== null && !seen.has(current)) {
-    seen.add(current);
-    if ((current as { code?: unknown }).code === "22P02") return true;
-    current = (current as { cause?: unknown }).cause;
-  }
-  return false;
-}
-
-interface DrizzleLikeDb {
-  select: (...args: unknown[]) => {
-    from: (ref: Table) => {
-      where: (w: SQL | undefined) => unknown;
-      orderBy: (o: SQL | AnyColumn) => unknown;
-      limit: (n: number) => unknown;
-      [k: string]: unknown;
-    };
-  };
-  insert: (ref: Table) => {
-    values: (v: Record<string, unknown>) => Promise<unknown> & {
-      returning: () => Promise<Record<string, unknown>[]>;
-    };
-  };
-  update: (ref: Table) => {
-    set: (v: Record<string, unknown>) => {
-      where: (w: SQL) => Promise<unknown> & {
-        returning: () => Promise<Record<string, unknown>[]>;
-      };
-    };
-  };
-  delete: (ref: Table) => { where: (w: SQL) => Promise<unknown> };
-  transaction: <T>(fn: (tx: DrizzleLikeDb) => Promise<T>) => Promise<T>;
-}
-
-/** Everything `buildWhere` reads: a `list` context satisfies it, and so does a bare filter map. */
-type WhereContext = Pick<ListQueryContext<unknown>, "filters"> &
-  Partial<
-    Pick<ListQueryContext<unknown>, "search" | "searchFields" | "softDelete" | "includeDeleted">
-  > &
-  ScopeContext;
-
-interface ScopeContext {
-  boundScope?: { apply(query: unknown): unknown };
-}
-
-type DrizzleColumnLike = AnyColumn & {
-  primary?: boolean;
-  notNull?: boolean;
-  isUnique?: boolean;
-  dataType?: string;
-  columnType?: string;
-  enumValues?: readonly string[];
-};
-
-type ColumnsRecord = Record<string, DrizzleColumnLike>;
 const EMPTY_PROJECTION = Symbol("flowpanel.emptyProjection");
 
 export interface DrizzleAdapterOptions<DB = unknown> {
@@ -108,180 +33,49 @@ export interface DrizzleAdapterOptions<DB = unknown> {
   parseDates?: boolean;
 }
 
+function projection(cols: ColumnsRecord, select: readonly string[] | undefined) {
+  if (select === undefined) return undefined;
+  if (select.length === 0) return EMPTY_PROJECTION;
+  if (select.length > 1024) throw new Error("drizzleAdapter: select exceeds 1024 columns");
+  const selected: ColumnsRecord = {};
+  for (const name of new Set(select)) {
+    const column = cols[name];
+    if (!column) throw new Error(`drizzleAdapter: select contains unknown column "${name}"`);
+    selected[name] = column;
+  }
+  return selected;
+}
+
+function selectFrom(
+  db: DrizzleLikeDb,
+  ref: Table,
+  selected: ColumnsRecord | typeof EMPTY_PROJECTION | undefined,
+) {
+  if (selected === EMPTY_PROJECTION) return db.select({ __fp_exists: sql<number>`1` }).from(ref);
+  return (selected ? db.select(selected) : db.select()).from(ref);
+}
+
+function writeTarget(ref: Table): WriteTarget {
+  const cols = columnsOf(ref) as ColumnsRecord;
+  const pk = pkFor(cols);
+  return { ref, cols, pk, pkCol: cols[pk] };
+}
+
+/** The row a delete or restore addresses, inside the caller's scope. */
+function keyedWhere(target: WriteTarget, id: string, ctx: MutationContext<unknown>): SQL {
+  if (!target.pkCol) {
+    throw new Error(`drizzleAdapter: primary key column "${target.pk}" not found`);
+  }
+  return and(eq(target.pkCol, id), ...captureScopeClauses(ctx)) as SQL;
+}
+
 export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB, Table> {
   const dialect = resolveDialect(opts);
+  const writes = DIALECT_WRITES[dialect];
   const migrationMethods = createMigrationMethods(opts.db as MigrationDb, dialect);
 
   function getDb(ctx: { db?: unknown } = {}): DrizzleLikeDb {
     return (ctx.db ?? opts.db) as DrizzleLikeDb;
-  }
-
-  function pkFor(cols: ColumnsRecord): string {
-    const entry = Object.entries(cols).find(([, c]) => c.primary);
-    return entry?.[0] ?? "id";
-  }
-
-  /** Runs the tenant predicate against a probe to collect the conditions it applies. */
-  function captureScopeClauses(ctx: ScopeContext): SQL[] {
-    const applyScope = resolveScopeApplier(ctx);
-    if (!applyScope) return [];
-    const captured: SQL[] = [];
-    const probe = {
-      where(cond: SQL) {
-        captured.push(cond);
-        return probe;
-      },
-    };
-    applyScope(probe);
-    if (captured.length === 0) {
-      throw new FlowpanelAccessError(
-        "the bound Drizzle scope predicate added no where clause. " +
-          "Refusing to run an unscoped query.",
-      );
-    }
-    return captured;
-  }
-
-  function projection(cols: ColumnsRecord, select: readonly string[] | undefined) {
-    if (select === undefined) return undefined;
-    if (select.length === 0) return EMPTY_PROJECTION;
-    if (select.length > 1024) throw new Error("drizzleAdapter: select exceeds 1024 columns");
-    const selected: ColumnsRecord = {};
-    for (const name of new Set(select)) {
-      const column = cols[name];
-      if (!column) throw new Error(`drizzleAdapter: select contains unknown column "${name}"`);
-      selected[name] = column;
-    }
-    return selected;
-  }
-
-  function selectFrom(
-    db: DrizzleLikeDb,
-    ref: Table,
-    selected: ColumnsRecord | typeof EMPTY_PROJECTION | undefined,
-  ) {
-    if (selected === EMPTY_PROJECTION) return db.select({ __fp_exists: sql<number>`1` }).from(ref);
-    return (selected ? db.select(selected) : db.select()).from(ref);
-  }
-
-  /** mysql has no RETURNING, so the row is read back by its caller-supplied id. */
-  async function insertRow(
-    handle: DrizzleLikeDb,
-    ref: Table,
-    pk: string,
-    pkCol: DrizzleColumnLike | undefined,
-    input: Record<string, unknown>,
-  ): Promise<Record<string, unknown> | undefined> {
-    if (dialect === "mysql") {
-      await handle.insert(ref).values(input);
-      const id = input[pk];
-      if (id === undefined || id === null) {
-        throw new Error(
-          `drizzleAdapter: create requires explicit primary key on dialect "mysql" ` +
-            `(auto-generated PKs not yet supported for mysql, which has no RETURNING). ` +
-            `Provide input.${pk}, or use dialect "pg" / "sqlite", both of which support RETURNING.`,
-        );
-      }
-      if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
-      const rows = (await (
-        handle.select().from(ref) as unknown as {
-          where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
-        }
-      )
-        .where(eq(pkCol, id))
-        .limit(1)) as Record<string, unknown>[];
-      return rows[0];
-    }
-    const rows = await handle.insert(ref).values(input).returning();
-    return rows[0];
-  }
-
-  async function rowSatisfiesScope(
-    handle: DrizzleLikeDb,
-    ref: Table,
-    pkCol: DrizzleColumnLike,
-    id: unknown,
-    scopeClauses: SQL[],
-  ): Promise<boolean> {
-    const scopedWhere = and(eq(pkCol, id), ...scopeClauses) as SQL;
-    const check = (await (
-      handle.select().from(ref) as unknown as {
-        where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
-      }
-    )
-      .where(scopedWhere)
-      .limit(1)) as unknown[];
-    return check.length > 0;
-  }
-
-  async function countRows(db: DrizzleLikeDb, ref: Table, where: SQL | undefined): Promise<number> {
-    const expr = dialect === "pg" ? sql<number>`count(*)::int` : sql<number>`count(*)`;
-    let q: unknown = db.select({ c: expr }).from(ref);
-    if (where) q = (q as { where: (w: SQL) => unknown }).where(where);
-    const [row] = (await (q as Promise<Array<{ c: number }>>)) ?? [];
-    return Number(row?.c ?? 0);
-  }
-
-  function buildWhere(cols: ColumnsRecord, ctx: WhereContext): SQL | undefined {
-    const clauses: SQL[] = [];
-    for (const [k, v] of Object.entries(ctx.filters)) {
-      if (v === undefined || v === null || v === "") continue;
-      const col = cols[k];
-      if (!col) continue;
-      if (v === "__null__") {
-        clauses.push(isNull(col));
-        continue;
-      }
-      if (v === "__notnull__") {
-        clauses.push(isNotNull(col));
-        continue;
-      }
-      if (isFilterRangeValue(v)) {
-        if (v.gte !== undefined) clauses.push(gte(col, v.gte));
-        if (v.lte !== undefined) clauses.push(lte(col, v.lte));
-        continue;
-      }
-      if (isFilterInValue(v)) {
-        if (v.values.length > 0) clauses.push(inArray(col, v.values));
-        continue;
-      }
-      clauses.push(eq(col, v));
-    }
-    if (ctx.search && ctx.searchFields?.length) {
-      const textCols = ctx.searchFields
-        .map((f) => cols[f])
-        .filter((c): c is DrizzleColumnLike => {
-          if (!c) return false;
-          const dt = String(c.dataType ?? "").toLowerCase();
-          const ct = String(c.columnType ?? "").toLowerCase();
-          return (
-            (dt.includes("string") ||
-              dt.includes("text") ||
-              ct.includes("text") ||
-              ct.includes("varchar")) &&
-            !c.enumValues
-          );
-        });
-      if (textCols.length) {
-        // `%`/`_` in user input are literals, not wildcards; `!` is the ESCAPE character.
-        const escaped = ctx.search.replace(/[!%_]/g, "!$&");
-        const pattern = `%${escaped}%`;
-        const ors = textCols.map((c) =>
-          dialect === "pg"
-            ? sql`${c} ILIKE ${pattern} ESCAPE '!'`
-            : sql`${c} LIKE ${pattern} ESCAPE '!'`,
-        );
-        const orClause = or(...ors);
-        if (orClause) clauses.push(orClause);
-      }
-    }
-    const softCol = ctx.softDelete?.column;
-    if (softCol && !ctx.includeDeleted) {
-      const col = cols[softCol];
-      if (col) clauses.push(isNull(col));
-    }
-    for (const c of captureScopeClauses(ctx)) clauses.push(c);
-    return clauses.length ? and(...clauses) : undefined;
   }
 
   return {
@@ -296,14 +90,9 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
       const cols = columnsOf(ref) as ColumnsRecord;
       const db = getDb();
       const selected = projection(cols, ctx.select);
-      const where = buildWhere(cols, ctx);
-      const sortField = ctx.sort?.field;
-      const sortCol = sortField ? cols[sortField] : undefined;
-      const orderBy = sortCol
-        ? ctx.sort?.dir === "asc"
-          ? asc(sortCol)
-          : desc(sortCol)
-        : undefined;
+      const where = buildWhere(cols, ctx, dialect);
+      const sortCol = ctx.sort?.field ? cols[ctx.sort.field] : undefined;
+      const orderBy = sortCol && (ctx.sort?.dir === "asc" ? asc(sortCol) : desc(sortCol));
 
       let q: unknown = selectFrom(db, ref, selected);
       if (where) q = (q as { where: (w: SQL) => unknown }).where(where);
@@ -315,11 +104,9 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
         .limit(ctx.pageSize)
         .offset(offset)) as unknown[];
 
-      const total = await countRows(db, ref, where);
-
       return {
         rows: selected === EMPTY_PROJECTION ? rows.map(() => ({})) : rows,
-        total,
+        total: await countRows(db, ref, where, dialect),
         page: ctx.page,
         pageSize: ctx.pageSize,
       };
@@ -327,100 +114,45 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
 
     async get(ref, ctx: ItemQueryContext) {
       const cols = columnsOf(ref) as ColumnsRecord;
-      const db = getDb();
-      const pk = pkFor(cols);
-      const pkCol = cols[pk];
+      const pkCol = cols[pkFor(cols)];
       if (!pkCol) return null;
       const selected = projection(cols, ctx.select);
       const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
-      let rows: unknown[];
       try {
-        rows = (await (
-          selectFrom(db, ref, selected) as unknown as {
-            where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
-          }
-        )
-          .where(where)
-          .limit(1)) as unknown[];
+        const row = await firstRow(selectFrom(getDb(), ref, selected), where);
+        if (selected === EMPTY_PROJECTION) return row ? {} : null;
+        return row ?? null;
       } catch (err) {
         if (isInvalidKeyText(err)) return null;
         throw err;
       }
-      if (selected === EMPTY_PROJECTION) return rows[0] ? {} : null;
-      return rows[0] ?? null;
     },
 
     async create(ref, ctx: MutationContext<unknown>) {
-      const cols = columnsOf(ref) as ColumnsRecord;
-      const db = getDb(ctx);
+      const target = writeTarget(ref);
       const input = ctx.input as Record<string, unknown>;
-      const pk = pkFor(cols);
-      const pkCol = cols[pk];
-      const scopeClauses = captureScopeClauses(ctx);
-
-      if (scopeClauses.length > 0 && (dialect === "pg" || dialect === "mysql")) {
-        return db.transaction(async (tx) => {
-          const row = await insertRow(tx, ref, pk, pkCol, input);
-          if (row && pkCol && !(await rowSatisfiesScope(tx, ref, pkCol, row[pk], scopeClauses))) {
-            throw new FlowpanelAccessError(
-              "create refused: the created row does not satisfy the resource's tenant scope. " +
-                "Ensure the create form/schema supplies a tenant column value matching the current scope.",
-            );
-          }
-          return row;
-        });
-      }
-
-      const row = await insertRow(db, ref, pk, pkCol, input);
-
-      if (scopeClauses.length > 0 && dialect === "sqlite" && row && pkCol) {
-        const id = row[pk];
-        if (!(await rowSatisfiesScope(db, ref, pkCol, id, scopeClauses))) {
-          await db.delete(ref).where(eq(pkCol, id));
-          throw new FlowpanelAccessError(
-            "create refused: the created row does not satisfy the resource's tenant scope. " +
-              "Ensure the create form/schema supplies a tenant column value matching the current scope.",
-          );
-        }
-      }
-
-      return row;
+      const scope = captureScopeClauses(ctx);
+      return scope.length === 0
+        ? writes.insert(getDb(ctx), target, input)
+        : writes.scopedInsert(getDb(ctx), target, input, scope);
     },
 
     async update(ref, ctx: MutationContext<unknown>) {
-      const cols = columnsOf(ref) as ColumnsRecord;
-      const db = getDb(ctx);
-      const pk = pkFor(cols);
+      const target = writeTarget(ref);
       if (!ctx.id) throw new Error("update requires ctx.id");
-      const pkCol = cols[pk];
-      if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
       const input = ctx.input as Record<string, unknown>;
-      const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
-      if (dialect === "mysql" || dialect === "sqlite") {
-        await db.update(ref).set(input).where(where);
-        const rows = (await (
-          db.select().from(ref) as unknown as {
-            where: (w: SQL) => { limit: (n: number) => Promise<unknown[]> };
-          }
-        )
-          .where(where)
-          .limit(1)) as unknown[];
-        return rows[0];
-      }
-      const rows = await db.update(ref).set(input).where(where).returning();
-      return rows[0];
+      const scope = captureScopeClauses(ctx);
+      if (scope.length > 0) return writes.scopedUpdate(getDb(ctx), target, input, ctx.id, scope);
+      return writes.update(getDb(ctx), target, input, ctx.id, keyedWhere(target, ctx.id, ctx));
     },
 
     async delete(ref, ctx: MutationContext<unknown>) {
-      const cols = columnsOf(ref) as ColumnsRecord;
-      const db = getDb(ctx);
-      const pk = pkFor(cols);
+      const target = writeTarget(ref);
       if (!ctx.id) throw new Error("delete requires ctx.id");
-      const pkCol = cols[pk];
-      if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
-      const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
+      const where = keyedWhere(target, ctx.id, ctx);
       const softCol = ctx.softDelete?.column;
-      if (softCol && cols[softCol]) {
+      const db = getDb(ctx);
+      if (softCol && target.cols[softCol]) {
         await db
           .update(ref)
           .set({ [softCol]: new Date() })
@@ -431,19 +163,13 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     },
 
     async restore(ref, ctx: MutationContext<unknown>) {
-      const cols = columnsOf(ref) as ColumnsRecord;
-      const db = getDb(ctx);
-      const pk = pkFor(cols);
       const softCol = ctx.softDelete?.column;
       if (!softCol) throw new Error("restore requires ctx.softDelete to be configured");
       if (!ctx.id) throw new Error("restore requires ctx.id");
-      const pkCol = cols[pk];
-      if (!pkCol) throw new Error(`drizzleAdapter: primary key column "${pk}" not found`);
-      const where = and(eq(pkCol, ctx.id), ...captureScopeClauses(ctx)) as SQL;
-      await db
+      await getDb(ctx)
         .update(ref)
         .set({ [softCol]: null })
-        .where(where);
+        .where(keyedWhere(writeTarget(ref), ctx.id, ctx));
     },
 
     sql: <Row = Record<string, unknown>>(strings: TemplateStringsArray, ...values: unknown[]) =>
@@ -453,7 +179,8 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
 
     async count(ref, where): Promise<number> {
       const cols = columnsOf(ref) as ColumnsRecord;
-      return countRows(opts.db as DrizzleLikeDb, ref, buildWhere(cols, { filters: where ?? {} }));
+      const filter = buildWhere(cols, { filters: where ?? {} }, dialect);
+      return countRows(opts.db as DrizzleLikeDb, ref, filter, dialect);
     },
     ...migrationMethods,
   };

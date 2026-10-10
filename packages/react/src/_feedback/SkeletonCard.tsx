@@ -6,9 +6,9 @@ export function SkeletonCard({ height = 80 }: { height?: number }) {
   const cssVars = { "--fp-skeleton-h": `${height}px` } as React.CSSProperties;
   return (
     <Card>
-      <div style={cssVars} className="p-4 h-[var(--fp-skeleton-h)]">
-        <Skeleton className="h-4 w-24 mb-2" />
-        <Skeleton className="h-8 w-32" />
+      <div style={cssVars} className="fp-p-4 fp-h-[var(--fp-skeleton-h)]">
+        <Skeleton className="fp-h-4 fp-w-24 fp-mb-2" />
+        <Skeleton className="fp-h-8 fp-w-32" />
       </div>
     </Card>
   );

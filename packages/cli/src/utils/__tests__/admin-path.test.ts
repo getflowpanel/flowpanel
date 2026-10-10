@@ -142,7 +142,9 @@ describe("admin mount preflight", () => {
       "flowpanel.config.ts",
       "export default defineAdmin({ paths: { admin: process.env.ADMIN_PATH } });",
     );
-    expect(await readAdminMount(root)).toMatchObject({ error: expect.stringContaining("dynamic") });
+    expect(await readAdminMount(root)).toMatchObject({
+      error: expect.stringContaining("[flowpanel] paths.admin: "),
+    });
   });
 
   it("reads only the exported config, not unrelated admins in the same tree", async () => {

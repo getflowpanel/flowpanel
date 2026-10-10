@@ -412,23 +412,31 @@ $ pnpm flowpanel new user_visit --dir admin/config/resources --hidden
 
 `--dir` reads the Drizzle schema and writes `admin/config/resources/user-visit.ts`:
 
-```ts excerpt
+```ts
 import { enumOf, resource } from "@flowpanel/kit";
 import * as schema from "@/db/schema";
 
-const Surface = enumOf(schema.activitySurface.enumValues, { web: "web", tma: "tma" });
+const Surface = enumOf(schema.activitySurface.enumValues, { web: "Web", tma: "Tma" });
 
 export const userVisit = resource(schema.userVisit, {
   hidden: true,
   columns: [
     "id",
-    { field: "userId", reference: { resource: "user", labelField: "name" } },
+    { field: "userId", label: "User", reference: { resource: "user", labelField: "email" } },
     { field: "surface", format: Surface.format },
     { field: "startedAt", format: { kind: "date", time: true } },
     "touches",
   ],
   filters: [{ field: "surface", type: "select" }],
   defaultSort: { field: "startedAt", dir: "desc" },
+  create: {
+    fields: [
+      { name: "userId", label: "User", reference: { resource: "user", labelField: "email" } },
+      { name: "surface", type: "select", options: Surface.options },
+      { name: "startedAt", type: "datetime" },
+      { name: "touches", type: "number" },
+    ],
+  },
 });
 ```
 
@@ -436,9 +444,11 @@ and adds it to `admin/config/resources/index.ts`. The first time, it also import
 that directory's `resources` into `flowpanel.config.ts` and spreads it into the
 array; when the config is shaped differently it prints the line to add. Columns are chosen by type; an
 enum gets an `enumOf` stub; a foreign key becomes a `reference` labelled by the
-target's `name`, `title` or `email` when the target already has a file, so scaffold
-referenced tables first. JSON and long text are left out, `name`, `title` and
-`email` become search fields, and the list sorts by `createdAt` or `startedAt`.
+target's `name`, `title` or `email` when the target already has a file, and a
+`reference` picker in `create.fields`, so scaffold referenced tables first. With
+`create.fields` written, a column you add to the table later reaches the form only
+when you add it there. JSON and long text are left out of the list columns, `name`,
+`title` and `email` become search fields, and the list sorts by `createdAt` or `startedAt`.
 `--hidden` keeps the resource out of the navigation.
 
 Re-running changes nothing; a different existing file stops it. `--dir` is

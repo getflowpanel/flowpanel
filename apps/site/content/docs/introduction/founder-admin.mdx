@@ -17,38 +17,17 @@ You should see a sign-in screen at `/admin`. Sign in as a user whose `role` is `
 
 ## 2. Types from your schema and your auth
 
-The config `init` wrote registers your database and schema:
+`init` wrote `flowpanel.config.ts`, which registers your database and schema:
 
-```ts excerpt
-// flowpanel.config.ts
-declare module "@flowpanel/kit" {
-  interface FlowpanelTypes {
-    db: typeof db;
-    schema: typeof schema;
-  }
-}
-```
+<include>../../snippets/generated/init/better-auth-config.ts</include>
 
-When your auth module exports a better-auth instance and no `getSession`, `init` also writes `src/server/lib/flowpanel-session.ts`, which registers the session and wraps the instance in the better-auth preset:
+Your auth module exports a better-auth instance and no `getSession`, so `init` also wrote `src/server/lib/flowpanel-session.ts`, which registers the session and wraps the instance in the better-auth preset:
 
-```ts excerpt
-// src/server/lib/flowpanel-session.ts
-import { withBetterAuth } from "@flowpanel/kit/auth";
-import { auth } from "@/lib/auth";
+<include>../../snippets/generated/src/server/lib/flowpanel-session.ts</include>
 
-export const flowpanelAuth = withBetterAuth({ auth, access: "admin" });
-export const getSession = flowpanelAuth.session;
+The config takes its `auth` from `flowpanelAuth`. The preset reads the role from `session.user.role` and the audit actor from `session.user.id`. Every resource name, row and `ctx.session` is typed.
 
-declare module "@flowpanel/kit" {
-  interface FlowpanelTypes {
-    session: typeof auth.$Infer.Session;
-  }
-}
-```
-
-`init` already set `auth: flowpanelAuth` in the config. The preset reads the role from `session.user.role` and the audit actor from `session.user.id`. Every resource name, row and `ctx.session` is typed.
-
-You should see a type error when the config names a table that does not exist.
+You should see a type error if you put `resource(schema.nope, {})` in `resources`, because your schema has no `nope` table. Remove it again.
 
 ## 3. One resource per file
 
@@ -69,23 +48,17 @@ pnpm flowpanel new runs --dir src/admin/config/resources
 pnpm flowpanel new invoices --dir src/admin/config/resources --hidden
 ```
 
-Each command reads the table, picks columns by type, and adds the export to `src/admin/config/resources/index.ts`. A foreign key becomes a `reference` labelled by the target's `name`, `title` or `email` once the target has its own file, which is why `customers` goes first. `--hidden` keeps invoices out of the navigation; they appear on the customer's page.
+Each command reads the table, picks columns by type, and adds the export to `src/admin/config/resources/index.ts`. A foreign key becomes a `reference` labelled by the target's `name`, `title` or `email`, and a picker in the create and edit form, once the target has its own file, which is why `customers` goes first. A file with such a picker lists its form fields in `create.fields`, so a column you add to that table later goes into the form only when you add it there. `--hidden` keeps invoices out of the navigation; they appear on the customer's page.
 
-```ts excerpt
-// src/admin/config/index.ts
-import { resources } from "./resources";
+The first `new --dir` wired the directory into the config, so `src/admin/config/index.ts` now reads:
 
-export default defineAdmin({
-  // …everything init wrote…
-  resources,
-});
-```
+<include>../../snippets/generated/src/admin/config/index.ts</include>
 
 You should see Customers, Monitors and Runs in the navigation, and every run naming its monitor.
 
 ## 4. Declare each enum once
 
-```ts excerpt
+```ts
 // src/admin/config/enums.ts
 import { enumOf } from "@flowpanel/kit";
 import { accountStatus, planTier, runStatus } from "@/db/schema";
@@ -122,14 +95,42 @@ export const Site = enumOf({
 });
 ```
 
-For a database enum, a value missing from the map is a compile error. `listings.site` is a text column, so `Site` lists its values itself. Replace the `enumOf` stub `flowpanel new` wrote in each resource file with the shared enum:
+For a database enum, a value missing from the map is a compile error. `listings.site` is a text column, so `Site` lists its values itself. Replace the `enumOf` stub `flowpanel new` wrote in each resource file with the shared enum. The runs file becomes:
 
-```ts excerpt
-columns: [{ field: "status", format: RunStatus.format }],
-filters: [{ field: "status", type: "multiselect" }],
+```ts
+// src/admin/config/resources/runs.ts
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+import { RunStatus } from "../enums";
+
+export const runs = resource(schema.runs, {
+  columns: [
+    "id",
+    { field: "monitorId", label: "Monitor", reference: { resource: "monitors", labelField: "name" } },
+    { field: "status", format: RunStatus.format },
+    "pagesCrawled",
+    "durationMs",
+    { field: "startedAt", format: { kind: "date", time: true } },
+    { field: "finishedAt", format: { kind: "date", time: true } },
+    "error",
+  ],
+  filters: [{ field: "status", type: "multiselect" }],
+  defaultSort: { field: "startedAt", dir: "desc" },
+  create: {
+    fields: [
+      { name: "monitorId", label: "Monitor", reference: { resource: "monitors", labelField: "name" } },
+      { name: "status", type: "select", options: RunStatus.options },
+      { name: "pagesCrawled", type: "number" },
+      { name: "durationMs", type: "number" },
+      { name: "startedAt", type: "datetime" },
+      { name: "finishedAt", type: "datetime" },
+      { name: "error" },
+    ],
+  },
+});
 ```
 
-A select filter on an enum-formatted column lists the enum's labels, so it needs no `options`.
+Do the same with `Plan` and `AccountStatus` in `customers.ts`. A select filter on an enum-formatted column lists the enum's labels, so it needs no `options`.
 
 You should see coloured status badges and a status filter with four labels.
 
@@ -148,7 +149,7 @@ Every widget receives `ctx`. Pick the call by what you need:
 
 Start with a strip of numbers compared with the period before:
 
-```ts excerpt
+```ts
 // src/admin/config/dashboards/overview.ts
 import { dashboard, metric } from "@flowpanel/kit";
 
@@ -174,10 +175,9 @@ export const overview = dashboard({
 });
 ```
 
-Add `dashboards: [overview]` to `defineAdmin`. Each number links to the rows it counted, for the same period, through a `daterange` filter on the counted date. Give each resource one:
+Import `overview` into `src/admin/config/index.ts` and add `dashboards: [overview]` to `defineAdmin`. Each number links to the rows it counted, for the same period, through a `daterange` filter on the counted date. Give each resource one; in `runs.ts`:
 
-```ts excerpt
-// src/admin/config/resources/runs.ts
+```ts as="ResourceOptions<RowOf<'runs'>>"
 filters: [
   { field: "status", type: "multiselect" },
   { field: "startedAt", type: "daterange" },
@@ -192,12 +192,12 @@ You should see three numbers in one band, each with its change and a link to its
 
 Write the statement once and let FlowPanel bucket and rank it:
 
-```ts excerpt
+```ts
 // src/admin/config/dashboards/marketplaces.ts
 import { bars, breakdown, dashboard, lineChart, series, type WidgetContext } from "@flowpanel/kit";
 import { Site } from "../enums";
 
-const listingsFound = (c: WidgetContext) =>
+export const listingsFound = (c: WidgetContext) =>
   c.sql<{ at: Date; site: string }>`
     select l.scraped_at as at, l.site
     from listings l
@@ -234,21 +234,23 @@ export const marketplaces = dashboard({
 });
 ```
 
-Add `marketplaces` to `dashboards`. `c.query(listingsFound)` runs the statement once per request, plus once for the previous period `compare` asks for. `series` buckets rows by day in the admin's time zone and fills gaps; `breakdown` ranks them with shares. `ctx.sql` applies no scope, so a multi-tenant admin adds its tenant predicate to the statement.
+Import `marketplaces` into the config and add it to `dashboards`. `c.query(listingsFound)` runs the statement once per request, plus once for the previous period `compare` asks for. `series` buckets rows by day in the admin's time zone and fills gaps; `breakdown` ranks them with shares. `ctx.sql` applies no scope, so a multi-tenant admin adds its tenant predicate to the statement.
 
 You should see bars with shares and changes, and a line per marketplace. Clicking a bar narrows the whole page to that marketplace.
 
 ## 7. Status at a glance
 
-A tracker shows one row per marketplace and one block per hour. Add it to the same dashboard:
+A tracker shows one row per marketplace and one block per hour. Put it in its own file:
 
-```ts excerpt
-// src/admin/config/dashboards/marketplaces.ts
+```ts
+// src/admin/config/dashboards/listings-by-hour.ts
 import { type Threshold, tracker } from "@flowpanel/kit";
+import { Site } from "../enums";
+import { listingsFound } from "./marketplaces";
 
 const QUIET: Threshold = { warn: 5, err: 1 };
 
-const listingsByHour = tracker({
+export const listingsByHour = tracker({
   label: "Listings found · 24 h",
   query: listingsFound,
   at: "at",
@@ -261,13 +263,13 @@ const listingsByHour = tracker({
 });
 ```
 
-Append `{ widgets: [listingsByHour] }` to the `sections` of `marketplaces`. The tracker always shows the last 24 hours. `keys: Site.values` keeps a marketplace on the board when it found nothing. `warn` above `err` means fewer is worse: 5 listings or fewer is a warning, 1 is an error, and an hour with none stays grey.
+In `marketplaces.ts`, add `listingsByHour` to the first section's `widgets` after the line chart. The tracker always shows the last 24 hours. `keys: Site.values` keeps a marketplace on the board when it found nothing. `warn` above `err` means fewer is worse: 5 listings or fewer is a warning, 1 is an error, and an hour with none stays grey.
 
 You should see 24 hourly blocks per marketplace, coloured by how many listings each hour found.
 
 ## 8. A record page
 
-```ts excerpt
+```ts
 // src/admin/config/resources/customer-card.ts
 import {
   checklist,
@@ -349,7 +351,7 @@ You should see status and plan badges, the monitor count, the invoices paid in t
 
 A widget no built-in card fits is a server component built from kit atoms:
 
-```tsx excerpt
+```tsx
 // src/admin/ui/CrawlQueue.tsx
 import { type Tone, toneTextClass } from "@flowpanel/kit";
 import { StatusDot } from "@flowpanel/kit/react";
@@ -367,30 +369,30 @@ export function CrawlQueue({ waiting, failed }: { waiting: number; failed: numbe
 }
 ```
 
-`custom()` places it in a section. `queueCounts` is your own function returning `{ waiting, failed }`:
+`custom()` places it in a section. `queueCounts` is your own function in `src/server/lib/queue.ts` returning `{ waiting, failed }`:
 
-```ts excerpt
-// src/admin/config/dashboards/overview.ts
+```ts
+// src/admin/config/dashboards/crawl-queue.ts
 import { custom } from "@flowpanel/kit";
-import { CrawlQueue } from "../../ui/CrawlQueue";
 import { queueCounts } from "@/server/lib/queue";
+import { CrawlQueue } from "../../ui/CrawlQueue";
 
-const crawlQueue = custom(CrawlQueue, (c) => c.query(queueCounts), {
+export const crawlQueue = custom(CrawlQueue, (c) => c.query(queueCounts), {
   label: "Crawl queue",
   realtime: "pipeline",
   span: 4,
 });
 ```
 
-Add `{ widgets: [crawlQueue] }` to the overview's `sections`.
+In `overview.ts`, import `crawlQueue` and add `{ widgets: [crawlQueue] }` to `sections`.
 
 You should see a "Crawl queue" card that matches its neighbours. See [Build a custom widget](/docs/customization/custom-widgets).
 
 ## 10. Live updates from the worker
 
-Install `ioredis`. Keep the realtime options in one module that the admin config and the worker both import:
+Install `ioredis` with `pnpm add ioredis`. Keep the realtime options in one module that the admin config and the worker both import:
 
-```ts excerpt
+```ts
 // src/shared/realtime.ts
 import type { PublisherOptions } from "@flowpanel/kit";
 
@@ -403,25 +405,60 @@ export const realtime = {
 
 Pass it to `defineAdmin` as `realtime`. Then publish from the worker:
 
-```ts excerpt
-// worker/admin-events.ts
+```ts
+// src/worker/admin-events.ts
 import { createPublisher } from "@flowpanel/kit/publish";
 import { realtime } from "@/shared/realtime";
 
 export const adminEvents = createPublisher(realtime);
 
-await adminEvents.resource("runs", { id: run.id });
-await adminEvents.publish("pipeline");
+/** Call it when the crawler saves a run. */
+export async function runSaved(run: { id: number }): Promise<void> {
+  await adminEvents.resource("runs", { id: run.id });
+  await adminEvents.publish("pipeline");
+}
 ```
 
-A Redis error never fails the crawl. Subscribe the runs list to those events:
+A Redis error never fails the crawl. Subscribe the runs list to those events in `runs.ts`:
 
-```ts excerpt
-// src/admin/config/resources/runs.ts
+```ts as="ResourceOptions<RowOf<'runs'>>"
 realtime: true,
 ```
 
-`realtime: true` on the runs resource refreshes its list, and the crawl queue card listens on `"pipeline"`.
+`realtime: true` on the runs resource refreshes its list, and the crawl queue card listens on `"pipeline"`. With both dashboards and the shared realtime options, the config reads:
+
+```ts
+// src/admin/config/index.ts
+import { defineAdmin } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { db } from "@/db";
+import * as schema from "@/db/schema";
+import { resources } from "@/admin/config/resources";
+import { flowpanelAuth } from "@/server/lib/flowpanel-session";
+import { realtime } from "@/shared/realtime";
+import { marketplaces } from "./dashboards/marketplaces";
+import { overview } from "./dashboards/overview";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+    schema: typeof schema;
+  }
+}
+
+export default defineAdmin({
+  paths: { admin: "/admin", api: "/api/flowpanel" },
+  adapter: drizzleAdapter({ db, schema }),
+  auth: flowpanelAuth,
+  realtime,
+  theme: {
+    brand: { name: "scrapeai" },
+    mode: "auto",
+  },
+  resources: [...resources],
+  dashboards: [overview, marketplaces],
+});
+```
 
 You should see the runs list and the crawl queue card update during a crawl, without a reload. See [Realtime](/docs/guides/realtime#publish-from-a-worker).
 
@@ -433,7 +470,7 @@ pnpm add -D @playwright/test @axe-core/playwright
 
 `smokeAdmin` navigates with `page.goto(paths.admin)`, so Playwright needs a `baseURL` and a `webServer`:
 
-```ts excerpt
+```ts
 // playwright.config.ts
 import { defineConfig } from "@playwright/test";
 
@@ -446,7 +483,7 @@ export default defineConfig({
 
 better-auth issues a signed session through its sign-in endpoint, so sign in first and let `smokeAdmin` reuse the context. The user must have the `admin` role:
 
-```ts excerpt
+```ts
 // e2e/admin.spec.ts
 import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/kit/test";

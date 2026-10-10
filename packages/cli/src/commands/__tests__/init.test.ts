@@ -3,18 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { adminPageSource, isGeneratedAdminPage } from "../../utils/admin-page";
 import { blockingSegmentExport } from "../../utils/next-config";
 import { tpl } from "../../utils/template";
-import { guessedAuthFile, guessedPaths, initErrorPayload } from "../init";
+import { guessedAuthFile, guessedPaths } from "../init-detect";
 import { configTemplateCall, renderCall } from "../init-templates";
-
-describe("init JSON errors", () => {
-  it("uses the same stable machine-readable envelope for preflight failures", () => {
-    expect(initErrorPayload("Next.js is missing")).toEqual({
-      command: "init",
-      applied: false,
-      error: "Next.js is missing",
-    });
-  });
-});
 
 describe("guessedPaths", () => {
   it("uses the @/ alias when the project has one", () => {
@@ -68,7 +58,7 @@ describe("dev-session template", () => {
     const out = await tpl("dev-session.ts.txt", { FILE: "src/server/lib/auth.ts" });
     expect(out.split("\n")[0]).toMatch(/^\/\/ DEVELOPMENT STUB: /);
     expect(out).toMatch(/console\.warn\(/);
-    expect(out).toContain("flowpanel: src/server/lib/auth.ts signs every request in as an admin");
+    expect(out).toContain("[flowpanel] src/server/lib/auth.ts: signs every request in as an admin");
     expect(out).not.toContain("{{");
   });
 

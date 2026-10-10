@@ -70,7 +70,7 @@ export function ImportButton({ resource, formats, label }: ImportButtonProps) {
         ref={inputRef}
         type="file"
         accept={accept}
-        className="hidden"
+        className="fp-hidden"
         onChange={onFile}
         aria-hidden="true"
         tabIndex={-1}

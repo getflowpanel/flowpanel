@@ -1,6 +1,4 @@
 /* FlowPanel design tokens: every visual decision routes through a --fp-* token so host apps can re-theme the admin. */
-@layer theme, base, components, utilities;
-
 [data-flowpanel-root],
 [data-flowpanel-portal] {
   color-scheme: light;
@@ -134,8 +132,8 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
   }
 }
 
-/* Neither Tailwind build resets host content, so these are the small defaults FlowPanel needs, scoped to its roots/portals. */
-@layer base.flowpanel {
+/* The small defaults FlowPanel needs, scoped to its roots/portals. In a Tailwind 4 host's `components` layer: after Preflight, before utilities. */
+@layer components.flowpanel {
   [data-flowpanel-root],
   [data-flowpanel-portal] {
     box-sizing: border-box;

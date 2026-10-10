@@ -13,9 +13,9 @@ export type DeltaMood = "good" | "bad" | "flat";
 
 /** The text colour of a change, by whether it is good news. */
 export const MOOD_TEXT: Record<DeltaMood, string> = {
-  good: "text-fp-ok-text",
-  bad: "text-fp-err-text",
-  flat: "text-fp-text-3",
+  good: "fp-text-ok-ink",
+  bad: "fp-text-err-ink",
+  flat: "fp-text-faint",
 };
 
 export interface DeltaView {

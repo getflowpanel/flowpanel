@@ -26,10 +26,7 @@ export function migrationsTableDdl(dialect: DrizzleDialect): string {
   return DDL[dialect];
 }
 
-/**
- * Splits a migration file into statements without treating protected semicolons as boundaries.
- * Rejects dialect-specific bodies that cannot be split safely.
- */
+/** Splits a migration file into statements, refusing dialect-specific bodies it cannot split safely. */
 export function splitSqlStatements(rawSql: string, dialect: DrizzleDialect): string[] {
   let tokenized: ReturnType<typeof tokenizeMigrationSql>;
   try {

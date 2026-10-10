@@ -31,10 +31,10 @@ export function DataTableSkeleton<Row>({
 }: DataTableSkeletonProps<Row>) {
   const skeletonRows = Array.from({ length: skeletonRowCount(pageSize) });
   return (
-    <table className="w-full text-sm">
+    <table className="fp-w-full fp-text-sm">
       <thead className={LABEL_TEXT}>
         <tr>
-          {selectionEnabled ? <th scope="col" className="w-10 px-4 py-2" /> : null}
+          {selectionEnabled ? <th scope="col" className="fp-w-10 fp-px-4 fp-py-2" /> : null}
           {orderedVisible.map((c) => {
             const wCss = widthToCss(c.width);
             return (
@@ -45,9 +45,9 @@ export function DataTableSkeleton<Row>({
                   ? { style: { "--fp-col-w": wCss } as React.CSSProperties }
                   : {})}
                 className={cn(
-                  "px-4 py-2.5 font-normal",
+                  "fp-px-4 fp-py-2.5 fp-font-normal",
                   ALIGN_CLASS[c.align ?? "left"],
-                  wCss !== undefined && "w-[var(--fp-col-w)]",
+                  wCss !== undefined && "fp-w-[var(--fp-col-w)]",
                 )}
               >
                 {resolveFieldLabel(c.label, c.field)}
@@ -55,8 +55,8 @@ export function DataTableSkeleton<Row>({
             );
           })}
           {rowEndCell ? (
-            <th scope="col" className="w-10 px-4 py-2 text-right">
-              <span className="sr-only">{rowEndCellLabel}</span>
+            <th scope="col" className="fp-w-10 fp-px-4 fp-py-2 fp-text-right">
+              <span className="fp-sr-only">{rowEndCellLabel}</span>
             </th>
           ) : null}
         </tr>
@@ -64,14 +64,14 @@ export function DataTableSkeleton<Row>({
       <tbody>
         {skeletonRows.map((_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholders have no stable identity.
-          <tr key={`skeleton-${i}`} className="border-t border-fp-border-1">
-            {selectionEnabled ? <td className={cn("px-4", rowPadding)} /> : null}
+          <tr key={`skeleton-${i}`} className="fp-border-t fp-border-line">
+            {selectionEnabled ? <td className={cn("fp-px-4", rowPadding)} /> : null}
             {orderedVisible.map((c) => (
-              <td key={c.field} className={cn("px-4", rowPadding)}>
-                <Skeleton className="h-4 w-24" />
+              <td key={c.field} className={cn("fp-px-4", rowPadding)}>
+                <Skeleton className="fp-h-4 fp-w-24" />
               </td>
             ))}
-            {rowEndCell ? <td className={cn("px-4", rowPadding)} /> : null}
+            {rowEndCell ? <td className={cn("fp-px-4", rowPadding)} /> : null}
           </tr>
         ))}
       </tbody>

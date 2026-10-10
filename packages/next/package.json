@@ -47,9 +47,7 @@
   "dependencies": {
     "@flowpanel/charts": "workspace:*",
     "@flowpanel/core": "workspace:*",
-    "@flowpanel/react": "workspace:*",
-    "clsx": "catalog:",
-    "tailwind-merge": "catalog:"
+    "@flowpanel/react": "workspace:*"
   },
   "peerDependencies": {
     "next": ">=15.5.0 <17.0.0",
@@ -58,9 +56,13 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@flowpanel/adapter-drizzle": "workspace:*",
     "@testing-library/react": "catalog:",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "catalog:",
     "happy-dom": "catalog:",
     "next": "catalog:",
     "react": "catalog:",

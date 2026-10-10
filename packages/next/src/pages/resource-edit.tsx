@@ -82,7 +82,7 @@ export async function ResourceEditPage({
 
   const labels = mergeLabels(config.labels);
   if (resource.options.update?.disabled) {
-    return <div className="text-fp-text-3">{labels.form.editDisabled}</div>;
+    return <div className="fp-text-faint">{labels.form.editDisabled}</div>;
   }
 
   const intro = config.adapter.introspect(resource.ref);
@@ -145,7 +145,7 @@ export async function ResourceEditPage({
   return (
     <>
       <PageHeader title={singularTitle(labels.form.editTitle, resource, name)} />
-      <div className="max-w-xl rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
+      <div className="fp-max-w-xl fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
         <AutoForm
           action={action}
           columns={columns}

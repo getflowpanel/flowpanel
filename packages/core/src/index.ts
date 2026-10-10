@@ -81,6 +81,7 @@ export { buildThemeInitScript, THEME_STORAGE_KEY, type ThemeMode } from "./theme
 export { toneFor } from "./tone-for";
 export { bulkAction, dashboardAction, rowAction } from "./types/action";
 export { type BoundAdapterScope, bindAdapterScope } from "./types/bound-scope";
+export { FlowpanelConfigError } from "./types/config-error";
 export { isFilterInValue, isFilterRangeValue } from "./types/context";
 export {
   FlowpanelAccessError,

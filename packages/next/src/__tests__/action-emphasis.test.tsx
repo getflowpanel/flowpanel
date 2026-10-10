@@ -43,7 +43,7 @@ describe("dashboard action emphasis", () => {
     expect(sync.dataset.variant).toBe("outline");
     expect(fix.dataset.variant).toBe("default");
     expect(drop.dataset.variant).toBe("outline");
-    expect(drop.className).toContain("text-fp-err-text");
+    expect(drop.className).toContain("fp-text-err-ink");
   });
 
   it("wraps its buttons on a narrow screen instead of pushing one off it", () => {
@@ -54,8 +54,8 @@ describe("dashboard action emphasis", () => {
     ];
     render(<DashboardActionsBar encodedPath="_root_" actions={actions} />);
     const row = screen.getByRole("button", { name: "Retry failed" }).parentElement as HTMLElement;
-    expect(row.className).toContain("flex-wrap");
-    expect(row.className).toContain("max-w-full");
+    expect(row.className).toContain("fp-flex-wrap");
+    expect(row.className).toContain("fp-max-w-full");
   });
 
   it("warns once in development when a bar holds more than one primary action", () => {

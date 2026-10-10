@@ -141,17 +141,15 @@ describe("migrate — where it runs", () => {
       "flowpanel/migrations/0001_init.sql": "select 1;",
     });
     expect(result.exit).toBe(1);
-    expect(result.stderr).toContain(
-      "flowpanel.config.ts not found. Run `npx @flowpanel/cli init` first.",
-    );
+    expect(result.stderr).toContain("[flowpanel] flowpanel.config.ts: not found in ");
+    expect(result.stderr).toContain("Run `npx @flowpanel/cli init` first.");
   });
 
   it("exits 1 for a project with no config and no migrations, as new does", async () => {
     const result = await runIn({ "package.json": NEXT });
     expect(result.exit).toBe(1);
-    expect(result.stderr).toContain(
-      "flowpanel.config.ts not found. Run `npx @flowpanel/cli init` first.",
-    );
+    expect(result.stderr).toContain("[flowpanel] flowpanel.config.ts: not found in ");
+    expect(result.stderr).toContain("Run `npx @flowpanel/cli init` first.");
   });
 
   it("puts the same message in the JSON document", async () => {
@@ -160,7 +158,9 @@ describe("migrate — where it runs", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       command: "migrate",
       applied: false,
-      error: "flowpanel.config.ts not found. Run `npx @flowpanel/cli init` first.",
+      error: expect.stringMatching(
+        /^\[flowpanel\] flowpanel\.config\.ts: not found in .+\. Run `npx @flowpanel\/cli init` first\.$/,
+      ),
     });
   });
 

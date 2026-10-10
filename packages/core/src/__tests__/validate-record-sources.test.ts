@@ -90,10 +90,10 @@ describe("timeline sources at defineAdmin", () => {
       /names resource "vists", which does not exist\. Did you mean "visits"\?/,
     );
     expect(() => onCard({ resource: "visits", kind: "visit", at: "startedat" })).toThrow(
-      `flowpanel: ${site}.at names column "startedat" on "visits", which does not exist. Did you mean "startedAt"?`,
+      `[flowpanel] ${site}.at: it names column "startedat" on "visits", which does not exist. Did you mean "startedAt"?`,
     );
     expect(() => onCard({ resource: "visits", kind: "vist", at: "startedAt" })).toThrow(
-      /\.kind names kind "vist", which does not exist\. Did you mean "visit"\?/,
+      /\.kind: it names kind "vist", which does not exist\. Did you mean "visit"\?/,
     );
   });
 
@@ -101,17 +101,17 @@ describe("timeline sources at defineAdmin", () => {
     expect(() =>
       onCard({ resource: "visits", kind: "visit", at: "startedAt", refs: ["startedAt"] }),
     ).toThrow(
-      `flowpanel: ${site}.refs names "startedAt", which is not a reference column of "visits"; declare reference on that column.`,
+      `[flowpanel] ${site}.refs: "startedAt" is not a reference column of "visits". Declare reference on that column.`,
     );
   });
 
   it("needs one field that points at the record, or by, and never lets where set it", () => {
     expect(() => onCard({ resource: "notes", kind: "visit", at: "at" })).toThrow(
-      `flowpanel: ${site} reads "notes" on a "users" card, but none of its columns declares ` +
+      `[flowpanel] ${site}: it reads "notes" on a "users" card, but none of its columns declares ` +
         'reference: { resource: "users" }, so it would read every row. Pass by, or add the reference.',
     );
     expect(() => onCard({ resource: "responses", kind: "visit", at: "sentAt" })).toThrow(
-      /several of its columns point at a "users" \(userId, reviewerId\); pass by\./,
+      /several of its columns point at a "users" \(userId, reviewerId\)\. Pass by\./,
     );
     expect(() =>
       onCard({
@@ -120,7 +120,7 @@ describe("timeline sources at defineAdmin", () => {
         at: "sentAt",
         where: { reviewerId: "__notnull__" },
       }),
-    ).toThrow(/several of its columns point at a "users" \(userId, reviewerId\); pass by\./);
+    ).toThrow(/several of its columns point at a "users" \(userId, reviewerId\)\. Pass by\./);
     expect(() =>
       onCard({ resource: "responses", kind: "visit", at: "sentAt", by: "reviewerId" }),
     ).not.toThrow();
@@ -133,7 +133,7 @@ describe("timeline sources at defineAdmin", () => {
         where: { reviewerId: "__notnull__" },
       }),
     ).toThrow(
-      `flowpanel: ${site} sets reviewerId in where, which the record page fills; remove it.`,
+      `[flowpanel] ${site}.where: it sets reviewerId, which the record page fills in. Remove reviewerId from where.`,
     );
     expect(() =>
       onCard({
@@ -142,11 +142,13 @@ describe("timeline sources at defineAdmin", () => {
         at: "startedAt",
         where: { userId: "__notnull__" },
       }),
-    ).toThrow(`flowpanel: ${site} sets userId in where, which the record page fills; remove it.`);
+    ).toThrow(
+      `[flowpanel] ${site}.where: it sets userId, which the record page fills in. Remove userId from where.`,
+    );
     expect(() =>
       onCard({ resource: "responses", kind: "visit", at: "sentAt", by: "sentAt" }),
     ).toThrow(
-      `flowpanel: ${site}.by names "sentAt", which does not declare reference: { resource: "users" } on "responses".`,
+      `[flowpanel] ${site}.by: "sentAt" does not declare reference: { resource: "users" } on "responses". Name a column that does.`,
     );
   });
 
@@ -207,7 +209,7 @@ describe("heatmap sources at defineAdmin", () => {
           source: { resource: "responses", at: "sentAt", where: { reviewerId: "__notnull__" } },
         }),
       ),
-    ).toThrow(/\(userId, reviewerId\); pass by\./);
+    ).toThrow(/\(userId, reviewerId\)\. Pass by\./);
     expect(() =>
       withHeatmap(
         heatmap({
@@ -219,7 +221,9 @@ describe("heatmap sources at defineAdmin", () => {
           },
         }),
       ),
-    ).toThrow(/sets reviewerId in where, which the record page fills; remove it\./);
+    ).toThrow(
+      /where: it sets reviewerId, which the record page fills in\. Remove reviewerId from where\./,
+    );
     expect(() =>
       withHeatmap(heatmap({ source: { resource: "responses", at: "sentAt", by: "reviewerId" } })),
     ).not.toThrow();
@@ -227,7 +231,7 @@ describe("heatmap sources at defineAdmin", () => {
 
   it("needs a source or a query", () => {
     expect(() => withHeatmap(heatmap({}))).toThrow(
-      'flowpanel: resource "users" detail.aside[0] is a heatmap with neither source nor query.',
+      '[flowpanel] resource "users" detail.aside[0]: the heatmap has neither source nor query. Give it one of them.',
     );
   });
 });

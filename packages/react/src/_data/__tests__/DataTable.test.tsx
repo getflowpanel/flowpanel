@@ -413,6 +413,8 @@ describe("a right-aligned sortable header", () => {
         rowKey="id"
       />,
     );
-    expect(screen.getByRole("button", { name: "Found" }).className).toContain("flex-row-reverse");
+    expect(screen.getByRole("button", { name: "Found" }).className).toContain(
+      "fp-flex-row-reverse",
+    );
   });
 });

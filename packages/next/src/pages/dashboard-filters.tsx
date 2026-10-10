@@ -31,7 +31,7 @@ export function DashboardFilters({ filters }: DashboardFiltersProps) {
     router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="fp-flex fp-flex-wrap fp-items-center fp-gap-2">
       {filters.map((filter) => (
         <SelectFilter
           key={filter.key}
@@ -45,7 +45,7 @@ export function DashboardFilters({ filters }: DashboardFiltersProps) {
         <button
           type="button"
           onClick={() => go(Object.fromEntries(filters.map((filter) => [filter.key, null])))}
-          className="inline-flex min-h-11 items-center rounded-fp-sm px-2 text-xs text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:min-h-6"
+          className="fp-inline-flex fp-min-h-11 fp-items-center fp-rounded-sm fp-px-2 fp-text-xs fp-text-soft fp-underline-offset-4 hover:fp-text-ink hover:fp-underline focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 sm:fp-min-h-6"
         >
           {words.filters.clear}
         </button>

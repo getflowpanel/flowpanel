@@ -1,3 +1,4 @@
+import { FlowpanelConfigError } from "../types/config-error";
 import { decodePayload, encodePayload } from "./envelope";
 
 /** The subscribing half of a Redis connection: a client in subscriber mode. */
@@ -108,8 +109,9 @@ function watchErrors(connection: RedisLike, seen: Set<string>): () => void {
 /** Build a Redis-backed publisher. Nothing connects until the first publish or subscribe. */
 export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublisher {
   if (opts.client === undefined && opts.url === undefined) {
-    throw new Error(
-      "[flowpanel] realtime driver 'redis' needs a connection: set `url`, or pass an ioredis-compatible instance as `client`.",
+    throw new FlowpanelConfigError(
+      "realtime",
+      'the "redis" driver needs a connection. Set url, or pass an ioredis-compatible instance as client.',
     );
   }
   const keyPrefix = opts.keyPrefix ?? "flowpanel";

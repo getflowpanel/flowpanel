@@ -61,10 +61,10 @@ export function JsonEditor<T = unknown>({
         aria-invalid={error !== null || externalInvalid === true}
         {...(describedBy ? { "aria-describedby": describedBy } : {})}
         {...(ariaRequired ? { "aria-required": true as const } : {})}
-        className="w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 p-3 font-mono text-xs text-fp-text-1 shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25 data-[invalid=true]:border-fp-err"
+        className="fp-w-full fp-rounded fp-border fp-border-line fp-bg-surface fp-p-3 fp-font-mono fp-text-xs fp-text-ink fp-shadow-xs fp-transition-colors hover:fp-border-line-strong focus:fp-border-focus focus:fp-outline-none focus:fp-ring-2 focus:fp-ring-focus/25 data-[invalid=true]:fp-border-err"
       />
       {error ? (
-        <div className="mt-1 text-xs text-fp-err-text" role="alert">
+        <div className="fp-mt-1 fp-text-xs fp-text-err-ink" role="alert">
           {error}
         </div>
       ) : null}

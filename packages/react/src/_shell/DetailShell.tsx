@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "../lib/cn";
 import type { BreadcrumbItem } from "./Breadcrumbs";
 import { PageHeader } from "./PageHeader";
 
@@ -20,14 +21,14 @@ export function DetailShell({
   className,
 }: DetailShellProps) {
   return (
-    <div className={`p-6 ${className ?? ""}`}>
+    <div className={cn("fp-p-6", className)}>
       <PageHeader
         title={title}
         {...(subtitle ? { description: subtitle } : {})}
         {...(breadcrumbs ? { breadcrumbs } : {})}
         {...(actions ? { actions } : {})}
       />
-      <div className="mt-6 space-y-6">{children}</div>
+      <div className="fp-mt-6 fp-space-y-6">{children}</div>
     </div>
   );
 }

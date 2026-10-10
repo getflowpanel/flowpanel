@@ -39,23 +39,23 @@ export function CommandPalette({
       open={open}
       onOpenChange={onOpenChange}
       label={palette.title}
-      className="fp-anim-overlay fixed inset-0 z-50 grid place-items-start bg-fp-overlay/60 pt-20 backdrop-blur-[2px]"
+      className="fp-anim-overlay fp-fixed fp-inset-0 fp-z-50 fp-grid fp-place-items-start fp-bg-overlay/60 fp-pt-20 fp-backdrop-blur-[2px]"
     >
-      <DialogTitle className="sr-only">{palette.title}</DialogTitle>
-      <DialogDescription className="sr-only">{palette.description}</DialogDescription>
-      <div className="mx-auto w-[600px] max-w-[92vw] overflow-hidden rounded-fp-xl border border-fp-border-1 bg-fp-bg-1 shadow-fp-lg">
+      <DialogTitle className="fp-sr-only">{palette.title}</DialogTitle>
+      <DialogDescription className="fp-sr-only">{palette.description}</DialogDescription>
+      <div className="fp-mx-auto fp-w-[600px] fp-max-w-[92vw] fp-overflow-hidden fp-rounded-xl fp-border fp-border-line fp-bg-surface fp-shadow-lg">
         <Command.Input
           placeholder={placeholder ?? palette.placeholder}
           {...(onSearch ? { onValueChange: onSearch } : {})}
-          className="h-12 w-full border-b border-fp-border-1 bg-transparent px-4 text-sm text-fp-text-1 outline-none placeholder:text-fp-text-3"
+          className="fp-h-12 fp-w-full fp-border-b fp-border-line fp-bg-transparent fp-px-4 fp-text-sm fp-text-ink fp-outline-none placeholder:fp-text-faint"
         />
-        <Command.List className="max-h-[380px] overflow-y-auto p-2">
+        <Command.List className="fp-max-h-[380px] fp-overflow-y-auto fp-p-2">
           {itemsLoading ? (
-            <Command.Loading className="px-3 py-6 text-center text-sm text-fp-text-3">
+            <Command.Loading className="fp-px-3 fp-py-6 fp-text-center fp-text-sm fp-text-faint">
               {palette.loading}
             </Command.Loading>
           ) : null}
-          <Command.Empty className="px-3 py-6 text-center text-sm text-fp-text-3">
+          <Command.Empty className="fp-px-3 fp-py-6 fp-text-center fp-text-sm fp-text-faint">
             {palette.noResults}
           </Command.Empty>
           {groups.map((g) => (
@@ -65,12 +65,12 @@ export function CommandPalette({
                   key={`${g.label}:${it.label}`}
                   onSelect={it.onSelect}
                   {...(it.keywords ? { keywords: it.keywords } : {})}
-                  className="flex cursor-pointer items-center gap-2 rounded-fp px-3 py-2 text-sm text-fp-text-1 aria-selected:bg-fp-bg-3/70"
+                  className="fp-flex fp-cursor-pointer fp-items-center fp-gap-2 fp-rounded fp-px-3 fp-py-2 fp-text-sm fp-text-ink aria-selected:fp-bg-fill/70"
                 >
                   {it.icon}
                   <span>{it.label}</span>
                   {it.shortcut ? (
-                    <kbd className="ml-auto rounded-fp-sm border border-fp-border-1 bg-fp-bg-2 px-1.5 py-0.5 font-fp-mono text-[10px] text-fp-text-3">
+                    <kbd className="fp-ml-auto fp-rounded-sm fp-border fp-border-line fp-bg-canvas fp-px-1.5 fp-py-0.5 fp-font-mono fp-text-[10px] fp-text-faint">
                       {it.shortcut}
                     </kbd>
                   ) : null}

@@ -37,7 +37,7 @@ describe("ColumnDef.secondary at defineAdmin", () => {
   it("accepts a column of the resource and names a misspelt one", () => {
     expect(() => admin("email")).not.toThrow();
     expect(() => admin("emial")).toThrow(
-      /points at column "emial" via columns\[1\]\.secondary.*Did you mean "email"\?/s,
+      /columns\[1\]\.secondary: it points at column "emial".*Did you mean "email"\?/s,
     );
   });
 });

@@ -67,7 +67,7 @@ describe("dashboard filters", () => {
         ],
       }),
     ).toThrow(
-      /dashboard "\/parsing" sections\[0\]\.widgets\[0\] sets filterOnClick "platfrom", which the dashboard does not declare\. Did you mean "platform"\?/,
+      /dashboard "\/parsing" sections\[0\]\.widgets\[0\]: it sets filterOnClick "platfrom", which the dashboard does not declare\. Did you mean "platform"\?/,
     );
   });
 
@@ -93,7 +93,7 @@ describe("dashboard filters", () => {
         ],
       }),
     ).toThrow(
-      /options\.drilldown\.filter names dashboard filter "platfrom" on "\/parsing".*Did you mean "platform"\?/s,
+      /options\.drilldown\.filter: it names dashboard filter "platfrom" on "\/parsing".*Did you mean "platform"\?/s,
     );
   });
 
@@ -110,7 +110,7 @@ describe("dashboard filters", () => {
           }),
         ],
       }),
-    ).toThrow(/dashboard "\/x" declares the filter "platform" twice/);
+    ).toThrow(/dashboard "\/x" filters: the filter "platform" is declared twice/);
     expect(() =>
       defineAdmin({
         ...base,
@@ -129,7 +129,7 @@ describe("dashboard filters", () => {
           }),
         ],
       }),
-    ).toThrow(/resource "users" detail\.tabs\[0\]\.widgets\[0\] sets filterOnClick "platform"/);
+    ).toThrow(/resource "users" detail\.tabs\[0\]\.widgets\[0\]: it sets filterOnClick "platform"/);
   });
 
   it("rejects a filter on drawer tabs, detail aside and detail stats", () => {
@@ -151,7 +151,7 @@ describe("dashboard filters", () => {
           }),
         ],
       }),
-    ).toThrow(/resource "users" drawer\.tabs\[0\]\.widgets\[0\] sets filterOnClick "platform"/);
+    ).toThrow(/resource "users" drawer\.tabs\[0\]\.widgets\[0\]: it sets filterOnClick "platform"/);
     expect(() =>
       defineAdmin({
         ...base,
@@ -162,7 +162,7 @@ describe("dashboard filters", () => {
           }),
         ],
       }),
-    ).toThrow(/resource "users" detail\.aside\[0\] sets filterOnClick "platform"/);
+    ).toThrow(/resource "users" detail\.aside\[0\]: it sets filterOnClick "platform"/);
     expect(() =>
       defineAdmin({
         ...base,
@@ -173,6 +173,6 @@ describe("dashboard filters", () => {
           }),
         ],
       }),
-    ).toThrow(/resource "users" detail\.stats\[0\] sets filterOnClick "platform"/);
+    ).toThrow(/resource "users" detail\.stats\[0\]: it sets filterOnClick "platform"/);
   });
 });

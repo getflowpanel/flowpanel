@@ -29,8 +29,8 @@ describe("TrackerCard", () => {
       rows[0]?.cells.map((c) => c.title),
     );
     expect(blocks.map((b) => b.getAttribute("data-tone"))).toEqual(["ok", "err", "muted"]);
-    expect(blocks[1]?.className).toContain("bg-fp-err");
-    expect(blocks[2]?.className).toContain("bg-fp-bg-3");
+    expect(blocks[1]?.className).toContain("fp-bg-err");
+    expect(blocks[2]?.className).toContain("fp-bg-fill");
   });
 
   it("links the row label, and wraps the summary under it on a phone", () => {
@@ -39,7 +39,7 @@ describe("TrackerCard", () => {
       "/admin/scraper_run?f_platform=kwork",
     );
     const summary = screen.getByText("last success 12:40");
-    expect(summary.className).toContain("w-full");
+    expect(summary.className).toContain("fp-w-full");
   });
 
   it("gives every row's summary the same fixed width, so the strips line up on desktop", () => {
@@ -57,7 +57,7 @@ describe("TrackerCard", () => {
     expect(summaries).toHaveLength(2);
     const [first, second] = summaries;
     expect(first?.className).toBe(second?.className);
-    expect(first?.className).toMatch(/sm:w-\d/);
+    expect(first?.className).toMatch(/sm:fp-w-\d/);
     expect(first?.className).not.toContain("sm:w-auto");
   });
 
@@ -93,12 +93,12 @@ describe("TrackerCard", () => {
         ]}
       />,
     );
-    expect(screen.getByTitle("api-gateway-production-eu").className).toContain("truncate");
-    expect(screen.getByTitle("99.98% uptime over 90 days").className).toContain("truncate");
+    expect(screen.getByTitle("api-gateway-production-eu").className).toContain("fp-truncate");
+    expect(screen.getByTitle("99.98% uptime over 90 days").className).toContain("fp-truncate");
   });
 
   it("says the row's tone in words, not only with its dot", () => {
     const { container } = render(<TrackerCard rows={rows} />);
-    expect(container.querySelector("[data-tone='err'] .sr-only")?.textContent).toBe("Error ");
+    expect(container.querySelector("[data-tone='err'] .fp-sr-only")?.textContent).toBe("Error ");
   });
 });

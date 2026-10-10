@@ -20,14 +20,14 @@ const DropdownMenuSubTrigger = /* @__PURE__ */ named(
     <DropdownMenuPrimitive.SubTrigger
       ref={ref}
       className={cn(
-        "flex cursor-default select-none items-center gap-2 rounded-fp-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-fp-bg-3/70 data-[state=open]:bg-fp-bg-3/70",
-        inset && "pl-8",
+        "fp-flex fp-cursor-default fp-select-none fp-items-center fp-gap-2 fp-rounded-sm fp-px-2 fp-py-1.5 fp-text-sm fp-outline-none fp-transition-colors focus:fp-bg-fill/70 data-[state=open]:fp-bg-fill/70",
+        inset && "fp-pl-8",
         className,
       )}
       {...props}
     >
       {children}
-      <ChevronRight className="ml-auto h-4 w-4" />
+      <ChevronRight className="fp-ml-auto fp-h-4 fp-w-4" />
     </DropdownMenuPrimitive.SubTrigger>
   )),
   DropdownMenuPrimitive.SubTrigger,
@@ -42,7 +42,7 @@ const DropdownMenuSubContent = /* @__PURE__ */ named(
       data-flowpanel-portal=""
       ref={ref}
       className={cn(
-        "fp-anim-pop z-50 min-w-[8rem] overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-1 text-fp-text-1 shadow-fp-md",
+        "fp-anim-pop fp-z-50 fp-min-w-[8rem] fp-overflow-hidden fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-1 fp-text-ink fp-shadow-md",
         className,
       )}
       {...props}
@@ -62,7 +62,7 @@ const DropdownMenuContent = /* @__PURE__ */ named(
         ref={ref}
         sideOffset={sideOffset}
         className={cn(
-          "fp-anim-pop z-50 min-w-[8rem] overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-1 text-fp-text-1 shadow-fp-md",
+          "fp-anim-pop fp-z-50 fp-min-w-[8rem] fp-overflow-hidden fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-1 fp-text-ink fp-shadow-md",
           className,
         )}
         {...props}
@@ -80,8 +80,8 @@ const DropdownMenuItem = /* @__PURE__ */ named(
     <DropdownMenuPrimitive.Item
       ref={ref}
       className={cn(
-        "relative flex cursor-default select-none items-center gap-2 rounded-fp-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-fp-bg-3/70 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        inset && "pl-8",
+        "fp-relative fp-flex fp-cursor-default fp-select-none fp-items-center fp-gap-2 fp-rounded-sm fp-px-2 fp-py-1.5 fp-text-sm fp-outline-none fp-transition-colors focus:fp-bg-fill/70 data-[disabled]:fp-pointer-events-none data-[disabled]:fp-opacity-50",
+        inset && "fp-pl-8",
         className,
       )}
       {...props}
@@ -98,14 +98,14 @@ const DropdownMenuCheckboxItem = /* @__PURE__ */ named(
     <DropdownMenuPrimitive.CheckboxItem
       ref={ref}
       className={cn(
-        "relative flex cursor-default select-none items-center rounded-fp-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-fp-bg-3/70 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "fp-relative fp-flex fp-cursor-default fp-select-none fp-items-center fp-rounded-sm fp-py-1.5 fp-pl-8 fp-pr-2 fp-text-sm fp-outline-none fp-transition-colors focus:fp-bg-fill/70 data-[disabled]:fp-pointer-events-none data-[disabled]:fp-opacity-50",
         className,
       )}
       {...props}
     >
-      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <span className="fp-absolute fp-left-2 fp-flex fp-h-3.5 fp-w-3.5 fp-items-center fp-justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <Check className="h-4 w-4" />
+          <Check className="fp-h-4 fp-w-4" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -122,14 +122,14 @@ const DropdownMenuRadioItem = /* @__PURE__ */ named(
     <DropdownMenuPrimitive.RadioItem
       ref={ref}
       className={cn(
-        "relative flex cursor-default select-none items-center rounded-fp-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-fp-bg-3/70 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "fp-relative fp-flex fp-cursor-default fp-select-none fp-items-center fp-rounded-sm fp-py-1.5 fp-pl-8 fp-pr-2 fp-text-sm fp-outline-none fp-transition-colors focus:fp-bg-fill/70 data-[disabled]:fp-pointer-events-none data-[disabled]:fp-opacity-50",
         className,
       )}
       {...props}
     >
-      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+      <span className="fp-absolute fp-left-2 fp-flex fp-h-3.5 fp-w-3.5 fp-items-center fp-justify-center">
         <DropdownMenuPrimitive.ItemIndicator>
-          <Circle className="h-2 w-2 fill-current" />
+          <Circle className="fp-h-2 fp-w-2 fp-fill-current" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}
@@ -145,7 +145,11 @@ const DropdownMenuLabel = /* @__PURE__ */ named(
   >(({ className, inset, ...props }, ref) => (
     <DropdownMenuPrimitive.Label
       ref={ref}
-      className={cn("px-2 py-1.5 text-sm font-semibold text-fp-text-1", inset && "pl-8", className)}
+      className={cn(
+        "fp-px-2 fp-py-1.5 fp-text-sm fp-font-semibold fp-text-ink",
+        inset && "fp-pl-8",
+        className,
+      )}
       {...props}
     />
   )),
@@ -159,7 +163,7 @@ const DropdownMenuSeparator = /* @__PURE__ */ named(
   >(({ className, ...props }, ref) => (
     <DropdownMenuPrimitive.Separator
       ref={ref}
-      className={cn("-mx-1 my-1 h-px bg-fp-border-1", className)}
+      className={cn("-fp-mx-1 fp-my-1 fp-h-px fp-bg-line", className)}
       {...props}
     />
   )),
@@ -168,7 +172,10 @@ const DropdownMenuSeparator = /* @__PURE__ */ named(
 
 function DropdownMenuShortcut({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
-    <span className={cn("ml-auto text-xs tracking-widest text-fp-text-3", className)} {...props} />
+    <span
+      className={cn("fp-ml-auto fp-text-xs fp-tracking-widest fp-text-faint", className)}
+      {...props}
+    />
   );
 }
 DropdownMenuShortcut.displayName = "DropdownMenuShortcut";

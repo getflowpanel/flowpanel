@@ -173,6 +173,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/class-names.ts",
+    page: "/docs/reference/react-components",
+    anchor: "utilities",
+    guidance: false,
+  },
+  {
     sourcePrefix: "packages/core/src/tone-classes.ts",
     page: "/docs/reference/react-components",
     anchor: "theme-utilities",
@@ -310,6 +316,12 @@ export const API_OWNERSHIP_RULES = [
     sourcePrefix: "packages/core/src/types/detail.ts",
     page: "/docs/reference/resources",
     anchor: "detailtab",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/config-error.ts",
+    page: "/docs/reference/errors",
+    anchor: "flowpanelconfigerror",
     guidance: true,
   },
   {

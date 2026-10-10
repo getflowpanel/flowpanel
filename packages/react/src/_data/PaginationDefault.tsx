@@ -56,7 +56,7 @@ export function pageItems(page: number, pages: number, siblings = 1): (number | 
 }
 
 const STEP =
-  "fp-press inline-flex h-11 w-11 items-center justify-center rounded-fp text-fp-text-2 transition-colors hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 disabled:pointer-events-none disabled:opacity-40 sm:h-8 sm:w-8";
+  "fp-press fp-inline-flex fp-h-11 fp-w-11 fp-items-center fp-justify-center fp-rounded fp-text-soft fp-transition-colors hover:fp-bg-fill hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 disabled:fp-pointer-events-none disabled:fp-opacity-40 sm:fp-h-8 sm:fp-w-8";
 
 /** Pure renderer — no context dependency. Used as the registry default. */
 export function DefaultPagination({
@@ -84,11 +84,11 @@ export function DefaultPagination({
     <nav
       aria-label={labels.label}
       className={cn(
-        "flex flex-wrap items-center justify-center gap-1 border-t border-fp-border-1 px-4 py-3 text-sm",
+        "fp-flex fp-flex-wrap fp-items-center fp-justify-center fp-gap-1 fp-border-t fp-border-line fp-px-4 fp-py-3 fp-text-sm",
         className,
       )}
     >
-      <span className="mr-2 tabular-nums text-fp-text-3">
+      <span className="fp-mr-2 fp-tabular-nums fp-text-faint">
         {`${first}–${last} ${labels.of} ${total}`}
       </span>
 
@@ -99,7 +99,7 @@ export function DefaultPagination({
         className={STEP}
         aria-label={labels.previous}
       >
-        <ChevronLeft aria-hidden className="h-4 w-4" />
+        <ChevronLeft aria-hidden className="fp-h-4 fp-w-4" />
       </button>
 
       {pageItems(page, pages).map((item, i) =>
@@ -108,7 +108,7 @@ export function DefaultPagination({
             // biome-ignore lint/suspicious/noArrayIndexKey: a gap has no identity beyond its slot
             key={`gap-${i}`}
             aria-hidden
-            className="inline-flex h-11 w-11 items-center justify-center text-fp-text-3 sm:h-8 sm:w-8"
+            className="fp-inline-flex fp-h-11 fp-w-11 fp-items-center fp-justify-center fp-text-faint sm:fp-h-8 sm:fp-w-8"
           >
             …
           </span>
@@ -120,10 +120,10 @@ export function DefaultPagination({
             aria-label={formatLabel(labels.page, { n: item })}
             aria-current={item === page ? "page" : undefined}
             className={cn(
-              "fp-press inline-flex h-11 min-w-11 items-center justify-center rounded-fp px-1.5 tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:h-8 sm:min-w-8",
+              "fp-press fp-inline-flex fp-h-11 fp-min-w-11 fp-items-center fp-justify-center fp-rounded fp-px-1.5 fp-tabular-nums fp-transition-colors focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 sm:fp-h-8 sm:fp-min-w-8",
               item === page
-                ? "border border-fp-accent font-medium text-fp-accent-badge-text"
-                : "text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1",
+                ? "fp-border fp-border-accent fp-font-medium fp-text-accent-ink"
+                : "fp-text-soft hover:fp-bg-fill hover:fp-text-ink",
             )}
           >
             {item}
@@ -138,19 +138,19 @@ export function DefaultPagination({
         className={STEP}
         aria-label={labels.next}
       >
-        <ChevronRight aria-hidden className="h-4 w-4" />
+        <ChevronRight aria-hidden className="fp-h-4 fp-w-4" />
       </button>
 
       {/* A native select rather than the Radix one: four options do not justify
           pulling a combobox into every table's bundle, and phones get their own
           picker for free. */}
       {sizePicker ? (
-        <div className="relative ml-2">
+        <div className="fp-relative fp-ml-2">
           <select
             aria-label={labels.rowsPerPage}
             value={pageSize}
             onChange={(e) => onPageSizeChange?.(Number(e.target.value))}
-            className="h-11 appearance-none rounded-fp border border-fp-border-1 bg-fp-bg-1 pl-3 pr-8 text-sm text-fp-text-1 shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25 sm:h-8"
+            className="fp-h-11 fp-appearance-none fp-rounded fp-border fp-border-line fp-bg-surface fp-pl-3 fp-pr-8 fp-text-sm fp-text-ink fp-shadow-xs fp-transition-colors hover:fp-border-line-strong focus:fp-border-focus focus:fp-outline-none focus:fp-ring-2 focus:fp-ring-focus/25 sm:fp-h-8"
           >
             {sizePicker.map((n) => (
               <option key={n} value={n}>
@@ -160,7 +160,7 @@ export function DefaultPagination({
           </select>
           <ChevronDown
             aria-hidden
-            className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-fp-text-2 opacity-50"
+            className="fp-pointer-events-none fp-absolute fp-right-2.5 fp-top-1/2 fp-h-4 fp-w-4 -fp-translate-y-1/2 fp-text-soft fp-opacity-50"
           />
         </div>
       ) : null}

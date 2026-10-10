@@ -21,7 +21,7 @@ export async function recordStrip(
   const stats = detail?.stats ?? [];
   if (stats.length === 0) return null;
   const slots = await renderSlots(stats, ctx, config, reqCtx, `${name} stats`, { plain: true });
-  return <StatStrip>{slotElements(slots, "flex min-w-0", true)}</StatStrip>;
+  return <StatStrip>{slotElements(slots, "fp-flex fp-min-w-0", true)}</StatStrip>;
 }
 
 /** `detail.aside`, stacked; `null` when there is none. */
@@ -34,7 +34,7 @@ export async function recordAside(
 ): Promise<ReactNode[] | null> {
   const aside = detail?.aside ?? [];
   if (aside.length === 0) return null;
-  return slotElements(await renderSlots(aside, ctx, config, reqCtx, `${name} aside`), "min-w-0");
+  return slotElements(await renderSlots(aside, ctx, config, reqCtx, `${name} aside`), "fp-min-w-0");
 }
 
 /** Strip, then the tabs with the aside beside them from `lg`, below them on a phone. */
@@ -45,11 +45,11 @@ export function recordLayout(
 ): ReactNode {
   return (
     <>
-      {strip ? <div className="mb-4">{strip}</div> : null}
+      {strip ? <div className="fp-mb-4">{strip}</div> : null}
       {aside ? (
-        <div className="grid gap-4 lg:grid-cols-12" data-record-layout="">
-          <div className="min-w-0 lg:col-span-8">{main}</div>
-          <aside className="min-w-0 space-y-3 lg:col-span-4">{aside}</aside>
+        <div className="fp-grid fp-gap-4 lg:fp-grid-cols-12" data-record-layout="">
+          <div className="fp-min-w-0 lg:fp-col-span-8">{main}</div>
+          <aside className="fp-min-w-0 fp-space-y-3 lg:fp-col-span-4">{aside}</aside>
         </div>
       ) : (
         main

@@ -20,7 +20,12 @@ documentation: blocks the docs mark `twoslash` are type-checked in CI,
 One file per section of the documentation, or per page of a section longer than 1000 lines, or per part of such a page.
 This directory is canonical; https://flowpanel.tech/llms/<file> serves the same files.
 
-- llms/introduction.txt — Getting started: Getting started, Build a complete admin, Why FlowPanel, Drizzle setup, Prisma setup
+- llms/introduction-getting-started.txt — Getting started: Getting started. Add FlowPanel to an existing Next.js App Router project, expose your first Drizzle table or Prisma model, and open /admin.
+- llms/introduction-founder-admin.txt — Getting started: Build a complete admin. From an empty Next.js app to a deployed admin with dashboards, a record page, a custom widget, live updates and a smoke test.
+- llms/introduction-why-flowpanel.txt — Getting started: Why FlowPanel. Decide whether an embedded, schema-aware admin fits your application better than a hosted tool, an admin framework or a database browser.
+- llms/introduction-limits.txt — Getting started: What FlowPanel does not do yet. The gaps in 0.4 that a real admin runs into, and the workaround for each.
+- llms/introduction-drizzle.txt — Getting started: Drizzle setup. Connect FlowPanel to an existing Drizzle ORM project on PostgreSQL, MySQL or SQLite.
+- llms/introduction-prisma.txt — Getting started: Prisma setup. Connect FlowPanel to an existing Prisma project on PostgreSQL, MySQL or SQLite.
 - llms/build.txt — Build your admin: Configuration, Resources, Forms, Add actions, Record pages and drawers, Dashboards, Import and export
 - llms/customization.txt — Customize the UI: Choose an extension point, Column renderers, Build a custom widget, Charts, Styling and theme slots, Eject to source
 - llms/guides.txt — Production: Production readiness, Authentication, Roles and permissions, Multi-tenant scope, Realtime, Queues, Upgrade from 0.3
@@ -29,8 +34,8 @@ This directory is canonical; https://flowpanel.tech/llms/<file> serves the same 
 - llms/reference-resources.txt — Reference: resource(). Every option on a resource, its columns, fields and filters.
 - llms/reference-actions.txt — Reference: Actions. Every option of row, bulk, dashboard and drawer actions, and what they return.
 - llms/reference-drawer.txt — Reference: Drawer. Layout, tabs and actions of the row side panel.
-- llms/reference-widgets-1.txt — Reference: Widgets, WidgetContext, Shared option types, Thresholds, Links, metric, table, statGroup, Cards, timeline, heatmap, checklist
-- llms/reference-widgets-2.txt — Reference: Widgets, custom, Charts, Series helpers, Dashboards
+- llms/reference-widgets-1.txt — Reference: Widgets, WidgetContext, Shared option types, Thresholds, Links, metric, table, statGroup, Cards, timeline, heatmap
+- llms/reference-widgets-2.txt — Reference: Widgets, checklist, custom, Charts, Series helpers, Dashboards
 - llms/reference-queues.txt — Reference: queue(). The queue builder, its options, and how a queue key becomes a route.
 - llms/reference-contexts.txt — Reference: Contexts. What your queries, mutations and actions receive at runtime.
 - llms/reference-registry.txt — Reference: Type registry. FlowpanelTypes, FlowpanelResources, and the types that resolve through them.

@@ -62,8 +62,8 @@ describe("a quiet table", () => {
       />,
     );
     const cell = container.querySelector("tbody td") as HTMLElement;
-    expect(cell.className).toContain("py-2.5");
-    expect(cell.className).not.toContain("text-xs");
+    expect(cell.className).toContain("fp-py-2.5");
+    expect(cell.className).not.toContain("fp-text-xs");
   });
 
   it("shows ten cards on a phone and folds the rest behind one button", () => {

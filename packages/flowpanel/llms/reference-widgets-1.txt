@@ -13,7 +13,7 @@ returns a `WidgetConfig`; every `query` runs on the server with a `WidgetContext
 On a record page or in a drawer, `ctx.row` is the record. A drawer renders
 [static cards](/docs/reference/drawer#drawertabwidgets).
 
-```ts excerpt
+```ts
 import { areaChart, dashboard, metric, statGroup, table } from "@flowpanel/kit";
 
 export const overview = dashboard({
@@ -93,7 +93,7 @@ of the same length before. Over a record's whole history it is `null`.
 
 `labels` is the resolved `LabelsConfig`. `row` is set on a record page.
 
-```ts excerpt
+```ts
 metric("Paid orders", async (ctx) => ({
   value: await ctx.query("paid-orders", () => countPaid(ctx.db, ctx.dateRange)),
   href: { resource: "orders", filter: { status: "paid" } },
@@ -118,7 +118,7 @@ metric("Paid orders", async (ctx) => ({
 `ctx.format` formats with the admin's `locale`, `timeZone` and `currency`, the same
 way table cells do.
 
-```ts excerpt
+```ts
 stat("Latency", async (ctx) => {
   const s = await ctx.query(latencyStages, ctx.db, ctx.dateRange);
   return {
@@ -170,7 +170,7 @@ A failing `freshness.at` is logged and skipped.
 | `at` | `(ctx: WidgetContext) => Promise<Date \| null>` | When the data was last written, e.g. the newest rollup row; `null` when unknown. |
 | `warnAfter?` | ``${number}m` \| `${number}h` \| `${number}d`` | Older than this shows in the warn tone with a ▲. |
 
-```ts excerpt
+```ts
 metric("Runs today", runsToday, {
   freshness: { at: async (c) => lastRollupHour(c), warnAfter: "2h" },
 });
@@ -200,14 +200,21 @@ in your own code.
 `warn` below `err` means higher is worse; `warn` above `err` means lower is worse.
 A `goodWhen` that contradicts the numbers makes `defineAdmin` throw.
 
-```ts excerpt
+```ts
 import { type Threshold, metric, resource, toneFor } from "@flowpanel/kit";
 
 const ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
 
-metric("Run errors", async (c) => ({ value: rate, volume: runs }), { format: "percent", tones: ERRORS });
-resource(schema.runs, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
-toneFor(rate, ERRORS, runs);
+metric(
+  "Run errors",
+  async (c) => {
+    const { rate, runs } = await runErrorRate(c);
+    return { value: rate, volume: runs };
+  },
+  { format: "percent", tones: ERRORS },
+);
+resource(schema.monitors, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
+toneFor(0.42, ERRORS, 120); // "warn": 120 runs, above warn and below err
 ```
 
 ### Links
@@ -251,7 +258,7 @@ An unregistered resource, view or dashboard throws and lists the registered ones
 `ctx.link(target)` resolves the same targets to a string, for the props of a custom
 widget:
 
-```ts excerpt
+```ts
 custom(PlatformGrid, async (ctx) => ({
   platforms: (await platforms(ctx.db)).map((p) => ({
     ...p,
@@ -292,7 +299,7 @@ A metric that counts rows takes `{ count, where, range }` instead of a query. It
 value is `ctx.count(count, where, { range })`, and it links to exactly the rows it
 counted unless you set `drilldown`. A missing `where` value counts `0` with no link.
 
-```ts excerpt
+```ts
 metric("Visits", { count: "user_visit", where: (c) => ({ userId: c.id }), range: "startedAt" }, {
   compare: true,
 });
@@ -307,7 +314,7 @@ both. `drilldown: () => null` removes the link.
 change; `compare: { against: "weekAgo" }` compares with the same range seven days
 earlier. Set `goodWhen: "down"` for costs and errors. A `delta` from the query wins.
 
-```ts excerpt
+```ts
 metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
 ```
 
@@ -387,7 +394,7 @@ defaults to 10 on the `resource` path. `density: "compact"` sets 40 px rows.
 or a function such as `(c) => ({ userId: c.id })`. `range` names the timestamp the
 picked range bounds: `table({ resource: "user", range: "createdAt" })`.
 
-```ts excerpt
+```ts
 table({
   resource: "orders",
   label: "Recent orders",
@@ -425,7 +432,7 @@ table({
 `Date` is formatted like a table cell. A resolver may return a [`KvResult`](#kvresult)
 with its own tone and link.
 
-```ts excerpt
+```ts
 statGroup({
   label: "Account",
   span: 6,
@@ -474,9 +481,9 @@ A resolver may return a `StatResult`, whose fields win over the options.
 | `href?` | `LinkTarget` | Turns the whole card into a link — a path or a named target. |
 | `volume?` | `number` | Observations behind the value, compared with `tones.min`. |
 
-```ts excerpt
+```ts
 stat("Open invoices", async (ctx) => {
-  const filter = { customerId: ctx.id, status: "open" };
+  const filter = { customerId: ctx.rowOf("customers").id, status: "open" } as const;
   const value = await ctx.count("invoices", filter);
   return { value, href: { resource: "invoices", filter }, tone: value > 0 ? "warn" : "ok" };
 });
@@ -488,7 +495,7 @@ Facts about one thing. An item's `format` takes a `ColumnFormat` or `NumericForm
 An item with `field` reads the card's `record`, which runs once and defaults to the
 viewed row on a record page:
 
-```ts excerpt
+```ts
 kv({
   label: "Feed filters",
   record: (c) => c.read("freelancer_profile", { where: { userId: c.id }, limit: 1 }).then((r) => r[0]),
@@ -499,7 +506,7 @@ kv({
 An item with `long` is a paragraph; past `lines` lines (6 by default) the rest
 folds under "Show all". `empty` replaces "—" for a missing value.
 
-```ts excerpt
+```ts
 kv({
   label: "Texts",
   columns: 1,
@@ -551,7 +558,7 @@ item's. `statGroup` items take the same result.
 | `tone?` | `Tone` | Semantic color of the value. |
 | `href?` | `LinkTarget` | Renders the value as a link — a path or a named target. |
 
-```ts excerpt
+```ts
 kv({
   items: [
     {
@@ -570,7 +577,7 @@ kv({
 A ranked breakdown, sized against the largest value or `max`. Set `max` for a
 rate:
 
-```ts excerpt
+```ts
 bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), format: "percent", max: 1 });
 ```
 
@@ -601,7 +608,7 @@ and fills each row's `previous`, joining by `key`, else `label`. A row missing f
 the earlier period shows no change; `breakdown({ keys })` keeps it at zero. With
 `top`, pass the earlier rows to `breakdown({ previous })` instead.
 
-```ts excerpt
+```ts
 bars({
   label: "New orders by marketplace",
   share: true,
@@ -681,7 +688,7 @@ an "N more" line linking to `more`.
 `count`. The first row is a sentence, the rest are lines. With no rows it shows
 `allClear`.
 
-```ts excerpt
+```ts
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
 ```
 
@@ -701,7 +708,7 @@ banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: 
 
 Set `key` when realtime updates reorder rows.
 
-```ts excerpt
+```ts
 import { bars, funnel, kv, list, stat } from "@flowpanel/kit";
 
 const widgets = [
@@ -753,7 +760,7 @@ rows instead. Not available in drawers.
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 
-```ts excerpt
+```ts
 tracker({
   label: "Marketplaces · 24 h",
   query: hourly,
@@ -791,7 +798,7 @@ pages back, under `?<id>.kind=` and `?<id>.before=`; `id` defaults to the tab ke
 `query(ctx, page)` returns events that are not resource rows: at or before
 `page.before`, at most `page.limit`, of `page.kinds` when set.
 
-```ts excerpt
+```ts
 timeline({
   label: "Activity",
   kinds: Activity,
@@ -824,7 +831,7 @@ Not available in drawers.
 reader's access applied. `at` is the timestamp; `kind` is fixed or `{ field }`.
 `refs` names reference columns whose labels reach `title` and `meta`.
 
-```ts excerpt
+```ts
 timeline({
   kinds: Bot,
   sources: [
@@ -897,7 +904,7 @@ four steps.
 rows referencing the record, like a timeline source. It reads at most 10,000 rows;
 beyond that use `query`, which returns totals per day.
 
-```ts excerpt
+```ts
 heatmap({ label: "Visits, 13 weeks", source: { resource: "user_visit", at: "startedAt" }, unit: Visits });
 ```
 
@@ -929,69 +936,3 @@ The date picker does not move it.
 | `value?` | `keyof RowOf<N> & string` | Sum this field instead of counting rows. |
 | `by?` | `keyof RowOf<N> & string` | The field that points at the viewed record when several do; mirrors `DetailTab.by`. |
 | `where?` | `Where<RowOf<N>> \| ((ctx: WidgetContext) => Where<RowOf<N>>)` | Narrows the rows. On a record page the filter to the viewed record is always AND-ed in. |
-
-### checklist
-
-Items done or not. An item is done when `done` holds a value other than `null`,
-`undefined`, `false`, a blank string or an empty list. The summary counts
-non-`optional` items.
-
-With `ordered`, done items show their date and the gap since the previous step.
-`layout: "steps"` lays them out in a row. Not available in drawers.
-
-```ts excerpt
-checklist({
-  label: "Journey",
-  ordered: true,
-  layout: "steps",
-  items: async (c) => {
-    const user = c.rowOf("user");
-    return [
-      { label: "Signed up", done: user.createdAt },
-      { label: "Linked Telegram", done: user.telegramLinkedAt, optional: true },
-      { label: "First reply sent", done: user.firstSentAt },
-    ];
-  },
-});
-```
-
-`labels.checklist` words the summary, the gap and the marks' names for screen readers.
-
-`ChecklistOptions`
-
-| Property | Type | Notes |
-| --- | --- | --- |
-| `label?` | `string` | Card heading. |
-| `items` | `ChecklistItem[] \| ((ctx: WidgetContext) => Promise<ChecklistItem[]>)` | The items, or a function that reads them per request. |
-| `ordered?` | `boolean` | Each done step shows when, and the time since the previous done step. |
-| `layout?` | `"list" \| "steps"` | `"steps"` lays the items out in a row from the `md` breakpoint. Default: `"list"`. |
-| `summary?` | `boolean` | "7 of 12" with a bar; optional items are not counted. Default: `true`. |
-| `emptyState?` | `ReactNode` | Shown instead of the items when there are none. Text or any node. |
-| `span?` | `Span` | Width in the dashboard's 12-column grid. |
-| `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
-| `realtime?` | `RealtimeOption` | Re-run when any of these channels fire. |
-
-#### ChecklistItem
-
-`ChecklistItem`
-
-| Property | Type | Notes |
-| --- | --- | --- |
-| `label` | `string` |  |
-| `done` | `unknown` | Done unless `null`, `undefined`, `false`, a blank string or an empty list; `0` counts. A `Date` or an ISO string also says when, shown by an `ordered` checklist. |
-| `hint?` | `string` | A muted note under the label. |
-| `optional?` | `boolean` | Not counted in the summary; muted while not done. |
-| `tone?` | `Tone` | The mark's color when done. Default: `"ok"`. |
-| `href?` | `LinkTarget` | Links the label — a path or a named target. |
-| `precision?` | `"day"` | The date has no clock: print the day, and measure no gap to or from it. A bare `YYYY-MM-DD` needs no flag. |
-
-#### filled
-
-One checklist item per labelled field, done when the field has a value.
-
-```ts excerpt
-checklist({
-  label: "Profile",
-  items: async (c) => filled(await profileOf(c), { bio: "About", hourlyRate: "Rate" }),
-});
-```

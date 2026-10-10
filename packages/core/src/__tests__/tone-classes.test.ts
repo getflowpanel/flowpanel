@@ -8,12 +8,12 @@ describe("tone classes", () => {
   it("name a text and a fill class for every tone", () => {
     expect(Object.keys(toneTextClass).sort()).toEqual(TONES);
     expect(Object.keys(toneFillClass).sort()).toEqual(TONES);
-    expect(toneTextClass.err).toBe("text-fp-err-text");
-    expect(toneFillClass.info).toBe("bg-fp-info");
+    expect(toneTextClass.err).toBe("fp-text-err-ink");
+    expect(toneFillClass.info).toBe("fp-bg-info");
   });
 
   it("are read from the format subpath too", () => {
-    expect(fillFromFormat.info).toBe("bg-fp-info");
+    expect(fillFromFormat.info).toBe("fp-bg-info");
     expect(fillFromFormat).toBe(toneFillClass);
   });
 });

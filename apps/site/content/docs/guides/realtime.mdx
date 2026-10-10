@@ -11,7 +11,7 @@ A committed change publishes a small event; lists and widgets subscribed to its 
 
 `realtime: true` on a resource refreshes its list. A record page does not subscribe on its own; give its widgets their own `realtime: { resource: "orders" }`. A widget takes a channel name, `{ resource: "orders" }`, or a list of them:
 
-```ts excerpt
+```ts
 metric("Open orders", openOrders, { realtime: { resource: "orders" } });
 custom(Pipeline, pipelineProps, { realtime: "pipeline" });
 ```
@@ -26,10 +26,13 @@ The default memory driver reaches only the process that published. Use Redis whe
 pnpm add ioredis
 ```
 
-```ts excerpt
+```ts
+import { defineAdmin } from "@flowpanel/kit";
+import { flowpanelAuth } from "@/server/lib/flowpanel-session";
+
 export default defineAdmin({
   adapter,
-  auth,
+  auth: flowpanelAuth,
   realtime: {
     driver: "redis",
     url: process.env.REDIS_URL,
@@ -45,7 +48,7 @@ Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel 
 
 A worker, cron job or script imports only `@flowpanel/kit/publish`: no admin config, adapter or Next.js. Share the admin's `realtime` options so both sides use the same URL and prefix:
 
-```ts excerpt
+```ts
 // src/shared/realtime.ts, imported by the admin config and the worker
 import type { PublisherOptions } from "@flowpanel/kit";
 
@@ -56,18 +59,20 @@ export const realtime = {
 } satisfies PublisherOptions;
 ```
 
-```ts excerpt
+```ts
 // worker/admin-events.ts
 import { createPublisher } from "@flowpanel/kit/publish";
 import { realtime } from "@/shared/realtime";
 
 export const adminEvents = createPublisher({
   ...realtime,
-  onError: (err, channel) => logger.warn({ err, channel }, "admin realtime publish failed"),
+  onError: (err, channel) => console.warn("admin realtime publish failed", { channel, err }),
 });
 
-await adminEvents.resource("orders", { id: order.id });
-await adminEvents.publish("pipeline");
+export async function orderShipped(order: { id: number }): Promise<void> {
+  await adminEvents.resource("orders", { id: order.id });
+  await adminEvents.publish("pipeline");
+}
 ```
 
 `resource(name, { id })` refreshes that resource's lists and the widgets subscribed to it; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.

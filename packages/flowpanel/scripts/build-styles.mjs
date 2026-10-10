@@ -1,7 +1,9 @@
+import { globSync, readFileSync } from "node:fs";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { strayUtilities, unprefixedSelectors } from "./class-guard.mjs";
 
 const require = createRequire(import.meta.url);
 const postcss = require("postcss");
@@ -20,11 +22,78 @@ const TONE_CLASSES = resolve(REPOSITORY, "packages/core/src/tone-classes.ts");
 const FLOWPANEL_SUBJECT =
   ":where([data-flowpanel-root], [data-flowpanel-root] *, [data-flowpanel-portal], [data-flowpanel-portal] *)";
 
-const fpColor = (name) => `hsl(var(--fp-${name}) / <alpha-value>)`;
-
 const STYLE_SOURCES = ["react", "next", "charts"];
 
-const tailwindConfig = {
+export const KIT_PREFIX = "fp-";
+
+// Bridge token name → the kit's own theme key, so kit classes read `fp-bg-surface`, not `fp-bg-fp-bg-1`.
+export const KIT_THEME_KEYS = {
+  color: {
+    "fp-bg-1": "surface",
+    "fp-bg-2": "canvas",
+    "fp-bg-3": "fill",
+    "fp-text-1": "ink",
+    "fp-text-2": "soft",
+    "fp-text-3": "faint",
+    "fp-border-1": "line",
+    "fp-border-2": "line-strong",
+    "fp-accent": "accent",
+    "fp-accent-text": "on-accent",
+    "fp-focus": "focus",
+    "fp-overlay": "overlay",
+    "fp-ok": "ok",
+    "fp-warn": "warn",
+    "fp-err": "err",
+    "fp-info": "info",
+    "fp-ok-text": "ok-ink",
+    "fp-warn-text": "warn-ink",
+    "fp-err-text": "err-ink",
+    "fp-info-text": "info-ink",
+    "fp-accent-badge-text": "accent-ink",
+    "fp-data": "data",
+    "fp-chart-1": "chart-1",
+    "fp-chart-2": "chart-2",
+    "fp-chart-3": "chart-3",
+    "fp-chart-4": "chart-4",
+    "fp-chart-5": "chart-5",
+    "fp-chart-6": "chart-6",
+    "fp-chart-7": "chart-7",
+  },
+  radius: { fp: "DEFAULT", "fp-sm": "sm", "fp-lg": "lg", "fp-xl": "xl" },
+  shadow: { "fp-xs": "xs", "fp-sm": "sm", "fp-md": "md", "fp-lg": "lg" },
+  font: { "fp-sans": "sans", "fp-mono": "mono" },
+  ease: { "fp-out": "out", "fp-in-out": "in-out", "fp-spring": "spring" },
+};
+
+export function kitTheme(css) {
+  const theme = Object.fromEntries(Object.keys(KIT_THEME_KEYS).map((family) => [family, {}]));
+  const seen = new Set();
+  postcss.parse(css).walkAtRules("theme", (rule) => {
+    rule.walkDecls((declaration) => {
+      const [, family, name] =
+        /^--(color|radius|shadow|font|ease)-(.+)$/.exec(declaration.prop) ?? [];
+      const key = family && KIT_THEME_KEYS[family][name];
+      if (!key) throw declaration.error(`${declaration.prop} has no kit name in KIT_THEME_KEYS`);
+      seen.add(`${family}:${name}`);
+      theme[family][key] =
+        family === "color"
+          ? declaration.value.replace(/\)$/, " / <alpha-value>)")
+          : declaration.value;
+    });
+  });
+  for (const [family, names] of Object.entries(KIT_THEME_KEYS)) {
+    for (const name of Object.keys(names)) {
+      if (!seen.has(`${family}:${name}`))
+        throw new Error(`KIT_THEME_KEYS.${family} names ${name}, which @theme no longer defines`);
+    }
+  }
+  return theme;
+}
+
+const theme = kitTheme(readFileSync(CANONICAL_STYLESHEET, "utf8"));
+
+export const tailwindConfig = {
+  prefix: KIT_PREFIX,
   content: [
     ...STYLE_SOURCES.map((name) => resolve(REPOSITORY, `packages/${name}/dist/**/*.{js,mjs}`)),
     TONE_CLASSES,
@@ -34,61 +103,12 @@ const tailwindConfig = {
   // element selector can enter the artifact.
   corePlugins: { preflight: false },
   theme: {
+    borderRadius: { none: "0px", ...theme.radius, full: "9999px" },
+    boxShadow: { ...theme.shadow, none: "none" },
     extend: {
-      colors: {
-        "fp-bg-1": fpColor("bg-1"),
-        "fp-bg-2": fpColor("bg-2"),
-        "fp-bg-3": fpColor("bg-3"),
-        "fp-text-1": fpColor("text-1"),
-        "fp-text-2": fpColor("text-2"),
-        "fp-text-3": fpColor("text-3"),
-        "fp-border-1": fpColor("border-1"),
-        "fp-border-2": fpColor("border-2"),
-        "fp-accent": fpColor("accent"),
-        "fp-accent-text": fpColor("accent-text"),
-        "fp-focus": fpColor("ring"),
-        "fp-overlay": fpColor("overlay"),
-        "fp-ok": fpColor("ok"),
-        "fp-warn": fpColor("warn"),
-        "fp-err": fpColor("err"),
-        "fp-info": fpColor("info"),
-        "fp-ok-text": fpColor("ok-text"),
-        "fp-warn-text": fpColor("warn-text"),
-        "fp-err-text": fpColor("err-text"),
-        "fp-info-text": fpColor("info-text"),
-        "fp-accent-badge-text": fpColor("accent-badge-text"),
-        "fp-data": fpColor("data"),
-        "fp-chart-1": fpColor("chart-1"),
-        "fp-chart-2": fpColor("chart-2"),
-        "fp-chart-3": fpColor("chart-3"),
-        "fp-chart-4": fpColor("chart-4"),
-        "fp-chart-5": fpColor("chart-5"),
-        "fp-chart-6": fpColor("chart-6"),
-        "fp-chart-7": fpColor("chart-7"),
-      },
-      borderRadius: {
-        fp: "var(--fp-radius)",
-        "fp-sm": "var(--fp-radius-sm)",
-        "fp-lg": "var(--fp-radius-lg)",
-        "fp-xl": "var(--fp-radius-xl)",
-      },
-      boxShadow: {
-        "fp-xs": "var(--fp-shadow-xs)",
-        "fp-sm": "var(--fp-shadow-sm)",
-        "fp-md": "var(--fp-shadow-md)",
-        "fp-lg": "var(--fp-shadow-lg)",
-      },
-      fontFamily: {
-        sans: "var(--fp-font-sans)",
-        mono: "var(--fp-font-mono)",
-        "fp-sans": "var(--fp-font-sans)",
-        "fp-mono": "var(--fp-font-mono)",
-      },
-      transitionTimingFunction: {
-        "fp-out": "var(--fp-ease-out)",
-        "fp-in-out": "var(--fp-ease-in-out)",
-        "fp-spring": "var(--fp-ease-spring)",
-      },
+      colors: theme.color,
+      fontFamily: theme.font,
+      transitionTimingFunction: theme.ease,
     },
   },
 };
@@ -166,15 +186,6 @@ function rejectGlobalSelectors(root) {
   });
 }
 
-function namespaceLayers(root) {
-  root.walkAtRules("layer", (rule) => {
-    rule.params = rule.params.replace(
-      /\b(?:theme|base|components|utilities)(?:\.flowpanel)?\b/g,
-      (name) => (name === "base.flowpanel" ? "fp-base.flowpanel" : `fp-${name}`),
-    );
-  });
-}
-
 function namespaceTailwindVariables(root) {
   root.walkDecls((declaration) => {
     declaration.prop = declaration.prop.replaceAll("--tw-", "--fp-tw-");
@@ -221,7 +232,6 @@ function assertIsolated(root) {
 export function isolateCss(css) {
   const root = postcss.parse(css);
   rejectGlobalSelectors(root);
-  namespaceLayers(root);
   namespaceTailwindVariables(root);
   namespaceKeyframes(root);
   scopeRules(root);
@@ -269,6 +279,30 @@ export function tailwindBridge(css) {
   return `${blocks[0]}\n`;
 }
 
+export function styleSourceFiles() {
+  const files = STYLE_SOURCES.flatMap((name) =>
+    globSync(`packages/${name}/dist/**/*.{js,mjs}`, { cwd: REPOSITORY }),
+  );
+  return [...files, relative(REPOSITORY, TONE_CLASSES)].map((file) => ({
+    file,
+    text: readFileSync(resolve(REPOSITORY, file), "utf8"),
+  }));
+}
+
+async function assertPrefixed(css) {
+  const selectors = unprefixedSelectors(css);
+  if (selectors.length) {
+    throw new Error(`FlowPanel stylesheet has unprefixed classes: ${selectors.join(", ")}`);
+  }
+  const strays = await strayUtilities(styleSourceFiles());
+  if (strays.length) {
+    const list = strays.map(({ file, candidate }) => `${candidate} (${file})`).join(", ");
+    throw new Error(
+      `Kit classes must start with "${KIT_PREFIX}", or the host's utilities restyle them: ${list}`,
+    );
+  }
+}
+
 export async function buildStyles() {
   await assertBuiltStyleSources();
   const input = await canonicalInput();
@@ -276,6 +310,7 @@ export async function buildStyles() {
     from: CANONICAL_STYLESHEET,
   });
   const css = isolateCss(compiled.css);
+  await assertPrefixed(css);
   await mkdir(dirname(OUTPUT), { recursive: true });
   await writeFile(OUTPUT, css);
   await writeFile(BRIDGE_OUTPUT, tailwindBridge(await readFile(CANONICAL_STYLESHEET, "utf8")));

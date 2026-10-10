@@ -11,14 +11,14 @@ A resource is one table or model in the admin: its list, forms, record page or d
 
 <AdapterTabs>
   <AdapterTab adapter="drizzle">
-```ts excerpt
+```ts
 resource(schema.users, {
   columns: ["email", "name", "createdAt"],
 })
 ```
   </AdapterTab>
   <AdapterTab adapter="prisma">
-```ts excerpt
+```ts
 resource("User", {
   name: "users",
   columns: ["email", "name", "createdAt"],
@@ -33,7 +33,7 @@ resource("User", {
 
 `name` is the registry key and URL segment; keep it stable once links depend on it. `label` names one row and `plural` the list.
 
-```ts excerpt
+```ts
 resource(schema.people, {
   name: "customers",
   label: "Customer",
@@ -46,7 +46,7 @@ resource(schema.people, {
 
 Search and filters are off until you name fields. Their values live in the URL with sorting and pagination, so a filtered list is a shareable link.
 
-```ts excerpt
+```ts
 resource(schema.orders, {
   columns: ["number", "customerEmail", "status", "total", "createdAt"],
   search: ["number", "customerEmail"],

@@ -13,23 +13,23 @@ import { StatGroupCard } from "../StatGroupCard";
 afterEach(cleanup);
 
 const TEXT: Record<Tone, string> = {
-  default: "text-fp-text-1",
-  accent: "text-fp-accent-badge-text",
-  ok: "text-fp-ok-text",
-  warn: "text-fp-warn-text",
-  err: "text-fp-err-text",
-  info: "text-fp-info-text",
-  muted: "text-fp-text-3",
+  default: "fp-text-ink",
+  accent: "fp-text-accent-ink",
+  ok: "fp-text-ok-ink",
+  warn: "fp-text-warn-ink",
+  err: "fp-text-err-ink",
+  info: "fp-text-info-ink",
+  muted: "fp-text-faint",
 };
 
 const FILL: Record<Tone, string> = {
-  default: "bg-fp-data",
-  accent: "bg-fp-accent",
-  ok: "bg-fp-ok",
-  warn: "bg-fp-warn",
-  err: "bg-fp-err",
-  info: "bg-fp-info",
-  muted: "bg-fp-text-3",
+  default: "fp-bg-data",
+  accent: "fp-bg-accent",
+  ok: "fp-bg-ok",
+  warn: "fp-bg-warn",
+  err: "fp-bg-err",
+  info: "fp-bg-info",
+  muted: "fp-bg-faint",
 };
 
 const tones = Object.keys(TEXT) as Tone[];
@@ -57,7 +57,7 @@ describe.each(tones)("tone %s", (tone) => {
 
   it("fills a bar with the tone", () => {
     const { container } = render(<BarsCard rows={[{ label: "Runs", value: 7, tone }]} />);
-    expect(container.querySelector("[data-tone] .h-full.rounded-full")?.className).toContain(
+    expect(container.querySelector("[data-tone] .fp-h-full.fp-rounded-full")?.className).toContain(
       FILL[tone],
     );
   });
@@ -67,7 +67,7 @@ describe.each(tones)("tone %s", (tone) => {
     const dot = container.querySelector("li [data-tone-dot]");
     if (tone === "default") expect(dot).toBeNull();
     else expect(dot?.className).toContain(FILL[tone]);
-    expect(screen.getByText("Deploy").className).toContain("text-fp-text-1");
+    expect(screen.getByText("Deploy").className).toContain("fp-text-ink");
   });
 });
 

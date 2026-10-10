@@ -36,10 +36,7 @@ function optionValues(options: unknown): string[] | null {
   );
 }
 
-/**
- * Why the list's URL would read `value` on `field` as different rows than a count or `where` match, or `null` when the same.
- * Decoding depends on the filter type: multiselect arrays, numeric-range/daterange bounds, bare-string text, select drops others.
- */
+/** Why the list's URL would read `value` on `field` as other rows than a count or `where` matches, or `null`. */
 export function filterShapeProblem(
   resource: ResourceConfig,
   field: string,

@@ -21,7 +21,7 @@ kind: how-to
 
 Export each resource from its own module and compose them at the root:
 
-```ts excerpt
+```ts
 // src/admin/resources/users.ts
 import { resource } from "@flowpanel/kit";
 import { users } from "@/server/lib/db/schema";
@@ -32,11 +32,20 @@ export const usersResource = resource(users, {
 });
 ```
 
-```ts excerpt
+```ts
 // flowpanel.config.ts
+import { defineAdmin } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { overviewDashboard } from "@/admin/dashboards/overview";
+import { ordersResource } from "@/admin/resources/orders";
+import { usersResource } from "@/admin/resources/users";
+import { getSession } from "@/server/lib/auth";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  auth,
+  auth: { session: getSession, role: (s) => s?.user.role ?? "guest", access: "admin" },
   resources: [usersResource, ordersResource],
   dashboards: [overviewDashboard],
 });
@@ -48,7 +57,7 @@ export default defineAdmin({
 
 Register your client and schema once, so `ctx.db` is your client and every table and view is a typed resource name and row:
 
-```ts excerpt
+```ts
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
@@ -63,7 +72,7 @@ Register `session` too and `ctx.session` is typed everywhere. Prisma resources u
 
 `navGroup` on a dashboard, page, resource or queue moves its entry into a named group:
 
-```ts excerpt
+```ts
 const journals = { label: "Journals", collapsed: true } as const;
 
 resource(schema.runs, { navGroup: journals });

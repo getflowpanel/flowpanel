@@ -29,80 +29,10 @@ With npm, run `npx @flowpanel/cli init` and then `npx flowpanel <command>`. Yarn
 
 <AdapterTabs>
   <AdapterTab adapter="drizzle">
-```ts excerpt
-import { defineAdmin } from "@flowpanel/kit";
-import { drizzleAdapter } from "@flowpanel/kit/drizzle";
-import { db } from "@/server/lib/db";
-import * as schema from "@/server/lib/db/schema";
-import { getSession } from "@/server/lib/auth";
-
-declare module "@flowpanel/kit" {
-  interface FlowpanelTypes {
-    db: typeof db;
-    schema: typeof schema;
-    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
-  }
-}
-
-export default defineAdmin({
-  paths: { admin: "/admin", api: "/api/flowpanel" },
-  adapter: drizzleAdapter({ db, schema }),
-
-  auth: {
-    session: getSession,
-    role: (s) => s?.user.role ?? "guest",
-    access: "admin",
-  },
-
-  realtime: { driver: "memory" },
-
-  theme: {
-    brand: { name: "My app" },
-    mode: "auto",
-  },
-
-  resources: [
-    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })
-  ],
-});
-```
+    <include>../../snippets/generated/init/drizzle-config.ts</include>
   </AdapterTab>
   <AdapterTab adapter="prisma">
-```ts excerpt
-import { defineAdmin } from "@flowpanel/kit";
-import { prismaAdapter } from "@flowpanel/kit/prisma";
-import { prisma } from "@/lib/prisma";
-import { getSession } from "@/server/lib/auth";
-
-declare module "@flowpanel/kit" {
-  interface FlowpanelTypes {
-    db: typeof prisma;
-    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
-  }
-}
-
-export default defineAdmin({
-  paths: { admin: "/admin", api: "/api/flowpanel" },
-  adapter: prismaAdapter({ prisma, provider: "postgresql" }),
-
-  auth: {
-    session: getSession,
-    role: (s) => s?.user.role ?? "guest",
-    access: "admin",
-  },
-
-  realtime: { driver: "memory" },
-
-  theme: {
-    brand: { name: "My app" },
-    mode: "auto",
-  },
-
-  resources: [
-    // pnpm flowpanel new <model>  adds an entry; or write resource("User", { columns: ["email", "name", "createdAt"] })
-  ],
-});
-```
+    <include>../../snippets/generated/init/prisma-config.ts</include>
   </AdapterTab>
 </AdapterTabs>
 
@@ -116,6 +46,10 @@ The `declare module` block registers your database, your schema and your session
 - With your own `getSession`, the config uses it as it is.
 - Otherwise `server/lib/auth.ts` exports a `getSession` that returns `null`, so every request is denied. Return your session from it, or run `pnpm flowpanel init --dev-auth` for a development identity that refuses to run in production.
 
+The stub `init` wrote in that last case, which denies every request:
+
+<include>../../snippets/generated/init/auth-session.ts</include>
+
 [Authentication](/docs/guides/authentication) covers each provider and how the role is read.
 
 ## Add your first resource
@@ -124,7 +58,7 @@ The `declare module` block registers your database, your schema and your session
 
 <AdapterTabs>
   <AdapterTab adapter="drizzle">
-```ts excerpt
+```ts as="AdminDefinition"
 resources: [
   resource(schema.users, {
     columns: ["email", "name", "role", "createdAt"],
@@ -136,7 +70,7 @@ resources: [
 Drizzle infers the row type from the table, so a misspelt column fails the type check.
   </AdapterTab>
   <AdapterTab adapter="prisma">
-```ts excerpt
+```ts as="AdminDefinition"
 resources: [
   resource("User", {
     name: "users",

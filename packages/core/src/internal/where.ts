@@ -58,10 +58,7 @@ function emptySet(value: unknown): boolean {
   );
 }
 
-/**
- * A `where` checked against the resource's columns, in the adapter's filter shape, or `null` when an empty set matches no row.
- * Throws on an unknown field or a value that would silently match every row or the opposite rows.
- */
+/** A `where` checked against the columns, in the adapter's filter shape; `null` when an empty set matches nothing. */
 export function normalizeWhere(
   call: string,
   where: Record<string, unknown>,
@@ -94,10 +91,7 @@ type Bound = number | Date;
 
 const time = (bound: Bound): number => (bound instanceof Date ? bound.getTime() : bound);
 
-/**
- * Filters plus the widget's range on `field`, as a link's `range` bounds it, or unchanged over the whole history.
- * A field that is not a column, or one the `where` sets to a non-range value, throws.
- */
+/** Filters plus the widget's range on `field`; throws when `field` is not a column or `where` sets it to a non-range. */
 export function withRange(
   call: string,
   filters: Record<string, unknown>,

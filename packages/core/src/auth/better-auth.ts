@@ -1,5 +1,5 @@
 import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
-import { assertNoAuthRequireRole } from "../validate-removed-keys";
+import { assertNoAuthRequireRole } from "../compiler/validate/removed-keys";
 
 /** The part of a better-auth instance FlowPanel calls. */
 export interface BetterAuthLike {

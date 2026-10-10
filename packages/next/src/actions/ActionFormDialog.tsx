@@ -70,12 +70,12 @@ export function ActionFormDialog({
             <DialogTitle>{title}</DialogTitle>
             {description ? <DialogDescription>{description}</DialogDescription> : null}
           </DialogHeader>
-          <div className="my-4 grid gap-4">
+          <div className="fp-my-4 fp-grid fp-gap-4">
             {formBannerError ? (
               <div
                 role="alert"
                 aria-live="assertive"
-                className="rounded-fp-sm border border-fp-err/30 bg-fp-err/10 px-3 py-2 text-sm text-fp-err"
+                className="fp-rounded-sm fp-border fp-border-err/30 fp-bg-err/10 fp-px-3 fp-py-2 fp-text-sm fp-text-err"
               >
                 {formBannerError}
               </div>

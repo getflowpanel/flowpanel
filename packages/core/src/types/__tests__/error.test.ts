@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FlowpanelConfigError } from "../config-error";
 import {
   FlowpanelAccessError,
   FlowpanelAuthError,
@@ -86,5 +87,29 @@ describe("Specialized error subclasses", () => {
     expect(new FlowpanelNotFoundError("404 it").message).toBe("404 it");
     expect(new FlowpanelConflictError("dup").message).toBe("dup");
     expect(new FlowpanelRateLimitError("too fast").message).toBe("too fast");
+  });
+});
+
+describe("FlowpanelConfigError", () => {
+  it("reads [flowpanel] <where>: <problem> and keeps where and the cause", () => {
+    const cause = new Error("no such table");
+    const err = new FlowpanelConfigError(
+      'resource "orders" columns',
+      "they are omitted. Declare columns.",
+      { cause },
+    );
+    expect(err.message).toBe(
+      '[flowpanel] resource "orders" columns: they are omitted. Declare columns.',
+    );
+    expect(err.where).toBe('resource "orders" columns');
+    expect(err.name).toBe("FlowpanelConfigError");
+    expect(err.cause).toBe(cause);
+    expect(err).not.toBeInstanceOf(FlowpanelError);
+  });
+
+  it("is recognised across bundled copies of the class", () => {
+    const copy = Object.assign(new Error("x"), { [Symbol.for("flowpanel.configError")]: true });
+    expect(copy).toBeInstanceOf(FlowpanelConfigError);
+    expect(new Error("x")).not.toBeInstanceOf(FlowpanelConfigError);
   });
 });

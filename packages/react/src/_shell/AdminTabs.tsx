@@ -65,42 +65,44 @@ export function AdminTabs({
     <nav
       aria-label={navigation.admin}
       data-flowpanel-nav=""
-      className="sticky top-0 z-40 border-b border-fp-border-1 bg-fp-bg-1/85 backdrop-blur-md"
+      className="fp-sticky fp-top-0 fp-z-40 fp-border-b fp-border-line fp-bg-surface/85 fp-backdrop-blur-md"
     >
-      <p id="admin-tabs-scroll-hint" className="sr-only">
+      <p id="admin-tabs-scroll-hint" className="fp-sr-only">
         {navigation.scrollHint}
       </p>
-      <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 sm:gap-6 sm:px-6">
-        {hasBrand ? <Brand brand={brand} className="hidden flex-shrink-0 py-3 sm:flex" /> : null}
+      <div className="fp-mx-auto fp-flex fp-max-w-7xl fp-items-center fp-gap-2 fp-px-4 sm:fp-gap-6 sm:fp-px-6">
+        {hasBrand ? (
+          <Brand brand={brand} className="fp-hidden fp-flex-shrink-0 fp-py-3 sm:fp-flex" />
+        ) : null}
         <ul
           ref={stripRef}
           aria-describedby="admin-tabs-scroll-hint"
           className={cn(
-            "fp-scroll-fade-x fp-scrollbar-hide flex flex-1 items-center gap-1 overflow-x-auto",
-            !hasBrand && "-ml-3",
+            "fp-scroll-fade-x fp-scrollbar-hide fp-flex fp-flex-1 fp-items-center fp-gap-1 fp-overflow-x-auto",
+            !hasBrand && "-fp-ml-3",
           )}
         >
           {items.map((it) => {
             const active = activeHref === it.href;
             return (
-              <li key={it.href} className="flex-shrink-0">
+              <li key={it.href} className="fp-flex-shrink-0">
                 <Link
                   href={it.href}
                   ref={active ? activeRef : undefined}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative inline-flex h-11 items-center px-3 text-sm whitespace-nowrap transition-colors",
-                    active ? "font-medium text-fp-text-1" : "text-fp-text-2 hover:text-fp-text-1",
+                    "fp-relative fp-inline-flex fp-h-11 fp-items-center fp-px-3 fp-text-sm fp-whitespace-nowrap fp-transition-colors",
+                    active ? "fp-font-medium fp-text-ink" : "fp-text-soft hover:fp-text-ink",
                   )}
                 >
                   {it.icon ? (
-                    <FlowpanelIcon name={it.icon} className="mr-2 h-4 w-4 shrink-0" />
+                    <FlowpanelIcon name={it.icon} className="fp-mr-2 fp-h-4 fp-w-4 fp-shrink-0" />
                   ) : null}
                   {it.label}
                   {active ? (
                     <span
                       aria-hidden
-                      className="absolute inset-x-3 bottom-0 h-[2px] rounded-full bg-fp-text-1"
+                      className="fp-absolute fp-inset-x-3 fp-bottom-0 fp-h-[2px] fp-rounded-full fp-bg-ink"
                     />
                   ) : null}
                 </Link>
@@ -109,8 +111,8 @@ export function AdminTabs({
           })}
         </ul>
         {user ? (
-          <div className="flex-shrink-0 py-1.5">
-            <AccountMenu user={user} align="end" className="w-auto" compact />
+          <div className="fp-flex-shrink-0 fp-py-1.5">
+            <AccountMenu user={user} align="end" className="fp-w-auto" compact />
           </div>
         ) : null}
       </div>

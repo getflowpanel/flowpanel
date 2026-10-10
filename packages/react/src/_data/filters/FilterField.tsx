@@ -15,7 +15,7 @@ export interface FilterFieldProps {
 
 /** Strips a control's own chrome and horizontal padding, so the pill is the single source of spacing. */
 export const BARE_CONTROL =
-  "h-11 gap-2 border-0 bg-transparent px-0 shadow-none focus:border-0 focus:ring-0 focus-visible:ring-0 hover:border-0 sm:h-8";
+  "fp-h-11 fp-gap-2 fp-border-0 fp-bg-transparent fp-px-0 fp-shadow-none focus:fp-border-0 focus:fp-ring-0 focus-visible:fp-ring-0 hover:fp-border-0 sm:fp-h-8";
 
 export function FilterField({
   label,
@@ -27,9 +27,9 @@ export function FilterField({
   return (
     <div
       className={cn(
-        "inline-flex h-11 items-center rounded-full border bg-fp-bg-1 shadow-fp-xs transition-colors sm:h-9",
-        active ? "border-fp-accent/40" : "border-fp-border-1 hover:border-fp-border-2",
-        "focus-within:border-fp-focus focus-within:ring-2 focus-within:ring-fp-focus/25",
+        "fp-inline-flex fp-h-11 fp-items-center fp-rounded-full fp-border fp-bg-surface fp-shadow-xs fp-transition-colors sm:fp-h-9",
+        active ? "fp-border-accent/40" : "fp-border-line hover:fp-border-line-strong",
+        "focus-within:fp-border-focus focus-within:fp-ring-2 focus-within:fp-ring-focus/25",
         className,
       )}
     >
@@ -37,16 +37,18 @@ export function FilterField({
         <>
           <label
             htmlFor={htmlFor}
-            className="cursor-default whitespace-nowrap pl-3 pr-2.5 text-sm text-fp-text-3"
+            className="fp-cursor-default fp-whitespace-nowrap fp-pl-3 fp-pr-2.5 fp-text-sm fp-text-faint"
           >
             {label}
           </label>
-          <span aria-hidden className="h-4 w-px shrink-0 bg-fp-border-1" />
+          <span aria-hidden className="fp-h-4 fp-w-px fp-shrink-0 fp-bg-line" />
         </>
       ) : null}
       {/* The one place horizontal padding is set, so every pill measures the
           same from divider to value and from value to edge. */}
-      <div className="flex min-w-0 items-center gap-2 pl-2.5 pr-3">{children}</div>
+      <div className="fp-flex fp-min-w-0 fp-items-center fp-gap-2 fp-pl-2.5 fp-pr-3">
+        {children}
+      </div>
     </div>
   );
 }

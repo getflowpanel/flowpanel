@@ -12,7 +12,7 @@ export const Label = /* @__PURE__ */ named(
     <LabelPrimitive.Root
       ref={ref}
       className={cn(
-        "text-sm font-medium text-fp-text-1 leading-none peer-disabled:opacity-70",
+        "fp-text-sm fp-font-medium fp-text-ink fp-leading-none peer-disabled:fp-opacity-70",
         className,
       )}
       {...props}

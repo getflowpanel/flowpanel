@@ -48,15 +48,15 @@ export function StatCard({
   );
   const content = (
     <CardContent>
-      <div className="space-y-1">
-        <div className={cn("text-sm text-fp-text-2", TWO_LINES)} {...fullTextTitle(label)}>
+      <div className="fp-space-y-1">
+        <div className={cn("fp-text-sm fp-text-soft", TWO_LINES)} {...fullTextTitle(label)}>
           {label}
         </div>
         <CaptionLine caption={caption} />
         <div
           className={cn(
-            "truncate",
-            plain ? FIGURE : "text-xl font-semibold leading-tight tabular-nums",
+            "fp-truncate",
+            plain ? FIGURE : "fp-text-xl fp-font-semibold fp-leading-tight fp-tabular-nums",
             toneTextClass[tone],
           )}
         >
@@ -64,7 +64,10 @@ export function StatCard({
         </div>
       </div>
       {hint ? (
-        <div className={cn(TWO_LINES, "mt-0.5 text-xs text-fp-text-3")} {...fullTextTitle(hint)}>
+        <div
+          className={cn(TWO_LINES, "fp-mt-0.5 fp-text-xs fp-text-faint")}
+          {...fullTextTitle(hint)}
+        >
           {hint}
         </div>
       ) : null}
@@ -72,14 +75,14 @@ export function StatCard({
   );
   const card = plain ? (
     <div
-      className="h-full w-full bg-fp-bg-1 transition-colors group-hover:bg-fp-bg-2"
+      className="fp-h-full fp-w-full fp-bg-surface fp-transition-colors group-hover:fp-bg-canvas"
       data-tone={tone}
       data-plain=""
     >
       {content}
     </div>
   ) : (
-    <Card className="h-full w-full" data-tone={tone}>
+    <Card className="fp-h-full fp-w-full" data-tone={tone}>
       {content}
     </Card>
   );
@@ -89,8 +92,10 @@ export function StatCard({
       href={href}
       aria-label={label}
       className={cn(
-        "group block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
-        plain ? "focus-visible:ring-inset" : "rounded-fp-lg transition-shadow hover:shadow-fp-sm",
+        "fp-group fp-block fp-h-full fp-w-full focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+        plain
+          ? "focus-visible:fp-ring-inset"
+          : "fp-rounded-lg fp-transition-shadow hover:fp-shadow-sm",
       )}
     >
       {card}

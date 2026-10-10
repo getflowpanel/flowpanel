@@ -21,7 +21,7 @@ describe("plain cards", () => {
       />,
     );
     expect(container.querySelector("[data-plain]")).toBeTruthy();
-    expect(container.querySelector(".rounded-fp-lg.border")).toBeNull();
+    expect(container.querySelector(".fp-rounded-lg.fp-border")).toBeNull();
     expect(container.querySelector("[data-delta]")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Visits" }).getAttribute("href")).toBe("/admin/visits");
   });
@@ -29,7 +29,7 @@ describe("plain cards", () => {
   it("drops the stat card's frame but keeps its link", () => {
     const { container } = render(<StatCard plain label="Failures" value="3" href="/admin/runs" />);
     expect(container.querySelector("[data-plain]")).toBeTruthy();
-    expect(container.querySelector(".rounded-fp-lg.border")).toBeNull();
+    expect(container.querySelector(".fp-rounded-lg.fp-border")).toBeNull();
     expect(screen.getByRole("link", { name: "Failures" }).getAttribute("href")).toBe("/admin/runs");
   });
 
@@ -39,7 +39,7 @@ describe("plain cards", () => {
     );
     const cell = container.querySelector("[data-fp-expired]") as HTMLElement;
     expect(cell.hasAttribute("data-plain")).toBe(true);
-    expect(cell.className).not.toContain("border");
+    expect(cell.className).not.toContain("fp-border");
     expect(cell.className).not.toContain("shadow");
   });
 
@@ -47,9 +47,9 @@ describe("plain cards", () => {
     const { container, rerender } = render(<ErrorCard plain error={new Error("boom")} />);
     const cell = () => container.querySelector("[data-fp-error]") as HTMLElement;
     expect(cell().hasAttribute("data-plain")).toBe(true);
-    expect(cell().className).not.toContain("border");
+    expect(cell().className).not.toContain("fp-border");
     rerender(<ErrorCard error={new Error("boom")} />);
-    expect(cell().className).toContain("border-fp-border-1");
-    expect(cell().className).toContain("h-full");
+    expect(cell().className).toContain("fp-border-line");
+    expect(cell().className).toContain("fp-h-full");
   });
 });

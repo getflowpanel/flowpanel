@@ -1,5 +1,5 @@
 import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
-import { assertNoAuthRequireRole } from "../validate-removed-keys";
+import { assertNoAuthRequireRole } from "../compiler/validate/removed-keys";
 
 export interface ClerkAuthOptions {
   /** Who may enter the admin: a role, a role list, or a predicate. */
@@ -12,6 +12,15 @@ export interface ClerkAuthOptions {
   role?: (s: Session | null) => string;
   /** Extract the actor id for the audit trail / per-user rate limiting. */
   userId?: (s: Session | null) => string | null;
+}
+
+/** The Clerk user id always wins over a custom session claim named `id`. */
+export function clerkSession(
+  userId: string | null,
+  sessionClaims: Record<string, unknown> | undefined,
+): Session | null {
+  if (!userId) return null;
+  return { ...sessionClaims, id: userId } as Session;
 }
 
 /** First-class Clerk integration. */
@@ -27,8 +36,7 @@ export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
         throw new Error("withClerk: @clerk/nextjs is not installed. Run `pnpm add @clerk/nextjs`.");
       }
       const { userId, sessionClaims } = await mod.auth();
-      if (!userId) return null;
-      return { id: userId, ...sessionClaims } as Session;
+      return clerkSession(userId, sessionClaims);
     },
     role:
       opts.role ??

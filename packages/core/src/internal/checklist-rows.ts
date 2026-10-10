@@ -38,10 +38,7 @@ function whenOf(item: ChecklistItem, timeZone: string): { at: Date | null; day: 
   return { at, day: null };
 }
 
-/**
- * The checklist's rows in order, and how many required items are done. Ordered, a done item
- * carries when it was done and the gap since the previous done item.
- */
+/** The checklist's rows in order and how many required items are done, with done times when ordered. */
 export function checklistRows(
   items: readonly ChecklistItem[],
   ordered: boolean,

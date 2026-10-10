@@ -21,12 +21,12 @@ export function ServerCard({ children, className, label, caption, ...rest }: Ser
     <div
       {...rest}
       className={cn(
-        "h-full rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-xs",
+        "fp-h-full fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-shadow-xs",
         className,
       )}
     >
       <CardHeading label={label} caption={caption} />
-      <div className={heading ? "px-4 pb-4" : "p-4"}>{children}</div>
+      <div className={heading ? "fp-px-4 fp-pb-4" : "fp-p-4"}>{children}</div>
     </div>
   );
 }

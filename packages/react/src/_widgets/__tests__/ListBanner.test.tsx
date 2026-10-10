@@ -24,14 +24,14 @@ describe("banner list", () => {
     expect(container.querySelector("[data-fp-glyph]")).toBeNull();
     const card = container.querySelector("[data-fp-banner]") as HTMLElement;
     expect(card.getAttribute("data-fp-banner")).toBe("err");
-    expect(card.className).toContain("border-l-fp-err");
-    expect(card.className).not.toMatch(/bg-fp-err/);
+    expect(card.className).toContain("fp-border-l-err");
+    expect(card.className).not.toMatch(/fp-bg-err/);
     const lead = screen.getByText("Scraper down");
-    expect(lead.className).toContain("text-lg");
-    expect(lead.className).toContain("text-fp-text-1");
+    expect(lead.className).toContain("fp-text-lg");
+    expect(lead.className).toContain("fp-text-ink");
     const rest = screen.getByText("Bans on kwork");
-    expect(rest.className).toContain("text-fp-text-2");
-    expect(rest.closest("li")?.querySelector("[data-tone-dot]")?.className).toContain("bg-fp-warn");
+    expect(rest.className).toContain("fp-text-soft");
+    expect(rest.closest("li")?.querySelector("[data-tone-dot]")?.className).toContain("fp-bg-warn");
     expect(screen.getByText("3 hours ago · kwork")).toBeTruthy();
     expect(screen.getByRole("link", { name: "2 more" }).getAttribute("href")).toBe("/admin/system");
   });
@@ -47,13 +47,13 @@ describe("banner list", () => {
         ]}
       />,
     );
-    expect(screen.getByText("Scraper down").className).toContain("text-lg");
-    expect(screen.getByText("Slow sync").className).toContain("text-fp-text-2");
+    expect(screen.getByText("Scraper down").className).toContain("fp-text-lg");
+    expect(screen.getByText("Slow sync").className).toContain("fp-text-soft");
   });
 
   it("says all clear in one quiet line, with no rule, when nothing is on fire", () => {
     const { container } = render(<ListCard variant="banner" rows={[]} allClear="All clear" />);
-    expect(screen.getByText("All clear").className).toContain("text-fp-text-2");
+    expect(screen.getByText("All clear").className).toContain("fp-text-soft");
     expect(container.textContent).not.toContain("✓");
     expect(container.querySelector("[data-fp-banner]")?.className).not.toContain("border-l-");
     expect(container.querySelector("[data-fp-banner]")?.getAttribute("data-fp-banner")).toBe(
@@ -100,12 +100,12 @@ describe("banner list", () => {
       />,
     );
     const body = screen.getByText(text).closest("[title]") as HTMLElement;
-    expect(body.className).toContain("line-clamp-2");
-    expect(body.className).toContain("min-w-0");
+    expect(body.className).toContain("fp-line-clamp-2");
+    expect(body.className).toContain("fp-min-w-0");
     const trail = screen.getByTitle("1,284 · since 3 hours ago · billing-webhooks-eu-west-1");
-    expect(trail.className).toContain("max-w-[45%]");
-    expect(trail.className).toContain("line-clamp-2");
-    expect(trail.className).toContain("break-words");
+    expect(trail.className).toContain("fp-max-w-[45%]");
+    expect(trail.className).toContain("fp-line-clamp-2");
+    expect(trail.className).toContain("fp-break-words");
   });
 
   it("marks a resolved row with an ok dot and draws no rule for it", () => {
@@ -122,7 +122,7 @@ describe("banner list", () => {
       .getByText("Webhook recovered")
       .closest("li")
       ?.querySelector("[data-tone-dot]");
-    expect(dot?.className).toContain("bg-fp-ok");
+    expect(dot?.className).toContain("fp-bg-ok");
     expect(container.querySelector("[data-fp-banner]")?.className).not.toContain("border-l-");
   });
 
@@ -133,7 +133,7 @@ describe("banner list", () => {
     ];
     const { container, rerender } = render(<ListCard variant="banner" rows={rows} />);
     const words = () =>
-      [...container.querySelectorAll(".sr-only")].map((node) => node.textContent?.trim());
+      [...container.querySelectorAll(".fp-sr-only")].map((node) => node.textContent?.trim());
     expect(words()).toEqual(["Error", "Info"]);
     rerender(
       <LabelsProvider value={RU_LABELS}>

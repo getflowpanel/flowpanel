@@ -33,7 +33,7 @@ describe("a column's secondary line", () => {
       />,
     );
     const second = screen.getByText("ada@example.com");
-    expect(second.className).toContain("text-fp-text-3");
+    expect(second.className).toContain("fp-text-faint");
     expect(second.previousElementSibling?.textContent).toBe("Ada");
     expect(screen.getByText("Bob").tagName).toBe("TD");
   });
@@ -63,7 +63,7 @@ describe("a column's secondary line", () => {
         rowKey="id"
       />,
     );
-    expect(screen.getByText("ada@example.com").className).toContain("text-fp-text-3");
+    expect(screen.getByText("ada@example.com").className).toContain("fp-text-faint");
   });
 
   it("renders a timestamp through LocalTime, like the cell itself", () => {

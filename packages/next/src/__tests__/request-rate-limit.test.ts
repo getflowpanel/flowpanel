@@ -60,6 +60,7 @@ describe("buildRequestContext — rate limit", () => {
       windowMs: 60_000,
       per: "ip",
     });
+    cfg.security = { trustedProxies: 1 };
     const req1 = new Request("http://localhost/", {
       headers: { "x-forwarded-for": "1.2.3.4" },
     });
@@ -78,6 +79,55 @@ describe("buildRequestContext — rate limit", () => {
         config: cfg,
       }),
     ).rejects.toBeInstanceOf(FlowpanelRateLimitError);
+  });
+
+  it("SECURITY: a forged X-Forwarded-For entry does not buy a fresh bucket", async () => {
+    const cfg = mkConfig({ driver: "memory", limit: 1, windowMs: 60_000, per: "ip" });
+    cfg.security = { trustedProxies: 1 };
+    const from = (forged: string) =>
+      buildRequestContext({
+        req: new Request("http://localhost/", {
+          headers: { "x-forwarded-for": `${forged}, 203.0.113.7` },
+        }),
+        config: cfg,
+      });
+    await expect(from("1.1.1.1")).resolves.toMatchObject({ ip: "203.0.113.7" });
+    await expect(from("2.2.2.2")).rejects.toBeInstanceOf(FlowpanelRateLimitError);
+  });
+
+  it("trusts no X-Forwarded-For header unless trustedProxies is set", async () => {
+    const ctx = await buildRequestContext({
+      req: new Request("http://localhost/", { headers: { "x-forwarded-for": "1.2.3.4" } }),
+      config: mkConfig(),
+    });
+    expect(ctx.ip).toBeNull();
+  });
+
+  it("keys per: ip by the user id when the IP is unknown, never by one shared bucket", async () => {
+    const cfg: AdminDefinition = {
+      adapter: { kind: "drizzle", db: {} } as never,
+      auth: {
+        session: async (req) => ({ id: req.headers.get("x-user") ?? "nobody" }),
+        role: () => "admin",
+      },
+      resources: [],
+      rateLimit: { driver: "memory", limit: 1, windowMs: 60_000, per: "ip" },
+    };
+    const as = (user: string) =>
+      buildRequestContext({
+        req: new Request("http://localhost/", { headers: { "x-user": user } }),
+        config: cfg,
+      });
+    await as("u1");
+    await expect(as("u2")).resolves.toBeDefined();
+    await expect(as("u1")).rejects.toBeInstanceOf(FlowpanelRateLimitError);
+  });
+
+  it("does not put callers with neither an IP nor a user id in one bucket", async () => {
+    const cfg = mkConfig({ driver: "memory", limit: 1, windowMs: 60_000 }, null);
+    const check = () => buildRequestContext({ req: new Request("http://localhost/"), config: cfg });
+    await check();
+    await expect(check()).resolves.toBeDefined();
   });
 
   it("keys by the session's top-level id (Clerk/Lucia session shape) when per='user'", async () => {

@@ -27,7 +27,7 @@ export interface DateRangeFilterProps {
 }
 
 const NAV_BUTTON =
-  "fp-press inline-flex h-7 w-7 items-center justify-center rounded-fp-sm text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60";
+  "fp-press fp-inline-flex fp-h-7 fp-w-7 fp-items-center fp-justify-center fp-rounded-sm fp-text-soft hover:fp-bg-fill hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60";
 
 export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps) {
   const { dateRange } = useLabels();
@@ -158,24 +158,26 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
         }}
       >
         <PopoverTrigger
-          className="fp-press flex h-11 min-w-0 items-center gap-2 rounded-full text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:h-8"
+          className="fp-press fp-flex fp-h-11 fp-min-w-0 fp-items-center fp-gap-2 fp-rounded-full fp-text-sm focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 sm:fp-h-8"
           aria-label={label ? formatLabel(dateRange.fieldLabel, { label }) : dateRange.label}
         >
-          <span className={cn("truncate", trigger ? "text-fp-text-1" : "text-fp-text-3")}>
+          <span className={cn("fp-truncate", trigger ? "fp-text-ink" : "fp-text-faint")}>
             {trigger ?? dateRange.any}
           </span>
           {/* Matches the chevron on the Select pills beside it; the label
               already says what the field is, so a calendar glyph is noise. */}
-          {trigger ? null : <ChevronDown aria-hidden className="h-4 w-4 shrink-0 opacity-50" />}
+          {trigger ? null : (
+            <ChevronDown aria-hidden className="fp-h-4 fp-w-4 fp-shrink-0 fp-opacity-50" />
+          )}
         </PopoverTrigger>
         {trigger ? (
           <button
             type="button"
             onClick={clear}
             aria-label={dateRange.clear}
-            className="fp-press -mr-3 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fp-text-3 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:mr-0 sm:h-6 sm:w-6"
+            className="fp-press -fp-mr-3 fp-inline-flex fp-h-11 fp-w-11 fp-shrink-0 fp-items-center fp-justify-center fp-rounded-full fp-text-faint hover:fp-bg-fill hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 sm:fp-mr-0 sm:fp-h-6 sm:fp-w-6"
           >
-            <X aria-hidden className="h-3.5 w-3.5" />
+            <X aria-hidden className="fp-h-3.5 fp-w-3.5" />
           </button>
         ) : null}
 
@@ -184,10 +186,10 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
         <PopoverContent
           align="start"
           collisionPadding={8}
-          className="w-auto max-w-[calc(100vw-1rem)] p-0"
+          className="fp-w-auto fp-max-w-[calc(100vw-1rem)] fp-p-0"
         >
-          <div className="flex flex-col sm:flex-row">
-            <ul className="flex shrink-0 gap-1 overflow-x-auto border-fp-border-1 p-2 sm:w-40 sm:flex-col sm:gap-0.5 sm:border-r sm:p-2.5">
+          <div className="fp-flex fp-flex-col sm:fp-flex-row">
+            <ul className="fp-flex fp-shrink-0 fp-gap-1 fp-overflow-x-auto fp-border-line fp-p-2 sm:fp-w-40 sm:fp-flex-col sm:fp-gap-0.5 sm:fp-border-r sm:fp-p-2.5">
               {RANGE_PRESETS.map((p) => {
                 const isActive = activePreset === p.key;
                 return (
@@ -197,35 +199,40 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                       onClick={() => commit(p.range())}
                       aria-pressed={isActive}
                       className={cn(
-                        "fp-press flex w-full items-center justify-between gap-2 whitespace-nowrap rounded-fp px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+                        "fp-press fp-flex fp-w-full fp-items-center fp-justify-between fp-gap-2 fp-whitespace-nowrap fp-rounded fp-px-3 fp-py-2 fp-text-left fp-text-sm fp-transition-colors focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
                         isActive
-                          ? "bg-fp-bg-3 font-medium text-fp-text-1"
-                          : "text-fp-text-2 hover:bg-fp-bg-3/60 hover:text-fp-text-1",
+                          ? "fp-bg-fill fp-font-medium fp-text-ink"
+                          : "fp-text-soft hover:fp-bg-fill/60 hover:fp-text-ink",
                       )}
                     >
                       {dateRange[p.key]}
-                      {isActive ? <Check aria-hidden className="h-4 w-4 shrink-0" /> : null}
+                      {isActive ? (
+                        <Check aria-hidden className="fp-h-4 fp-w-4 fp-shrink-0" />
+                      ) : null}
                     </button>
                   </li>
                 );
               })}
             </ul>
 
-            <div className="p-3 sm:p-4">
-              <div className="mb-3 flex items-center gap-2">
+            <div className="fp-p-3 sm:fp-p-4">
+              <div className="fp-mb-3 fp-flex fp-items-center fp-gap-2">
                 <button
                   type="button"
                   onClick={() => setMonth(addMonths(month, -1))}
                   aria-label={dateRange.previousMonth}
                   className={NAV_BUTTON}
                 >
-                  <ChevronLeft aria-hidden className="h-4 w-4" />
+                  <ChevronLeft aria-hidden className="fp-h-4 fp-w-4" />
                 </button>
                 {/* Each title is centred over its own grid, so the header tracks
                     the columns instead of floating over the pair. */}
-                <div aria-live="polite" className="flex flex-1 text-[0.9375rem] font-medium">
-                  <span className="flex-1 text-center">{monthTitle(month, locale)}</span>
-                  <span className="hidden flex-1 text-center sm:block">
+                <div
+                  aria-live="polite"
+                  className="fp-flex fp-flex-1 fp-text-[0.9375rem] fp-font-medium"
+                >
+                  <span className="fp-flex-1 fp-text-center">{monthTitle(month, locale)}</span>
+                  <span className="fp-hidden fp-flex-1 fp-text-center sm:fp-block">
                     {monthTitle(addMonths(month, 1), locale)}
                   </span>
                 </div>
@@ -235,10 +242,10 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                   aria-label={dateRange.nextMonth}
                   className={NAV_BUTTON}
                 >
-                  <ChevronRight aria-hidden className="h-4 w-4" />
+                  <ChevronRight aria-hidden className="fp-h-4 fp-w-4" />
                 </button>
               </div>
-              <div ref={gridRef} className="flex gap-6">
+              <div ref={gridRef} className="fp-flex fp-gap-6">
                 <Calendar
                   month={month}
                   range={draft}
@@ -250,7 +257,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                   locale={locale}
                   label={dateRange.firstMonth}
                 />
-                <div className="hidden sm:block">
+                <div className="fp-hidden sm:fp-block">
                   <Calendar
                     month={addMonths(month, 1)}
                     range={draft}
@@ -267,8 +274,8 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-fp-border-1 px-3 py-2">
-            <span className="text-xs text-fp-text-3">
+          <div className="fp-flex fp-items-center fp-justify-between fp-gap-3 fp-border-t fp-border-line fp-px-3 fp-py-2">
+            <span className="fp-text-xs fp-text-faint">
               {draft.from && !draft.to ? dateRange.pickEnd : (trigger ?? dateRange.noSelection)}
             </span>
             <button
@@ -277,7 +284,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                 clear();
                 setOpen(false);
               }}
-              className="fp-press rounded-fp-sm px-2 py-1 text-xs font-medium text-fp-text-2 hover:bg-fp-bg-3 hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
+              className="fp-press fp-rounded-sm fp-px-2 fp-py-1 fp-text-xs fp-font-medium fp-text-soft hover:fp-bg-fill hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
             >
               {dateRange.clearAction}
             </button>

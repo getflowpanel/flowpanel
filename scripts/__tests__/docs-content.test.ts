@@ -22,7 +22,7 @@ describe("documentation content checks", () => {
     );
     writeFileSync(
       join(docs, "guide/start.mdx"),
-      "---\ntitle: Same\ndescription: Start here.\n---\n\nflowpanel turns config into UI.\n[Missing](/docs/missing)\n```ts\nconst x = 1;\n```\n",
+      "---\ntitle: Same\ndescription: Start here.\n---\n\nflowpanel turns config into UI.\n[Missing](/docs/missing)\n```ts fragment\nconst x = 1;\n```\n",
     );
     writeFileSync(
       join(docs, "guide/extra.mdx"),
@@ -39,7 +39,7 @@ describe("documentation content checks", () => {
         "product-spelling",
         "navigation-missing",
         "title-duplicate",
-        "snippet-unclassified",
+        "snippet-fragment-reason",
         "readme-link-missing",
       ]),
     );

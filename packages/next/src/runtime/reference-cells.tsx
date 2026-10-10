@@ -43,7 +43,7 @@ export function applyReferenceCells<Row extends Record<string, unknown>>(
 
       const raw = row[field];
       if (raw === null || raw === undefined) {
-        rowCells[index] = <span className="text-fp-text-3">—</span>;
+        rowCells[index] = <span className="fp-text-faint">—</span>;
         continue;
       }
       const id = String(raw);

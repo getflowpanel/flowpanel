@@ -1,12 +1,15 @@
 export { bindFormat } from "../bind-format";
 export { isBuiltinBulkDelete } from "../compiler/builtin-bulk-delete";
 export { emitAudit } from "../runtime/audit";
+export { clientIpFrom } from "../runtime/client-ip";
 export { didYouMean } from "../suggest";
 export { type ChecklistRow, checklistRows, isDone } from "./checklist-rows";
 export { assertCountWhereColumns } from "./count-where";
+export { csvField } from "./csv-field";
 export { clockIn, dayKeyIn, dayStartIn, shiftDayKey, weekdayOf } from "./day-key";
 export { encodeFilters, encodeFilterValue } from "./filter-encoding";
 export { filterShapeProblem } from "./filter-shape";
+export { type FilterCondition, filterConditions, searchedFields } from "./filter-walk";
 export { type HeatCell, heatLevels, heatmapGrid, weekStartOf } from "./heatmap-buckets";
 export { isEnumDef, keyLabel } from "./key-labels";
 export { declaredListFields } from "./list-fields";

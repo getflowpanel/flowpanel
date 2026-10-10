@@ -45,7 +45,7 @@ export function AdminShell({
   const skipLink = (
     <a
       href="#main"
-      className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-fp-sm focus:bg-fp-accent focus:px-3 focus:py-1 focus:text-fp-accent-text"
+      className="fp-sr-only focus:fp-not-sr-only focus:fp-absolute focus:fp-left-2 focus:fp-top-2 focus:fp-z-50 focus:fp-rounded-sm focus:fp-bg-accent focus:fp-px-3 focus:fp-py-1 focus:fp-text-on-accent"
     >
       {navigation.skipToContent}
     </a>
@@ -53,7 +53,7 @@ export function AdminShell({
 
   if (variant === "tabs") {
     return (
-      <div className="min-h-screen bg-fp-bg-2 font-fp-sans text-fp-text-1 antialiased">
+      <div className="fp-min-h-screen fp-bg-canvas fp-font-sans fp-text-ink fp-antialiased">
         {showSkipLink ? skipLink : null}
         <AdminTabs
           groups={navGroups}
@@ -62,7 +62,7 @@ export function AdminShell({
           {...(brand !== undefined ? { brand } : {})}
           {...(user !== undefined ? { user } : {})}
         />
-        <main id="main" className="mx-auto max-w-7xl px-6 py-6">
+        <main id="main" className="fp-mx-auto fp-max-w-7xl fp-px-6 fp-py-6">
           {children}
         </main>
       </div>
@@ -70,29 +70,31 @@ export function AdminShell({
   }
 
   return (
-    <div className="flex h-screen flex-col bg-fp-bg-2 font-fp-sans text-fp-text-1 antialiased md:flex-row">
+    <div className="fp-flex fp-h-screen fp-flex-col fp-bg-canvas fp-font-sans fp-text-ink fp-antialiased md:fp-flex-row">
       {showSkipLink ? skipLink : null}
-      <div className="flex shrink-0 items-center gap-2 border-b border-fp-border-1 bg-fp-bg-1 px-3 py-2 md:hidden">
+      <div className="fp-flex fp-shrink-0 fp-items-center fp-gap-2 fp-border-b fp-border-line fp-bg-surface fp-px-3 fp-py-2 md:fp-hidden">
         <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
           <DialogPrimitive.Trigger
             aria-label={navigation.open}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-fp-sm text-fp-text-2 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
+            className="fp-inline-flex fp-h-11 fp-w-11 fp-items-center fp-justify-center fp-rounded-sm fp-text-soft fp-transition-colors hover:fp-bg-fill/70 hover:fp-text-ink focus:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
           >
-            <Menu className="h-5 w-5" aria-hidden="true" />
+            <Menu className="fp-h-5 fp-w-5" aria-hidden="true" />
           </DialogPrimitive.Trigger>
-          <Brand brand={brand} className="min-w-0 flex-1" />
-          {user ? <AccountMenu user={user} align="end" className="w-auto" /> : null}
+          <Brand brand={brand} className="fp-min-w-0 fp-flex-1" />
+          {user ? <AccountMenu user={user} align="end" className="fp-w-auto" /> : null}
           <DialogPrimitive.Portal>
             <DialogPrimitive.Overlay
               data-flowpanel-portal=""
-              className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/60 backdrop-blur-[2px]"
+              className="fp-anim-overlay fp-fixed fp-inset-0 fp-z-50 fp-bg-overlay/60 fp-backdrop-blur-[2px]"
             />
             <DialogPrimitive.Content
               data-flowpanel-portal=""
               aria-describedby={undefined}
-              className="fp-anim-sheet-left fixed left-0 top-0 z-50 flex h-dvh w-[min(80vw,288px)] flex-col border-r border-fp-border-1 bg-fp-bg-1 shadow-fp-lg focus:outline-none"
+              className="fp-anim-sheet-left fp-fixed fp-left-0 fp-top-0 fp-z-50 fp-flex fp-h-dvh fp-w-[min(80vw,288px)] fp-flex-col fp-border-r fp-border-line fp-bg-surface fp-shadow-lg focus:fp-outline-none"
             >
-              <DialogPrimitive.Title className="sr-only">{navigation.title}</DialogPrimitive.Title>
+              <DialogPrimitive.Title className="fp-sr-only">
+                {navigation.title}
+              </DialogPrimitive.Title>
               <AdminNav
                 groups={navGroups}
                 currentPath={currentPath}
@@ -104,7 +106,7 @@ export function AdminShell({
           </DialogPrimitive.Portal>
         </DialogPrimitive.Root>
       </div>
-      <div className="hidden md:block md:h-full">
+      <div className="fp-hidden md:fp-block md:fp-h-full">
         <AdminNav
           groups={navGroups}
           currentPath={currentPath}
@@ -113,8 +115,8 @@ export function AdminShell({
           {...(user !== undefined ? { user } : {})}
         />
       </div>
-      <main id="main" className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-7xl px-6 py-6">{children}</div>
+      <main id="main" className="fp-flex-1 fp-overflow-auto">
+        <div className="fp-mx-auto fp-max-w-7xl fp-px-6 fp-py-6">{children}</div>
       </main>
     </div>
   );

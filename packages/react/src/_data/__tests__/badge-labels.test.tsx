@@ -17,7 +17,7 @@ describe("badge format labels", () => {
   it("shows the label and keeps the tone keyed by the raw value", () => {
     const { container } = render(renderFormatCell(format, "admin"));
     expect(screen.getByText("Админ")).toBeTruthy();
-    expect(container.querySelector("span")?.className).toMatch(/fp-warn/);
+    expect(container.querySelector("span")?.className).toMatch(/fp-text-warn-ink/);
     expect(container.querySelector("span")?.className).not.toContain("capitalize");
   });
 

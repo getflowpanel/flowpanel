@@ -177,12 +177,12 @@ export function Field({
   const labelNode = label ? (
     <Label {...(groupLabelId ? { id: groupLabelId } : { htmlFor: field.id })}>
       {label}
-      {required ? <span className="ml-0.5 text-fp-err-text">*</span> : null}
+      {required ? <span className="fp-ml-0.5 fp-text-err-ink">*</span> : null}
     </Label>
   ) : null;
 
   return (
-    <div className={inlineLabel ? "flex items-center gap-2" : "space-y-1.5"}>
+    <div className={inlineLabel ? "fp-flex fp-items-center fp-gap-2" : "fp-space-y-1.5"}>
       {inlineLabel ? (
         <>
           {control}
@@ -195,12 +195,12 @@ export function Field({
         </>
       )}
       {help ? (
-        <p id={helpId} className="text-xs text-fp-text-3">
+        <p id={helpId} className="fp-text-xs fp-text-faint">
           {help}
         </p>
       ) : null}
       {hasErrors ? (
-        <p id={errId} className="text-xs text-fp-err-text" role="alert">
+        <p id={errId} className="fp-text-xs fp-text-err-ink" role="alert">
           {field.errors?.join(", ")}
         </p>
       ) : null}

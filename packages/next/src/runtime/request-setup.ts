@@ -1,5 +1,6 @@
 import type { AdminDefinition, RateLimiter, RequestContext, Scope, Session } from "@flowpanel/core";
 import { createRateLimiter, FlowpanelRateLimitError } from "@flowpanel/core";
+import { clientIpFrom } from "@flowpanel/core/internal";
 import { actorIdFromSession } from "./action-helpers";
 import { requireAccessIfSet } from "./require-access";
 
@@ -31,15 +32,15 @@ function getLimiter(config: AdminDefinition): RateLimiter | null {
   return limiter;
 }
 
+/** `null` when the caller has neither an IP nor a user id: one shared bucket would let anyone lock everyone out. */
 function rateLimitKey(
   config: AdminDefinition,
   reqCtx: { session: Session | null; ip: string | null },
-): string {
-  const per = config.rateLimit?.per ?? "user";
-  if (per === "ip") return `ip:${reqCtx.ip ?? "unknown"}`;
+): string | null {
+  if (config.rateLimit?.per === "ip" && reqCtx.ip) return `ip:${reqCtx.ip}`;
   const uid = actorIdFromSession(reqCtx.session, config.auth.userId);
   if (uid !== null) return `user:${uid}`;
-  return `ip:${reqCtx.ip ?? "unknown"}`;
+  return reqCtx.ip ? `ip:${reqCtx.ip}` : null;
 }
 
 async function resolveRequestContext({
@@ -57,14 +58,13 @@ async function resolveRequestContext({
     scope = out ?? null;
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = clientIpFrom(req.headers, config.security?.trustedProxies ?? 0);
   const userAgent = req.headers.get("user-agent") ?? null;
 
   const limiter = getLimiter(config);
   if (limiter) {
     const key = rateLimitKey(config, { session, ip });
-    const allowed = await limiter.check(key);
-    if (!allowed) throw new FlowpanelRateLimitError();
+    if (key !== null && !(await limiter.check(key))) throw new FlowpanelRateLimitError();
   }
 
   return { requestId: requestId ?? requestIdFrom(req), req, session, role, scope, ip, userAgent };

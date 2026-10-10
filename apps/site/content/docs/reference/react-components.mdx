@@ -7,7 +7,7 @@ kind: reference
 The components the admin renders with, for custom slots, pages and `"bare"`-shell
 chrome. Import them from `@flowpanel/kit/react`.
 
-```ts excerpt
+```ts
 import { AutoForm, DataTable, useAdminTable } from "@flowpanel/kit/react";
 ```
 
@@ -91,7 +91,7 @@ Not listed here: `@flowpanel/kit/client` holds
 
 The table above is exported as `FormField` and `FormFieldProps`. Its `type` accepts:
 
-```ts excerpt
+```ts fragment=signature
 "text" | "email" | "password" | "url" | "number" | "date" | "datetime" |
 "datetime-local" | "time" | "color" | "search" | "textarea" | "markdown" |
 "json" | "tags" | "select" | "multiselect" | "radio" | "reference" |
@@ -171,7 +171,7 @@ instances on the same channel share one `EventSource`. It returns a `RealtimeSta
 `idle`, `connecting`, `live`, `reconnecting`, or `offline` after six failed
 attempts (retries continue).
 
-```tsx excerpt
+```tsx
 const status = useLiveChannel("resource.orders", (payload) => {
   console.log("order event", payload);
 });
@@ -181,7 +181,7 @@ const status = useLiveChannel("resource.orders", (payload) => {
 `?q=`, `?sort=field:dir`, `?f_<field>=`). `pageSize` is `null` when the URL sets
 none. Setters use `router.replace`.
 
-```tsx excerpt
+```tsx
 const { page, pageSize, sort, setPage, setSort } = useAdminTable();
 ```
 
@@ -190,13 +190,13 @@ const { page, pageSize, sort, setPage, setSort } = useAdminTable();
 **`useTheme(options?)`** returns the theme and `toggle`/`setTheme`, stored in
 `localStorage`.
 
-```tsx excerpt
+```tsx
 const { theme, toggle } = useTheme();
 ```
 
 **`useToast()`** fires a toast under `ToastProvider` or `FlowpanelGlobals`.
 
-```tsx excerpt
+```tsx
 const toast = useToast();
 toast.success("Saved");
 ```
@@ -219,7 +219,7 @@ hrefs; a `null` entry is inert.
 **`useMediaQuery(query)`** subscribes to a media query, `false` on the server.
 `DataTable` switches to cards at `(max-width: 639px)`.
 
-```tsx excerpt
+```tsx
 const isMobile = useMediaQuery("(max-width: 639px)");
 ```
 
@@ -232,20 +232,20 @@ included. Mount it yourself only around components rendered outside that page.
 **`useRealtimeRefresh(channels, options?)`** runs a debounced `router.refresh()`
 on any event on its channels.
 
-```tsx excerpt
+```tsx
 useRealtimeRefresh("resource.orders");
 ```
 
 **`RealtimeRefresh`** is the same as a component that renders nothing.
 
-```tsx excerpt
+```tsx
 <RealtimeRefresh channels={["resource.orders", "scraper:tick"]} />
 ```
 
 **`DevToolsPanel`** shows realtime status, channels and event count in
 development; it renders `null` in production.
 
-```tsx excerpt
+```tsx
 {process.env.NODE_ENV !== "production" && <DevToolsPanel />}
 ```
 
@@ -280,7 +280,7 @@ when importing both.
 | `CustomWidget` | The `custom()` builder's return **type**. | The **component** that wraps one. |
 | `DrawerWidth` | `DrawerConfig["width"]`, the config option. | `DrawerProps["width"]`, the component prop: the same union, declared separately. |
 
-```ts excerpt
+```ts
 import type { TableWidget } from "@flowpanel/kit";
 import { TableWidget as TableWidgetRenderer } from "@flowpanel/kit/react";
 ```

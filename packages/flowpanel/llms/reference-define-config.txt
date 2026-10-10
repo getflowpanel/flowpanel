@@ -92,7 +92,7 @@ The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
 `accentDark` and `cssVarsDark` apply in dark mode. Every `--fp-*` token can be
 overridden:
 
-```ts excerpt
+```ts
 theme: {
   brand: { name: "Acme", logo: "/logo.svg", href: "/" },
   accent: "262 83% 58%",
@@ -107,12 +107,12 @@ Colours are HSL triplets. `accent` and `accentDark` may also be written as `hsl(
 `user` fills the account menu at the foot of the sidebar, or the end of the tab
 strip. Return nothing and no menu renders:
 
-```ts excerpt
+```ts
 theme: {
   user: (session) => ({
     name: session?.user?.name,
     email: session?.user?.email,
-    avatar: session?.user?.image,
+    avatar: session?.user?.image ?? undefined,
     items: [{ label: "Settings", href: "/settings" }],
     signOut: "/api/auth/signout",
   }),
@@ -147,12 +147,12 @@ renders one.
 group into a named one. Groups appear in the order of their first entry. A
 `{ label, collapsed: true }` group stays folded until it holds the current page.
 
-```ts excerpt
+```ts
 const journals = { label: "Journals", collapsed: true } as const;
 
 resource(schema.scraperRun, { plural: "Scraper runs", navGroup: journals });
 resource(schema.aiRun, { plural: "AI runs", navGroup: journals });
-resource(schema.category, { plural: "Categories", navGroup: "Reference data" });
+resource(schema.categories, { plural: "Categories", navGroup: "Reference data" });
 ```
 
 With `shell: "tabs"` the groups flatten into one row of tabs, so a group's label
@@ -190,26 +190,50 @@ Cross-origin writes are blocked by default. `trustedOrigins` allows exact
 origins. Requests without browser `Origin` or Fetch Metadata headers, such as
 server-to-server calls, pass this check.
 
+`trustedProxies` says how many proxies in front of the app append to
+`X-Forwarded-For`. FlowPanel takes `ctx.ip` from the entry the outermost of them
+wrote and ignores anything to its left, which the client could have sent.
+
+| Deployment | `trustedProxies` |
+| --- | --- |
+| Vercel | `1` |
+| One nginx with `proxy_add_x_forwarded_for` | `1` |
+| Cloudflare straight to the app | `1` |
+| Cloudflare in front of nginx | `2` |
+| No proxy, or you are not sure | `0` (the default): `ctx.ip` is `null` |
+
+`ctx.ip` feeds the audit trail, `rateLimit` with `per: "ip"` and your rules. It
+is not an authentication signal: an IP allow-list belongs in the proxy, not in
+an `access` rule.
+
 `SecurityConfig`
 
 | Property | Type | Notes |
 | --- | --- | --- |
 | `sameOrigin?` | `boolean` | Reject cross-origin write requests using Origin and Fetch Metadata headers. Enabled by default. Disable only when an upstream gateway enforces an equivalent policy. |
 | `trustedOrigins?` | `string[]` | Additional exact origins allowed to submit writes, for example `https://ops.example.com`. |
+| `trustedProxies?` | `number` | How many proxies in front of the app append to `X-Forwarded-For`; `ctx.ip` is the entry the outermost one wrote. `1` for Vercel, a single nginx, or Cloudflare straight to the app; `2` for Cloudflare in front of nginx. With `0`, `ctx.ip` is `null`, because every header could come from the client. `ctx.ip` is for logs and rate limits, not for deciding who may sign in. Default: `0`. |
 
 ### RateLimitConfig
 
 `RateLimitConfig` is `RateLimitOptions` plus `per` (`"user"` or `"ip"`,
 defaulting to `"user"`) and `enabled`.
 
-```ts excerpt
+```ts
 type RateLimitOptions =
   | { driver: "memory"; limit: number; windowMs: number }
   | { driver: "redis"; url: string; limit: number; windowMs: number; keyPrefix?: string };
 ```
 
-The memory driver counts per process; use Redis with more than one instance. A
-caller over the limit gets `429`.
+The memory driver counts per process and keeps at most 10,000 keys, dropping
+expired and then the oldest buckets; use Redis with more than one instance. A
+caller over the limit gets `429`. `per: "ip"` keys by `ctx.ip`, so it needs
+`security.trustedProxies`; without it `defineAdmin` refuses to start in
+production and warns in development. An app with no proxy in front uses
+`per: "user"` for signed-in operators, or `enabled: false`. A caller with neither
+an IP nor a user id is not limited rather than sharing one bucket with everyone
+else, so a public admin (`auth.allowUnauthenticated`) without `trustedProxies`
+leaves signed-out visitors unlimited and gets a warning saying so.
 
 ### RealtimeConfig
 
@@ -229,7 +253,7 @@ number: a `PluralLabel` has one template per `Intl.PluralRules` category of
 `formatting.locale`, with `other` as the fallback. `plurals.results` wins over
 `table.result` and `table.results`, and `plurals.selected` over `bulkBar.selected`:
 
-```ts excerpt
+```ts
 labels: {
   plurals: {
     results: { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записи" },
@@ -360,20 +384,20 @@ config path and suggests the near match.
 Bind the definition with `createFlowpanel(config)`, then mount its page and
 handlers. The runtime comes from `@flowpanel/kit/next`:
 
-```ts excerpt
-// app/admin/[[...slug]]/page.tsx
+```ts
+// src/app/admin/[[...slug]]/page.tsx
 import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../flowpanel.config";
 
 const flowpanel = createFlowpanel(config);
 
 export default flowpanel.page;
 ```
 
-```ts excerpt
-// app/api/flowpanel/[...route]/route.ts
+```ts
+// src/app/api/flowpanel/[...route]/route.ts
 import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../../flowpanel.config";
 
 const flowpanel = createFlowpanel(config);
 
@@ -422,12 +446,14 @@ by Next and are left untouched. Only a fetch you write yourself in a client
 component against `paths.api` needs the helper. Server code calls the runtime
 through `createFlowpanel(config).request()` instead of fetching its own routes.
 
-```ts excerpt
+```ts
 import { withDeploymentBasePath } from "@flowpanel/kit/react";
 
-await fetch(`${withDeploymentBasePath(config.paths.api)}/user/u1/actions/verify`, {
-  method: "POST",
-});
+export async function verifyUser(id: string): Promise<Response> {
+  return fetch(`${withDeploymentBasePath("/api/flowpanel")}/user/${id}/actions/verify`, {
+    method: "POST",
+  });
+}
 ```
 
 #### Formatting
@@ -435,7 +461,7 @@ await fetch(`${withDeploymentBasePath(config.paths.api)}/user/u1/actions/verify`
 `formatting` decides how the admin renders values, on the server and in the
 browser alike:
 
-```ts excerpt
+```ts
 formatting: { locale: "ru-RU", timeZone: "Europe/Moscow", currency: "RUB" },
 ```
 

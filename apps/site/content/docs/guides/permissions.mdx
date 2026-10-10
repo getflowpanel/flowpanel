@@ -11,7 +11,7 @@ Every rule is checked on the server route; the UI only hides what a role cannot 
 
 `auth.access` protects every page, API handler and stream. See [Authentication](/docs/guides/authentication).
 
-```ts excerpt
+```ts as="AdminDefinition"
 auth: {
   session: getSession,
   role: (session) => session?.user?.role ?? "guest",
@@ -23,7 +23,7 @@ auth: {
 
 `access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`.
 
-```ts excerpt
+```ts
 dashboard({ path: "/finance", label: "Finance", access: "admin", sections });
 page({ path: "/audit", label: "Audit", component: AuditPage, access: ["admin", "support"] });
 queue(emailQueue, { label: "Emails", boardUrl, access: "admin" });
@@ -39,7 +39,7 @@ An action with its own `access` runs under that rule alone, the same one that sh
 
 `fieldAccess` on a resource is the one field policy: a `read` and a `write` rule per field. A field its `write` rule denies is treated like a `readOnly` one: read-only on the form, rejected from the API. A field the caller may neither read nor write is left out of the form. The route drops both from what it saves; an API or programmatic write that carries such a field is rejected. A field's `readOnly` wins over its `fieldAccess.write`. `hidden` is not an access rule; it only removes the control.
 
-```ts excerpt
+```ts
 resource(users, {
   fieldAccess: {
     role: { read: "admin", write: "admin" },

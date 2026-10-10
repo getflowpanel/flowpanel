@@ -34,7 +34,7 @@ export function ColumnVisibilityMenu({
           {buttonLabel}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[180px]">
+      <DropdownMenuContent align="end" className="fp-min-w-[180px]">
         <DropdownMenuLabel>Columns</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {columns.map((c) => {

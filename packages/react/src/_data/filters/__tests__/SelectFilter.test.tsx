@@ -12,8 +12,8 @@ describe("SelectFilter", () => {
       <SelectFilter value={null} onChange={vi.fn()} options={[{ label: "Pro", value: "pro" }]} />,
     );
 
-    expect(screen.getByRole("combobox").className).toContain("h-11");
-    expect(screen.getByRole("combobox").className).toContain("sm:h-8");
+    expect(screen.getByRole("combobox").className).toContain("fp-h-11");
+    expect(screen.getByRole("combobox").className).toContain("sm:fp-h-8");
   });
 
   it("emits the selected value and null when 'All' is picked", () => {

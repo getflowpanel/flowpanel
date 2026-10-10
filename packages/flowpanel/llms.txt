@@ -107,7 +107,7 @@ The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
 `accentDark` and `cssVarsDark` apply in dark mode. Every `--fp-*` token can be
 overridden:
 
-```ts excerpt
+```ts
 theme: {
   brand: { name: "Acme", logo: "/logo.svg", href: "/" },
   accent: "262 83% 58%",
@@ -122,12 +122,12 @@ Colours are HSL triplets. `accent` and `accentDark` may also be written as `hsl(
 `user` fills the account menu at the foot of the sidebar, or the end of the tab
 strip. Return nothing and no menu renders:
 
-```ts excerpt
+```ts
 theme: {
   user: (session) => ({
     name: session?.user?.name,
     email: session?.user?.email,
-    avatar: session?.user?.image,
+    avatar: session?.user?.image ?? undefined,
     items: [{ label: "Settings", href: "/settings" }],
     signOut: "/api/auth/signout",
   }),
@@ -162,12 +162,12 @@ renders one.
 group into a named one. Groups appear in the order of their first entry. A
 `{ label, collapsed: true }` group stays folded until it holds the current page.
 
-```ts excerpt
+```ts
 const journals = { label: "Journals", collapsed: true } as const;
 
 resource(schema.scraperRun, { plural: "Scraper runs", navGroup: journals });
 resource(schema.aiRun, { plural: "AI runs", navGroup: journals });
-resource(schema.category, { plural: "Categories", navGroup: "Reference data" });
+resource(schema.categories, { plural: "Categories", navGroup: "Reference data" });
 ```
 
 With `shell: "tabs"` the groups flatten into one row of tabs, so a group's label
@@ -205,26 +205,50 @@ Cross-origin writes are blocked by default. `trustedOrigins` allows exact
 origins. Requests without browser `Origin` or Fetch Metadata headers, such as
 server-to-server calls, pass this check.
 
+`trustedProxies` says how many proxies in front of the app append to
+`X-Forwarded-For`. FlowPanel takes `ctx.ip` from the entry the outermost of them
+wrote and ignores anything to its left, which the client could have sent.
+
+| Deployment | `trustedProxies` |
+| --- | --- |
+| Vercel | `1` |
+| One nginx with `proxy_add_x_forwarded_for` | `1` |
+| Cloudflare straight to the app | `1` |
+| Cloudflare in front of nginx | `2` |
+| No proxy, or you are not sure | `0` (the default): `ctx.ip` is `null` |
+
+`ctx.ip` feeds the audit trail, `rateLimit` with `per: "ip"` and your rules. It
+is not an authentication signal: an IP allow-list belongs in the proxy, not in
+an `access` rule.
+
 `SecurityConfig`
 
 | Property | Type | Notes |
 | --- | --- | --- |
 | `sameOrigin?` | `boolean` | Reject cross-origin write requests using Origin and Fetch Metadata headers. Enabled by default. Disable only when an upstream gateway enforces an equivalent policy. |
 | `trustedOrigins?` | `string[]` | Additional exact origins allowed to submit writes, for example `https://ops.example.com`. |
+| `trustedProxies?` | `number` | How many proxies in front of the app append to `X-Forwarded-For`; `ctx.ip` is the entry the outermost one wrote. `1` for Vercel, a single nginx, or Cloudflare straight to the app; `2` for Cloudflare in front of nginx. With `0`, `ctx.ip` is `null`, because every header could come from the client. `ctx.ip` is for logs and rate limits, not for deciding who may sign in. Default: `0`. |
 
 ### RateLimitConfig
 
 `RateLimitConfig` is `RateLimitOptions` plus `per` (`"user"` or `"ip"`,
 defaulting to `"user"`) and `enabled`.
 
-```ts excerpt
+```ts
 type RateLimitOptions =
   | { driver: "memory"; limit: number; windowMs: number }
   | { driver: "redis"; url: string; limit: number; windowMs: number; keyPrefix?: string };
 ```
 
-The memory driver counts per process; use Redis with more than one instance. A
-caller over the limit gets `429`.
+The memory driver counts per process and keeps at most 10,000 keys, dropping
+expired and then the oldest buckets; use Redis with more than one instance. A
+caller over the limit gets `429`. `per: "ip"` keys by `ctx.ip`, so it needs
+`security.trustedProxies`; without it `defineAdmin` refuses to start in
+production and warns in development. An app with no proxy in front uses
+`per: "user"` for signed-in operators, or `enabled: false`. A caller with neither
+an IP nor a user id is not limited rather than sharing one bucket with everyone
+else, so a public admin (`auth.allowUnauthenticated`) without `trustedProxies`
+leaves signed-out visitors unlimited and gets a warning saying so.
 
 ### RealtimeConfig
 
@@ -244,7 +268,7 @@ number: a `PluralLabel` has one template per `Intl.PluralRules` category of
 `formatting.locale`, with `other` as the fallback. `plurals.results` wins over
 `table.result` and `table.results`, and `plurals.selected` over `bulkBar.selected`:
 
-```ts excerpt
+```ts
 labels: {
   plurals: {
     results: { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записи" },
@@ -375,20 +399,20 @@ config path and suggests the near match.
 Bind the definition with `createFlowpanel(config)`, then mount its page and
 handlers. The runtime comes from `@flowpanel/kit/next`:
 
-```ts excerpt
-// app/admin/[[...slug]]/page.tsx
+```ts
+// src/app/admin/[[...slug]]/page.tsx
 import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../flowpanel.config";
 
 const flowpanel = createFlowpanel(config);
 
 export default flowpanel.page;
 ```
 
-```ts excerpt
-// app/api/flowpanel/[...route]/route.ts
+```ts
+// src/app/api/flowpanel/[...route]/route.ts
 import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../../flowpanel.config";
 
 const flowpanel = createFlowpanel(config);
 
@@ -437,12 +461,14 @@ by Next and are left untouched. Only a fetch you write yourself in a client
 component against `paths.api` needs the helper. Server code calls the runtime
 through `createFlowpanel(config).request()` instead of fetching its own routes.
 
-```ts excerpt
+```ts
 import { withDeploymentBasePath } from "@flowpanel/kit/react";
 
-await fetch(`${withDeploymentBasePath(config.paths.api)}/user/u1/actions/verify`, {
-  method: "POST",
-});
+export async function verifyUser(id: string): Promise<Response> {
+  return fetch(`${withDeploymentBasePath("/api/flowpanel")}/user/${id}/actions/verify`, {
+    method: "POST",
+  });
+}
 ```
 
 #### Formatting
@@ -450,7 +476,7 @@ await fetch(`${withDeploymentBasePath(config.paths.api)}/user/u1/actions/verify`
 `formatting` decides how the admin renders values, on the server and in the
 browser alike:
 
-```ts excerpt
+```ts
 formatting: { locale: "ru-RU", timeZone: "Europe/Moscow", currency: "RUB" },
 ```
 
@@ -488,7 +514,7 @@ Documented types: resource, ResourceOptions, ColumnDef, formatColumnValue, forma
 [`InferRow<Ref>`](/docs/reference/registry#inferrow), which types `columns`,
 `search`, `filters` and `defaultSort`.
 
-```ts excerpt
+```ts
 import { resource } from "@flowpanel/kit";
 import { orders } from "@/db/schema";
 
@@ -518,9 +544,9 @@ export const ordersResource = resource(orders, {
 | `hidden?` | `boolean` | Keep the resource out of the navigation — its routes still work. |
 | `navGroup?` | `NavGroupRef` | Sidebar group for this resource. Default: the Resources group. |
 | `expose?` | `(keyof Row & string)[]` | Additional fields shared by list and detail presentation. Declare render dependencies explicitly; callbacks never receive an undeclared DB row. |
-| `columns?` | `(keyof Row \| ColumnDef<Row>)[]` | Columns of the list table, in order; a bare string is a field name. Omitted, `defineAdmin` fills it in introspection order. |
+| `columns?` | `((keyof Row & string) \| ColumnDef<Row>)[]` | Columns of the list table, in order; a bare string is a field name. Omitted, `defineAdmin` fills it in introspection order. |
 | `search?` | `(keyof Row & string)[]` | Fields the search box queries. Without this, search is disabled. |
-| `filters?` | `(keyof Row \| FilterDef<Row>)[]` | Filter controls above the list. A bare string always renders a text filter — declare a `FilterDef` for any other control. |
+| `filters?` | `((keyof Row & string) \| FilterDef<Row>)[]` | Filter controls above the list. A bare string always renders a text filter — declare a `FilterDef` for any other control. |
 | `defaultSort?` | `{ field: keyof Row & string; dir: "asc" \| "desc" }` | Sort applied when the URL carries none. |
 | `pageSize?` | `number` | Rows per page. Default: `20`. |
 | `density?` | `"comfortable" \| "compact"` | Row height preset for the list table. Default: `"comfortable"`. |
@@ -564,7 +590,7 @@ declared and `detail.expose` fields.
 - `detail.subtitle(row)` is the line under it.
 - `detail.badge(row)` is a pill beside the title: `{ label, tone }`.
 
-```ts excerpt
+```ts
 detail: {
   title: (row) => row.email,
   subtitle: (row) => `Customer since ${row.createdAt}`,
@@ -613,7 +639,7 @@ A resource's ref may be a database view. The list, the record page, counts, expo
 reference labels, related tabs and `ctx.read` read the view; create, update, delete,
 restore, import and inline edits write to `writeTo`:
 
-```ts excerpt
+```ts
 resource(adminUserRow, {
   name: "user",
   writeTo: user,
@@ -638,7 +664,7 @@ Resource, dashboard, page, queue, action and command icons take an `IconName`, a
 Lucide icon name such as `users`, `settings`, `database` or `trash-2`. An unknown
 name is a type error. To render one in your own component:
 
-```tsx excerpt
+```tsx
 import { FlowpanelIcon } from "@flowpanel/kit/react";
 
 <FlowpanelIcon name="workflow" className="size-4" />;
@@ -649,7 +675,7 @@ import { FlowpanelIcon } from "@flowpanel/kit/react";
 `views` puts named filter, sort and search presets in a menu above the list.
 Filters are keyed by the row's fields:
 
-```ts excerpt
+```ts
 views: [
   { name: "New this week", filters: { createdAt: "last7d" } },
   { name: "Paying, falling asleep", filters: { plan: ["starter", "pro"], daysSinceSeen: { gte: 7 } } },
@@ -691,7 +717,7 @@ filters and is skipped by export. See
 `secondary` shows another field as a muted second line in the cell, such as the
 email under a name. Sorting and search still use `field`.
 
-```ts excerpt
+```ts
 columns: [{ field: "name", label: "User", secondary: "email" }],
 ```
 
@@ -699,7 +725,7 @@ columns: [{ field: "name", label: "User", secondary: "email" }],
 
 Declarative cell formatting.
 
-```ts excerpt
+```ts
 type ColumnFormat =
   | "badge" | "money" | "number"
   | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
@@ -716,14 +742,14 @@ type ColumnFormat =
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 The object form of `badge` maps each cell value to a tone:
 
-```ts excerpt
+```ts
 { field: "status", format: { kind: "badge", tones: { paid: "ok", failed: "err" } } }
 ```
 
 `labels` gives each raw value its display text. Tones stay keyed by the raw
 value, and a value with no label shows as is.
 
-```ts excerpt
+```ts
 {
   field: "role",
   format: {
@@ -744,7 +770,7 @@ The other kinds:
 - `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
 - `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded.
 
-```ts excerpt
+```ts
 columns: [
   { field: "week", label: "Cohort" },
   { field: "w1", label: "Week 1", format: { kind: "percent", heat: true } },
@@ -773,20 +799,21 @@ kind each.
 `enumOf()` declares an enum's labels and tones once, for a column's `format`,
 filter and field `options`, badges and timeline chips.
 
-```ts excerpt
+```ts
 import { enumOf, resource } from "@flowpanel/kit";
-import { planEnum, users } from "@/db/schema";
+import { customers, planTier } from "@/db/schema";
 
-export const Plan = enumOf(planEnum.enumValues, {
+export const Plan = enumOf(planTier.enumValues, {
   free: ["Free", "muted"],
   starter: ["Starter", "info"],
   pro: { label: "Pro", tone: "accent" },
+  business: { label: "Business", tone: "accent" },
 });
 
-resource(users, {
+resource(customers, {
   columns: [{ field: "plan", format: Plan.format }],
   filters: [{ field: "plan", type: "select", options: Plan.options }],
-  detail: { badge: (user) => Plan.badge(user.plan) },
+  detail: { badge: (customer) => Plan.badge(customer.plan) },
 });
 ```
 
@@ -841,7 +868,7 @@ when both name the same key.
 
 #### FieldType
 
-```ts excerpt
+```ts
 type FieldType =
   | "text" | "textarea" | "number" | "email" | "password" | "url"
   | "date" | "datetime" | "time"
@@ -878,7 +905,7 @@ totals and export alike. Clearing it writes an empty `f_<field>=` to the URL. A
 saved view or link turns it off with `null`. `hidden: true` applies the filter
 without a control.
 
-```ts excerpt
+```ts
 filters: [
   { field: "isTest", label: "Test accounts", type: "boolean", defaultValue: false },
 ],
@@ -891,7 +918,7 @@ read the resource from a view that computes the column and set
 
 #### FilterType
 
-```ts excerpt
+```ts
 type FilterType =
   | "text" | "select" | "multiselect"
   | "daterange" | "numeric-range" | "boolean" | "tag";
@@ -906,7 +933,7 @@ type FilterType =
 `detail` configures `<paths.admin>/<resource>/<id>`. Type a card that lives in its own file
 with `DetailOptions<Row>`:
 
-```ts excerpt
+```ts
 import { type DetailOptions, kv, metric, related, type RowOf } from "@flowpanel/kit";
 
 export const card = {
@@ -988,7 +1015,7 @@ tab's other renders. A render that throws is logged and the field shows its
 formatted value; see [server-rendered cells](/docs/reference/drawer#server-rendered-cells)
 for the drawer:
 
-```ts excerpt
+```ts
 {
   name: "categoryId",
   label: "Category",
@@ -1002,7 +1029,7 @@ for the drawer:
 `sections` groups those fields into titled blocks and wins over `fields` on the
 same tab:
 
-```ts excerpt
+```ts
 {
   key: "overview",
   label: "Overview",
@@ -1049,7 +1076,7 @@ or several throw and ask for `by`. `by`, `hide` and `sort.field` are fields of t
 row, so a typo is a compile error once resources are typed, and `defineAdmin` names the
 closest column otherwise. The label defaults to the target's `plural`.
 
-```ts excerpt
+```ts
 detail: {
   tabs: [
     related("response", { label: "Responses", widgets: [responseFunnel] }),
@@ -1081,8 +1108,8 @@ A tab with neither `by` nor `filter` reads every row of its target.
 `emptyState` replaces the default text when a tab has no rows, widgets or
 readable fields.
 
-```ts excerpt
-{ key: "runs", label: "Runs", resource: "runs", filter: (u) => ({ userId: u.id }), emptyState: "No runs yet" }
+```ts
+{ key: "responses", label: "Responses", resource: "response", filter: (u) => ({ userId: u.id }), emptyState: "No responses yet" }
 ```
 
 #### Custom content
@@ -1134,7 +1161,7 @@ What `DetailTab.render` receives as its second argument.
 
 ### SelectOption
 
-```ts excerpt
+```ts
 type SelectOption = { label: string; value: string | number | boolean };
 ```
 
@@ -1281,7 +1308,7 @@ Actions are secondary buttons, destructive ones in the error colour.
 `emphasis: "primary"` fills one with the accent; more than one primary on a
 dashboard warns in development.
 
-```ts excerpt
+```ts
 dashboardAction({ key: "retry", label: "Retry failed runs", emphasis: "primary", run: retryFailed });
 ```
 
@@ -1375,7 +1402,7 @@ Documented types: DrawerConfig, DrawerTabFields, DrawerTabResource, DrawerTabWid
 A drawer shows one row over the list. Declare `drawer` on a resource; a row click
 opens it unless `rowClick` says otherwise. Guide: [Record pages and drawers](/docs/build/detail-cards#drawer).
 
-```ts excerpt
+```ts
 resource(orders, {
   columns: ["id", "customerEmail", "status"],
   rowClick: "drawer",
@@ -1483,7 +1510,7 @@ Dashboard widgets, scoped to the open row.
 here, and the last four also fail at `defineAdmin`; use a record page tab. Each widget is serialized
 before it reaches the browser:
 
-```ts excerpt
+```ts
 type SerializedWidget =
   | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
   | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }
@@ -1562,7 +1589,7 @@ returns a `WidgetConfig`; every `query` runs on the server with a `WidgetContext
 On a record page or in a drawer, `ctx.row` is the record. A drawer renders
 [static cards](/docs/reference/drawer#drawertabwidgets).
 
-```ts excerpt
+```ts
 import { areaChart, dashboard, metric, statGroup, table } from "@flowpanel/kit";
 
 export const overview = dashboard({
@@ -1642,7 +1669,7 @@ of the same length before. Over a record's whole history it is `null`.
 
 `labels` is the resolved `LabelsConfig`. `row` is set on a record page.
 
-```ts excerpt
+```ts
 metric("Paid orders", async (ctx) => ({
   value: await ctx.query("paid-orders", () => countPaid(ctx.db, ctx.dateRange)),
   href: { resource: "orders", filter: { status: "paid" } },
@@ -1667,7 +1694,7 @@ metric("Paid orders", async (ctx) => ({
 `ctx.format` formats with the admin's `locale`, `timeZone` and `currency`, the same
 way table cells do.
 
-```ts excerpt
+```ts
 stat("Latency", async (ctx) => {
   const s = await ctx.query(latencyStages, ctx.db, ctx.dateRange);
   return {
@@ -1719,7 +1746,7 @@ A failing `freshness.at` is logged and skipped.
 | `at` | `(ctx: WidgetContext) => Promise<Date \| null>` | When the data was last written, e.g. the newest rollup row; `null` when unknown. |
 | `warnAfter?` | ``${number}m` \| `${number}h` \| `${number}d`` | Older than this shows in the warn tone with a ▲. |
 
-```ts excerpt
+```ts
 metric("Runs today", runsToday, {
   freshness: { at: async (c) => lastRollupHour(c), warnAfter: "2h" },
 });
@@ -1749,14 +1776,21 @@ in your own code.
 `warn` below `err` means higher is worse; `warn` above `err` means lower is worse.
 A `goodWhen` that contradicts the numbers makes `defineAdmin` throw.
 
-```ts excerpt
+```ts
 import { type Threshold, metric, resource, toneFor } from "@flowpanel/kit";
 
 const ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
 
-metric("Run errors", async (c) => ({ value: rate, volume: runs }), { format: "percent", tones: ERRORS });
-resource(schema.runs, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
-toneFor(rate, ERRORS, runs);
+metric(
+  "Run errors",
+  async (c) => {
+    const { rate, runs } = await runErrorRate(c);
+    return { value: rate, volume: runs };
+  },
+  { format: "percent", tones: ERRORS },
+);
+resource(schema.monitors, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
+toneFor(0.42, ERRORS, 120); // "warn": 120 runs, above warn and below err
 ```
 
 ### Links
@@ -1800,7 +1834,7 @@ An unregistered resource, view or dashboard throws and lists the registered ones
 `ctx.link(target)` resolves the same targets to a string, for the props of a custom
 widget:
 
-```ts excerpt
+```ts
 custom(PlatformGrid, async (ctx) => ({
   platforms: (await platforms(ctx.db)).map((p) => ({
     ...p,
@@ -1841,7 +1875,7 @@ A metric that counts rows takes `{ count, where, range }` instead of a query. It
 value is `ctx.count(count, where, { range })`, and it links to exactly the rows it
 counted unless you set `drilldown`. A missing `where` value counts `0` with no link.
 
-```ts excerpt
+```ts
 metric("Visits", { count: "user_visit", where: (c) => ({ userId: c.id }), range: "startedAt" }, {
   compare: true,
 });
@@ -1856,7 +1890,7 @@ both. `drilldown: () => null` removes the link.
 change; `compare: { against: "weekAgo" }` compares with the same range seven days
 earlier. Set `goodWhen: "down"` for costs and errors. A `delta` from the query wins.
 
-```ts excerpt
+```ts
 metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
 ```
 
@@ -1936,7 +1970,7 @@ defaults to 10 on the `resource` path. `density: "compact"` sets 40 px rows.
 or a function such as `(c) => ({ userId: c.id })`. `range` names the timestamp the
 picked range bounds: `table({ resource: "user", range: "createdAt" })`.
 
-```ts excerpt
+```ts
 table({
   resource: "orders",
   label: "Recent orders",
@@ -1974,7 +2008,7 @@ table({
 `Date` is formatted like a table cell. A resolver may return a [`KvResult`](#kvresult)
 with its own tone and link.
 
-```ts excerpt
+```ts
 statGroup({
   label: "Account",
   span: 6,
@@ -2023,9 +2057,9 @@ A resolver may return a `StatResult`, whose fields win over the options.
 | `href?` | `LinkTarget` | Turns the whole card into a link — a path or a named target. |
 | `volume?` | `number` | Observations behind the value, compared with `tones.min`. |
 
-```ts excerpt
+```ts
 stat("Open invoices", async (ctx) => {
-  const filter = { customerId: ctx.id, status: "open" };
+  const filter = { customerId: ctx.rowOf("customers").id, status: "open" } as const;
   const value = await ctx.count("invoices", filter);
   return { value, href: { resource: "invoices", filter }, tone: value > 0 ? "warn" : "ok" };
 });
@@ -2037,7 +2071,7 @@ Facts about one thing. An item's `format` takes a `ColumnFormat` or `NumericForm
 An item with `field` reads the card's `record`, which runs once and defaults to the
 viewed row on a record page:
 
-```ts excerpt
+```ts
 kv({
   label: "Feed filters",
   record: (c) => c.read("freelancer_profile", { where: { userId: c.id }, limit: 1 }).then((r) => r[0]),
@@ -2048,7 +2082,7 @@ kv({
 An item with `long` is a paragraph; past `lines` lines (6 by default) the rest
 folds under "Show all". `empty` replaces "—" for a missing value.
 
-```ts excerpt
+```ts
 kv({
   label: "Texts",
   columns: 1,
@@ -2100,7 +2134,7 @@ item's. `statGroup` items take the same result.
 | `tone?` | `Tone` | Semantic color of the value. |
 | `href?` | `LinkTarget` | Renders the value as a link — a path or a named target. |
 
-```ts excerpt
+```ts
 kv({
   items: [
     {
@@ -2119,7 +2153,7 @@ kv({
 A ranked breakdown, sized against the largest value or `max`. Set `max` for a
 rate:
 
-```ts excerpt
+```ts
 bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), format: "percent", max: 1 });
 ```
 
@@ -2150,7 +2184,7 @@ and fills each row's `previous`, joining by `key`, else `label`. A row missing f
 the earlier period shows no change; `breakdown({ keys })` keeps it at zero. With
 `top`, pass the earlier rows to `breakdown({ previous })` instead.
 
-```ts excerpt
+```ts
 bars({
   label: "New orders by marketplace",
   share: true,
@@ -2230,7 +2264,7 @@ an "N more" line linking to `more`.
 `count`. The first row is a sentence, the rest are lines. With no rows it shows
 `allClear`.
 
-```ts excerpt
+```ts
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
 ```
 
@@ -2250,7 +2284,7 @@ banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: 
 
 Set `key` when realtime updates reorder rows.
 
-```ts excerpt
+```ts
 import { bars, funnel, kv, list, stat } from "@flowpanel/kit";
 
 const widgets = [
@@ -2302,7 +2336,7 @@ rows instead. Not available in drawers.
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 
-```ts excerpt
+```ts
 tracker({
   label: "Marketplaces · 24 h",
   query: hourly,
@@ -2340,7 +2374,7 @@ pages back, under `?<id>.kind=` and `?<id>.before=`; `id` defaults to the tab ke
 `query(ctx, page)` returns events that are not resource rows: at or before
 `page.before`, at most `page.limit`, of `page.kinds` when set.
 
-```ts excerpt
+```ts
 timeline({
   label: "Activity",
   kinds: Activity,
@@ -2373,7 +2407,7 @@ Not available in drawers.
 reader's access applied. `at` is the timestamp; `kind` is fixed or `{ field }`.
 `refs` names reference columns whose labels reach `title` and `meta`.
 
-```ts excerpt
+```ts
 timeline({
   kinds: Bot,
   sources: [
@@ -2446,7 +2480,7 @@ four steps.
 rows referencing the record, like a timeline source. It reads at most 10,000 rows;
 beyond that use `query`, which returns totals per day.
 
-```ts excerpt
+```ts
 heatmap({ label: "Visits, 13 weeks", source: { resource: "user_visit", at: "startedAt" }, unit: Visits });
 ```
 
@@ -2488,7 +2522,7 @@ non-`optional` items.
 With `ordered`, done items show their date and the gap since the previous step.
 `layout: "steps"` lays them out in a row. Not available in drawers.
 
-```ts excerpt
+```ts
 checklist({
   label: "Journey",
   ordered: true,
@@ -2538,7 +2572,7 @@ checklist({
 
 One checklist item per labelled field, done when the field has a value.
 
-```ts excerpt
+```ts
 checklist({
   label: "Profile",
   items: async (c) => filled(await profileOf(c), { bio: "About", hourlyRate: "Rate" }),
@@ -2564,7 +2598,7 @@ Your own component in the grid. `props` is a value or a server function. See
 
 The chart builders come from `@flowpanel/kit`. Recharts loads only when a chart is on the page.
 
-```ts excerpt
+```ts
 import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit";
 ```
 
@@ -2601,7 +2635,7 @@ date ticks; aggregate with `series({ grain })`.
 One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
 order. `colors` pins a series to a colour:
 
-```ts excerpt
+```ts
 lineChart("Signups", signupsByPlan, {
   x: "day",
   y: ["trial", "paid"],
@@ -2718,7 +2752,7 @@ map, an `enumOf()` or a function. Shares only mean something for counts and sums
 A preset's bounds now, in the admin's zone, for a query that needs a fixed window
 beside the picked one. Pass the same `now` to widgets sharing a query.
 
-```ts excerpt
+```ts
 import { barChart, bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
 
 const hourly = (c: WidgetContext) => c.sql<{ at: Date; platform: string; orders: number }>`
@@ -2786,7 +2820,7 @@ page's [`detail.stats`](/docs/reference/resources#record-page) is the same strip
 In a `"cards"` section, `table` and `list` cards keep their height and others
 stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 
-```ts excerpt
+```ts
 { variant: "strip", widgets: [newOrders, runs, successRate, bans] }
 ```
 
@@ -2824,7 +2858,7 @@ widget context; a plain string list is not accepted.
 `filterOnClick: "<key>"` on `bars`, `tracker` or `table` sets that filter on click,
 replacing the row's link. It is rejected on a record page or in a drawer.
 
-```ts excerpt
+```ts
 const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
 
 const hourly = (c: WidgetContext) => c.sql<HourRow>`
@@ -2885,12 +2919,13 @@ Documented types: queue, QueueOptions, QueueConfig
 embeds [bull-board](https://github.com/felixmosh/bull-board). Setup and security:
 [Queues](/docs/guides/queues).
 
-```ts excerpt
+```ts
 import { defineAdmin, queue } from "@flowpanel/kit";
 import { emailQueue } from "@/lib/queues";
 
 export default defineAdmin({
-  // …adapter, auth…
+  adapter,
+  auth: flowpanelAuth,
   queues: [
     queue(emailQueue, {
       label: "Email",
@@ -2939,22 +2974,22 @@ What `queue()` returns.
 
 | Condition | Error |
 | --- | --- |
-| No `.name` on the ref **and** no `options.key` | `queue() requires options.key when the queue has no .name` |
-| Two queues resolve to the same key | `Duplicate queue key: "<key>". Each queue key must be unique.` |
-| The key is `dashboards`, `drawer` or `queues` | `queue "<key>" uses a name FlowPanel's routing reserves…` |
+| No `.name` on the ref **and** no `options.key` | `[flowpanel] queues[<index>]: the queue has no name to key it by. Set key in its options.` |
+| Two queues resolve to the same key | `[flowpanel] queue "<key>": two queues use this key. Give each queue its own key.` |
+| The key is `dashboards`, `drawer` or `queues` | `[flowpanel] queue "<key>": the name is one FlowPanel's routing reserves…` |
 
 ### Reading queue state from your own code
 
 To count jobs in a widget, wrap the same `Queue` instances with `bullmqAdapter`:
 
-```ts excerpt
+```ts
 import { bullmqAdapter } from "@flowpanel/kit/bullmq";
 import { emailQueue, scrapeQueue } from "@/lib/queues";
 
 export const jobs = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
 ```
 
-```ts excerpt
+```ts
 import { metric } from "@flowpanel/kit";
 import { jobs } from "@/lib/queue-adapter";
 
@@ -3001,7 +3036,7 @@ only `format`, `labels` and `link`.
 | `session` | `Session \| null` | Result of `AuthConfig.session` for this request. |
 | `role` | `string` | Result of `AuthConfig.role` for this session. |
 | `scope` | `Scope` | Tenant scope resolved by the admin-wide `scope`. Null when unscoped. |
-| `ip` | `string \| null` | Caller IP from `x-forwarded-for`, when the proxy sets it. |
+| `ip` | `string \| null` | Caller IP as the proxies counted in `security.trustedProxies` recorded it, else `null`. For logs and rate limits, not for authentication. |
 | `userAgent` | `string \| null` |  |
 
 `req` carries the incoming headers during server renders too.
@@ -3108,16 +3143,18 @@ Produced by `multiselect` filters: match any of `values`.
 
 #### Narrowing them
 
-```ts excerpt
-import { isFilterInValue, isFilterRangeValue } from "@flowpanel/kit";
+```ts
+import { isFilterInValue, isFilterRangeValue, type ListQueryContext } from "@flowpanel/kit";
 
-for (const [field, value] of Object.entries(ctx.filters)) {
-  if (isFilterRangeValue(value)) {
-    // value.gte / value.lte
-  } else if (isFilterInValue(value)) {
-    // value.values
-  } else {
-    // a scalar
+export function readFilters(ctx: ListQueryContext<Record<string, unknown>>): void {
+  for (const [field, value] of Object.entries(ctx.filters)) {
+    if (isFilterRangeValue(value)) {
+      console.log(field, value.gte, value.lte);
+    } else if (isFilterInValue(value)) {
+      console.log(field, value.values);
+    } else {
+      console.log(field, value);
+    }
   }
 }
 ```
@@ -3133,7 +3170,7 @@ A [`WidgetContext`](/docs/reference/widgets#widgetcontext) and a
 soft-delete filter. Add those predicates yourself, or use `ctx.count` and
 `ctx.read`, which apply them.
 
-```ts excerpt
+```ts
 metric("New signups", async (ctx) => {
   const [row] = await ctx.sql<{ n: number }>`
     select count(*)::int as n
@@ -3148,9 +3185,16 @@ Every interpolated value is a bound parameter. A `Date` binds as ISO-8601 text a
 a `bigint` as decimal text. Arrays bind differently per adapter; see
 [Raw SQL](/docs/reference/adapters#raw-sql). Drizzle `sql` fragments nest:
 
-```ts excerpt
+```ts
+import { sql } from "drizzle-orm";
+import { stat, type WidgetContext } from "@flowpanel/kit";
+
 const window = (c: WidgetContext) => sql`hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
-const rows = await ctx.sql<HourRow>`select * from scraper_hourly_stats where ${window(ctx)}`;
+
+stat("Runs in the period", async (ctx) => {
+  const rows = await ctx.sql<HourRow>`select * from scraper_hourly_stats where ${window(ctx)}`;
+  return rows.reduce((sum, row) => sum + row.runs, 0);
+});
 ```
 
 Cast counts and sums in SQL (`count(*)::int`, `sum(x)::float8`): Postgres returns
@@ -3167,7 +3211,7 @@ scope and soft-delete rules; a resource or field the session may not read counts
 `0`. `where` takes [where values](#where-values). An `undefined`, `null` or `""`
 value counts `0` and warns in development. A misspelt field throws.
 
-```ts excerpt
+```ts
 stat("Open tickets", (ctx) => ctx.count("tickets", { status: "open" }));
 ```
 
@@ -3176,7 +3220,7 @@ stat("Open tickets", (ctx) => ctx.count("tickets", { status: "open" }));
 `range` names the timestamp field bounded by `ctx.dateRange`, inclusive. Over a
 whole history it adds no bound.
 
-```ts excerpt
+```ts
 metric("Visits", (ctx) => ctx.count("user_visit", { userId: ctx.id }, { range: "startedAt" }), {
   compare: true,
 });
@@ -3190,7 +3234,7 @@ A `{ gte, lte }` on the same field in `where` narrows to the overlap.
 list; an unreadable resource returns `[]`. Identical reads share one query per
 request.
 
-```ts excerpt
+```ts
 const profileOf = async (ctx: WidgetContext) =>
   (
     await ctx.read("freelancer_profile", {
@@ -3212,7 +3256,7 @@ throws before any query.
 `ctx.rowOf(resource)` is the viewed record, typed. It throws on a dashboard or on
 another resource's page. `ctx.row` is the untyped record.
 
-```ts excerpt
+```ts
 stat("With us", async (c) => c.format.relative(c.rowOf("user").createdAt));
 ```
 
@@ -3235,7 +3279,7 @@ a boolean. Leave the field out, or pass `"__null__"`.
 
 Read the current context from AsyncLocalStorage when you cannot pass it down.
 
-```ts excerpt
+```ts
 import { getRequestContext, tryGetRequestContext } from "@flowpanel/kit";
 
 const ctx = getRequestContext();      // throws outside a request
@@ -3254,7 +3298,7 @@ Docs: https://flowpanel.tech/docs/reference/registry
 FlowPanel takes your types from the database client, Drizzle schema and auth
 instance you register once, with no code generator:
 
-```ts excerpt
+```ts
 import type { auth } from "@/lib/auth";
 import type { db } from "@/db";
 import type * as schema from "@/db/schema";
@@ -3278,13 +3322,13 @@ entry is optional: without it the types fall back to `unknown`, `string` or
 
 A registry for framework-wide type bindings: `db`, `schema` and `session`.
 
-```ts excerpt
+```ts
 interface FlowpanelTypes {}
 ```
 
 #### InferDB
 
-```ts excerpt
+```ts
 type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;
 ```
 
@@ -3315,7 +3359,7 @@ callbacks. Otherwise it is `Record<string, unknown>`.
 
 #### RowOf
 
-```ts excerpt
+```ts
 type RowOf<N extends string> = N extends keyof AllResources ? AllResources[N] : Record<string, unknown>;
 ```
 
@@ -3327,7 +3371,7 @@ A map of resource name to row type, keyed by the name `defineAdmin` uses (the SQ
 table name unless `options.name` is set). With Prisma, register every model here,
 under the resource's `name` when it has one, as `flowpanel new` does:
 
-```ts excerpt
+```ts
 declare module "@flowpanel/kit" {
   interface FlowpanelResources {
     users: import("@prisma/client").User;
@@ -3339,13 +3383,13 @@ With a registered Drizzle `schema`, add an entry only for a renamed resource, su
 as `user: typeof schema.adminUserRow.$inferSelect`. An entry replaces the schema's
 row of the same name.
 
-```ts excerpt
+```ts
 interface FlowpanelResources {}
 ```
 
 #### InferRow
 
-```ts excerpt
+```ts
 type InferRow<Ref> = Ref extends { $inferSelect: infer R }
   ? R
   : Ref extends keyof AllResources
@@ -3361,7 +3405,7 @@ the `users` entry.
 
 #### ResourceName
 
-```ts excerpt
+```ts
 type ResourceName = [keyof AllResources] extends [never]
   ? string
   : keyof AllResources & string;
@@ -3372,7 +3416,7 @@ The type of a resource name used elsewhere in config: a tab's `resource`, a
 
 #### ReferenceSpec
 
-```ts excerpt
+```ts
 type ReferenceSpec = [keyof AllResources] extends [never]
   ? { resource: string; labelField: string }
   : {
@@ -3386,7 +3430,7 @@ type ReferenceSpec = [keyof AllResources] extends [never]
 A foreign-key target for `ColumnDef.reference` and `FieldDef.reference`.
 `labelField` must be a column of the named resource.
 
-```ts excerpt
+```ts
 { field: "userId", reference: { resource: "users", labelField: "email" } }
 //                                                  ^ keyof users row, not of orders
 ```
@@ -3402,7 +3446,7 @@ Documented types: AdminShellProps, DrawerProps, CommandPaletteProps, DataTablePr
 The components the admin renders with, for custom slots, pages and `"bare"`-shell
 chrome. Import them from `@flowpanel/kit/react`.
 
-```ts excerpt
+```ts
 import { AutoForm, DataTable, useAdminTable } from "@flowpanel/kit/react";
 ```
 
@@ -3595,7 +3639,7 @@ Not listed here: `@flowpanel/kit/client` holds
 
 The table above is exported as `FormField` and `FormFieldProps`. Its `type` accepts:
 
-```ts excerpt
+```ts
 "text" | "email" | "password" | "url" | "number" | "date" | "datetime" |
 "datetime-local" | "time" | "color" | "search" | "textarea" | "markdown" |
 "json" | "tags" | "select" | "multiselect" | "radio" | "reference" |
@@ -3679,7 +3723,7 @@ instances on the same channel share one `EventSource`. It returns a `RealtimeSta
 `idle`, `connecting`, `live`, `reconnecting`, or `offline` after six failed
 attempts (retries continue).
 
-```tsx excerpt
+```tsx
 const status = useLiveChannel("resource.orders", (payload) => {
   console.log("order event", payload);
 });
@@ -3689,7 +3733,7 @@ const status = useLiveChannel("resource.orders", (payload) => {
 `?q=`, `?sort=field:dir`, `?f_<field>=`). `pageSize` is `null` when the URL sets
 none. Setters use `router.replace`.
 
-```tsx excerpt
+```tsx
 const { page, pageSize, sort, setPage, setSort } = useAdminTable();
 ```
 
@@ -3698,13 +3742,13 @@ const { page, pageSize, sort, setPage, setSort } = useAdminTable();
 **`useTheme(options?)`** returns the theme and `toggle`/`setTheme`, stored in
 `localStorage`.
 
-```tsx excerpt
+```tsx
 const { theme, toggle } = useTheme();
 ```
 
 **`useToast()`** fires a toast under `ToastProvider` or `FlowpanelGlobals`.
 
-```tsx excerpt
+```tsx
 const toast = useToast();
 toast.success("Saved");
 ```
@@ -3727,7 +3771,7 @@ hrefs; a `null` entry is inert.
 **`useMediaQuery(query)`** subscribes to a media query, `false` on the server.
 `DataTable` switches to cards at `(max-width: 639px)`.
 
-```tsx excerpt
+```tsx
 const isMobile = useMediaQuery("(max-width: 639px)");
 ```
 
@@ -3740,20 +3784,20 @@ included. Mount it yourself only around components rendered outside that page.
 **`useRealtimeRefresh(channels, options?)`** runs a debounced `router.refresh()`
 on any event on its channels.
 
-```tsx excerpt
+```tsx
 useRealtimeRefresh("resource.orders");
 ```
 
 **`RealtimeRefresh`** is the same as a component that renders nothing.
 
-```tsx excerpt
+```tsx
 <RealtimeRefresh channels={["resource.orders", "scraper:tick"]} />
 ```
 
 **`DevToolsPanel`** shows realtime status, channels and event count in
 development; it renders `null` in production.
 
-```tsx excerpt
+```tsx
 {process.env.NODE_ENV !== "production" && <DevToolsPanel />}
 ```
 
@@ -3792,7 +3836,7 @@ when importing both.
 | `CustomWidget` | The `custom()` builder's return **type**. | The **component** that wraps one. |
 | `DrawerWidth` | `DrawerConfig["width"]`, the config option. | `DrawerProps["width"]`, the component prop: the same union, declared separately. |
 
-```ts excerpt
+```ts
 import type { TableWidget } from "@flowpanel/kit";
 import { TableWidget as TableWidgetRenderer } from "@flowpanel/kit/react";
 ```
@@ -3821,25 +3865,25 @@ controllers, client metadata and realtime publisher.
 
 Create one module-level runtime and reuse it from your route files:
 
-```ts excerpt
+```ts
 // src/flowpanel.ts
 import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../flowpanel.config";
 
 export const flowpanel = createFlowpanel(config);
 ```
 
-```ts excerpt
-// app/admin/[[...slug]]/page.tsx
-import { flowpanel } from "@/src/flowpanel";
+```ts
+// src/app/admin/[[...slug]]/page.tsx
+import { flowpanel } from "@/flowpanel";
 
 export const generateMetadata = flowpanel.metadata;
 export default flowpanel.page;
 ```
 
-```ts excerpt
-// app/api/flowpanel/[...route]/route.ts
-import { flowpanel } from "@/src/flowpanel";
+```ts
+// src/app/api/flowpanel/[...route]/route.ts
+import { flowpanel } from "@/flowpanel";
 
 export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 ```
@@ -3869,11 +3913,13 @@ dynamic name), `dashboard(path).action(key, input?)` for a dashboard action, and
 the `requestId`. `ResourceListOptions<Row>` takes page, page size, search, filters,
 sort, projection and soft-delete visibility.
 
-```ts excerpt
+```ts
+import { flowpanel } from "@/flowpanel";
+
 const request = await flowpanel.request();
 const result = await request.resources.orders.list({
   pageSize: 25,
-  select: ["id", "status", "totalCents"],
+  select: ["id", "status", "total"],
   sort: { field: "createdAt", dir: "desc" },
 });
 ```
@@ -3888,10 +3934,10 @@ generated UI. Do not reuse a `FlowpanelRequest` across requests.
 wrapper must forward both `params` and `searchParams`. The catch-all is the `slug`
 param, else `rest`, else the first array-valued param, whatever the folder is named.
 
-```ts excerpt
-// app/admin/[[...slug]]/page.tsx
+```ts
+// src/app/admin/[[...slug]]/page.tsx
 import { Flowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../flowpanel.config";
 
 export default Flowpanel(config);
 ```
@@ -3908,10 +3954,10 @@ export default Flowpanel(config);
 dashboard, list and record, and `robots: noindex`. Leave `viewport.themeColor`
 unset on the admin layout; the page renders its own.
 
-```ts excerpt
-// app/admin/[[...slug]]/page.tsx
+```ts
+// src/app/admin/[[...slug]]/page.tsx
 import { Flowpanel, flowpanelMetadata } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../flowpanel.config";
 
 export const generateMetadata = flowpanelMetadata(config);
 export default Flowpanel(config);
@@ -3924,10 +3970,10 @@ for embedding the admin in your own chrome.
 
 `handlers(config)` is the handler factory behind `createFlowpanel(config).handlers`:
 
-```ts excerpt
-// app/api/flowpanel/[...route]/route.ts
+```ts
+// src/app/api/flowpanel/[...route]/route.ts
 import { handlers } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../../flowpanel.config";
 
 export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = handlers(config);
 ```
@@ -3965,7 +4011,7 @@ dashboard's `access`, and the action's `access`.
 
 The SSE endpoint for realtime, on its own route.
 
-```ts excerpt
+```ts
 export function stream(
   config: ResolvedAdminConfig,
   opts?: StreamOptions,
@@ -3974,10 +4020,10 @@ export function stream(
 
 `StreamOptions.heartbeatMs` sets the keep-alive interval, 15 s by default.
 
-```ts excerpt
-// app/api/flowpanel/stream/route.ts
+```ts
+// src/app/api/flowpanel/stream/route.ts
 import { stream } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../../flowpanel.config";
 
 export const GET = stream(config);
 ```
@@ -4003,7 +4049,7 @@ three rows.
 
 ### Realtime helpers
 
-```ts excerpt
+```ts
 function publish(channel: string, payload?: unknown): Promise<void>;
 function publishResource(
   name: string,
@@ -4016,10 +4062,12 @@ function bindPublisher(config: ResolvedAdminConfig): void;
 `publishResource(name, event)` publishes on `resource.<name>`, the channel a
 `realtime: true` resource listens on:
 
-```ts excerpt
+```ts
 import { publishResource } from "@flowpanel/kit/next";
 
-await publishResource("orders", { action: "update", id: order.id });
+export async function orderShipped(order: { id: number }): Promise<void> {
+  await publishResource("orders", { action: "update", id: String(order.id) });
+}
 ```
 
 In an action, use `ctx.publish`. `handlers`, `Flowpanel` and `stream` call
@@ -4035,7 +4083,7 @@ publisher and warns once.
 rejects the context, and a missing rule denies, so a server action can reuse the
 admin's rules:
 
-```ts excerpt
+```ts
 import { getRequestContext, requireAccess } from "@flowpanel/kit";
 
 await requireAccess(["admin", "support"], getRequestContext());
@@ -4090,7 +4138,7 @@ the resource's channel for `refresh: true`), then revalidates `pathname` unless
 
 ### Dashboard path encoding
 
-```ts excerpt
+```ts
 function encodeDashboardPath(path: string): string;
 function decodeDashboardPath(encoded: string): string;
 ```
@@ -4102,7 +4150,7 @@ Encodes a dashboard `path` as the one URL segment `dashboardActionRoute` expects
 The create, update and delete pipeline the form routes use, with the resource's
 schema, field rules, scope and audit.
 
-```ts excerpt
+```ts
 function makeActions(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
@@ -4144,16 +4192,21 @@ Pass `reqCtx` to reuse a request context you already built.
 Builds the `RequestContext`. It enforces `auth.access` and the rate limit, so
 it throws `FlowpanelAccessError` or `FlowpanelRateLimitError`:
 
-```ts excerpt
+```ts
+// src/app/api/me/route.ts
 import { FlowpanelError, type RequestContext } from "@flowpanel/kit";
 import { buildRequestContext } from "@flowpanel/kit/next";
+import config from "../../../../flowpanel.config";
 
-let reqCtx: RequestContext;
-try {
-  reqCtx = await buildRequestContext({ req, config });
-} catch (err) {
-  if (!(err instanceof FlowpanelError)) throw err;
-  return Response.json({ ok: false, error: err.safeMessage }, { status: err.status });
+export async function GET(req: Request): Promise<Response> {
+  let reqCtx: RequestContext;
+  try {
+    reqCtx = await buildRequestContext({ req, config });
+  } catch (err) {
+    if (!(err instanceof FlowpanelError)) throw err;
+    return Response.json({ ok: false, error: err.safeMessage }, { status: err.status });
+  }
+  return Response.json({ ok: true, requestId: reqCtx.requestId });
 }
 ```
 
@@ -4178,7 +4231,7 @@ these through `@flowpanel/kit/test/widgets`; see [Testing](/docs/reference/testi
 
 ### Navigation
 
-```ts excerpt
+```ts
 function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): Promise<NavGroup[]>;
 function resourceNavName(resource: ResourceConfig): string;
 ```
@@ -4198,7 +4251,7 @@ Documented types: createFlowpanelClient, UseAdminMutation, UseAdminMutationOptio
 `@flowpanel/kit/client` calls the admin's HTTP API from custom browser UI. Calls go
 through the same auth, access, scope, validation and audit as generated pages.
 
-```ts excerpt
+```ts
 import {
   createFlowpanelClient,
   isFlowpanelErrorCode,
@@ -4216,10 +4269,10 @@ import {
 
 The client needs the runtime's metadata: `createFlowpanel(config).client`. Read it in a Server Component and pass it to the client component as a prop, so the config, adapter and database client stay on the server:
 
-```tsx excerpt
-// app/orders/page.tsx
+```tsx
+// src/app/orders/page.tsx
 import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../flowpanel.config";
 import { OrdersPanel } from "./orders-panel";
 
 const flowpanel = createFlowpanel(config);
@@ -4229,11 +4282,14 @@ export default function OrdersPage() {
 }
 ```
 
-```tsx excerpt
-// app/orders/orders-panel.tsx
+```tsx
+// src/app/orders/orders-panel.tsx
 "use client";
 
 import { createFlowpanelClient, type FlowpanelClientMetadata } from "@flowpanel/kit/client";
+import type { orders } from "@/db/schema";
+
+type Order = typeof orders.$inferSelect;
 
 export function OrdersPanel({ metadata }: { metadata: FlowpanelClientMetadata }) {
   async function loadOpenOrders() {
@@ -4279,11 +4335,20 @@ takes `signal` and `headers`. Network errors and malformed responses become an
 `isFlowpanelErrorResult(result)` narrows to the error branch;
 `isFlowpanelErrorCode(value)` checks a code.
 
-```ts excerpt
-import { isFlowpanelErrorCode, isFlowpanelErrorResult } from "@flowpanel/kit/client";
+```ts
+import {
+  createFlowpanelClient,
+  type FlowpanelClientMetadata,
+  isFlowpanelErrorCode,
+  isFlowpanelErrorResult,
+} from "@flowpanel/kit/client";
 
-if (isFlowpanelErrorResult(result) && result.error.code === "field_forbidden") {
-  // Hide or disable the corresponding control.
+export async function shipOrder(metadata: FlowpanelClientMetadata, id: string): Promise<void> {
+  const orders = createFlowpanelClient(metadata).resource("orders");
+  const result = await orders.update(id, { status: "shipped" });
+  if (isFlowpanelErrorResult(result) && result.error.code === "field_forbidden") {
+    // Hide or disable the corresponding control.
+  }
 }
 
 isFlowpanelErrorCode("rate_limited"); // true
@@ -4294,7 +4359,8 @@ isFlowpanelErrorCode("anything"); // false
 
 `useAdminMutation` tracks pending and error state for an async function that resolves to an `ActionResult` (`{ ok: true, ... }` or `{ ok: false, error }`).
 
-```tsx excerpt
+```tsx
+// src/app/orders/archive-button.tsx
 "use client";
 import { useAdminMutation } from "@flowpanel/kit/client";
 import { archiveOrder } from "./actions";
@@ -4341,7 +4407,7 @@ Lower-level contracts from `@flowpanel/kit` for adapter authors and custom
 integrations. An app built with `defineAdmin` and `createFlowpanel` does not need
 them.
 
-```ts excerpt
+```ts
 import {
   accessAllows,
   assertWritableInput,
@@ -4388,11 +4454,11 @@ slash.
 
 Useful when a factory returns a definition:
 
-```ts excerpt
+```ts
 function companyAdmin(): AdminDefinition {
   return {
     adapter,
-    auth,
+    auth: flowpanelAuth,
     paths: { admin: "/ops", api: "/api/ops" },
   };
 }
@@ -4433,6 +4499,11 @@ resource declares none. The first-party adapters throw `FlowpanelAccessError`
 when the predicate adds no condition; an adapter that applies scope by hand must
 refuse the query in the same case.
 
+Create and update must also leave the row inside the scope. The first-party
+adapters throw `FlowpanelAccessError` and write nothing when the new or changed
+row would fall outside it, such as an update that sets the tenant column to
+another tenant. A custom adapter must do the same.
+
 ### Post-commit effects
 
 Post-commit audit, realtime or revalidation failures do not turn a committed
@@ -4445,7 +4516,7 @@ metadata; `FlowpanelWarningCode` is `audit_failed`, `realtime_failed`, or
 Every protected controller and v1 JSON CRUD endpoint returns
 `FlowpanelResult<T>`:
 
-```ts excerpt
+```ts
 type FlowpanelResult<T> =
   | { ok: true; data: T; meta: FlowpanelResultMeta }
   | { ok: false; error: FlowpanelResultError };
@@ -4534,7 +4605,7 @@ adapter's own `db`, outside any transaction or per-request session settings.
 
 Two helpers match the shipped adapters' behaviour:
 
-```ts excerpt
+```ts
 import { parseSqlRows, sanitizeSqlParams } from "@flowpanel/kit";
 
 async function sql<Row>(strings: TemplateStringsArray, ...values: unknown[]) {
@@ -4606,7 +4677,7 @@ reported for your own use.
 Three obligations keep the admin safe:
 
 **Tenant scope.** When `ctx.boundScope` is set, every method must constrain
-its query with `ctx.boundScope.apply`, and refuse a query the predicate leaves unconstrained. `create` included: writing a row outside the
+its query with `ctx.boundScope.apply`, and refuse a query the predicate leaves unconstrained. `create` and `update` included: writing or moving a row outside the
 caller's scope is as much a leak as reading one.
 
 **The search allowlist.** `list` searches only `ctx.searchFields`.
@@ -4677,7 +4748,7 @@ Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher,
 A scope is resolved once per request and applied by the adapter to every query.
 Guide: [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 
-```ts excerpt
+```ts
 type Scope = Record<string, unknown> | null;
 // FlowpanelTypes["session"] when you register it, else Record<string, unknown>
 type Session = Record<string, unknown>;
@@ -4692,11 +4763,8 @@ type Session = Record<string, unknown>;
 | `req` | `Request` |  |
 | `session` | `Session \| null` |  |
 
-```ts excerpt
-defineAdmin({
-  scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
-  // …
-});
+```ts
+scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
 ```
 
 The returned object reaches resource predicates as their first argument, and
@@ -4735,7 +4803,7 @@ The realtime transport, built from `AdminDefinition.realtime` by
 | `subscribe` | `(channel: string, handler: (payload: unknown) => void) => () => void` |  |
 | `close?` | `() => Promise<void>` | Release the transport's connections. Publishing afterwards throws. |
 
-```ts excerpt
+```ts
 type PublisherOptions =
   | { driver: "memory" }
   | { driver: "redis"; url?: string; client?: RedisLike; keyPrefix?: string };
@@ -4786,11 +4854,17 @@ connection.
 | `action?` | `"create" \| "update" \| "delete"` | Default: `"update"`. |
 | `id?` | `string \| number` | The changed record's key, when one record changed. |
 
-```ts excerpt
+```ts
 import { createPublisher } from "@flowpanel/kit/publish";
 
-const events = createPublisher({ redis: process.env.REDIS_URL!, onError: report });
-await events.resource("orders", { id });
+const events = createPublisher({
+  redis: process.env.REDIS_URL!,
+  onError: (err) => console.error("realtime publish failed", err),
+});
+
+export async function orderChanged(id: number): Promise<void> {
+  await events.resource("orders", { id });
+}
 ```
 
 It also takes the admin's `{ driver: "redis", url, keyPrefix }` options. A
@@ -4820,7 +4894,7 @@ process.env.REDIS_URL } in defineAdmin
 | --- | --- | --- |
 | `check` | `(key: string) => Promise<boolean>` | Returns true if the request is allowed; false if the limit is exceeded. |
 
-```ts excerpt
+```ts
 function createRateLimiter(opts: RateLimitOptions): RateLimiter;
 ```
 
@@ -4835,7 +4909,7 @@ The error hierarchy, its status codes, and what reaches the operator.
 
 Docs: https://flowpanel.tech/docs/reference/errors
 
-Documented types: FlowpanelError, FlowpanelValidationError
+Documented types: FlowpanelError, FlowpanelValidationError, FlowpanelConfigError
 
 Throw one of these from an action, adapter or custom route and FlowPanel answers
 with its status and `safeMessage`. Any other error becomes a generic `500` with no
@@ -4857,7 +4931,7 @@ The base class. Every other error extends it.
 
 Construct it directly for a case the subclasses do not cover:
 
-```ts excerpt
+```ts
 throw new FlowpanelError("conflict", "This order is already being processed");
 ```
 
@@ -4882,13 +4956,13 @@ name, and `FlowpanelValidationError`, which takes its field errors first.
 
 It carries `fieldErrors`, keyed by field name, as the first constructor argument:
 
-```ts excerpt
+```ts
 constructor(fieldErrors: Record<string, string>, message = "Validation failed");
 ```
 
 Forms show each entry beside its input.
 
-```ts excerpt
+```ts
 import { FlowpanelValidationError } from "@flowpanel/kit";
 
 throw new FlowpanelValidationError({
@@ -4918,13 +4992,23 @@ The column is matched to the resource's field by name, ignoring case and `_`, so
 `user_id` reaches `userId`. A violation without a column it can match, and any
 other database error, stays a `500` and is reported as above.
 
-### Config-time errors are not in this hierarchy
+### FlowpanelConfigError
 
-`defineAdmin` throws plain `Error`s while the config loads, so the app fails to
-start. They cover duplicate or reserved names, duplicate action keys, unknown
-columns, an unintrospectable ref without `columns`, unresolved references, and
-`rowClick: "drawer"` without a drawer. Each names the config path and the closest
-match. See [Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots).
+`defineAdmin` throws a `FlowpanelConfigError` while the config loads, so the app
+fails to start. It is not a `FlowpanelError` and is never sent to the client:
+one thrown during a request, such as `devAuth()` in production, becomes a `500`.
+Every one reads the same way:
+
+```text
+[flowpanel] <where in the config>: <what is wrong>. <how to fix>.
+```
+
+`where` holds the config path on its own, such as `resource "orders" drawer.tabs[0]`.
+The errors cover duplicate or reserved names, duplicate action keys, unknown
+columns, an unintrospectable ref without `columns`, unresolved references,
+`rowClick: "drawer"` without a drawer, removed options, unsafe route paths, a
+production admin without real auth, and `devAuth()` in production. See
+[Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots).
 
 #### Did you mean
 
@@ -4932,8 +5016,8 @@ An unknown name close to a registered one gets a suggestion: a match ignoring ca
 and `_`/`-`, else the closest within edit distance two.
 
 ```text
-resource "users" points at column "emial" via columns[0], but the adapter
-reports no such column. Did you mean "email"? Known columns: "id", "email".
+[flowpanel] resource "users" columns[0]: it points at column "emial", which the
+adapter does not report. Did you mean "email"? Known columns: "id", "email".
 ```
 
 It covers column, filter, sort, field, tab, reference, view and link names. A link,
@@ -4997,7 +5081,7 @@ the server log and the Sentry tag `widget.id` carry it.
 
 Inside an action's `run` you have both options:
 
-```ts excerpt
+```ts
 run: async (row, input, ctx) => {
   if (row.status === "refunded") {
     return { ok: false, error: "Already refunded" };   // 200 with a failure body
@@ -5465,23 +5549,31 @@ $ pnpm flowpanel new user_visit --dir admin/config/resources --hidden
 
 `--dir` reads the Drizzle schema and writes `admin/config/resources/user-visit.ts`:
 
-```ts excerpt
+```ts
 import { enumOf, resource } from "@flowpanel/kit";
 import * as schema from "@/db/schema";
 
-const Surface = enumOf(schema.activitySurface.enumValues, { web: "web", tma: "tma" });
+const Surface = enumOf(schema.activitySurface.enumValues, { web: "Web", tma: "Tma" });
 
 export const userVisit = resource(schema.userVisit, {
   hidden: true,
   columns: [
     "id",
-    { field: "userId", reference: { resource: "user", labelField: "name" } },
+    { field: "userId", label: "User", reference: { resource: "user", labelField: "email" } },
     { field: "surface", format: Surface.format },
     { field: "startedAt", format: { kind: "date", time: true } },
     "touches",
   ],
   filters: [{ field: "surface", type: "select" }],
   defaultSort: { field: "startedAt", dir: "desc" },
+  create: {
+    fields: [
+      { name: "userId", label: "User", reference: { resource: "user", labelField: "email" } },
+      { name: "surface", type: "select", options: Surface.options },
+      { name: "startedAt", type: "datetime" },
+      { name: "touches", type: "number" },
+    ],
+  },
 });
 ```
 
@@ -5489,9 +5581,11 @@ and adds it to `admin/config/resources/index.ts`. The first time, it also import
 that directory's `resources` into `flowpanel.config.ts` and spreads it into the
 array; when the config is shaped differently it prints the line to add. Columns are chosen by type; an
 enum gets an `enumOf` stub; a foreign key becomes a `reference` labelled by the
-target's `name`, `title` or `email` when the target already has a file, so scaffold
-referenced tables first. JSON and long text are left out, `name`, `title` and
-`email` become search fields, and the list sorts by `createdAt` or `startedAt`.
+target's `name`, `title` or `email` when the target already has a file, and a
+`reference` picker in `create.fields`, so scaffold referenced tables first. With
+`create.fields` written, a column you add to the table later reaches the form only
+when you add it there. JSON and long text are left out of the list columns, `name`,
+`title` and `email` become search fields, and the list sorts by `createdAt` or `startedAt`.
 `--hidden` keeps the resource out of the navigation.
 
 Re-running changes nothing; a different existing file stops it. `--dir` is
@@ -5523,7 +5617,7 @@ pnpm add -D @playwright/test @axe-core/playwright
 
 ### smokeAdmin
 
-```ts excerpt
+```ts
 import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/kit/test";
 
@@ -5583,18 +5677,20 @@ is visible, since realtime pages never reach network idle.
 `smokeAdmin` resolves with the report, or throws an `Error` listing each problem
 and the report as JSON.
 
-```ts excerpt
+```ts
+import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/kit/test";
 
-const report = await smokeAdmin(page, {
-  paths: { admin: "/admin" },
-  cookie: { name: "session", value: process.env.E2E_SESSION ?? "" },
-  resources: ["/", "customers", "orders"],
-  maxRows: 3,
-  a11y: true,
+test("the admin is healthy", async ({ page }) => {
+  const report = await smokeAdmin(page, {
+    paths: { admin: "/admin" },
+    cookie: { name: "session", value: process.env.E2E_SESSION ?? "" },
+    resources: ["/", "customers", "orders"],
+    maxRows: 3,
+    a11y: true,
+  });
+  console.log(`${report.visited.length} routes visited`);
 });
-
-console.log(`${report.visited.length} routes visited`);
 ```
 
 `resources` takes nav segments: `"/"` is the landing dashboard, `"customers"` is
@@ -5605,7 +5701,7 @@ console.log(`${report.visited.length} routes visited`);
 `widgetContext` builds a widget context over rows you pass instead of a database.
 `resolveWidget` runs the widget as a dashboard does and returns its card's props.
 
-```ts excerpt
+```ts
 import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
 import { expect, it } from "vitest";
 import { paidToday } from "@/admin/config/dashboards/money";
@@ -5655,12 +5751,29 @@ references. Access rules apply, so pass `session` and `role`; tenant scope does 
 `headerContext` builds the second argument of `detail.title`, `subtitle` and
 `badge`:
 
-```ts excerpt
+```ts
 import { headerContext } from "@flowpanel/kit/test/widgets";
+import { expect, it } from "vitest";
 import admin from "@/admin/config";
+import { customerCard } from "@/admin/config/resources/customer-card";
 
-const ctx = headerContext({ admin });
-expect(customers.options.detail?.title?.(row, ctx)).toBe("Northwind Audio");
+it("says how long the customer has been with us", () => {
+  const ctx = headerContext({ admin });
+  const row = {
+    id: 1,
+    email: "ops@northwind.example",
+    name: "Ada",
+    company: "Northwind Audio",
+    plan: "pro",
+    status: "active",
+    mrr: 4900,
+    churned: false,
+    createdAt: new Date("2026-01-05"),
+    lastSeenAt: null,
+    deletedAt: null,
+  } as const;
+  expect(customerCard.subtitle(row, ctx)).toContain("Customer since");
+});
 ```
 
 `@flowpanel/kit/test/widgets` is ESM-only; `@flowpanel/kit/test` also loads with `require`, for Playwright projects compiled to CommonJS.
@@ -5670,7 +5783,7 @@ expect(customers.options.detail?.title?.(row, ctx)).toBe("Northwind Audio");
 Inline FlowPanel's packages, or the run fails with `ERR_MODULE_NOT_FOUND` for
 `next/cache`, and alias `@/`, since Vitest does not read `tsconfig.json` paths:
 
-```ts excerpt
+```ts
 // vitest.config.ts
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
@@ -5685,7 +5798,7 @@ export default defineConfig({
 
 `smokeAdmin` calls `page.goto(paths.admin)`, so set a `baseURL` and a `webServer`:
 
-```ts excerpt
+```ts
 // playwright.config.ts
 import { defineConfig } from "@playwright/test";
 
@@ -5704,15 +5817,18 @@ The test user needs the role your admin requires.
 next-auth and other providers that sign sessions, sign in first; `smokeAdmin` reuses
 the page's context.
 
-```ts excerpt
+```ts
+import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/kit/test";
 
-await page.goto("/login");
-await page.getByLabel("Email").fill("admin@example.com");
-await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
-await page.getByRole("button", { name: "Sign in" }).click();
+test("the admin is healthy", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("admin@example.com");
+  await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
+  await page.getByRole("button", { name: "Sign in" }).click();
 
-await smokeAdmin(page);
+  await smokeAdmin(page);
+});
 ```
 
 ## ESLint plugin
@@ -5736,7 +5852,7 @@ It needs `eslint >= 8`; the config is flat config.
 
 ### Setup
 
-```ts excerpt
+```ts
 import flowpanel from "@flowpanel/eslint-plugin";
 
 export default [flowpanel.configs.recommended];
@@ -5744,7 +5860,7 @@ export default [flowpanel.configs.recommended];
 
 `configs.recommended` turns on all five rules. To choose them yourself:
 
-```ts excerpt
+```ts
 import flowpanel from "@flowpanel/eslint-plugin";
 
 export default [
@@ -5788,7 +5904,7 @@ In a `"use client"` file, flags imports of:
 Flags an `actions` or `bulkActions` entry with `variant: "destructive"` and no
 `confirm`.
 
-```ts excerpt
+```ts
 // bad
 actions: [{ key: "delete", label: "Delete", variant: "destructive", run }];
 
@@ -5816,7 +5932,7 @@ twice is flagged too.
 Rewrites filter `options` whose every `label` equals its `value` as plain strings.
 Autofixable.
 
-```ts excerpt
+```ts
 // bad
 filters: [
   {

@@ -146,7 +146,7 @@ export function Form<S extends $ZodType>({
           {...formProps}
           action={formAction}
           onReset={keepAfterAction}
-          className={cn("space-y-4", className)}
+          className={cn("fp-space-y-4", className)}
         >
           {children}
         </form>

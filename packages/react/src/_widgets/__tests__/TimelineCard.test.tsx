@@ -33,7 +33,7 @@ describe("TimelineCard", () => {
     expect(screen.getByRole("link", { name: "All" }).getAttribute("aria-current")).toBeNull();
     expect(screen.getByText("Nothing yet")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Visit" }).parentElement?.className).toContain(
-      "flex-wrap",
+      "fp-flex-wrap",
     );
   });
 
@@ -68,9 +68,9 @@ describe("TimelineCard", () => {
     );
     expect(container.querySelector("time")?.getAttribute("title")).toBe("Sep 25, 2026, 10:00");
     expect(screen.getByRole("link", { name: "Older" })).toBeTruthy();
-    expect(screen.getByText("Orders in feed").className).toContain("break-words");
+    expect(screen.getByText("Orders in feed").className).toContain("fp-break-words");
     expect(container.querySelector("summary")?.className).toContain(
-      "[&::-webkit-details-marker]:hidden",
+      "[&::-webkit-details-marker]:fp-hidden",
     );
   });
 
@@ -106,7 +106,7 @@ describe("TimelineCard", () => {
     for (const summary of summaries) {
       expect(summary.querySelector("a")).toBeNull();
       expect(summary.querySelector("svg")?.getAttribute("class")).toContain(
-        "[details[open]>summary_&]:rotate-90",
+        "[details[open]>summary_&]:fp-rotate-90",
       );
     }
     expect(screen.queryByRole("link", { name: "Scoring run" })).toBeNull();

@@ -29,7 +29,7 @@ export function DetailTabsClient({ tabs }: DetailTabsClientProps) {
         router.push(`${pathname}?${params.toString()}`, { scroll: false });
       }}
     >
-      <TabsList className="max-w-full justify-start overflow-x-auto">
+      <TabsList className="fp-max-w-full fp-justify-start fp-overflow-x-auto">
         {tabs.map((t) => (
           <TabsTrigger key={t.key} value={t.key} data-fp-tab={t.key}>
             {t.label}

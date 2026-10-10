@@ -17,11 +17,11 @@ describe("StatStrip", () => {
     );
     expect(screen.getByText("Today")).toBeTruthy();
     const band = screen.getByText("a").parentElement?.className ?? "";
-    expect(band).toContain("gap-px");
-    expect(band).toContain("grid-cols-2");
-    expect(band).toContain("md:grid-cols-3");
-    expect(band).toContain("[&>*:last-child:nth-child(odd)]:col-span-2");
-    expect(band).toContain("[&>*]:bg-fp-bg-1");
+    expect(band).toContain("fp-gap-px");
+    expect(band).toContain("fp-grid-cols-2");
+    expect(band).toContain("md:fp-grid-cols-3");
+    expect(band).toContain("[&>*:last-child:nth-child(odd)]:fp-col-span-2");
+    expect(band).toContain("[&>*]:fp-bg-surface");
   });
 
   it("takes an explicit number of cells per line, at most six by default", () => {
@@ -30,7 +30,7 @@ describe("StatStrip", () => {
         <div>x</div>
       </StatStrip>,
     );
-    expect(screen.getByText("x").parentElement?.className).toContain("md:grid-cols-2");
+    expect(screen.getByText("x").parentElement?.className).toContain("md:fp-grid-cols-2");
     cleanup();
     render(
       <StatStrip>
@@ -39,7 +39,7 @@ describe("StatStrip", () => {
         ))}
       </StatStrip>,
     );
-    expect(screen.getByText("n0").parentElement?.className).toContain("md:grid-cols-6");
+    expect(screen.getByText("n0").parentElement?.className).toContain("md:fp-grid-cols-6");
   });
 
   it("draws the hairlines on the cells, so slots left empty on the last line stay blank", () => {
@@ -51,9 +51,9 @@ describe("StatStrip", () => {
       </StatStrip>,
     );
     const band = screen.getByText("k0").parentElement?.className ?? "";
-    expect(band).not.toContain("bg-fp-border-1");
-    expect(band).toContain("bg-fp-bg-1");
-    expect(band).toContain("[&>*]:shadow-[0_0_0_1px_hsl(var(--fp-border-1))]");
+    expect(band).not.toContain("fp-bg-line");
+    expect(band).toContain("fp-bg-surface");
+    expect(band).toContain("[&>*]:fp-shadow-[0_0_0_1px_hsl(var(--fp-border-1))]");
   });
 
   it("counts only the cells that render, so a hidden one leaves no empty column", () => {
@@ -65,6 +65,6 @@ describe("StatStrip", () => {
         {null}
       </StatStrip>,
     );
-    expect(screen.getByText("a").parentElement?.className).toContain("md:grid-cols-1");
+    expect(screen.getByText("a").parentElement?.className).toContain("md:fp-grid-cols-1");
   });
 });

@@ -8,16 +8,16 @@ export interface MetricGridProps {
 }
 
 const colClass: Record<number, string> = {
-  1: "grid-cols-1",
-  2: "grid-cols-1 md:grid-cols-2",
-  3: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
-  4: "grid-cols-2 md:grid-cols-4",
-  6: "grid-cols-2 md:grid-cols-3 lg:grid-cols-6",
+  1: "fp-grid-cols-1",
+  2: "fp-grid-cols-1 md:fp-grid-cols-2",
+  3: "fp-grid-cols-1 md:fp-grid-cols-2 lg:fp-grid-cols-3",
+  4: "fp-grid-cols-2 md:fp-grid-cols-4",
+  6: "fp-grid-cols-2 md:fp-grid-cols-3 lg:fp-grid-cols-6",
 };
 
 export function MetricGrid({ columns = 4, className, children }: MetricGridProps) {
   return (
-    <div className={cn("grid gap-3", colClass[columns] ?? "grid-cols-1", className)}>
+    <div className={cn("fp-grid fp-gap-3", colClass[columns] ?? "fp-grid-cols-1", className)}>
       {children}
     </div>
   );

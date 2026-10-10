@@ -33,8 +33,8 @@ describe("StatCard", () => {
   it("titles the card like a metric card, in sentence case", () => {
     render(<StatCard label="Notifications delivered" value={3} />);
     const title = screen.getByText("Notifications delivered").className;
-    expect(title).toContain("text-sm");
-    expect(title).toContain("text-fp-text-2");
+    expect(title).toContain("fp-text-sm");
+    expect(title).toContain("fp-text-soft");
     expect(title).not.toContain("uppercase");
   });
 
@@ -75,9 +75,9 @@ describe("BarsCard", () => {
       />,
     );
     expect(screen.getByText("800")).toBeTruthy();
-    const bars = container.querySelectorAll(".bg-fp-data");
-    expect(bars[0]?.className).toContain("w-full");
-    expect(bars[1]?.className).toContain("w-[50%]");
+    const bars = container.querySelectorAll(".fp-bg-data");
+    expect(bars[0]?.className).toContain("fp-w-full");
+    expect(bars[1]?.className).toContain("fp-w-[50%]");
   });
 
   it("sizes bars against a declared max instead of the largest row", () => {
@@ -91,9 +91,9 @@ describe("BarsCard", () => {
         max={1}
       />,
     );
-    const bars = container.querySelectorAll(".bg-fp-data");
-    expect(bars[0]?.className).toContain("w-[45%]");
-    expect(bars[1]?.className).toContain("w-[10%]");
+    const bars = container.querySelectorAll(".fp-bg-data");
+    expect(bars[0]?.className).toContain("fp-w-[45%]");
+    expect(bars[1]?.className).toContain("fp-w-[10%]");
   });
 
   it("treats a max of zero or less as unset", () => {
@@ -106,9 +106,9 @@ describe("BarsCard", () => {
         max={0}
       />,
     );
-    const bars = container.querySelectorAll(".bg-fp-data");
-    expect(bars[0]?.className).toContain("w-full");
-    expect(bars[1]?.className).toContain("w-[50%]");
+    const bars = container.querySelectorAll(".fp-bg-data");
+    expect(bars[0]?.className).toContain("fp-w-full");
+    expect(bars[1]?.className).toContain("fp-w-[50%]");
   });
 
   it("keys bars by position, so two equal labels raise no warning", () => {

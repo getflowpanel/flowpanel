@@ -54,27 +54,27 @@ export function MultiSelectFilter({
             size="sm"
             className={cn(
               BARE_CONTROL,
-              "w-auto justify-start font-normal",
-              selected.length === 0 && "text-fp-text-2",
+              "fp-w-auto fp-justify-start fp-font-normal",
+              selected.length === 0 && "fp-text-soft",
             )}
           >
-            <span className="truncate">{buttonText}</span>
-            <ChevronDown aria-hidden className="h-4 w-4 shrink-0 opacity-50" />
+            <span className="fp-truncate">{buttonText}</span>
+            <ChevronDown aria-hidden className="fp-h-4 fp-w-4 fp-shrink-0 fp-opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-48 p-1">
+        <PopoverContent align="start" className="fp-w-48 fp-p-1">
           {options.map((o) => (
             <label
               key={o.value}
               htmlFor={`${id}-${o.value}`}
-              className="flex cursor-pointer items-center gap-2 rounded-fp-sm px-2 py-1.5 transition-colors hover:bg-fp-bg-3/70"
+              className="fp-flex fp-cursor-pointer fp-items-center fp-gap-2 fp-rounded-sm fp-px-2 fp-py-1.5 fp-transition-colors hover:fp-bg-fill/70"
             >
               <Checkbox
                 id={`${id}-${o.value}`}
                 checked={selected.includes(o.value)}
                 onCheckedChange={() => toggle(o.value)}
               />
-              <span className="text-sm">{o.label}</span>
+              <span className="fp-text-sm">{o.label}</span>
             </label>
           ))}
         </PopoverContent>

@@ -32,8 +32,8 @@ export function withSecondary<Row extends Record<string, unknown>>(
   if (second === "") return cell;
   return (
     <>
-      <span className="block truncate">{cell}</span>
-      <span className="block truncate text-xs text-fp-text-3">{second}</span>
+      <span className="fp-block fp-truncate">{cell}</span>
+      <span className="fp-block fp-truncate fp-text-xs fp-text-faint">{second}</span>
     </>
   );
 }

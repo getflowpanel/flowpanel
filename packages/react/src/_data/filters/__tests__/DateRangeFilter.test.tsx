@@ -44,18 +44,18 @@ describe("DateRangeFilter", () => {
     render(<DateRangeFilter value={null} onChange={vi.fn()} />);
 
     const trigger = screen.getByRole("button", { name: /^date range$/i });
-    expect(trigger.className).toContain("h-11");
-    expect(trigger.className).toContain("sm:h-8");
+    expect(trigger.className).toContain("fp-h-11");
+    expect(trigger.className).toContain("sm:fp-h-8");
   });
 
   it("keeps the mobile clear action at least 44px square", () => {
     render(<DateRangeFilter value="2026-08-05:2026-08-20" onChange={vi.fn()} />);
 
     const clear = screen.getByRole("button", { name: /clear date range/i });
-    expect(clear.className).toContain("h-11");
-    expect(clear.className).toContain("w-11");
-    expect(clear.className).toContain("sm:h-6");
-    expect(clear.className).toContain("sm:w-6");
+    expect(clear.className).toContain("fp-h-11");
+    expect(clear.className).toContain("fp-w-11");
+    expect(clear.className).toContain("sm:fp-h-6");
+    expect(clear.className).toContain("sm:fp-w-6");
   });
 
   it("emits 'from:to' after picking both ends", () => {

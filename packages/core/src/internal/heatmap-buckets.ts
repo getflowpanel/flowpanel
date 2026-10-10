@@ -37,10 +37,7 @@ export interface HeatCell {
   level: number;
 }
 
-/**
- * Totals per day of `timeZone` over the `days` days ending `today`, as weeks of seven cells
- * that start on `weekStart`; the days before the first and after the last are `null`.
- */
+/** Day totals in `timeZone` over `days` days to `today`, as weeks from `weekStart`; days outside the range are `null`. */
 export function heatmapGrid(
   points: Iterable<{ at: Date | string; value: number }>,
   today: string,

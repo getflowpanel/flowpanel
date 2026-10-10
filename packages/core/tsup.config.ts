@@ -24,6 +24,7 @@ export default defineConfig([
   { entry: { index: "src/index.ts" }, ...common },
   { entry: { labels: "src/labels.ts" }, ...common },
   { entry: { theme: "src/theme-init.ts" }, ...common },
+  { entry: { "class-names": "src/class-names.ts" }, ...common },
   { entry: { paths: "src/paths.ts" }, ...common },
   { entry: { publish: "src/publish.ts" }, ...common },
   { entry: { auth: "src/auth/index.ts" }, ...common, external: ["@flowpanel/core"] },

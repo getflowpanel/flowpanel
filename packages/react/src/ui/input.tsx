@@ -5,7 +5,7 @@ import { named } from "../lib/named";
 
 /** A control the user may see but not change: muted, with no hover, focus ring or caret. */
 export const READ_ONLY_CLASS =
-  "aria-readonly:cursor-default aria-readonly:bg-fp-bg-2 aria-readonly:text-fp-text-2 aria-readonly:caret-transparent aria-readonly:shadow-none aria-readonly:hover:border-fp-border-1 aria-readonly:focus-visible:border-fp-border-1 aria-readonly:focus-visible:ring-0";
+  "aria-readonly:fp-cursor-default aria-readonly:fp-bg-canvas aria-readonly:fp-text-soft aria-readonly:fp-caret-transparent aria-readonly:fp-shadow-none aria-readonly:hover:fp-border-line aria-readonly:focus-visible:fp-border-line aria-readonly:focus-visible:fp-ring-0";
 
 export const Input = /* @__PURE__ */ named(
   /* @__PURE__ */ React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
@@ -14,9 +14,9 @@ export const Input = /* @__PURE__ */ named(
         ref={ref}
         type={type}
         className={cn(
-          "flex h-9 w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-1 text-sm text-fp-text-1 shadow-fp-xs transition-colors hover:border-fp-border-2",
-          "placeholder:text-fp-text-3 focus-visible:outline-none focus-visible:border-fp-focus focus-visible:ring-2 focus-visible:ring-fp-focus/25 focus-visible:hover:border-fp-focus",
-          "disabled:cursor-not-allowed disabled:opacity-50",
+          "fp-flex fp-h-9 fp-w-full fp-rounded fp-border fp-border-line fp-bg-surface fp-px-3 fp-py-1 fp-text-sm fp-text-ink fp-shadow-xs fp-transition-colors hover:fp-border-line-strong",
+          "placeholder:fp-text-faint focus-visible:fp-outline-none focus-visible:fp-border-focus focus-visible:fp-ring-2 focus-visible:fp-ring-focus/25 focus-visible:hover:fp-border-focus",
+          "disabled:fp-cursor-not-allowed disabled:fp-opacity-50",
           READ_ONLY_CLASS,
           className,
         )}

@@ -10,6 +10,7 @@ import { PNP_UNSUPPORTED } from "../utils/compatibility";
 import { detectPackageManager, platformBin, pmCommands } from "../utils/detect";
 import { inspectDependency } from "../utils/project-packages";
 import { noNextProject } from "../utils/project-root";
+import { failCommand } from "../utils/ui";
 
 /** The board entry point, in either module flavour. `.mts` lets a CJS app import ESM statically. */
 const BOARD_SCRIPTS = ["scripts/board-server.mts", "scripts/board-server.ts"] as const;
@@ -113,10 +114,7 @@ export function devCommand(cli: Command): void {
 
       p.intro(pc.bgCyan(pc.black(" FlowPanel dev ")));
       const preflight = await devPreflight(cwd, opts.port);
-      if ("error" in preflight) {
-        p.cancel(preflight.error);
-        process.exit(1);
-      }
+      if ("error" in preflight) failCommand("dev", false, preflight.error);
       const pmc = pmCommands(await detectPackageManager(cwd));
       const runner = platformBin(pmc.exec);
       const next = startNext(cwd, preflight.nextBin, opts.port);

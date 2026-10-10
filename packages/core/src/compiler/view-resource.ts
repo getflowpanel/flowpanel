@@ -1,6 +1,7 @@
 import { quoted } from "../internal/validate-shared";
 import { didYouMean } from "../suggest";
 import type { Adapter, ResourceIntrospection } from "../types/adapter";
+import { FlowpanelConfigError } from "../types/config-error";
 import type { ResourceConfig } from "../types/resource";
 import { tryIntrospect } from "./introspect";
 
@@ -27,22 +28,25 @@ function checkWriteTarget(
   const target = tryIntrospect(adapter, resource.options.writeTo).introspection;
   if (!target || target.columns.length === 0) return;
   if (target.kind === "view") {
-    throw new Error(
-      `flowpanel: resource "${name}" sets writeTo to the view "${target.name}"; writeTo must be a table.`,
+    throw new FlowpanelConfigError(
+      `resource "${name}" writeTo`,
+      `it names the view "${target.name}", which cannot be written. Point writeTo at a table.`,
     );
   }
   const viewColumns = view?.columns.map((column) => column.name) ?? [];
   if (viewColumns.length > 0 && !viewColumns.includes(target.primaryKey)) {
-    throw new Error(
-      `flowpanel: resource "${name}" writes to "${target.name}", whose key "${target.primaryKey}" ` +
-        `is not a column of the view "${view?.name}". Select it in the view.`,
+    throw new FlowpanelConfigError(
+      `resource "${name}" writeTo`,
+      `the key "${target.primaryKey}" of "${target.name}" is not a column of the view ` +
+        `"${view?.name}". Select it in the view.`,
     );
   }
   const known = target.columns.map((column) => column.name);
   const missingColumn = (field: string, via: string): never => {
-    throw new Error(
-      `flowpanel: resource "${name}" writes "${field}" via ${via}, but its writeTo ` +
-        `"${target.name}" has no such column.${didYouMean(field, known)} Known columns: ${quoted(known)}.`,
+    throw new FlowpanelConfigError(
+      `resource "${name}" ${via}`,
+      `it writes "${field}", but the writeTo table "${target.name}" has no such column.` +
+        `${didYouMean(field, known)} Known columns: ${quoted(known)}.`,
     );
   };
   for (const mode of ["create", "update"] as const) {
@@ -58,10 +62,7 @@ function checkWriteTarget(
   });
 }
 
-/**
- * A resource over a view: with `writeTo`, the write target is checked; without it, the
- * resource becomes read-only and any declared write is an error.
- */
+/** A view resource writes through a checked `writeTo`; without one it is read-only and a declared write throws. */
 export function viewResource(
   name: string,
   resource: ResourceConfig,
@@ -75,9 +76,10 @@ export function viewResource(
   if (introspection?.kind !== "view") return resource;
   const declared = declaredWrites(resource);
   if (declared.length > 0) {
-    throw new Error(
-      `flowpanel: resource "${name}" reads the view "${introspection.name}" and cannot write ` +
-        `(${declared.join(", ")}); set writeTo: <table> or disable create/update/delete.`,
+    throw new FlowpanelConfigError(
+      `resource "${name}"`,
+      `it reads the view "${introspection.name}", which cannot be written, but declares ` +
+        `${declared.join(", ")}. Set writeTo: <table>, or disable create, update and delete.`,
     );
   }
   return {

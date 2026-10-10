@@ -47,22 +47,22 @@ export function QueryErrorCard({
   const detail = causeMessage(cause);
   return (
     <ServerCard data-fp-error="">
-      <p className="text-sm font-medium text-fp-err-text">
+      <p className="fp-text-sm fp-font-medium fp-text-err-ink">
         {formatLabel(labels.errors.queryTitle, {
           resource: site.resource,
           operation: site.operation,
         })}
       </p>
-      <p className="mt-2 text-xs text-fp-text-3">
+      <p className="fp-mt-2 fp-text-xs fp-text-faint">
         {isConnectionError(cause) ? labels.errors.connectionHint : labels.errors.queryHint}
       </p>
       {detail ? (
-        <details className="mt-2 text-xs text-fp-text-3">
-          <summary className="cursor-pointer">{labels.errors.details}</summary>
-          <p className="mt-1 break-words font-mono">{detail}</p>
+        <details className="fp-mt-2 fp-text-xs fp-text-faint">
+          <summary className="fp-cursor-pointer">{labels.errors.details}</summary>
+          <p className="fp-mt-1 fp-break-words fp-font-mono">{detail}</p>
         </details>
       ) : null}
-      <p className="mt-2 text-xs text-fp-text-3">
+      <p className="fp-mt-2 fp-text-xs fp-text-faint">
         {formatLabel(labels.errors.requestId, { id: site.requestId })}
       </p>
     </ServerCard>

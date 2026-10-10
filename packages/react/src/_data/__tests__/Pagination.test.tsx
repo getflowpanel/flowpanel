@@ -113,12 +113,12 @@ describe("DefaultPagination", () => {
       screen.getByRole("button", { name: "Page 2" }),
       screen.getByRole("button", { name: "Next page" }),
     ]) {
-      expect(button.className).toContain("h-11");
-      expect(button.className).toContain("sm:h-8");
+      expect(button.className).toContain("fp-h-11");
+      expect(button.className).toContain("sm:fp-h-8");
     }
-    expect(screen.getByRole("button", { name: "Previous page" }).className).toContain("w-11");
-    expect(screen.getByRole("button", { name: "Previous page" }).className).toContain("sm:w-8");
-    expect(screen.getByLabelText("Rows per page").className).toContain("h-11");
-    expect(screen.getByLabelText("Rows per page").className).toContain("sm:h-8");
+    expect(screen.getByRole("button", { name: "Previous page" }).className).toContain("fp-w-11");
+    expect(screen.getByRole("button", { name: "Previous page" }).className).toContain("sm:fp-w-8");
+    expect(screen.getByLabelText("Rows per page").className).toContain("fp-h-11");
+    expect(screen.getByLabelText("Rows per page").className).toContain("sm:fp-h-8");
   });
 });

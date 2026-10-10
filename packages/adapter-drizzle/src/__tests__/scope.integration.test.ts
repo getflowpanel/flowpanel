@@ -272,4 +272,115 @@ describe("drizzleAdapter tenant scope enforcement (sqlite)", () => {
     const raw = sqlite.prepare("SELECT id FROM items WHERE id = ?").get("hacked1");
     expect(raw).toBeUndefined();
   });
+
+  it("SECURITY: update that sets the tenant column to another tenant is refused and the row is unchanged", async () => {
+    sqlite
+      .prepare("INSERT INTO items (id, name, company_id) VALUES (?, ?, ?)")
+      .run("move1", "Before", "c1");
+    await expect(
+      adapter.update(
+        items,
+        mutCtx(
+          "move1",
+          { name: "After", companyId: "c2" },
+          { boundScope: bindAdapterScope(applyScopeC1) },
+        ),
+      ),
+    ).rejects.toBeInstanceOf(FlowpanelAccessError);
+    const raw = sqlite.prepare("SELECT name, company_id FROM items WHERE id = ?").get("move1");
+    expect(raw).toEqual({ name: "Before", company_id: "c1" });
+  });
+
+  it("update that keeps the tenant column at the scope's value succeeds", async () => {
+    const row = await adapter.update(
+      items,
+      mutCtx(
+        "move1",
+        { name: "After", companyId: "c1" },
+        { boundScope: bindAdapterScope(applyScopeC1) },
+      ),
+    );
+    expect(row).toMatchObject({ id: "move1", name: "After", companyId: "c1" });
+  });
+
+  it("SECURITY: an out-of-scope create never writes the row, not even briefly", async () => {
+    const seen: string[] = [];
+    sqlite.function("fp_seen", (id: string) => {
+      seen.push(id);
+      return null;
+    });
+    sqlite.exec(
+      "CREATE TRIGGER items_seen AFTER INSERT ON items BEGIN SELECT fp_seen(NEW.id); END",
+    );
+    try {
+      await expect(
+        adapter.create(
+          items,
+          mutCtx(
+            "",
+            { id: "hacked2", name: "Cross-tenant", companyId: "c2" },
+            { boundScope: bindAdapterScope(applyScopeC1) },
+          ),
+        ),
+      ).rejects.toBeInstanceOf(FlowpanelAccessError);
+      expect(seen).toEqual([]);
+    } finally {
+      sqlite.exec("DROP TRIGGER items_seen");
+    }
+  });
+});
+
+describe("drizzleAdapter scope probe on sqlite", () => {
+  const ledger = sqliteTable("ledger", {
+    id: text("id").primaryKey(),
+    tenant: integer("tenant"),
+    region: text("region").$defaultFn(() => "eu"),
+  });
+  const conn = new Database(":memory:");
+  const ledgerDb = drizzle(conn);
+  conn.exec("CREATE TABLE ledger (id TEXT PRIMARY KEY, tenant INTEGER, region TEXT)");
+  conn.exec("INSERT INTO ledger VALUES ('a', 16, 'eu')");
+  const ledgerAdapter = drizzleAdapter({ db: ledgerDb, schema: { ledger }, dialect: "sqlite" });
+  const ctx = (input: Record<string, unknown>, apply: (q: unknown) => unknown, id = "a") =>
+    ({
+      req: new Request("http://localhost/"),
+      session: null,
+      role: "admin",
+      scope: null,
+      ip: null,
+      userAgent: null,
+      db: ledgerDb,
+      id,
+      input,
+      boundScope: bindAdapterScope(apply),
+    }) as unknown as MutationContext<unknown>;
+  const tenant16 = (q: unknown) =>
+    (q as { where: (c: unknown) => unknown }).where(eq(ledger.tenant, 16));
+  const inEu = (q: unknown) =>
+    (q as { where: (c: unknown) => unknown }).where(eq(ledger.region, "eu"));
+
+  afterAll(() => conn.close());
+
+  it("SECURITY: reads number text the way SQLite stores it, so 0x10 is not 16", async () => {
+    await expect(
+      ledgerAdapter.update(ledger, ctx({ tenant: "0x10" }, tenant16)),
+    ).rejects.toBeInstanceOf(FlowpanelAccessError);
+    expect(await ledgerAdapter.update(ledger, ctx({ tenant: "16" }, tenant16))).toMatchObject({
+      tenant: 16,
+    });
+  });
+
+  it("creates a row whose scoped column comes from $defaultFn", async () => {
+    expect(await ledgerAdapter.create(ledger, ctx({ id: "b", tenant: 1 }, inEu))).toMatchObject({
+      id: "b",
+      region: "eu",
+    });
+  });
+
+  it("answers not found for an update that renames a missing row's key", async () => {
+    const plain = { ...ctx({ id: "a", tenant: 2 }, tenant16, "missing") };
+    Reflect.deleteProperty(plain, "boundScope");
+    expect(await ledgerAdapter.update(ledger, plain)).toBeUndefined();
+    expect(conn.prepare("SELECT tenant FROM ledger WHERE id = 'a'").get()).toEqual({ tenant: 16 });
+  });
 });

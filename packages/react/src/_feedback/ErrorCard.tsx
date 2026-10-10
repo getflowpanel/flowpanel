@@ -19,19 +19,19 @@ export function ErrorCard({
   const body = (
     <>
       <CardHeader>
-        {title ?? <span className="text-fp-err-text">{errors.widgetTitle}</span>}
+        {title ?? <span className="fp-text-err-ink">{errors.widgetTitle}</span>}
       </CardHeader>
       <CardContent>
-        {title ? <p className="text-sm text-fp-err-text">{errors.widgetTitle}</p> : null}
-        <p className="text-xs text-fp-text-3">{errors.widgetHint}</p>
+        {title ? <p className="fp-text-sm fp-text-err-ink">{errors.widgetTitle}</p> : null}
+        <p className="fp-text-xs fp-text-faint">{errors.widgetHint}</p>
         {detail ? (
-          <details className="mt-1 text-xs text-fp-text-3">
-            <summary className="cursor-pointer">{errors.details}</summary>
-            <p className="mt-1 break-words font-mono">{detail}</p>
+          <details className="fp-mt-1 fp-text-xs fp-text-faint">
+            <summary className="fp-cursor-pointer">{errors.details}</summary>
+            <p className="fp-mt-1 fp-break-words fp-font-mono">{detail}</p>
           </details>
         ) : null}
         {onRetry ? (
-          <button type="button" onClick={onRetry} className="mt-2 text-xs underline">
+          <button type="button" onClick={onRetry} className="fp-mt-2 fp-text-xs fp-underline">
             {errors.retry}
           </button>
         ) : null}
@@ -39,11 +39,11 @@ export function ErrorCard({
     </>
   );
   return plain ? (
-    <div className="h-full w-full bg-fp-bg-1" data-fp-error="" data-plain="">
+    <div className="fp-h-full fp-w-full fp-bg-surface" data-fp-error="" data-plain="">
       {body}
     </div>
   ) : (
-    <Card className="h-full" data-fp-error="">
+    <Card className="fp-h-full" data-fp-error="">
       {body}
     </Card>
   );

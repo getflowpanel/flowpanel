@@ -16,7 +16,7 @@ import {
   dashboardTemplateIntents,
   layoutTemplateIntents,
   resourceTemplateIntents,
-} from "../../eject/copyTargets";
+} from "../../eject/copy-targets";
 import { adminPageSource } from "../admin-page";
 import { AUTH_PRESETS, type AuthProvider } from "../auth-provider";
 import { migrationTemplate } from "../sql-dialect";

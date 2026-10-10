@@ -2,8 +2,8 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
-import { editConfigToAddResource } from "../eject/addResource";
-import { findSplitResourcesDir } from "../eject/editConfig";
+import { editConfigToAddResource } from "../eject/add-resource";
+import { findSplitResourcesDir } from "../eject/edit-config";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FilesystemPlan } from "../plan/types";
@@ -19,10 +19,12 @@ import {
 } from "../scaffold/prisma-schema";
 import { renderResourceEntry } from "../scaffold/render-resource";
 import { checkSchemaExport } from "../scaffold/schema-export";
+import { noConfigMessage } from "../utils/config-problem";
+import { detectPackageManager, pmCommands } from "../utils/detect";
 import { resolveProjectModule } from "../utils/module-path";
-import { writeJson, writePlanJson } from "../utils/output";
+import { planLines, writeJson, writePlanJson } from "../utils/output";
 import { noNextProject } from "../utils/project-root";
-import { createUi } from "../utils/ui";
+import { createUi, failCommand } from "../utils/ui";
 
 export { checkSchemaExport };
 
@@ -50,9 +52,7 @@ interface NewOptions {
 }
 
 function stop(opts: NewOptions, message: string): never {
-  if (opts.json) writeJson({ command: "new", applied: false, error: message });
-  else createUi(false).cancel(message);
-  process.exit(1);
+  return failCommand("new", opts.json, message);
 }
 
 async function finish(
@@ -65,12 +65,7 @@ async function finish(
   if (opts.dryRun) {
     if (opts.json) writePlanJson("new", plan, false, extra);
     else {
-      ui.note(
-        publicPlan(plan)
-          .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
-          .join("\n"),
-        "Filesystem plan (no changes applied)",
-      );
+      ui.note(planLines(plan), "Filesystem plan (no changes applied)");
       ui.outro(pc.dim("Dry run complete."));
     }
     return;
@@ -90,14 +85,16 @@ export function unlinkedColumns(
   });
 }
 
-const NO_CONFIG = "flowpanel.config.ts not found. Run `pnpm dlx @flowpanel/cli init` first.";
+async function noConfig(cwd: string): Promise<string> {
+  return noConfigMessage(cwd, pmCommands(await detectPackageManager(cwd)).dlx);
+}
 
 async function newIntoDir(cwd: string, resource: string, dir: string, opts: NewOptions) {
   if (opts.table !== undefined || parseAdapterKind(opts.kind) !== "drizzle") {
     stop(opts, "--dir reads your Drizzle schema, so it takes neither --table nor --kind prisma.");
   }
   const config = await findAdminConfig(cwd);
-  if (!config) stop(opts, NO_CONFIG);
+  if (!config) stop(opts, await noConfig(cwd));
   const configSource = await fs.readFile(config.file, "utf8");
   if (adapterKindOf(configSource) === "prisma") {
     stop(opts, "--dir writes Drizzle resource files. With Prisma, run new without --dir.");
@@ -217,7 +214,7 @@ export function newCommand(cli: Command): void {
           stop(opts, `Unknown --kind "${opts.kind}". Use one of: ${ADAPTER_KINDS.join(", ")}`);
         }
         const found = await findAdminConfig(cwd);
-        if (!found) stop(opts, NO_CONFIG);
+        if (!found) stop(opts, await noConfig(cwd));
         const source = await fs.readFile(found.file, "utf8");
         const kind = opts.kind === undefined ? adapterKindOf(source) : requested;
         const splitDir = await findSplitResourcesDir(cwd, found.file, source);

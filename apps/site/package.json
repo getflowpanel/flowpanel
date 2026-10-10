@@ -8,7 +8,7 @@
     "build": "next build --webpack",
     "changelog": "node scripts/aggregate-changelog.mjs",
     "check:prerendered": "node scripts/check-prerendered.mjs",
-    "check:snippets": "tsc -p tsconfig.docs-snippets.json --noEmit",
+    "check:snippets": "node --import tsx ../../scripts/docs/check-snippet-types.ts",
     "dev": "next dev --turbo",
     "lint": "biome check .",
     "postinstall": "fumadocs-mdx",
@@ -33,7 +33,9 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@flowpanel/eslint-plugin": "workspace:*",
     "@flowpanel/kit": "workspace:*",
+    "@playwright/test": "catalog:",
     "@shikijs/twoslash": "^4.5.0",
     "@tailwindcss/postcss": "catalog:",
     "@types/mdx": "^2.0.14",

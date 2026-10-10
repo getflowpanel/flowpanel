@@ -73,10 +73,10 @@ describe("a resource over a view", () => {
 
   it("refuses a declared write without writeTo", () => {
     expect(() => admin({ update: { fields: [{ name: "internal" }] } })).toThrow(
-      'flowpanel: resource "user" reads the view "admin_user_row" and cannot write (update); ' +
-        "set writeTo: <table> or disable create/update/delete",
+      '[flowpanel] resource "user": it reads the view "admin_user_row", which cannot be written, ' +
+        "but declares update. Set writeTo: <table>, or disable create, update and delete.",
     );
-    expect(() => admin({ import: { formats: ["csv"] } })).toThrow(/cannot write \(import\)/);
+    expect(() => admin({ import: { formats: ["csv"] } })).toThrow(/but declares import\./);
   });
 
   it("keeps writes with writeTo and checks form fields against the table", () => {
@@ -89,24 +89,24 @@ describe("a resource over a view", () => {
     expect(() =>
       admin({ writeTo: refs.table, update: { fields: [{ name: "lifecycle" }] } }),
     ).toThrow(
-      'flowpanel: resource "user" writes "lifecycle" via update.fields[0].name, but its writeTo ' +
-        '"user" has no such column. Known columns: "id", "name", "internal", "role".',
+      '[flowpanel] resource "user" update.fields[0].name: it writes "lifecycle", but the writeTo ' +
+        'table "user" has no such column. Known columns: "id", "name", "internal", "role".',
     );
     expect(() =>
       admin({ writeTo: refs.table, columns: ["id", { field: "lifecycle", editable: true }] }),
     ).toThrow(
-      'flowpanel: resource "user" writes "lifecycle" via columns[1].field, but its writeTo ' +
-        '"user" has no such column. Known columns: "id", "name", "internal", "role".',
+      '[flowpanel] resource "user" columns[1].field: it writes "lifecycle", but the writeTo ' +
+        'table "user" has no such column. Known columns: "id", "name", "internal", "role".',
     );
   });
 
   it("needs the write target's key among the view's columns, and a table", () => {
     expect(() => admin({ writeTo: refs.keyed })).toThrow(
-      'flowpanel: resource "user" writes to "account", whose key "uid" is not a column of the ' +
+      '[flowpanel] resource "user" writeTo: the key "uid" of "account" is not a column of the ' +
         'view "admin_user_row". Select it in the view.',
     );
     expect(() => admin({ writeTo: refs.otherView })).toThrow(
-      'flowpanel: resource "user" sets writeTo to the view "other_row"; writeTo must be a table.',
+      '[flowpanel] resource "user" writeTo: it names the view "other_row", which cannot be written. Point writeTo at a table.',
     );
   });
 

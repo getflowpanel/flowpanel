@@ -23,7 +23,7 @@ function read(path) {
 function walk(dir, predicate, out = []) {
   for (const entry of readdirSync(join(root, dir))) {
     const path = join(dir, entry);
-    if (["node_modules", ".next", "dist", ".git"].includes(entry)) continue;
+    if (["node_modules", ".next", "dist", ".git", ".generated"].includes(entry)) continue;
     if (statSync(join(root, path)).isDirectory()) walk(path, predicate, out);
     else if (predicate(path)) out.push(path);
   }

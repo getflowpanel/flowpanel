@@ -12,6 +12,6 @@ describe("Badge", () => {
   it("applies tone classes", () => {
     const { container } = render(<Badge tone="accent">A</Badge>);
     const el = container.querySelector("span");
-    expect(el?.className).toMatch(/fp-accent/);
+    expect(el?.className).toMatch(/fp-text-accent-ink/);
   });
 });

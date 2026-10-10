@@ -15,25 +15,25 @@ controllers, client metadata and realtime publisher.
 
 Create one module-level runtime and reuse it from your route files:
 
-```ts excerpt
+```ts
 // src/flowpanel.ts
 import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../flowpanel.config";
 
 export const flowpanel = createFlowpanel(config);
 ```
 
-```ts excerpt
-// app/admin/[[...slug]]/page.tsx
-import { flowpanel } from "@/src/flowpanel";
+```ts
+// src/app/admin/[[...slug]]/page.tsx
+import { flowpanel } from "@/flowpanel";
 
 export const generateMetadata = flowpanel.metadata;
 export default flowpanel.page;
 ```
 
-```ts excerpt
-// app/api/flowpanel/[...route]/route.ts
-import { flowpanel } from "@/src/flowpanel";
+```ts
+// src/app/api/flowpanel/[...route]/route.ts
+import { flowpanel } from "@/flowpanel";
 
 export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 ```
@@ -63,11 +63,13 @@ dynamic name), `dashboard(path).action(key, input?)` for a dashboard action, and
 the `requestId`. `ResourceListOptions<Row>` takes page, page size, search, filters,
 sort, projection and soft-delete visibility.
 
-```ts excerpt
+```ts
+import { flowpanel } from "@/flowpanel";
+
 const request = await flowpanel.request();
 const result = await request.resources.orders.list({
   pageSize: 25,
-  select: ["id", "status", "totalCents"],
+  select: ["id", "status", "total"],
   sort: { field: "createdAt", dir: "desc" },
 });
 ```
@@ -82,10 +84,10 @@ generated UI. Do not reuse a `FlowpanelRequest` across requests.
 wrapper must forward both `params` and `searchParams`. The catch-all is the `slug`
 param, else `rest`, else the first array-valued param, whatever the folder is named.
 
-```ts excerpt
-// app/admin/[[...slug]]/page.tsx
+```ts
+// src/app/admin/[[...slug]]/page.tsx
 import { Flowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../flowpanel.config";
 
 export default Flowpanel(config);
 ```
@@ -102,10 +104,10 @@ export default Flowpanel(config);
 dashboard, list and record, and `robots: noindex`. Leave `viewport.themeColor`
 unset on the admin layout; the page renders its own.
 
-```ts excerpt
-// app/admin/[[...slug]]/page.tsx
+```ts
+// src/app/admin/[[...slug]]/page.tsx
 import { Flowpanel, flowpanelMetadata } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../flowpanel.config";
 
 export const generateMetadata = flowpanelMetadata(config);
 export default Flowpanel(config);
@@ -118,10 +120,10 @@ for embedding the admin in your own chrome.
 
 `handlers(config)` is the handler factory behind `createFlowpanel(config).handlers`:
 
-```ts excerpt
-// app/api/flowpanel/[...route]/route.ts
+```ts
+// src/app/api/flowpanel/[...route]/route.ts
 import { handlers } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../../flowpanel.config";
 
 export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = handlers(config);
 ```
@@ -159,7 +161,7 @@ dashboard's `access`, and the action's `access`.
 
 The SSE endpoint for realtime, on its own route.
 
-```ts excerpt
+```ts
 export function stream(
   config: ResolvedAdminConfig,
   opts?: StreamOptions,
@@ -168,10 +170,10 @@ export function stream(
 
 `StreamOptions.heartbeatMs` sets the keep-alive interval, 15 s by default.
 
-```ts excerpt
-// app/api/flowpanel/stream/route.ts
+```ts
+// src/app/api/flowpanel/stream/route.ts
 import { stream } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../../../flowpanel.config";
 
 export const GET = stream(config);
 ```
@@ -197,7 +199,7 @@ three rows.
 
 ### Realtime helpers
 
-```ts excerpt
+```ts
 function publish(channel: string, payload?: unknown): Promise<void>;
 function publishResource(
   name: string,
@@ -210,10 +212,12 @@ function bindPublisher(config: ResolvedAdminConfig): void;
 `publishResource(name, event)` publishes on `resource.<name>`, the channel a
 `realtime: true` resource listens on:
 
-```ts excerpt
+```ts
 import { publishResource } from "@flowpanel/kit/next";
 
-await publishResource("orders", { action: "update", id: order.id });
+export async function orderShipped(order: { id: number }): Promise<void> {
+  await publishResource("orders", { action: "update", id: String(order.id) });
+}
 ```
 
 In an action, use `ctx.publish`. `handlers`, `Flowpanel` and `stream` call
@@ -229,7 +233,7 @@ publisher and warns once.
 rejects the context, and a missing rule denies, so a server action can reuse the
 admin's rules:
 
-```ts excerpt
+```ts
 import { getRequestContext, requireAccess } from "@flowpanel/kit";
 
 await requireAccess(["admin", "support"], getRequestContext());
@@ -284,7 +288,7 @@ the resource's channel for `refresh: true`), then revalidates `pathname` unless
 
 ### Dashboard path encoding
 
-```ts excerpt
+```ts
 function encodeDashboardPath(path: string): string;
 function decodeDashboardPath(encoded: string): string;
 ```
@@ -296,7 +300,7 @@ Encodes a dashboard `path` as the one URL segment `dashboardActionRoute` expects
 The create, update and delete pipeline the form routes use, with the resource's
 schema, field rules, scope and audit.
 
-```ts excerpt
+```ts
 function makeActions(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
@@ -338,16 +342,21 @@ Pass `reqCtx` to reuse a request context you already built.
 Builds the `RequestContext`. It enforces `auth.access` and the rate limit, so
 it throws `FlowpanelAccessError` or `FlowpanelRateLimitError`:
 
-```ts excerpt
+```ts
+// src/app/api/me/route.ts
 import { FlowpanelError, type RequestContext } from "@flowpanel/kit";
 import { buildRequestContext } from "@flowpanel/kit/next";
+import config from "../../../../flowpanel.config";
 
-let reqCtx: RequestContext;
-try {
-  reqCtx = await buildRequestContext({ req, config });
-} catch (err) {
-  if (!(err instanceof FlowpanelError)) throw err;
-  return Response.json({ ok: false, error: err.safeMessage }, { status: err.status });
+export async function GET(req: Request): Promise<Response> {
+  let reqCtx: RequestContext;
+  try {
+    reqCtx = await buildRequestContext({ req, config });
+  } catch (err) {
+    if (!(err instanceof FlowpanelError)) throw err;
+    return Response.json({ ok: false, error: err.safeMessage }, { status: err.status });
+  }
+  return Response.json({ ok: true, requestId: reqCtx.requestId });
 }
 ```
 
@@ -372,7 +381,7 @@ these through `@flowpanel/kit/test/widgets`; see [Testing](/docs/reference/testi
 
 ### Navigation
 
-```ts excerpt
+```ts
 function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): Promise<NavGroup[]>;
 function resourceNavName(resource: ResourceConfig): string;
 ```

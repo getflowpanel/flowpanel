@@ -23,8 +23,8 @@ describe("the card a failed widget leaves behind", () => {
 
   it("names the widget that failed in its header, when the widget has a title", () => {
     render(<ErrorCard error={new Error("boom")} title="Revenue" />);
-    expect(screen.getByText("Revenue").className).not.toContain("text-fp-err-text");
-    expect(screen.getByText("Couldn't load this widget").className).toContain("text-fp-err-text");
+    expect(screen.getByText("Revenue").className).not.toContain("fp-text-err-ink");
+    expect(screen.getByText("Couldn't load this widget").className).toContain("fp-text-err-ink");
   });
 
   it("speaks the admin's language", () => {
@@ -40,8 +40,8 @@ describe("the card a failed widget leaves behind", () => {
   it("marks itself as a FlowPanel error surface, saying what failed in the error colour on a neutral card", () => {
     const { container } = render(<ErrorCard error={new Error("boom")} />);
     const card = container.querySelector("[data-fp-error]") as HTMLElement;
-    expect(card.className).not.toContain("border-fp-err");
-    expect(screen.getByText("Couldn't load this widget").className).toContain("text-fp-err-text");
+    expect(card.className).not.toContain("fp-border-err");
+    expect(screen.getByText("Couldn't load this widget").className).toContain("fp-text-err-ink");
   });
 
   it("offers the retry it was given", () => {

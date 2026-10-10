@@ -25,10 +25,7 @@ function decimalScales(dmmf: PrismaDmmf, modelName: string): Map<string, number 
   return scales;
 }
 
-/**
- * Swaps Prisma `Decimal` values for strings at the column's scale, so `49.90` stays `"49.90"`
- * and the row can cross to a Client Component.
- */
+/** Prisma `Decimal` values as strings at the column's scale, so `49.90` stays `"49.90"`. */
 export function plainDecimals<Row>(rows: Row[], dmmf: PrismaDmmf, modelName: string): Row[] {
   const scales = decimalScales(dmmf, modelName);
   if (scales.size === 0) return rows;

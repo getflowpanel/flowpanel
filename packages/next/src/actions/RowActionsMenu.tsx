@@ -69,7 +69,7 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
     <div
       role="toolbar"
       aria-label={labels.table.rowActions}
-      className="flex items-center justify-end gap-1"
+      className="fp-flex fp-items-center fp-justify-end fp-gap-1"
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
@@ -82,7 +82,7 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
           onClick={() => onActionClick(a)}
           aria-busy={pending === a.key || undefined}
         >
-          {a.icon ? <FlowpanelIcon name={a.icon} className="h-4 w-4" /> : null}
+          {a.icon ? <FlowpanelIcon name={a.icon} className="fp-h-4 fp-w-4" /> : null}
           {a.label}
         </Button>
       ))}
@@ -93,7 +93,7 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
             <button
               type="button"
               aria-label={labels.table.rowActions}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-fp-sm text-fp-text-3 hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-accent"
+              className="fp-inline-flex fp-h-7 fp-w-7 fp-items-center fp-justify-center fp-rounded-sm fp-text-faint hover:fp-bg-canvas focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-accent"
               disabled={pending !== null}
             >
               <KebabIcon />
@@ -105,9 +105,9 @@ export function RowActionsMenu({ resource, id, actions }: RowActionsMenuProps) {
                 key={a.key}
                 disabled={pending === a.key}
                 onSelect={() => onActionClick(a)}
-                className={a.variant === "destructive" ? "text-fp-err" : undefined}
+                className={a.variant === "destructive" ? "fp-text-err" : undefined}
               >
-                {a.icon ? <FlowpanelIcon name={a.icon} className="mr-2 h-4 w-4" /> : null}
+                {a.icon ? <FlowpanelIcon name={a.icon} className="fp-mr-2 fp-h-4 fp-w-4" /> : null}
                 {a.label}
               </DropdownMenuItem>
             ))}

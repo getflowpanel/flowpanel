@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { Node, Project } from "ts-morph";
 import { hasMarker } from "../eject/marker";
 import { findAdminConfig } from "../scaffold/config-target";
+import { configProblem } from "./config-problem";
 import { resolveProjectModule } from "./module-path";
 
 /** Where `flowpanel init` mounts the route handlers when the config says nothing. */
@@ -98,7 +99,10 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
   const visited = new Set<string>();
   async function read(file: string, exportName = "default"): Promise<AdminMount> {
     const unresolved = (): AdminMount => ({
-      error: `${path.relative(cwd, file)}: dynamic or unresolved admin config; pass --path with its resolved admin URL.`,
+      error: configProblem(
+        "paths.admin",
+        `${path.relative(cwd, file)} builds the config at runtime, so the admin URL is unknown. Pass --path with the resolved admin URL.`,
+      ),
     });
     const key = `${file}#${exportName}`;
     if (visited.has(key)) return unresolved();
@@ -143,7 +147,12 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
     if (paths) {
       const init = Node.isPropertyAssignment(paths) ? paths.getInitializer() : undefined;
       if (!Node.isObjectLiteralExpression(init)) {
-        return { error: `${file}: dynamic paths; pass --path with the resolved admin URL.` };
+        return {
+          error: configProblem(
+            "paths",
+            `${path.relative(cwd, file)} computes paths at runtime. Pass --path with the resolved admin URL.`,
+          ),
+        };
       }
       if (init.getProperties().some(Node.isSpreadAssignment)) return unresolved();
       const admin = init.getProperty("admin");
@@ -153,7 +162,12 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
       apiValue = api && Node.isPropertyAssignment(api) ? api.getInitializer() : api;
     }
     if (value && !Node.isStringLiteral(value) && !Node.isNoSubstitutionTemplateLiteral(value)) {
-      return { error: `${file}: dynamic admin path; pass --path with the resolved admin URL.` };
+      return {
+        error: configProblem(
+          "paths.admin",
+          `${path.relative(cwd, file)} computes it at runtime. Pass --path with the resolved admin URL.`,
+        ),
+      };
     }
     // A declared but non-literal `paths.api` is unknown, not the default.
     const staticApi =
@@ -170,7 +184,12 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
           : DEFAULT_API_PATH,
       };
     } catch (e) {
-      return { error: `${file}: ${e instanceof Error ? e.message : String(e)}` };
+      return {
+        error: configProblem(
+          "paths.admin",
+          `${e instanceof Error ? e.message : String(e)} (${path.relative(cwd, file)})`,
+        ),
+      };
     }
   }
   const config = await findAdminConfig(cwd);

@@ -37,7 +37,7 @@ export function scopeToRecord(
   if (found.kind === "one") return { ...where, [found.field]: viewed.key };
   if (found.kind === "none" && !required) return where;
   const pick = required ? "by" : "where";
-  throw new Error(recordFieldError(site, target, viewed.resource, found, pick));
+  throw recordFieldError(site, target, viewed.resource, found, pick);
 }
 
 const present = (value: unknown): boolean => value !== undefined && value !== null && value !== "";

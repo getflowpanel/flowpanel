@@ -63,7 +63,9 @@ export function listEmptyProps(
   return {
     emptyTitle: empty?.title ?? formatLabel(labels.table.empty, { label: plural }),
     ...(empty?.description ? { emptyDescription: empty.description } : {}),
-    ...(empty?.icon ? { emptyIcon: <FlowpanelIcon name={empty.icon} className="h-6 w-6" /> } : {}),
+    ...(empty?.icon
+      ? { emptyIcon: <FlowpanelIcon name={empty.icon} className="fp-h-6 fp-w-6" /> }
+      : {}),
     ...(empty?.action ? { emptyAction: linkButton(empty.action.href, empty.action.label) } : {}),
   };
 }

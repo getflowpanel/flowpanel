@@ -22,10 +22,7 @@ function bindable(value: unknown): unknown {
   return sanitizeSqlParams([value])[0];
 }
 
-/**
- * A nested fragment with every `Date` and `bigint` inside it bindable, at any depth: the same
- * fragment when nothing changes, else a copy that keeps its `inlineParams()` and decoder.
- */
+/** A fragment with every nested `Date` and `bigint` bindable, copied only when something changes. */
 function fragment(query: SQL): SQL {
   const chunks = bindableAll(query.queryChunks);
   if (chunks === query.queryChunks) return query;

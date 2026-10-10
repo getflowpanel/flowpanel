@@ -1,5 +1,71 @@
 # FlowPanel — Reference — Widgets (part 2)
 
+### checklist
+
+Items done or not. An item is done when `done` holds a value other than `null`,
+`undefined`, `false`, a blank string or an empty list. The summary counts
+non-`optional` items.
+
+With `ordered`, done items show their date and the gap since the previous step.
+`layout: "steps"` lays them out in a row. Not available in drawers.
+
+```ts
+checklist({
+  label: "Journey",
+  ordered: true,
+  layout: "steps",
+  items: async (c) => {
+    const user = c.rowOf("user");
+    return [
+      { label: "Signed up", done: user.createdAt },
+      { label: "Linked Telegram", done: user.telegramLinkedAt, optional: true },
+      { label: "First reply sent", done: user.firstSentAt },
+    ];
+  },
+});
+```
+
+`labels.checklist` words the summary, the gap and the marks' names for screen readers.
+
+`ChecklistOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label?` | `string` | Card heading. |
+| `items` | `ChecklistItem[] \| ((ctx: WidgetContext) => Promise<ChecklistItem[]>)` | The items, or a function that reads them per request. |
+| `ordered?` | `boolean` | Each done step shows when, and the time since the previous done step. |
+| `layout?` | `"list" \| "steps"` | `"steps"` lays the items out in a row from the `md` breakpoint. Default: `"list"`. |
+| `summary?` | `boolean` | "7 of 12" with a bar; optional items are not counted. Default: `true`. |
+| `emptyState?` | `ReactNode` | Shown instead of the items when there are none. Text or any node. |
+| `span?` | `Span` | Width in the dashboard's 12-column grid. |
+| `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
+| `realtime?` | `RealtimeOption` | Re-run when any of these channels fire. |
+
+#### ChecklistItem
+
+`ChecklistItem`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label` | `string` |  |
+| `done` | `unknown` | Done unless `null`, `undefined`, `false`, a blank string or an empty list; `0` counts. A `Date` or an ISO string also says when, shown by an `ordered` checklist. |
+| `hint?` | `string` | A muted note under the label. |
+| `optional?` | `boolean` | Not counted in the summary; muted while not done. |
+| `tone?` | `Tone` | The mark's color when done. Default: `"ok"`. |
+| `href?` | `LinkTarget` | Links the label — a path or a named target. |
+| `precision?` | `"day"` | The date has no clock: print the day, and measure no gap to or from it. A bare `YYYY-MM-DD` needs no flag. |
+
+#### filled
+
+One checklist item per labelled field, done when the field has a value.
+
+```ts
+checklist({
+  label: "Profile",
+  items: async (c) => filled(await profileOf(c), { bio: "About", hourlyRate: "Rate" }),
+});
+```
+
 ### custom
 
 Your own component in the grid. `props` is a value or a server function. See
@@ -19,7 +85,7 @@ Your own component in the grid. `props` is a value or a server function. See
 
 The chart builders come from `@flowpanel/kit`. Recharts loads only when a chart is on the page.
 
-```ts excerpt
+```ts
 import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit";
 ```
 
@@ -56,7 +122,7 @@ date ticks; aggregate with `series({ grain })`.
 One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
 order. `colors` pins a series to a colour:
 
-```ts excerpt
+```ts
 lineChart("Signups", signupsByPlan, {
   x: "day",
   y: ["trial", "paid"],
@@ -173,7 +239,7 @@ map, an `enumOf()` or a function. Shares only mean something for counts and sums
 A preset's bounds now, in the admin's zone, for a query that needs a fixed window
 beside the picked one. Pass the same `now` to widgets sharing a query.
 
-```ts excerpt
+```ts
 import { barChart, bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
 
 const hourly = (c: WidgetContext) => c.sql<{ at: Date; platform: string; orders: number }>`
@@ -241,7 +307,7 @@ page's [`detail.stats`](/docs/reference/resources#record-page) is the same strip
 In a `"cards"` section, `table` and `list` cards keep their height and others
 stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 
-```ts excerpt
+```ts
 { variant: "strip", widgets: [newOrders, runs, successRate, bans] }
 ```
 
@@ -279,7 +345,7 @@ widget context; a plain string list is not accepted.
 `filterOnClick: "<key>"` on `bars`, `tracker` or `table` sets that filter on click,
 replacing the row's link. It is rejected on a record page or in a drawer.
 
-```ts excerpt
+```ts
 const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
 
 const hourly = (c: WidgetContext) => c.sql<HourRow>`

@@ -18,7 +18,7 @@ The admin layout does not import `admin.css`. Restore `@import "@flowpanel/kit/s
 
 ### “defineAdmin throws when the app boots”
 
-The config names something that does not exist or clashes: an unknown column, a duplicate or reserved name, a duplicate action key, a `rowClick: "drawer"` without a drawer, or an unresolved reference. The error names the config path and the closest match. See [How FlowPanel works](/docs/understand/how-flowpanel-works#from-schema-to-compiled-admin).
+The config names something that does not exist or clashes: an unknown column, a duplicate or reserved name, a duplicate action key, a `rowClick: "drawer"` without a drawer, or an unresolved reference. The error is a `FlowpanelConfigError` that reads `[flowpanel] <where in the config>: <what is wrong>. <how to fix>.`, with the closest match when there is one. See [Errors](/docs/reference/errors#flowpanelconfigerror).
 
 ### “Column typos compile without an error”
 
@@ -36,7 +36,11 @@ The resource's row type fell back to `Record<string, unknown>`, usually because 
 
 ### “Production refuses to start without auth.access”
 
-A production admin needs `auth.access`. Only a deliberately public admin may run without it, and it must set both `allowUnauthenticated: true` and `readOnly: true`. See [Authentication](/docs/guides/authentication#verify).
+A production admin needs `auth.access`. Only a deliberately public admin may run without it, and it must set both `allowUnauthenticated: true` and `readOnly: true`. `auth: devAuth()` also refuses production, with or without `auth.access`. See [Authentication](/docs/guides/authentication#verify).
+
+### “Every caller shares one rate-limit bucket” or “ctx.ip is null”
+
+`ctx.ip` stays `null` until `security.trustedProxies` says how many proxies append to `X-Forwarded-For`. Set `1` on Vercel or behind one nginx. See [SecurityConfig](/docs/reference/define-config#securityconfig).
 
 ### “A tenant can address another tenant's row”
 

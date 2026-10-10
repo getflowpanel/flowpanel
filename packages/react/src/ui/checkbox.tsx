@@ -13,16 +13,16 @@ export const Checkbox = /* @__PURE__ */ named(
     <CheckboxPrimitive.Root
       ref={ref}
       className={cn(
-        "peer group inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-fp-sm text-fp-accent-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 focus-visible:ring-offset-1 focus-visible:ring-offset-fp-bg-1 disabled:cursor-not-allowed disabled:opacity-50 sm:h-4 sm:w-4",
+        "fp-peer fp-group fp-inline-flex fp-h-11 fp-w-11 fp-shrink-0 fp-items-center fp-justify-center fp-rounded-sm fp-text-on-accent fp-transition-colors focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 focus-visible:fp-ring-offset-1 focus-visible:fp-ring-offset-surface disabled:fp-cursor-not-allowed disabled:fp-opacity-50 sm:fp-h-4 sm:fp-w-4",
         className,
       )}
       {...props}
     >
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-[0.25rem] border border-fp-border-2 bg-fp-bg-1 text-fp-accent-text shadow-fp-xs transition-colors group-hover:border-fp-text-3 group-data-[state=checked]:border-fp-accent group-data-[state=checked]:bg-fp-accent">
+      <span className="fp-flex fp-h-4 fp-w-4 fp-shrink-0 fp-items-center fp-justify-center fp-rounded-[0.25rem] fp-border fp-border-line-strong fp-bg-surface fp-text-on-accent fp-shadow-xs fp-transition-colors group-hover:fp-border-faint group-data-[state=checked]:fp-border-accent group-data-[state=checked]:fp-bg-accent">
         <CheckboxPrimitive.Indicator
-          className={cn("flex items-center justify-center text-current")}
+          className={cn("fp-flex fp-items-center fp-justify-center fp-text-current")}
         >
-          <Check className="h-3 w-3" strokeWidth={3} />
+          <Check className="fp-h-3 fp-w-3" strokeWidth={3} />
         </CheckboxPrimitive.Indicator>
       </span>
     </CheckboxPrimitive.Root>

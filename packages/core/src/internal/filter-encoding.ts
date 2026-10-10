@@ -11,10 +11,7 @@ function encodeBounds({ gte, lte }: Bounds): string | null {
   return `${gte === undefined ? "" : String(gte)}:${lte === undefined ? "" : String(lte)}`;
 }
 
-/**
- * One filter value as the list's `f_<field>` URL value: dates as day/`from~to`, numbers as `min:max`, sets as `a,b`.
- * `null` for a value that filters nothing; an object with no URL form throws.
- */
+/** One filter value as its `f_<field>` URL value, or `null` when it filters nothing. */
 export function encodeFilterValue(value: unknown, timeZone: string): string | null {
   if (value === undefined || value === null) return null;
   if (value instanceof Date) return dayKeyIn(value, timeZone);

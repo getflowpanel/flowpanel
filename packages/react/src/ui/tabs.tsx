@@ -14,7 +14,7 @@ const TabsList = /* @__PURE__ */ named(
     <TabsPrimitive.List
       ref={ref}
       className={cn(
-        "inline-flex h-9 items-center justify-center rounded-fp-lg bg-fp-bg-3/70 p-1 text-fp-text-2",
+        "fp-inline-flex fp-h-9 fp-items-center fp-justify-center fp-rounded-lg fp-bg-fill/70 fp-p-1 fp-text-soft",
         className,
       )}
       {...props}
@@ -31,7 +31,7 @@ const TabsTrigger = /* @__PURE__ */ named(
     <TabsPrimitive.Trigger
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-fp px-3 py-1 text-sm font-medium transition-all hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-fp-bg-1 data-[state=active]:text-fp-text-1 data-[state=active]:shadow-fp-sm",
+        "fp-inline-flex fp-items-center fp-justify-center fp-whitespace-nowrap fp-rounded fp-px-3 fp-py-1 fp-text-sm fp-font-medium fp-transition-all hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 disabled:fp-pointer-events-none disabled:fp-opacity-50 data-[state=active]:fp-bg-surface data-[state=active]:fp-text-ink data-[state=active]:fp-shadow-sm",
         className,
       )}
       {...props}
@@ -48,7 +48,7 @@ const TabsContent = /* @__PURE__ */ named(
     <TabsPrimitive.Content
       ref={ref}
       className={cn(
-        "mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+        "fp-mt-2 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
         className,
       )}
       {...props}

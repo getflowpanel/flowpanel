@@ -51,7 +51,7 @@ function stubFetch(statuses: string[]) {
 function header(): HTMLElement {
   const title = screen
     .getAllByRole("heading", { level: 2 })
-    .find((h) => !h.className.includes("sr-only"));
+    .find((h) => !h.className.includes("fp-sr-only"));
   return title?.parentElement as HTMLElement;
 }
 
@@ -136,9 +136,9 @@ describe("DrawerHost", () => {
       </ToastProvider>,
     );
     const resend = await vi.waitFor(() => screen.getByRole("button", { name: "Resend" }));
-    expect(resend.className).toContain("border-fp-border-2");
-    expect(resend.className).not.toContain("bg-fp-accent");
-    expect(screen.getByRole("button", { name: "Ban" }).className).toContain("text-fp-err-text");
+    expect(resend.className).toContain("fp-border-line-strong");
+    expect(resend.className).not.toContain("fp-bg-accent");
+    expect(screen.getByRole("button", { name: "Ban" }).className).toContain("fp-text-err-ink");
   });
 
   it("re-fetches the row after an action succeeds", async () => {

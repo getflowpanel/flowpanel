@@ -5,19 +5,21 @@ export function Card({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) 
   return (
     <div
       {...p}
-      className={cn("rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-xs", className)}
+      className={cn("fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-shadow-xs", className)}
     />
   );
 }
 
 export function CardHeader({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div {...p} className={cn("px-4 pt-4 pb-2 text-sm text-fp-text-2", className)} />;
+  return (
+    <div {...p} className={cn("fp-px-4 fp-pt-4 fp-pb-2 fp-text-sm fp-text-soft", className)} />
+  );
 }
 
 export function CardContent({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div {...p} className={cn("p-4", className)} />;
+  return <div {...p} className={cn("fp-p-4", className)} />;
 }
 
 export function CardDescription({ className, ...p }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div {...p} className={cn("px-4 text-xs text-fp-text-3", className)} />;
+  return <div {...p} className={cn("fp-px-4 fp-text-xs fp-text-faint", className)} />;
 }

@@ -1,6 +1,8 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { FileIntent } from "../plan/types";
+import { noConfigMessage } from "../utils/config-problem";
+import { detectPackageManager, pmCommands } from "../utils/detect";
 import { resolveProjectModule } from "../utils/module-path";
 import { findAdminConfig } from "./config-target";
 import { describeSchema, type TableDescription } from "./describe-schema";
@@ -87,7 +89,9 @@ export async function planNewIntoDir(
   options: NewIntoDirOptions,
 ): Promise<NewIntoDirPlan> {
   const config = await findAdminConfig(cwd);
-  if (!config) throw new Error("flowpanel.config.ts not found — run `flowpanel init` first.");
+  if (!config) {
+    throw new Error(noConfigMessage(cwd, pmCommands(await detectPackageManager(cwd)).dlx));
+  }
   const configName = path.relative(cwd, config.file);
   const spec = SCHEMA_IMPORT.exec(await fs.readFile(config.file, "utf8"))?.[1];
   if (!spec) {

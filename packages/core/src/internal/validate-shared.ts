@@ -1,5 +1,6 @@
+import type { LinkCheck } from "../compiler/validate/links";
 import { didYouMean } from "../suggest";
-import type { LinkCheck } from "../validate-links";
+import { FlowpanelConfigError } from "../types/config-error";
 
 /** A comma-separated, quoted list for an error message; "(none)" when empty. */
 export const quoted = (names: readonly string[]): string =>
@@ -13,8 +14,9 @@ export function missing(
   known: readonly string[],
   on?: string,
 ): never {
-  throw new Error(
-    `flowpanel: ${site} names ${kind} "${name}"${on ? ` on "${on}"` : ""}, which does not exist.` +
+  throw new FlowpanelConfigError(
+    site,
+    `it names ${kind} "${name}"${on ? ` on "${on}"` : ""}, which does not exist.` +
       `${didYouMean(name, known)} Known: ${quoted(known)}.`,
   );
 }

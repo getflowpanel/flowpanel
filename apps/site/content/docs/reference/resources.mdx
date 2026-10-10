@@ -11,7 +11,7 @@ metaTitle: "resource() options reference"
 [`InferRow<Ref>`](/docs/reference/registry#inferrow), which types `columns`,
 `search`, `filters` and `defaultSort`.
 
-```ts excerpt
+```ts
 import { resource } from "@flowpanel/kit";
 import { orders } from "@/db/schema";
 
@@ -50,7 +50,7 @@ declared and `detail.expose` fields.
 - `detail.subtitle(row)` is the line under it.
 - `detail.badge(row)` is a pill beside the title: `{ label, tone }`.
 
-```ts excerpt
+```ts as="ResourceOptions<RowOf<'customers'>>"
 detail: {
   title: (row) => row.email,
   subtitle: (row) => `Customer since ${row.createdAt}`,
@@ -99,7 +99,7 @@ A resource's ref may be a database view. The list, the record page, counts, expo
 reference labels, related tabs and `ctx.read` read the view; create, update, delete,
 restore, import and inline edits write to `writeTo`:
 
-```ts excerpt
+```ts
 resource(adminUserRow, {
   name: "user",
   writeTo: user,
@@ -124,7 +124,7 @@ Resource, dashboard, page, queue, action and command icons take an `IconName`, a
 Lucide icon name such as `users`, `settings`, `database` or `trash-2`. An unknown
 name is a type error. To render one in your own component:
 
-```tsx excerpt
+```tsx
 import { FlowpanelIcon } from "@flowpanel/kit/react";
 
 <FlowpanelIcon name="workflow" className="size-4" />;
@@ -135,7 +135,7 @@ import { FlowpanelIcon } from "@flowpanel/kit/react";
 `views` puts named filter, sort and search presets in a menu above the list.
 Filters are keyed by the row's fields:
 
-```ts excerpt
+```ts as="ResourceOptions<RowOf<'user'>>"
 views: [
   { name: "New this week", filters: { createdAt: "last7d" } },
   { name: "Paying, falling asleep", filters: { plan: ["starter", "pro"], daysSinceSeen: { gte: 7 } } },
@@ -162,7 +162,7 @@ filters and is skipped by export. See
 `secondary` shows another field as a muted second line in the cell, such as the
 email under a name. Sorting and search still use `field`.
 
-```ts excerpt
+```ts as="ResourceOptions<RowOf<'user'>>"
 columns: [{ field: "name", label: "User", secondary: "email" }],
 ```
 
@@ -170,7 +170,7 @@ columns: [{ field: "name", label: "User", secondary: "email" }],
 
 Declarative cell formatting.
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type ColumnFormat =
   | "badge" | "money" | "number"
   | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
@@ -187,14 +187,14 @@ type ColumnFormat =
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 The object form of `badge` maps each cell value to a tone:
 
-```ts excerpt
+```ts as="ColumnDef<RowOf<'orders'>>"
 { field: "status", format: { kind: "badge", tones: { paid: "ok", failed: "err" } } }
 ```
 
 `labels` gives each raw value its display text. Tones stay keyed by the raw
 value, and a value with no label shows as is.
 
-```ts excerpt
+```ts as="ColumnDef<RowOf<'user'>>"
 {
   field: "role",
   format: {
@@ -215,7 +215,7 @@ The other kinds:
 - `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
 - `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded.
 
-```ts excerpt
+```ts as="ResourceOptions<Record<string, unknown>>"
 columns: [
   { field: "week", label: "Cohort" },
   { field: "w1", label: "Week 1", format: { kind: "percent", heat: true } },
@@ -250,20 +250,21 @@ filter and field `options`, badges and timeline chips.
 
 <ApiSignature path="../../packages/core/src/builders/enum-of.ts" name="enumOf" />
 
-```ts excerpt
+```ts
 import { enumOf, resource } from "@flowpanel/kit";
-import { planEnum, users } from "@/db/schema";
+import { customers, planTier } from "@/db/schema";
 
-export const Plan = enumOf(planEnum.enumValues, {
+export const Plan = enumOf(planTier.enumValues, {
   free: ["Free", "muted"],
   starter: ["Starter", "info"],
   pro: { label: "Pro", tone: "accent" },
+  business: { label: "Business", tone: "accent" },
 });
 
-resource(users, {
+resource(customers, {
   columns: [{ field: "plan", format: Plan.format }],
   filters: [{ field: "plan", type: "select", options: Plan.options }],
-  detail: { badge: (user) => Plan.badge(user.plan) },
+  detail: { badge: (customer) => Plan.badge(customer.plan) },
 });
 ```
 
@@ -289,7 +290,7 @@ when both name the same key.
 
 ### FieldType
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type FieldType =
   | "text" | "textarea" | "number" | "email" | "password" | "url"
   | "date" | "datetime" | "time"
@@ -317,7 +318,7 @@ totals and export alike. Clearing it writes an empty `f_<field>=` to the URL. A
 saved view or link turns it off with `null`. `hidden: true` applies the filter
 without a control.
 
-```ts excerpt
+```ts as="ResourceOptions<RowOf<'user'>>"
 filters: [
   { field: "isTest", label: "Test accounts", type: "boolean", defaultValue: false },
 ],
@@ -330,7 +331,7 @@ read the resource from a view that computes the column and set
 
 ### FilterType
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type FilterType =
   | "text" | "select" | "multiselect"
   | "daterange" | "numeric-range" | "boolean" | "tag";
@@ -345,7 +346,7 @@ type FilterType =
 `detail` configures `<paths.admin>/<resource>/<id>`. Type a card that lives in its own file
 with `DetailOptions<Row>`:
 
-```ts excerpt
+```ts
 import { type DetailOptions, kv, metric, related, type RowOf } from "@flowpanel/kit";
 
 export const card = {
@@ -403,7 +404,7 @@ tab's other renders. A render that throws is logged and the field shows its
 formatted value; see [server-rendered cells](/docs/reference/drawer#server-rendered-cells)
 for the drawer:
 
-```ts excerpt
+```ts as="FieldDef<RowOf<'job'>>"
 {
   name: "categoryId",
   label: "Category",
@@ -417,7 +418,7 @@ for the drawer:
 `sections` groups those fields into titled blocks and wins over `fields` on the
 same tab:
 
-```ts excerpt
+```ts as="DetailTab<RowOf<'customers'>>"
 {
   key: "overview",
   label: "Overview",
@@ -466,7 +467,7 @@ or several throw and ask for `by`. `by`, `hide` and `sort.field` are fields of t
 row, so a typo is a compile error once resources are typed, and `defineAdmin` names the
 closest column otherwise. The label defaults to the target's `plural`.
 
-```ts excerpt
+```ts as="ResourceOptions<RowOf<'user'>>"
 detail: {
   tabs: [
     related("response", { label: "Responses", widgets: [responseFunnel] }),
@@ -484,8 +485,8 @@ A tab with neither `by` nor `filter` reads every row of its target.
 `emptyState` replaces the default text when a tab has no rows, widgets or
 readable fields.
 
-```ts excerpt
-{ key: "runs", label: "Runs", resource: "runs", filter: (u) => ({ userId: u.id }), emptyState: "No runs yet" }
+```ts as="DetailTab<RowOf<'user'>>"
+{ key: "responses", label: "Responses", resource: "response", filter: (u) => ({ userId: u.id }), emptyState: "No responses yet" }
 ```
 
 ### Custom content
@@ -503,7 +504,7 @@ What `DetailTab.render` receives as its second argument.
 
 ## SelectOption
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type SelectOption = { label: string; value: string | number | boolean };
 ```
 

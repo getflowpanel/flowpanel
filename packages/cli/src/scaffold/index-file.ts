@@ -1,5 +1,5 @@
 import { type ArrayLiteralExpression, Node, Project, type SourceFile } from "ts-morph";
-import { spliceIntoArray } from "../eject/addResource";
+import { spliceIntoArray } from "../eject/add-resource";
 
 function parse(source: string): SourceFile {
   return new Project({ useInMemoryFileSystem: true }).createSourceFile("index.ts", source);

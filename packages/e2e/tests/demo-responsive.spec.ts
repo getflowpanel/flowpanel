@@ -60,3 +60,20 @@ test("the seven-screen product story stays navigable without page overflow", asy
 
   await expect(page.getByRole("heading", { name: "Matches" })).toBeVisible();
 });
+
+test("a custom widget's plain Tailwind grid keeps its own breakpoints inside the admin", async ({
+  page,
+}) => {
+  const stats = page.locator('section[aria-labelledby="live-operations-title"] dl');
+  const columns = () =>
+    stats.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/admin");
+  await expect(stats).toBeVisible();
+  expect(await stats.evaluate((el) => el.closest("[data-flowpanel-root]") !== null)).toBe(true);
+  expect(await columns()).toBe(4);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(columns).toBe(2);
+});

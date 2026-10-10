@@ -210,11 +210,15 @@ describe("withGuards — errors from buildRequestContext keep their status", () 
   it("maps FlowpanelRateLimitError to 429, not a bare 500", async () => {
     const { config, resource } = makeConfig({
       rateLimit: { driver: "memory", limit: 1, windowMs: 60_000, per: "ip" },
+      security: { trustedProxies: 1 },
     });
     const call = () =>
       withGuards(
         config,
-        new Request("http://localhost/x", { method: "POST" }),
+        new Request("http://localhost/x", {
+          method: "POST",
+          headers: { "x-forwarded-for": "203.0.113.7" },
+        }),
         { resource },
         async () => Response.json({ ok: true }),
       );

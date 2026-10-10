@@ -73,19 +73,19 @@ describe("realtime { resource } targets", () => {
 
   it("name the widget, the dashboard and the resource that was meant", () => {
     expect(admin({ resource: "ordres" })).toThrow(
-      'flowpanel: the metric "Orders" on dashboard "/" subscribes to realtime { resource: "ordres" }, which is not a registered resource. Did you mean "orders"?',
+      '[flowpanel] the metric "Orders" on dashboard "/" realtime: it subscribes to { resource: "ordres" }, which is not a registered resource. Did you mean "orders"?',
     );
   });
 
   it("are checked on record-page widgets too", () => {
     expect(admin("pipeline", [{ resource: "order" }])).toThrow(
-      'the metric "Open" on the "orders" record page subscribes to realtime { resource: "order" }',
+      'the metric "Open" on the "orders" record page realtime: it subscribes to { resource: "order" }',
     );
   });
 
   it("are checked on drawer widgets too", () => {
     expect(admin("pipeline", undefined, { resource: "ordr" })).toThrow(
-      'the metric "Queued" on the "orders" drawer subscribes to realtime { resource: "ordr" }',
+      'the metric "Queued" on the "orders" drawer realtime: it subscribes to { resource: "ordr" }',
     );
   });
 });

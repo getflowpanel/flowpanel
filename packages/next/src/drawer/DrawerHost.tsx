@@ -102,19 +102,19 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
   const words = useLabels().drawer;
   if (tab.rows.length === 0) {
     return (
-      <div className="py-6 text-sm text-fp-text-3">
+      <div className="fp-py-6 fp-text-sm fp-text-faint">
         {formatLabel(words.noRows, { resource: tab.label })}
       </div>
     );
   }
   const cols = tab.columns.length > 0 ? tab.columns : Object.keys(tab.rows[0] ?? {});
   return (
-    <div className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1">
-      <table className="w-full text-sm">
-        <thead className="bg-fp-bg-2 text-xs text-fp-text-3">
+    <div className="fp-overflow-hidden fp-rounded fp-border fp-border-line fp-bg-surface">
+      <table className="fp-w-full fp-text-sm">
+        <thead className="fp-bg-canvas fp-text-xs fp-text-faint">
           <tr>
             {cols.map((c) => (
-              <th key={c} scope="col" className="px-4 py-2 text-left font-normal">
+              <th key={c} scope="col" className="fp-px-4 fp-py-2 fp-text-left fp-font-normal">
                 {humanize(c)}
               </th>
             ))}
@@ -125,10 +125,10 @@ function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "r
             <tr
               // biome-ignore lint/suspicious/noArrayIndexKey: drawer list has no stable row key at this layer and reorders only on refresh.
               key={idx}
-              className="border-t border-fp-border-1 text-fp-text-1"
+              className="fp-border-t fp-border-line fp-text-ink"
             >
               {cols.map((c) => (
-                <td key={c} className="px-4 py-2">
+                <td key={c} className="fp-px-4 fp-py-2">
                   {formatFieldValue(r[c])}
                 </td>
               ))}
@@ -144,10 +144,10 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
   const formatting = useFormatting();
   const labels = useLabels();
   if (tab.widgets.length === 0) {
-    return <div className="py-6 text-sm text-fp-text-3">{labels.drawer.noWidgets}</div>;
+    return <div className="fp-py-6 fp-text-sm fp-text-faint">{labels.drawer.noWidgets}</div>;
   }
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+    <div className="fp-grid fp-grid-cols-1 fp-gap-3 md:fp-grid-cols-2">
       {tab.widgets.map((w, i) => {
         const key = i;
         if (w.kind === "metric") {
@@ -168,7 +168,7 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
           if (w.rows.length === 0) {
             return (
               <Fragment key={key}>
-                <div className="py-6 text-sm text-fp-text-3 md:col-span-2">
+                <div className="fp-py-6 fp-text-sm fp-text-faint md:fp-col-span-2">
                   {labels.widget.empty}
                 </div>
                 {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
@@ -181,17 +181,21 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
               : Object.keys(w.rows[0] ?? {}).map((f) => ({ field: f }));
           return (
             <Fragment key={key}>
-              <div className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1 md:col-span-2">
+              <div className="fp-overflow-hidden fp-rounded fp-border fp-border-line fp-bg-surface md:fp-col-span-2">
                 {w.label ? (
-                  <div className="border-b border-fp-border-1 bg-fp-bg-2 px-4 py-2 text-xs font-medium text-fp-text-2">
+                  <div className="fp-border-b fp-border-line fp-bg-canvas fp-px-4 fp-py-2 fp-text-xs fp-font-medium fp-text-soft">
                     {w.label}
                   </div>
                 ) : null}
-                <table className="w-full text-sm">
-                  <thead className="bg-fp-bg-2 text-xs text-fp-text-3">
+                <table className="fp-w-full fp-text-sm">
+                  <thead className="fp-bg-canvas fp-text-xs fp-text-faint">
                     <tr>
                       {cols.map((c) => (
-                        <th key={c.field} scope="col" className="px-4 py-2 text-left font-normal">
+                        <th
+                          key={c.field}
+                          scope="col"
+                          className="fp-px-4 fp-py-2 fp-text-left fp-font-normal"
+                        >
                           {c.label ?? humanize(c.field)}
                         </th>
                       ))}
@@ -202,10 +206,10 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
                       <tr
                         // biome-ignore lint/suspicious/noArrayIndexKey: server-resolved list without stable id
                         key={idx}
-                        className="border-t border-fp-border-1 text-fp-text-1"
+                        className="fp-border-t fp-border-line fp-text-ink"
                       >
                         {cols.map((c) => (
-                          <td key={c.field} className="px-4 py-2">
+                          <td key={c.field} className="fp-px-4 fp-py-2">
                             {c.format
                               ? renderFormatCell(c.format, r[c.field], formatting)
                               : formatFieldValue(r[c.field])}
@@ -223,7 +227,7 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
         if (w.kind === "statGroup") {
           return (
             <Fragment key={key}>
-              <div className="md:col-span-2">
+              <div className="md:fp-col-span-2">
                 <StatGroupCard
                   {...(w.label ? { label: w.label } : {})}
                   stats={w.stats.map(({ format, tone, ...stat }) => ({
@@ -248,9 +252,9 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
         if (w.kind === "chart") {
           return (
             <Fragment key={key}>
-              <div className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2">
-                <div className="font-medium text-fp-text-2">{w.label}</div>
-                <div className="mt-1 text-xs">
+              <div className="fp-rounded fp-border fp-border-line fp-bg-canvas fp-p-4 fp-text-sm fp-text-faint md:fp-col-span-2">
+                <div className="fp-font-medium fp-text-soft">{w.label}</div>
+                <div className="fp-mt-1 fp-text-xs">
                   {formatLabel(labels.drawer.chartElsewhere, { n: w.dataPoints })}
                 </div>
               </div>
@@ -262,10 +266,10 @@ function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "wid
           <div
             key={key}
             {...(w.failed ? { "data-fp-error": "" } : {})}
-            className="rounded-fp border border-fp-border-1 bg-fp-bg-2 p-4 text-sm text-fp-text-3 md:col-span-2"
+            className="fp-rounded fp-border fp-border-line fp-bg-canvas fp-p-4 fp-text-sm fp-text-faint md:fp-col-span-2"
           >
-            {w.label ? <div className="font-medium text-fp-text-2">{w.label}</div> : null}
-            <div className={w.label ? "mt-1 text-xs" : undefined}>{w.reason}</div>
+            {w.label ? <div className="fp-font-medium fp-text-soft">{w.label}</div> : null}
+            <div className={w.label ? "fp-mt-1 fp-text-xs" : undefined}>{w.reason}</div>
           </div>
         );
       })}
@@ -309,7 +313,7 @@ function DrawerBody({ payload }: { payload: DrawerPayload }) {
         ))}
       </TabsList>
       {tabs.map((t) => (
-        <TabsContent key={t.key} value={t.key} className="mt-4">
+        <TabsContent key={t.key} value={t.key} className="fp-mt-4">
           {t.kind === "fields" ? (
             <FieldsView
               row={payload.row}
@@ -324,7 +328,7 @@ function DrawerBody({ payload }: { payload: DrawerPayload }) {
           ) : t.kind === "widgets" ? (
             <WidgetTabView tab={t} />
           ) : (
-            <div className="rounded-fp-sm border border-fp-border-1 bg-fp-bg-2 p-3 text-sm text-fp-text-3">
+            <div className="fp-rounded-sm fp-border fp-border-line fp-bg-canvas fp-p-3 fp-text-sm fp-text-faint">
               Unsupported tab kind.
             </div>
           )}
@@ -383,7 +387,7 @@ function ActionButton({
         variant="outline"
         onClick={onClick}
         disabled={pending}
-        {...(action.variant === "destructive" ? { className: "text-fp-err-text" } : {})}
+        {...(action.variant === "destructive" ? { className: "fp-text-err-ink" } : {})}
       >
         {pending ? "…" : action.label}
       </Button>
@@ -474,33 +478,33 @@ export function DrawerHost() {
       width={width}
       title={title || labels.drawer.title}
     >
-      <DrawerHeader className="flex-col pr-14 sm:flex-row">
-        <div className="min-w-0 max-w-full sm:flex-1">
-          <h2 className="truncate text-lg font-semibold text-fp-text-1">
+      <DrawerHeader className="fp-flex-col fp-pr-14 sm:fp-flex-row">
+        <div className="fp-min-w-0 fp-max-w-full sm:fp-flex-1">
+          <h2 className="fp-truncate fp-text-lg fp-font-semibold fp-text-ink">
             {payload ? (
               title
             ) : error ? (
               humanize(resource ?? "")
             ) : (
-              <Skeleton className="my-1 h-5 w-48" aria-hidden />
+              <Skeleton className="fp-my-1 fp-h-5 fp-w-48" aria-hidden />
             )}
           </h2>
           {resource && (payload || !error) ? (
-            <p className="text-xs text-fp-text-3">
+            <p className="fp-text-xs fp-text-faint">
               {payload?.subtitle ?? payload?.resourceLabel ?? humanize(resource)}
             </p>
           ) : null}
         </div>
         {payload?.detailHref ? (
-          <Button asChild variant="outline" size="sm" className="shrink-0">
+          <Button asChild variant="outline" size="sm" className="fp-shrink-0">
             <a href={payload.detailHref}>{labels.drawer.viewDetails}</a>
           </Button>
         ) : null}
       </DrawerHeader>
       <DrawerContent>
-        {loading ? <div className="text-sm text-fp-text-3">{labels.drawer.loading}</div> : null}
+        {loading ? <div className="fp-text-sm fp-text-faint">{labels.drawer.loading}</div> : null}
         {error ? (
-          <div data-fp-error="" className="text-sm text-fp-err-text">
+          <div data-fp-error="" className="fp-text-sm fp-text-err-ink">
             {error}
           </div>
         ) : null}

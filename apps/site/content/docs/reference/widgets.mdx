@@ -9,7 +9,7 @@ returns a `WidgetConfig`; every `query` runs on the server with a `WidgetContext
 On a record page or in a drawer, `ctx.row` is the record. A drawer renders
 [static cards](/docs/reference/drawer#drawertabwidgets).
 
-```ts excerpt
+```ts
 import { areaChart, dashboard, metric, statGroup, table } from "@flowpanel/kit";
 
 export const overview = dashboard({
@@ -71,7 +71,7 @@ of the same length before. Over a record's whole history it is `null`.
 
 `labels` is the resolved `LabelsConfig`. `row` is set on a record page.
 
-```ts excerpt
+```ts
 metric("Paid orders", async (ctx) => ({
   value: await ctx.query("paid-orders", () => countPaid(ctx.db, ctx.dateRange)),
   href: { resource: "orders", filter: { status: "paid" } },
@@ -85,7 +85,7 @@ metric("Paid orders", async (ctx) => ({
 `ctx.format` formats with the admin's `locale`, `timeZone` and `currency`, the same
 way table cells do.
 
-```ts excerpt
+```ts
 stat("Latency", async (ctx) => {
   const s = await ctx.query(latencyStages, ctx.db, ctx.dateRange);
   return {
@@ -127,7 +127,7 @@ A failing `freshness.at` is logged and skipped.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-caption.ts" name="Freshness" />
 
-```ts excerpt
+```ts
 metric("Runs today", runsToday, {
   freshness: { at: async (c) => lastRollupHour(c), warnAfter: "2h" },
 });
@@ -150,14 +150,21 @@ in your own code.
 `warn` below `err` means higher is worse; `warn` above `err` means lower is worse.
 A `goodWhen` that contradicts the numbers makes `defineAdmin` throw.
 
-```ts excerpt
+```ts
 import { type Threshold, metric, resource, toneFor } from "@flowpanel/kit";
 
 const ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
 
-metric("Run errors", async (c) => ({ value: rate, volume: runs }), { format: "percent", tones: ERRORS });
-resource(schema.runs, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
-toneFor(rate, ERRORS, runs);
+metric(
+  "Run errors",
+  async (c) => {
+    const { rate, runs } = await runErrorRate(c);
+    return { value: rate, volume: runs };
+  },
+  { format: "percent", tones: ERRORS },
+);
+resource(schema.monitors, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
+toneFor(0.42, ERRORS, 120); // "warn": 120 runs, above warn and below err
 ```
 
 ## Links
@@ -186,7 +193,7 @@ An unregistered resource, view or dashboard throws and lists the registered ones
 `ctx.link(target)` resolves the same targets to a string, for the props of a custom
 widget:
 
-```ts excerpt
+```ts
 custom(PlatformGrid, async (ctx) => ({
   platforms: (await platforms(ctx.db)).map((p) => ({
     ...p,
@@ -213,7 +220,7 @@ A metric that counts rows takes `{ count, where, range }` instead of a query. It
 value is `ctx.count(count, where, { range })`, and it links to exactly the rows it
 counted unless you set `drilldown`. A missing `where` value counts `0` with no link.
 
-```ts excerpt
+```ts
 metric("Visits", { count: "user_visit", where: (c) => ({ userId: c.id }), range: "startedAt" }, {
   compare: true,
 });
@@ -228,7 +235,7 @@ both. `drilldown: () => null` removes the link.
 change; `compare: { against: "weekAgo" }` compares with the same range seven days
 earlier. Set `goodWhen: "down"` for costs and errors. A `delta` from the query wins.
 
-```ts excerpt
+```ts
 metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
 ```
 
@@ -268,7 +275,7 @@ defaults to 10 on the `resource` path. `density: "compact"` sets 40 px rows.
 or a function such as `(c) => ({ userId: c.id })`. `range` names the timestamp the
 picked range bounds: `table({ resource: "user", range: "createdAt" })`.
 
-```ts excerpt
+```ts
 table({
   resource: "orders",
   label: "Recent orders",
@@ -293,7 +300,7 @@ table({
 `Date` is formatted like a table cell. A resolver may return a [`KvResult`](#kvresult)
 with its own tone and link.
 
-```ts excerpt
+```ts
 statGroup({
   label: "Account",
   span: 6,
@@ -324,9 +331,9 @@ A resolver may return a `StatResult`, whose fields win over the options.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="StatResult" />
 
-```ts excerpt
+```ts
 stat("Open invoices", async (ctx) => {
-  const filter = { customerId: ctx.id, status: "open" };
+  const filter = { customerId: ctx.rowOf("customers").id, status: "open" } as const;
   const value = await ctx.count("invoices", filter);
   return { value, href: { resource: "invoices", filter }, tone: value > 0 ? "warn" : "ok" };
 });
@@ -340,7 +347,7 @@ Facts about one thing. An item's `format` takes a `ColumnFormat` or `NumericForm
 An item with `field` reads the card's `record`, which runs once and defaults to the
 viewed row on a record page:
 
-```ts excerpt
+```ts
 kv({
   label: "Feed filters",
   record: (c) => c.read("freelancer_profile", { where: { userId: c.id }, limit: 1 }).then((r) => r[0]),
@@ -351,7 +358,7 @@ kv({
 An item with `long` is a paragraph; past `lines` lines (6 by default) the rest
 folds under "Show all". `empty` replaces "—" for a missing value.
 
-```ts excerpt
+```ts
 kv({
   label: "Texts",
   columns: 1,
@@ -376,7 +383,7 @@ item's. `statGroup` items take the same result.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="KvResult" />
 
-```ts excerpt
+```ts
 kv({
   items: [
     {
@@ -397,7 +404,7 @@ kv({
 A ranked breakdown, sized against the largest value or `max`. Set `max` for a
 rate:
 
-```ts excerpt
+```ts
 bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), format: "percent", max: 1 });
 ```
 
@@ -412,7 +419,7 @@ and fills each row's `previous`, joining by `key`, else `label`. A row missing f
 the earlier period shows no change; `breakdown({ keys })` keeps it at zero. With
 `top`, pass the earlier rows to `breakdown({ previous })` instead.
 
-```ts excerpt
+```ts
 bars({
   label: "New orders by marketplace",
   share: true,
@@ -458,7 +465,7 @@ an "N more" line linking to `more`.
 `count`. The first row is a sentence, the rest are lines. With no rows it shows
 `allClear`.
 
-```ts excerpt
+```ts
 banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
 ```
 
@@ -468,7 +475,7 @@ banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: 
 
 Set `key` when realtime updates reorder rows.
 
-```ts excerpt
+```ts
 import { bars, funnel, kv, list, stat } from "@flowpanel/kit";
 
 const widgets = [
@@ -500,7 +507,7 @@ rows instead. Not available in drawers.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-tracker.ts" name="TrackerOptions" />
 
-```ts excerpt
+```ts
 tracker({
   label: "Marketplaces · 24 h",
   query: hourly,
@@ -531,7 +538,7 @@ pages back, under `?<id>.kind=` and `?<id>.before=`; `id` defaults to the tab ke
 `query(ctx, page)` returns events that are not resource rows: at or before
 `page.before`, at most `page.limit`, of `page.kinds` when set.
 
-```ts excerpt
+```ts
 timeline({
   label: "Activity",
   kinds: Activity,
@@ -550,7 +557,7 @@ Not available in drawers.
 reader's access applied. `at` is the timestamp; `kind` is fixed or `{ field }`.
 `refs` names reference columns whose labels reach `title` and `meta`.
 
-```ts excerpt
+```ts
 timeline({
   kinds: Bot,
   sources: [
@@ -591,7 +598,7 @@ four steps.
 rows referencing the record, like a timeline source. It reads at most 10,000 rows;
 beyond that use `query`, which returns totals per day.
 
-```ts excerpt
+```ts
 heatmap({ label: "Visits, 13 weeks", source: { resource: "user_visit", at: "startedAt" }, unit: Visits });
 ```
 
@@ -614,7 +621,7 @@ non-`optional` items.
 With `ordered`, done items show their date and the gap since the previous step.
 `layout: "steps"` lays them out in a row. Not available in drawers.
 
-```ts excerpt
+```ts
 checklist({
   label: "Journey",
   ordered: true,
@@ -644,7 +651,7 @@ checklist({
 
 One checklist item per labelled field, done when the field has a value.
 
-```ts excerpt
+```ts
 checklist({
   label: "Profile",
   items: async (c) => filled(await profileOf(c), { bio: "About", hourlyRate: "Rate" }),
@@ -664,7 +671,7 @@ Your own component in the grid. `props` is a value or a server function. See
 
 The chart builders come from `@flowpanel/kit`. Recharts loads only when a chart is on the page.
 
-```ts excerpt
+```ts
 import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit";
 ```
 
@@ -686,7 +693,7 @@ date ticks; aggregate with `series({ grain })`.
 One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
 order. `colors` pins a series to a colour:
 
-```ts excerpt
+```ts
 lineChart("Signups", signupsByPlan, {
   x: "day",
   y: ["trial", "paid"],
@@ -768,7 +775,7 @@ map, an `enumOf()` or a function. Shares only mean something for counts and sums
 A preset's bounds now, in the admin's zone, for a query that needs a fixed window
 beside the picked one. Pass the same `now` to widgets sharing a query.
 
-```ts excerpt
+```ts
 import { barChart, bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
 
 const hourly = (c: WidgetContext) => c.sql<{ at: Date; platform: string; orders: number }>`
@@ -820,7 +827,7 @@ page's [`detail.stats`](/docs/reference/resources#record-page) is the same strip
 In a `"cards"` section, `table` and `list` cards keep their height and others
 stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 
-```ts excerpt
+```ts as="SectionConfig"
 { variant: "strip", widgets: [newOrders, runs, successRate, bans] }
 ```
 
@@ -846,7 +853,7 @@ widget context; a plain string list is not accepted.
 `filterOnClick: "<key>"` on `bars`, `tracker` or `table` sets that filter on click,
 replacing the row's link. It is rejected on a record page or in a drawer.
 
-```ts excerpt
+```ts
 const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
 
 const hourly = (c: WidgetContext) => c.sql<HourRow>`
