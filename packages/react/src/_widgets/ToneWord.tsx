@@ -5,5 +5,5 @@ import { useLabels } from "../_provider/LabelsContext";
 export function ToneWord({ tone }: { tone: Tone | undefined }) {
   const { tones } = useLabels().widget;
   const word = tone && Object.hasOwn(tones, tone) ? tones[tone as keyof typeof tones] : undefined;
-  return word ? <span className="sr-only">{word} </span> : null;
+  return word ? <span className="fp-sr-only">{word} </span> : null;
 }

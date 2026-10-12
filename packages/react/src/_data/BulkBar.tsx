@@ -34,11 +34,11 @@ export function BulkBar({ selection, actions, onClear }: BulkBarProps) {
       aria-label={count}
       className={cn(
         "fp-bulkbar",
-        "sticky bottom-4 z-30 mx-auto mt-3 flex w-fit items-center gap-3 rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 py-2 pl-4 pr-2 shadow-fp-lg",
+        "fp-sticky fp-bottom-4 fp-z-30 fp-mx-auto fp-mt-3 fp-flex fp-w-fit fp-items-center fp-gap-3 fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-py-2 fp-pl-4 fp-pr-2 fp-shadow-lg",
       )}
     >
-      <span className="text-sm font-medium tabular-nums text-fp-text-1">{count}</span>
-      <span aria-hidden className="h-5 w-px bg-fp-border-1" />
+      <span className="fp-text-sm fp-font-medium fp-tabular-nums fp-text-ink">{count}</span>
+      <span aria-hidden className="fp-h-5 fp-w-px fp-bg-line" />
       {actions.map((a) => (
         <Button
           key={a.key}

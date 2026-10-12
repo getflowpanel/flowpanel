@@ -204,12 +204,12 @@ describe("MobileCardList", () => {
     );
 
     const checkbox = screen.getByRole("checkbox", { name: "Select row 1" });
-    expect(checkbox.className).toContain("h-11");
-    expect(checkbox.className).toContain("w-11");
-    expect(checkbox.className).toContain("sm:h-5");
-    expect(checkbox.className).toContain("sm:w-5");
-    expect(checkbox.querySelector("span")?.className).toContain("h-4");
-    expect(checkbox.querySelector("span")?.className).toContain("w-4");
+    expect(checkbox.className).toContain("fp-h-11");
+    expect(checkbox.className).toContain("fp-w-11");
+    expect(checkbox.className).toContain("sm:fp-h-5");
+    expect(checkbox.className).toContain("sm:fp-w-5");
+    expect(checkbox.querySelector("span")?.className).toContain("fp-h-4");
+    expect(checkbox.querySelector("span")?.className).toContain("fp-w-4");
   });
 
   it("does not open the card when Enter lands on a link inside it", () => {

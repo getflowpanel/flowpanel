@@ -81,7 +81,10 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   if (rows.length === 0) {
     return (
       <div
-        className={cn("flex flex-col rounded-fp border border-fp-border-1 bg-fp-bg-1", className)}
+        className={cn(
+          "fp-flex fp-flex-col fp-rounded fp-border fp-border-line fp-bg-surface",
+          className,
+        )}
       >
         <Empty
           title={emptyTitle ?? labels.noResults}
@@ -96,7 +99,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   const [titleCol, ...restCols] = visible;
 
   return (
-    <ul className={cn("space-y-2", className)}>
+    <ul className={cn("fp-space-y-2", className)}>
       {rows.map((r, idx) => {
         const identity = identityOf(r);
         const key = identity ?? `\u0000${idx}`;
@@ -116,9 +119,9 @@ export function MobileCardList<Row extends Record<string, unknown>>({
           <li
             key={key}
             className={cn(
-              "rounded-fp border border-fp-border-1 bg-fp-bg-1 transition-colors",
-              interactive && "active:bg-fp-bg-2",
-              isSelected && "ring-2 ring-fp-focus/60",
+              "fp-rounded fp-border fp-border-line fp-bg-surface fp-transition-colors",
+              interactive && "active:fp-bg-canvas",
+              isSelected && "fp-ring-2 fp-ring-focus/60",
               entering && "fp-row-enter",
             )}
           >
@@ -133,13 +136,13 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                   }
                 : {})}
               className={cn(
-                "w-full px-4 py-3 text-left",
+                "fp-w-full fp-px-4 fp-py-3 fp-text-left",
                 interactive &&
-                  "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+                  "fp-cursor-pointer focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
               )}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex min-w-0 items-start gap-2">
+              <div className="fp-flex fp-items-start fp-justify-between fp-gap-2">
+                <div className="fp-flex fp-min-w-0 fp-items-start fp-gap-2">
                   {selectionEnabled ? (
                     <Checkbox
                       checked={isSelected}
@@ -153,23 +156,21 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                       }}
                       onClick={(e) => e.stopPropagation()}
                       aria-label={formatLabel(labels.table.selectRow, { id: identity ?? "" })}
-                      className="-ml-3 -mt-2 h-11 w-11 shrink-0 sm:ml-0 sm:mt-1 sm:h-5 sm:w-5"
+                      className="-fp-ml-3 -fp-mt-2 fp-h-11 fp-w-11 fp-shrink-0 sm:fp-ml-0 sm:fp-mt-1 sm:fp-h-5 sm:fp-w-5"
                     />
                   ) : null}
-                  <div className="min-w-0 flex-1">
+                  <div className="fp-min-w-0 fp-flex-1">
                     {titleCol ? (
-                      <div className="truncate text-base font-medium text-fp-text-1">
+                      <div className="fp-truncate fp-text-base fp-font-medium fp-text-ink">
                         {renderCell(titleCol, r, idx, prerenderedCells, colIndex, formatting)}
                       </div>
                     ) : null}
                     {restCols.length > 0 ? (
-                      <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-sm">
+                      <dl className="fp-mt-2 fp-grid fp-grid-cols-[max-content_1fr] fp-gap-x-3 fp-gap-y-1 fp-text-sm">
                         {restCols.map((c) => (
                           <React.Fragment key={c.field}>
-                            <dt className="text-fp-text-3">
-                              {resolveFieldLabel(c.label, c.field)}
-                            </dt>
-                            <dd className="min-w-0 truncate text-fp-text-1">
+                            <dt className="fp-text-faint">{resolveFieldLabel(c.label, c.field)}</dt>
+                            <dd className="fp-min-w-0 fp-truncate fp-text-ink">
                               {renderCell(c, r, idx, prerenderedCells, colIndex, formatting)}
                             </dd>
                           </React.Fragment>
@@ -182,7 +183,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                   // biome-ignore lint/a11y/noStaticElementInteractions: stop-propagation guard around an interactive child, not a control itself.
                   <div
                     role="presentation"
-                    className="shrink-0"
+                    className="fp-shrink-0"
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => e.stopPropagation()}
                   >
@@ -219,18 +220,18 @@ function renderCell<Row extends Record<string, unknown>>(
 /** The card list's own empty state, which a host's `EmptyState` slot replaces. */
 function CardEmptyState({ title, description, action, icon }: EmptyStateProps) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+    <div className="fp-flex fp-flex-1 fp-flex-col fp-items-center fp-justify-center fp-px-6 fp-py-16 fp-text-center">
       {icon ? (
         <div
-          className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-2 text-2xl text-fp-text-2"
+          className="fp-mb-3 fp-flex fp-h-12 fp-w-12 fp-items-center fp-justify-center fp-rounded-full fp-bg-canvas fp-text-2xl fp-text-soft"
           aria-hidden="true"
         >
           {icon}
         </div>
       ) : null}
-      <div className="text-base font-medium text-fp-text-1">{title}</div>
-      {description ? <div className="mt-1 text-sm text-fp-text-3">{description}</div> : null}
-      {action ? <div className="mt-4">{action}</div> : null}
+      <div className="fp-text-base fp-font-medium fp-text-ink">{title}</div>
+      {description ? <div className="fp-mt-1 fp-text-sm fp-text-faint">{description}</div> : null}
+      {action ? <div className="fp-mt-4">{action}</div> : null}
     </div>
   );
 }

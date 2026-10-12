@@ -19,7 +19,7 @@ It needs `eslint >= 8`; the config is flat config.
 
 ## Setup
 
-```ts excerpt title="eslint.config.ts"
+```ts title="eslint.config.ts"
 import flowpanel from "@flowpanel/eslint-plugin";
 
 export default [flowpanel.configs.recommended];
@@ -27,7 +27,7 @@ export default [flowpanel.configs.recommended];
 
 `configs.recommended` turns on all five rules. To choose them yourself:
 
-```ts excerpt title="eslint.config.ts"
+```ts title="eslint.config.ts"
 import flowpanel from "@flowpanel/eslint-plugin";
 
 export default [
@@ -71,7 +71,7 @@ In a `"use client"` file, flags imports of:
 Flags an `actions` or `bulkActions` entry with `variant: "destructive"` and no
 `confirm`.
 
-```ts excerpt
+```ts fragment=diff
 // bad
 actions: [{ key: "delete", label: "Delete", variant: "destructive", run }];
 
@@ -99,7 +99,7 @@ twice is flagged too.
 Rewrites filter `options` whose every `label` equals its `value` as plain strings.
 Autofixable.
 
-```ts excerpt
+```ts
 // bad
 filters: [
   {

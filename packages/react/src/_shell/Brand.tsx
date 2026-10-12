@@ -1,3 +1,5 @@
+import { cn } from "../lib/cn";
+
 export interface ShellBrand {
   name?: string;
   logo?: string;
@@ -21,22 +23,26 @@ export function Brand({ brand, fallback = "Admin", className }: BrandProps) {
           src={brand.logo}
           alt=""
           aria-hidden="true"
-          className="h-5 w-5 shrink-0 object-contain"
+          className="fp-h-5 fp-w-5 fp-shrink-0 fp-object-contain"
         />
       ) : null}
-      <span className="truncate">{name}</span>
+      <span className="fp-truncate">{name}</span>
     </>
   );
-  const classes = `flex items-center gap-2 text-sm font-semibold text-fp-text-1 ${className ?? ""}`;
+  const base = "fp-flex fp-items-center fp-gap-2 fp-text-sm fp-font-semibold fp-text-ink";
   if (brand?.href) {
     return (
       <a
         href={brand.href}
-        className={`${classes} rounded-fp-sm hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60`}
+        className={cn(
+          base,
+          "fp-rounded-sm hover:fp-opacity-80 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+          className,
+        )}
       >
         {inner}
       </a>
     );
   }
-  return <div className={classes}>{inner}</div>;
+  return <div className={cn(base, className)}>{inner}</div>;
 }

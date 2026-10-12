@@ -199,7 +199,7 @@ export async function ResourceListPage({
     <>
       <PageHeader title={displayPlural} {...(createAction ? { actions: createAction } : {})} />
       {/* Search sits in the filter row, not above it — one band of chrome. */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="fp-mb-4 fp-flex fp-flex-wrap fp-items-center fp-gap-2">
         {readable.searchFields.length > 0 ? (
           <ResourceListSearch
             placeholder={
@@ -211,7 +211,7 @@ export async function ResourceListPage({
             }
           />
         ) : null}
-        <div className="flex-1">
+        <div className="fp-flex-1">
           <ResourceListFilters filters={filterSpecs} />
         </div>
         {softDelete ? <ResourceListDeletedToggle /> : null}

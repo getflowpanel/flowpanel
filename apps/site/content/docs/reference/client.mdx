@@ -7,7 +7,7 @@ kind: reference
 `@flowpanel/kit/client` calls the admin's HTTP API from custom browser UI. Calls go
 through the same auth, access, scope, validation and audit as generated pages.
 
-```ts excerpt
+```ts
 import {
   createFlowpanelClient,
   isFlowpanelErrorCode,
@@ -27,10 +27,10 @@ import {
 
 The client needs the runtime's metadata: `createFlowpanel(config).client`. Read it in a Server Component and pass it to the client component as a prop, so the config, adapter and database client stay on the server:
 
-```tsx excerpt
-// app/orders/page.tsx
+```tsx
+// src/app/orders/page.tsx
 import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../flowpanel.config";
 import { OrdersPanel } from "./orders-panel";
 
 const flowpanel = createFlowpanel(config);
@@ -40,11 +40,14 @@ export default function OrdersPage() {
 }
 ```
 
-```tsx excerpt
-// app/orders/orders-panel.tsx
+```tsx
+// src/app/orders/orders-panel.tsx
 "use client";
 
 import { createFlowpanelClient, type FlowpanelClientMetadata } from "@flowpanel/kit/client";
+import type { orders } from "@/db/schema";
+
+type Order = typeof orders.$inferSelect;
 
 export function OrdersPanel({ metadata }: { metadata: FlowpanelClientMetadata }) {
   async function loadOpenOrders() {
@@ -90,11 +93,20 @@ takes `signal` and `headers`. Network errors and malformed responses become an
 `isFlowpanelErrorResult(result)` narrows to the error branch;
 `isFlowpanelErrorCode(value)` checks a code.
 
-```ts excerpt
-import { isFlowpanelErrorCode, isFlowpanelErrorResult } from "@flowpanel/kit/client";
+```ts
+import {
+  createFlowpanelClient,
+  type FlowpanelClientMetadata,
+  isFlowpanelErrorCode,
+  isFlowpanelErrorResult,
+} from "@flowpanel/kit/client";
 
-if (isFlowpanelErrorResult(result) && result.error.code === "field_forbidden") {
-  // Hide or disable the corresponding control.
+export async function shipOrder(metadata: FlowpanelClientMetadata, id: string): Promise<void> {
+  const orders = createFlowpanelClient(metadata).resource("orders");
+  const result = await orders.update(id, { status: "shipped" });
+  if (isFlowpanelErrorResult(result) && result.error.code === "field_forbidden") {
+    // Hide or disable the corresponding control.
+  }
 }
 
 isFlowpanelErrorCode("rate_limited"); // true
@@ -105,7 +117,8 @@ isFlowpanelErrorCode("anything"); // false
 
 `useAdminMutation` tracks pending and error state for an async function that resolves to an `ActionResult` (`{ ok: true, ... }` or `{ ok: false, error }`).
 
-```tsx excerpt
+```tsx
+// src/app/orders/archive-button.tsx
 "use client";
 import { useAdminMutation } from "@flowpanel/kit/client";
 import { archiveOrder } from "./actions";

@@ -11,7 +11,7 @@ export interface JsonCellProps {
 export function JsonCell({ value, className }: JsonCellProps) {
   const [open, setOpen] = React.useState(false);
   if (value === null || value === undefined) {
-    return <span className="text-fp-text-3">—</span>;
+    return <span className="fp-text-faint">—</span>;
   }
   if (typeof value !== "object") {
     return <span className={className}>{String(value)}</span>;
@@ -25,7 +25,7 @@ export function JsonCell({ value, className }: JsonCellProps) {
         <button
           type="button"
           className={cn(
-            "inline-flex items-center gap-1 rounded-fp-sm bg-fp-bg-2 px-2 py-0.5 font-mono text-xs text-fp-text-2 hover:bg-fp-bg-3",
+            "fp-inline-flex fp-items-center fp-gap-1 fp-rounded-sm fp-bg-canvas fp-px-2 fp-py-0.5 fp-font-mono fp-text-xs fp-text-soft hover:fp-bg-fill",
             className,
           )}
           aria-label="View JSON"
@@ -34,10 +34,10 @@ export function JsonCell({ value, className }: JsonCellProps) {
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="max-h-[24rem] w-[min(28rem,90vw)] overflow-auto p-3 font-mono text-xs"
+        className="fp-max-h-[24rem] fp-w-[min(28rem,90vw)] fp-overflow-auto fp-p-3 fp-font-mono fp-text-xs"
         align="start"
       >
-        <pre className="whitespace-pre-wrap break-words text-fp-text-1">{stringify(value)}</pre>
+        <pre className="fp-whitespace-pre-wrap fp-break-words fp-text-ink">{stringify(value)}</pre>
       </PopoverContent>
     </Popover>
   );

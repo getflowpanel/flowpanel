@@ -58,3 +58,6 @@ DESIGN-IS-*/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Docs code blocks extracted for typechecking
+/apps/site/content/snippets/.generated/

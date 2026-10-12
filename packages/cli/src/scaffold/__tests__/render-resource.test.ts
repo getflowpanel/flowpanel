@@ -65,6 +65,18 @@ describe("renderResourceFile", () => {
         "  ],",
         '  filters: [{ field: "surface", type: "select" }],',
         '  defaultSort: { field: "startedAt", dir: "desc" },',
+        "  create: {",
+        "    fields: [",
+        '      { name: "userId", label: "User", reference: { resource: "user", labelField: "name" } },',
+        '      { name: "surface", type: "select", options: Surface.options },',
+        '      { name: "startedAt", type: "datetime" },',
+        '      { name: "day", type: "date" },',
+        '      { name: "firstPath" },',
+        '      { name: "meta", type: "json" },',
+        '      { name: "description", type: "textarea" },',
+        '      { name: "touches", type: "number" },',
+        "    ],",
+        "  },",
         "});",
         "",
       ].join("\n"),
@@ -90,6 +102,12 @@ describe("renderResourceFile", () => {
         "});",
         "",
       ].join("\n"),
+    );
+  });
+
+  it("leaves the form generated when no foreign key has a resource to pick from", () => {
+    expect(renderResourceFile(USER, { hidden: false, schemaImport: "./schema" })).not.toContain(
+      "create:",
     );
   });
 

@@ -29,21 +29,21 @@ export function DefaultConfirmDialog({
       <AlertDialog.Portal>
         <AlertDialog.Overlay
           data-flowpanel-portal=""
-          className="fp-anim-overlay fixed inset-0 z-50 bg-fp-overlay/70"
+          className="fp-anim-overlay fp-fixed fp-inset-0 fp-z-50 fp-bg-overlay/70"
         />
         <AlertDialog.Content
           data-flowpanel-portal=""
-          className="fp-anim-dialog fixed left-1/2 top-1/2 z-50 w-[min(420px,92vw)] -translate-x-1/2 -translate-y-1/2 rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-6 shadow-fp-lg"
+          className="fp-anim-dialog fp-fixed fp-left-1/2 fp-top-1/2 fp-z-50 fp-w-[min(420px,92vw)] -fp-translate-x-1/2 -fp-translate-y-1/2 fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-6 fp-shadow-lg"
         >
-          <AlertDialog.Title className="text-base font-semibold text-fp-text-1">
+          <AlertDialog.Title className="fp-text-base fp-font-semibold fp-text-ink">
             {title}
           </AlertDialog.Title>
           <AlertDialog.Description
-            className={description ? "mt-2 text-sm text-fp-text-3" : "sr-only"}
+            className={description ? "fp-mt-2 fp-text-sm fp-text-faint" : "fp-sr-only"}
           >
             {description ?? "Confirm action"}
           </AlertDialog.Description>
-          <div className="mt-5 flex justify-end gap-2">
+          <div className="fp-mt-5 fp-flex fp-justify-end fp-gap-2">
             <AlertDialog.Cancel asChild>
               <DefaultButton variant="ghost" size="sm">
                 {cancelLabel}

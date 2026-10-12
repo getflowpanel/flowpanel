@@ -187,6 +187,16 @@ describe("flowpanel new on a Prisma config", () => {
       '        { field: "authorId", label: "Author", reference: { resource: "users", labelField: "email" } },',
     );
     expect(config).toContain(
+      [
+        "      create: {",
+        "        fields: [",
+        '          { name: "title" },',
+        '          { name: "authorId", label: "Author", reference: { resource: "users", labelField: "email" } },',
+        "        ],",
+        "      },",
+      ].join("\n"),
+    );
+    expect(config).toContain(
       '    users: import("@prisma/client").User;\n    posts: import("@prisma/client").Post;\n',
     );
     expect(result.stdout).toContain('Added resource "posts"');
@@ -197,6 +207,7 @@ describe("flowpanel new on a Prisma config", () => {
     const config = result.contents["flowpanel.config.ts"] ?? "";
     expect(config).toContain('        "authorId",\n');
     expect(config).not.toContain("reference:");
+    expect(config).not.toContain("create:");
   });
 
   it("refuses a name that is no model, listing the models", async () => {

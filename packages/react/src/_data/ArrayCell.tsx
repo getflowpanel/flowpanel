@@ -10,7 +10,7 @@ export interface ArrayCellProps {
 
 export function ArrayCell({ value, max = 3, className }: ArrayCellProps) {
   if (!Array.isArray(value) || value.length === 0) {
-    return <span className="text-fp-text-3">—</span>;
+    return <span className="fp-text-faint">—</span>;
   }
   const shown = value.slice(0, max);
   const overflow = value.length - shown.length;
@@ -18,7 +18,7 @@ export function ArrayCell({ value, max = 3, className }: ArrayCellProps) {
   return (
     <span
       role="img"
-      className={cn("inline-flex flex-wrap items-center gap-1", className)}
+      className={cn("fp-inline-flex fp-flex-wrap fp-items-center fp-gap-1", className)}
       title={tooltip}
       aria-label={`${value.length} items: ${tooltip}`}
     >
@@ -26,7 +26,7 @@ export function ArrayCell({ value, max = 3, className }: ArrayCellProps) {
         <span
           // biome-ignore lint/suspicious/noArrayIndexKey: chip slot identity is positional within the cell.
           key={i}
-          className="inline-flex max-w-[10rem] truncate rounded-full border border-fp-border-1 bg-fp-bg-3/50 px-2 py-0.5 text-xs text-fp-text-2"
+          className="fp-inline-flex fp-max-w-[10rem] fp-truncate fp-rounded-full fp-border fp-border-line fp-bg-fill/50 fp-px-2 fp-py-0.5 fp-text-xs fp-text-soft"
         >
           {formatChipValue(v)}
         </span>
@@ -34,7 +34,7 @@ export function ArrayCell({ value, max = 3, className }: ArrayCellProps) {
       {overflow > 0 ? (
         <span
           role="img"
-          className="inline-flex rounded-full border border-fp-border-1 bg-fp-bg-3/50 px-2 py-0.5 text-xs font-medium text-fp-text-2"
+          className="fp-inline-flex fp-rounded-full fp-border fp-border-line fp-bg-fill/50 fp-px-2 fp-py-0.5 fp-text-xs fp-font-medium fp-text-soft"
           aria-label={`${overflow} more`}
         >
           +{overflow}

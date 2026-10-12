@@ -103,7 +103,7 @@ describe("runDoctorChecks --fix", () => {
     try {
       const { plan, fixBlocked } = await runDoctorChecks(bare, true, { quiet: true });
       expect(plan).toBeUndefined();
-      expect(fixBlocked).toMatch(/FlowPanel is not set up here yet/);
+      expect(fixBlocked).toMatch(/^\[flowpanel\] flowpanel\.config\.ts: not found in /);
       expect(fixBlocked).toContain("@flowpanel/cli init");
       expect(await fs.readdir(bare)).toEqual([]);
     } finally {

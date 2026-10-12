@@ -7,6 +7,7 @@ import {
   parseSqlRows,
   sanitizeSqlParams,
 } from "@flowpanel/core";
+import { searchedFields } from "@flowpanel/core/internal";
 import { plainDecimals } from "./decimals";
 import { buildFilterWhere, numberFields } from "./filters";
 import type { PrismaDmmf } from "./introspect";
@@ -15,9 +16,13 @@ import { createMigrationMethods } from "./migration-executor";
 import {
   applyScopeToData,
   applyScopeToWhere,
+  assertUpdateKeepsScope,
   checkedDmmf,
   InvalidIdError,
+  inTransaction,
   loadDmmf,
+  missingAsNull,
+  outOfScopeUpdate,
   type PrismaClientLike,
   pkWhere,
   getDelegate as resolveDelegate,
@@ -39,27 +44,6 @@ export interface PrismaAdapterOptions<P = unknown> {
 
 export { MIGRATIONS_TABLE_DDL } from "./runtime";
 export type { PrismaProvider } from "./sql-statements";
-
-/** Prisma's P2025 for the row itself (not a nested connect) means it is gone: `null`, as the adapter contract says. */
-function isGoneRow(err: unknown): boolean {
-  if (typeof err !== "object" || err === null || !("code" in err) || err.code !== "P2025") {
-    return false;
-  }
-  const cause =
-    "meta" in err && typeof err.meta === "object" && err.meta !== null && "cause" in err.meta
-      ? err.meta.cause
-      : undefined;
-  return typeof cause !== "string" || /^Record to (update|delete)/.test(cause);
-}
-
-async function missingAsNull<T>(write: Promise<T>): Promise<T | null> {
-  try {
-    return await write;
-  } catch (err) {
-    if (isGoneRow(err)) return null;
-    throw err;
-  }
-}
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
   const EMPTY_PROJECTION = Symbol("flowpanel.emptyProjection");
@@ -127,12 +111,13 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
       const where = buildFilterWhere(ctx.filters, numberFields(modelName, dmmf));
 
-      if (ctx.search && ctx.searchFields?.length) {
-        const intro = introspect(modelName, dmmf);
+      if (ctx.search) {
         const textColSet = new Set(
-          intro.columns.filter((c) => c.type === "string" && !c.enumValues).map((c) => c.name),
+          introspect(modelName, dmmf)
+            .columns.filter((c) => c.type === "string" && !c.enumValues)
+            .map((c) => c.name),
         );
-        const textCols = ctx.searchFields.filter((f) => textColSet.has(f));
+        const textCols = searchedFields(ctx.search, ctx.searchFields, (f) => textColSet.has(f));
         if (textCols.length > 0) {
           // Prisma accepts `mode` only on PostgreSQL; other dialects compare case-insensitively by default.
           const insensitive = opts.provider === "postgresql" ? { mode: "insensitive" } : {};
@@ -213,16 +198,27 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
     async update(modelName, ctx: MutationContext<unknown>) {
       if (!ctx.id) throw new Error("prismaAdapter: update requires ctx.id");
-      const delegate = getDelegate(modelName, ctx);
-      const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
-      if (hasScope(ctx)) {
-        const res = await delegate.updateMany({ where: baseWhere, data: ctx.input });
-        if (res.count === 0) return null;
-        const row = await delegate.findFirst({ where: baseWhere });
-        return row ? plainRow(row, modelName) : null;
+      const id = ctx.id;
+      const baseWhere = applyScopeToWhere(pkWhere(id, modelName, getDmmf()), ctx);
+      if (!hasScope(ctx)) {
+        const delegate = getDelegate(modelName, ctx);
+        const row = await missingAsNull(delegate.update({ where: baseWhere, data: ctx.input }));
+        return row === null ? null : plainRow(row, modelName);
       }
-      const row = await missingAsNull(delegate.update({ where: baseWhere, data: ctx.input }));
-      return row === null ? null : plainRow(row, modelName);
+      const input = (ctx.input as Record<string, unknown>) ?? {};
+      assertUpdateKeepsScope(input, ctx);
+      return inTransaction(getDb(ctx), async (db) => {
+        const delegate = resolveDelegate(db, modelName);
+        const res = await delegate.updateMany({ where: baseWhere, data: input });
+        if (res.count === 0) return null;
+        const pk = Object.keys(pkWhere(id, modelName, getDmmf()))[0] ?? "id";
+        const movedId = pk in input ? String(input[pk]) : id;
+        const row = await delegate.findFirst({
+          where: applyScopeToWhere(pkWhere(movedId, modelName, getDmmf()), ctx),
+        });
+        if (!row) throw outOfScopeUpdate();
+        return plainRow(row, modelName);
+      });
     },
 
     async delete(modelName, ctx: MutationContext<unknown>): Promise<void> {

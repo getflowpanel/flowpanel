@@ -20,12 +20,14 @@ describe("a metric card on a narrow slot", () => {
     const row = column?.parentElement;
     const sparkline = screen.getByRole("img", { name: "trend" });
 
-    expect(classesOf(value)).toEqual(expect.arrayContaining(["min-w-0", "truncate"]));
-    expect(classesOf(value.parentElement)).toContain("whitespace-nowrap");
-    expect(classesOf(column)).not.toContain("min-w-0");
-    expect(classesOf(column)).toEqual(expect.arrayContaining(["grow", "basis-0", "max-w-full"]));
+    expect(classesOf(value)).toEqual(expect.arrayContaining(["fp-min-w-0", "fp-truncate"]));
+    expect(classesOf(value.parentElement)).toContain("fp-whitespace-nowrap");
+    expect(classesOf(column)).not.toContain("fp-min-w-0");
+    expect(classesOf(column)).toEqual(
+      expect.arrayContaining(["fp-grow", "fp-basis-0", "fp-max-w-full"]),
+    );
     expect(sparkline.parentElement).toBe(row);
-    expect(classesOf(row)).toContain("flex-wrap");
+    expect(classesOf(row)).toContain("fp-flex-wrap");
   });
 
   it("keeps the full label reachable when the heading runs out of room", () => {

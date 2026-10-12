@@ -23,11 +23,11 @@ export interface NavGroup {
   collapsible?: boolean;
 }
 
-const GROUP_LABEL = cn("px-2", LABEL_TEXT);
+const GROUP_LABEL = cn("fp-px-2", LABEL_TEXT);
 
 function NavItems({ items, activeHref }: { items: NavEntry[]; activeHref: string | undefined }) {
   return (
-    <ul className="mt-1 space-y-0.5">
+    <ul className="fp-mt-1 fp-space-y-0.5">
       {items.map((it) => {
         const active = activeHref === it.href;
         return (
@@ -35,14 +35,16 @@ function NavItems({ items, activeHref }: { items: NavEntry[]; activeHref: string
             <Link
               href={it.href}
               className={cn(
-                "flex min-h-11 items-center gap-2 rounded-fp px-2.5 py-1.5 text-sm transition-colors sm:min-h-9",
+                "fp-flex fp-min-h-11 fp-items-center fp-gap-2 fp-rounded fp-px-2.5 fp-py-1.5 fp-text-sm fp-transition-colors sm:fp-min-h-9",
                 active
-                  ? "bg-fp-bg-3 font-medium text-fp-text-1"
-                  : "text-fp-text-2 hover:bg-fp-bg-3/60 hover:text-fp-text-1",
+                  ? "fp-bg-fill fp-font-medium fp-text-ink"
+                  : "fp-text-soft hover:fp-bg-fill/60 hover:fp-text-ink",
               )}
               aria-current={active ? "page" : undefined}
             >
-              {it.icon ? <FlowpanelIcon name={it.icon} className="h-4 w-4 shrink-0" /> : null}
+              {it.icon ? (
+                <FlowpanelIcon name={it.icon} className="fp-h-4 fp-w-4 fp-shrink-0" />
+              ) : null}
               <span>{it.label}</span>
             </Link>
           </li>
@@ -72,24 +74,24 @@ export function AdminNav({
     <nav
       aria-label={navigation.admin}
       data-flowpanel-nav=""
-      className="flex h-full w-64 flex-shrink-0 flex-col border-r border-fp-border-1 bg-fp-bg-1"
+      className="fp-flex fp-h-full fp-w-64 fp-flex-shrink-0 fp-flex-col fp-border-r fp-border-line fp-bg-surface"
     >
-      <Brand brand={brand} className="px-4 py-4" />
-      <ul className="flex-1 overflow-y-auto px-2 pb-4">
+      <Brand brand={brand} className="fp-px-4 fp-py-4" />
+      <ul className="fp-flex-1 fp-overflow-y-auto fp-px-2 fp-pb-4">
         {groups.map((g, gi) => (
-          <li key={g.label ?? `group-${gi}`} className="mt-4 first:mt-0">
+          <li key={g.label ?? `group-${gi}`} className="fp-mt-4 first:fp-mt-0">
             {g.collapsible && g.label ? (
-              <details className="group" open={g.items.some((it) => it.href === activeHref)}>
+              <details className="fp-group" open={g.items.some((it) => it.href === activeHref)}>
                 <summary
                   className={cn(
                     GROUP_LABEL,
-                    "flex min-h-11 cursor-pointer list-none items-center justify-between rounded-fp hover:text-fp-text-2 sm:min-h-9 [&::-webkit-details-marker]:hidden",
+                    "fp-flex fp-min-h-11 fp-cursor-pointer fp-list-none fp-items-center fp-justify-between fp-rounded hover:fp-text-soft sm:fp-min-h-9 [&::-webkit-details-marker]:fp-hidden",
                   )}
                 >
                   {g.label}
                   <ChevronRight
                     aria-hidden
-                    className="h-3.5 w-3.5 transition-transform group-open:rotate-90"
+                    className="fp-h-3.5 fp-w-3.5 fp-transition-transform group-open:fp-rotate-90"
                   />
                 </summary>
                 <NavItems items={g.items} activeHref={activeHref} />
@@ -104,7 +106,7 @@ export function AdminNav({
         ))}
       </ul>
       {user ? (
-        <div className="border-t border-fp-border-1 p-2">
+        <div className="fp-border-t fp-border-line fp-p-2">
           <AccountMenu user={user} />
         </div>
       ) : null}

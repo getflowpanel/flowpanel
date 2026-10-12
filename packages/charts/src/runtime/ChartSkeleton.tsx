@@ -5,7 +5,7 @@
 export function ChartSkeleton({ height }: { height: number }) {
   return (
     <div
-      className="w-full animate-pulse rounded-fp bg-fp-bg-2"
+      className="fp-w-full fp-animate-pulse fp-rounded fp-bg-canvas"
       style={{ height }}
       aria-hidden="true"
     />

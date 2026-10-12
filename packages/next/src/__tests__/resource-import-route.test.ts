@@ -43,7 +43,7 @@ function makeConfig(
   } as never;
   const config: ResolvedAdminConfig = {
     adapter,
-    auth: { session: async () => null, role: () => "admin" },
+    auth: { session: async () => ({ id: "u1" }), role: () => "admin" },
     resources: [resource],
     resourcesByName: new Map([["users", resource]]),
     dashboardsByPath: new Map(),

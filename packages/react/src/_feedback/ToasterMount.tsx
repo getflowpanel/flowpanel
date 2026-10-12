@@ -13,14 +13,14 @@ export default function ToasterMount() {
       closeButton
       toastOptions={{
         classNames: {
-          toast: "!bg-fp-bg-1 !border-fp-border-1 !text-fp-text-1 !rounded-fp-lg !shadow-fp-lg",
-          title: "text-sm font-medium",
-          description: "!text-fp-text-3 text-sm",
-          success: "[&_[data-icon]]:!text-fp-ok",
-          error: "[&_[data-icon]]:!text-fp-err",
-          warning: "[&_[data-icon]]:!text-fp-warn",
-          info: "[&_[data-icon]]:!text-fp-accent",
-          closeButton: "!bg-fp-bg-1 !border-fp-border-1 !text-fp-text-2 hover:!bg-fp-bg-2",
+          toast: "!fp-bg-surface !fp-border-line !fp-text-ink !fp-rounded-lg !fp-shadow-lg",
+          title: "fp-text-sm fp-font-medium",
+          description: "!fp-text-faint fp-text-sm",
+          success: "[&_[data-icon]]:!fp-text-ok",
+          error: "[&_[data-icon]]:!fp-text-err",
+          warning: "[&_[data-icon]]:!fp-text-warn",
+          info: "[&_[data-icon]]:!fp-text-accent",
+          closeButton: "!fp-bg-surface !fp-border-line !fp-text-soft hover:!fp-bg-canvas",
         },
       }}
     />

@@ -47,35 +47,40 @@ function Item({ item, steps }: { item: ChecklistCardItem; steps: boolean }) {
     <li
       data-state={item.state}
       className={cn(
-        "flex min-w-0 gap-2",
-        steps && "rounded-md border border-fp-border-1 p-3 md:flex-1",
+        "fp-flex fp-min-w-0 fp-gap-2",
+        steps && "fp-rounded-[0.375rem] fp-border fp-border-line fp-p-3 md:fp-flex-1",
       )}
     >
       <span
         role="img"
         aria-label={item.mark}
         className={cn(
-          "w-4 shrink-0 text-center text-sm leading-5",
-          done ? toneTextClass[item.tone ?? "ok"] : "text-fp-text-3",
+          "fp-w-4 fp-shrink-0 fp-text-center fp-text-sm fp-leading-5",
+          done ? toneTextClass[item.tone ?? "ok"] : "fp-text-faint",
         )}
       >
         {MARK[item.state]}
       </span>
-      <span className="min-w-0">
+      <span className="fp-min-w-0">
         <span
-          className={cn("block break-words text-sm", done ? "text-fp-text-1" : "text-fp-text-3")}
+          className={cn(
+            "fp-block fp-break-words fp-text-sm",
+            done ? "fp-text-ink" : "fp-text-faint",
+          )}
         >
           {item.href ? (
-            <a href={item.href} className="hover:underline">
+            <a href={item.href} className="hover:fp-underline">
               {item.label}
             </a>
           ) : (
             item.label
           )}
         </span>
-        {when ? <span className="block text-xs tabular-nums text-fp-text-3">{when}</span> : null}
+        {when ? (
+          <span className="fp-block fp-text-xs fp-tabular-nums fp-text-faint">{when}</span>
+        ) : null}
         {item.hint ? (
-          <span className="block break-words text-xs text-fp-text-3">{item.hint}</span>
+          <span className="fp-block fp-break-words fp-text-xs fp-text-faint">{item.hint}</span>
         ) : null}
       </span>
     </li>
@@ -93,16 +98,16 @@ export function ChecklistCard({
 }: ChecklistCardProps) {
   const steps = layout === "steps";
   return (
-    <Card className="h-full">
+    <Card className="fp-h-full">
       <CardHeading label={label} caption={caption} />
-      <CardContent className={cn("space-y-3", label || caption ? "pt-0" : "")}>
+      <CardContent className={cn("fp-space-y-3", label || caption ? "fp-pt-0" : "")}>
         {summary ? (
-          <div className="space-y-1">
-            <p className="text-xs text-fp-text-3">{summary.text}</p>
-            <div className="h-1 overflow-hidden rounded-full bg-fp-bg-3">
+          <div className="fp-space-y-1">
+            <p className="fp-text-xs fp-text-faint">{summary.text}</p>
+            <div className="fp-h-1 fp-overflow-hidden fp-rounded-full fp-bg-fill">
               <div
                 data-share=""
-                className={cn("h-full rounded-full bg-fp-ok", barWidthClass(summary.share))}
+                className={cn("fp-h-full fp-rounded-full fp-bg-ok", barWidthClass(summary.share))}
               />
             </div>
           </div>
@@ -110,7 +115,7 @@ export function ChecklistCard({
         {items.length === 0 ? (
           <EmptyLine>{emptyState}</EmptyLine>
         ) : (
-          <ol className={cn("flex flex-col", steps ? "gap-3 md:flex-row" : "gap-2")}>
+          <ol className={cn("fp-flex fp-flex-col", steps ? "fp-gap-3 md:fp-flex-row" : "fp-gap-2")}>
             {items.map((item) => (
               <Item key={item.key} item={item} steps={steps} />
             ))}

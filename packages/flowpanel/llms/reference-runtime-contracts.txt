@@ -10,7 +10,7 @@ Lower-level contracts from `@flowpanel/kit` for adapter authors and custom
 integrations. An app built with `defineAdmin` and `createFlowpanel` does not need
 them.
 
-```ts excerpt
+```ts
 import {
   accessAllows,
   assertWritableInput,
@@ -57,11 +57,11 @@ slash.
 
 Useful when a factory returns a definition:
 
-```ts excerpt
+```ts
 function companyAdmin(): AdminDefinition {
   return {
     adapter,
-    auth,
+    auth: flowpanelAuth,
     paths: { admin: "/ops", api: "/api/ops" },
   };
 }
@@ -102,6 +102,11 @@ resource declares none. The first-party adapters throw `FlowpanelAccessError`
 when the predicate adds no condition; an adapter that applies scope by hand must
 refuse the query in the same case.
 
+Create and update must also leave the row inside the scope. The first-party
+adapters throw `FlowpanelAccessError` and write nothing when the new or changed
+row would fall outside it, such as an update that sets the tenant column to
+another tenant. A custom adapter must do the same.
+
 ### Post-commit effects
 
 Post-commit audit, realtime or revalidation failures do not turn a committed
@@ -114,7 +119,7 @@ metadata; `FlowpanelWarningCode` is `audit_failed`, `realtime_failed`, or
 Every protected controller and v1 JSON CRUD endpoint returns
 `FlowpanelResult<T>`:
 
-```ts excerpt
+```ts
 type FlowpanelResult<T> =
   | { ok: true; data: T; meta: FlowpanelResultMeta }
   | { ok: false; error: FlowpanelResultError };

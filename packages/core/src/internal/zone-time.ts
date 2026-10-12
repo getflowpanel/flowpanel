@@ -88,10 +88,7 @@ function offsetMs(instant: number, timeZone: string): number {
   return wall - Math.floor(instant / 1000) * 1000;
 }
 
-/**
- * The instant a clock time on a calendar day falls on in `timeZone`, found across a DST change.
- * A time the clocks skip moves forward past the gap.
- */
+/** The instant a clock time on a day falls on in `timeZone`; a time the clocks skip moves past the gap. */
 export function zonedTime(
   { year, month, day }: CalendarDay,
   msOfDay: number,
@@ -123,10 +120,7 @@ export function shiftCalendarMonths(
   return { year: first.getUTCFullYear(), month: first.getUTCMonth() + 1, day: Math.min(day, last) };
 }
 
-/**
- * A preset's range at `now` in `timeZone`. Day, month, quarter and year presets
- * start at midnight in the zone; `last7d` and `last30d` are elapsed time.
- */
+/** A preset's range at `now`: calendar presets start at midnight in `timeZone`, `last7d`/`last30d` are elapsed time. */
 export function resolvePreset(
   preset: DateRangePreset,
   timeZone: string,

@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { cn } from "../lib/cn";
 
 export interface ColumnResizerProps {
   onResize: (deltaPx: number) => void;
@@ -50,7 +51,10 @@ export function ColumnResizer({ onResize, onResizeEnd, className }: ColumnResize
       aria-orientation="vertical"
       aria-label="Resize column"
       tabIndex={0}
-      className={`absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none select-none bg-transparent transition-colors hover:bg-fp-accent/30 ${className ?? ""}`}
+      className={cn(
+        "fp-absolute fp-right-0 fp-top-0 fp-h-full fp-w-1 fp-cursor-col-resize fp-touch-none fp-select-none fp-bg-transparent fp-transition-colors hover:fp-bg-accent/30",
+        className,
+      )}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

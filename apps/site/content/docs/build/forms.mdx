@@ -9,7 +9,7 @@ Create and edit forms are generated from the table. Declare `create.fields` and 
 
 ## Declare the fields
 
-```ts excerpt
+```ts
 resource(schema.users, {
   columns: ["email", "name", "role", "createdAt"],
   create: {
@@ -38,7 +38,7 @@ resource(schema.users, {
 
 A reference field stores the foreign key and shows a searchable label from another resource:
 
-```ts excerpt
+```ts as="FieldDef<RowOf<'monitors'>>"
 {
   name: "customerId",
   label: "Customer",

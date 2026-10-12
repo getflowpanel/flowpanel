@@ -65,7 +65,7 @@ adapter's own `db`, outside any transaction or per-request session settings.
 
 Two helpers match the shipped adapters' behaviour:
 
-```ts excerpt
+```ts
 import { parseSqlRows, sanitizeSqlParams } from "@flowpanel/kit";
 
 async function sql<Row>(strings: TemplateStringsArray, ...values: unknown[]) {
@@ -137,7 +137,7 @@ reported for your own use.
 Three obligations keep the admin safe:
 
 **Tenant scope.** When `ctx.boundScope` is set, every method must constrain
-its query with `ctx.boundScope.apply`, and refuse a query the predicate leaves unconstrained. `create` included: writing a row outside the
+its query with `ctx.boundScope.apply`, and refuse a query the predicate leaves unconstrained. `create` and `update` included: writing or moving a row outside the
 caller's scope is as much a leak as reading one.
 
 **The search allowlist.** `list` searches only `ctx.searchFields`.

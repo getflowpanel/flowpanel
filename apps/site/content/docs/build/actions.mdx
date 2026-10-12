@@ -9,10 +9,12 @@ An action is a server function an operator runs from the admin: on a row, on a s
 
 ## A row action
 
-```ts excerpt
+```ts
 import { resource, rowAction } from "@flowpanel/kit";
 import { db } from "@/db";
+import * as schema from "@/db/schema";
 
+type User = typeof schema.users.$inferSelect;
 type SuspendInput = { reason: string };
 
 const suspend = rowAction<User, SuspendInput>({

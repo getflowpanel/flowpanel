@@ -1,4 +1,5 @@
 "use client";
+import { cn } from "../lib/cn";
 import type { RealtimeStatus } from "../realtime/context";
 
 export interface LiveIndicatorProps {
@@ -15,11 +16,11 @@ const LABEL: Record<RealtimeStatus, string> = {
 };
 
 const DOT: Record<RealtimeStatus, string> = {
-  idle: "bg-fp-text-3",
-  connecting: "bg-fp-text-3 animate-pulse",
-  live: "bg-fp-ok",
-  reconnecting: "bg-fp-warn animate-pulse",
-  offline: "bg-fp-text-3",
+  idle: "fp-bg-faint",
+  connecting: "fp-bg-faint fp-animate-pulse",
+  live: "fp-bg-ok",
+  reconnecting: "fp-bg-warn fp-animate-pulse",
+  offline: "fp-bg-faint",
 };
 
 export function LiveIndicator({ status, className }: LiveIndicatorProps) {
@@ -28,9 +29,12 @@ export function LiveIndicator({ status, className }: LiveIndicatorProps) {
       role="status"
       aria-live="polite"
       aria-label={LABEL[status]}
-      className={`inline-flex items-center gap-1.5 text-xs text-fp-text-3 ${className ?? ""}`}
+      className={cn(
+        "fp-inline-flex fp-items-center fp-gap-1.5 fp-text-xs fp-text-faint",
+        className,
+      )}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${DOT[status]}`} aria-hidden />
+      <span className={`fp-h-1.5 fp-w-1.5 fp-rounded-full ${DOT[status]}`} aria-hidden />
       {LABEL[status]}
     </div>
   );

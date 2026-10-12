@@ -78,7 +78,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   const target = config.resourcesByName.get(resourceName);
   if (!target) {
     return (
-      <div data-fp-error="" className="text-fp-text-3">
+      <div data-fp-error="" className="fp-text-faint">
         {labels.detail.unknownResource.replace("{resource}", String(resourceName))}
       </div>
     );
@@ -136,7 +136,9 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   const result = listed.value;
   if (!result) {
     return (
-      <div className="px-2 py-6 text-sm text-fp-text-3">{tab.emptyState ?? labels.noResults}</div>
+      <div className="fp-px-2 fp-py-6 fp-text-sm fp-text-faint">
+        {tab.emptyState ?? labels.noResults}
+      </div>
     );
   }
 

@@ -3,7 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
-import { editConfigToAddResource } from "../../eject/addResource";
+import { editConfigToAddResource } from "../../eject/add-resource";
 import { tpl } from "../../utils/template";
 import { roleMapping } from "../init-auth";
 import {
@@ -39,7 +39,9 @@ describe("editConfigToAddResource", () => {
   });
 
   it("throws when the resource already exists", () => {
-    expect(() => editConfigToAddResource(BASE_CONFIG, "users")).toThrow(/already exists/);
+    expect(() => editConfigToAddResource(BASE_CONFIG, "users")).toThrow(
+      '[flowpanel] resources: flowpanel.config.ts already has a resource "users".',
+    );
   });
 
   it("creates the resources field if absent", () => {
@@ -68,7 +70,7 @@ describe("editConfigToAddResource", () => {
       "",
     ].join("\n");
     expect(() => editConfigToAddResource(split, "orders", { filename: "index.ts" })).toThrow(
-      'index.ts takes its resources from `resources` (imported from "./resources"), not an array literal. Write the resource into ./resources with --dir ./resources.',
+      '[flowpanel] resources: index.ts takes them from `resources` (imported from "./resources"), not an array literal. Write the resource into ./resources with --dir ./resources.',
     );
     const named = split.replace("({ resources })", "({ resources: adminResources })");
     expect(() => editConfigToAddResource(named, "orders")).toThrow(

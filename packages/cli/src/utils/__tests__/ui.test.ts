@@ -1,6 +1,6 @@
 import pc from "picocolors";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createUi } from "../ui";
+import { createUi, failCommand } from "../ui";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -19,6 +19,38 @@ describe("createUi in a pipe", () => {
     const ui = createUi(false);
     ui.outro(colors.green("2 migrations applied"));
     ui.note(colors.dim("0001_init.sql"), "Would apply");
-    expect(written.join("")).toBe("2 migrations applied\nWould apply\n  0001_init.sql\n");
+    expect(written.join("")).toBe("2 migrations applied\n\nWould apply\n  0001_init.sql\n");
+  });
+
+  it("stops with a marked line on stderr and exit code 1", () => {
+    Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
+    const errors: string[] = [];
+    vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      errors.push(String(chunk));
+      return true;
+    });
+    const exit = vi.spyOn(process, "exit").mockImplementation((): never => {
+      throw new Error("exit");
+    });
+    expect(() => failCommand("new", false, "Nothing was written.")).toThrow("exit");
+    expect(errors.join("")).toBe("✗ Nothing was written.\n");
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("puts the error in the command's JSON envelope", () => {
+    const written: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      written.push(String(chunk));
+      return true;
+    });
+    vi.spyOn(process, "exit").mockImplementation((): never => {
+      throw new Error("exit");
+    });
+    expect(() => failCommand("doctor", true, "No Next.js project", { ok: false })).toThrow("exit");
+    expect(JSON.parse(written.join(""))).toEqual({
+      command: "doctor",
+      ok: false,
+      error: "No Next.js project",
+    });
   });
 });

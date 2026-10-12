@@ -43,7 +43,7 @@ export function buildCommandGroups(
       items: navItems.map((n) => ({
         label: n.label,
         ...(n.icon
-          ? { icon: createElement(FlowpanelIcon, { name: n.icon, className: "h-4 w-4" }) }
+          ? { icon: createElement(FlowpanelIcon, { name: n.icon, className: "fp-h-4 fp-w-4" }) }
           : {}),
         onSelect: () => {
           nav.close();
@@ -60,7 +60,7 @@ export function buildCommandGroups(
         items: g.items.map((it) => ({
           label: it.label,
           ...(it.icon
-            ? { icon: createElement(FlowpanelIcon, { name: it.icon, className: "h-4 w-4" }) }
+            ? { icon: createElement(FlowpanelIcon, { name: it.icon, className: "fp-h-4 fp-w-4" }) }
             : {}),
           onSelect: () => {
             nav.close();
@@ -79,7 +79,7 @@ export function buildCommandGroups(
       items: [
         {
           label: labels.navigation.toggleTheme,
-          icon: createElement(FlowpanelIcon, { name: "moon", className: "h-4 w-4" }),
+          icon: createElement(FlowpanelIcon, { name: "moon", className: "fp-h-4 fp-w-4" }),
           onSelect: () => {
             nav.close();
             toggleTheme();

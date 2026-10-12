@@ -90,7 +90,7 @@ describe("a config that gates access with requireRole where only access is read"
       /receives \{ session, role, scope \}/,
     );
     expect(() => withClerk({ requireRole: (s: unknown) => !!s } as never)).toThrow(
-      /withClerk sets requireRole.*\(\{ session \}\) => session !== null/,
+      /withClerk requireRole: requireRole was removed.*\(\{ session \}\) => session !== null/,
     );
     expect(() => define({}, { auth: { ...auth, requireRole: "admin" } })).not.toThrow(
       /receives \{ session/,
@@ -105,15 +105,15 @@ describe("a config that gates access with requireRole where only access is read"
       run: async () => ({ ok: true }),
     };
     expect(() => define({ actions: [action] })).toThrow(
-      /action "ban" field "reason" sets requireRole, which never gated.*gate the whole action with access/,
+      /action "ban" field "reason" requireRole: requireRole never gated.*gate the whole action with access/,
     );
   });
 
   it("fails at boot on auth.requireRole and on an auth adapter given requireRole", () => {
     const auth = { session: async () => null, role: () => "guest", requireRole: "admin" };
-    expect(() => define({}, { auth })).toThrow(/auth sets requireRole.*auth\.access/);
+    expect(() => define({}, { auth })).toThrow(/auth requireRole: .*auth\.access/);
     expect(() => withClerk({ requireRole: "admin" } as never)).toThrow(
-      /withClerk sets requireRole.*access/,
+      /withClerk requireRole: requireRole was removed.*access/,
     );
   });
 });

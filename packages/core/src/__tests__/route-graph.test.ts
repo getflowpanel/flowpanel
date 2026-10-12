@@ -5,6 +5,6 @@ describe("RouteNameRegistry", () => {
   it("rejects names that are not one safe URL segment", () => {
     const routes = new RouteNameRegistry();
 
-    expect(() => routes.add("resource", "customer/orders")).toThrow(/safe ASCII route identifier/i);
+    expect(() => routes.add("resource", "customer/orders")).toThrow(/not a safe route identifier/);
   });
 });

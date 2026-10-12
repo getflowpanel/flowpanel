@@ -21,16 +21,16 @@ describe("StatusDot", () => {
 
   it("fills default with the data colour, as a default bar does, and muted with grey", () => {
     const data = render(<StatusDot tone="default" />).container.querySelector("span");
-    expect(data?.className).toContain("bg-fp-data");
+    expect(data?.className).toContain("fp-bg-data");
     cleanup();
     const grey = render(<StatusDot tone="muted" />).container.querySelector("span");
-    expect(grey?.className).toContain("bg-fp-text-3");
+    expect(grey?.className).toContain("fp-bg-faint");
   });
 
   it("is ok when no tone is given, and hidden from screen readers", () => {
     const { container } = render(<StatusDot />);
     const dot = container.querySelector("span");
-    expect(dot?.className).toContain("bg-fp-ok");
+    expect(dot?.className).toContain("fp-bg-ok");
     expect(dot?.getAttribute("aria-hidden")).toBe("true");
   });
 });

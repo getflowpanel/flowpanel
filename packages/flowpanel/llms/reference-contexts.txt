@@ -25,7 +25,7 @@ only `format`, `labels` and `link`.
 | `session` | `Session \| null` | Result of `AuthConfig.session` for this request. |
 | `role` | `string` | Result of `AuthConfig.role` for this session. |
 | `scope` | `Scope` | Tenant scope resolved by the admin-wide `scope`. Null when unscoped. |
-| `ip` | `string \| null` | Caller IP from `x-forwarded-for`, when the proxy sets it. |
+| `ip` | `string \| null` | Caller IP as the proxies counted in `security.trustedProxies` recorded it, else `null`. For logs and rate limits, not for authentication. |
 | `userAgent` | `string \| null` |  |
 
 `req` carries the incoming headers during server renders too.
@@ -132,16 +132,18 @@ Produced by `multiselect` filters: match any of `values`.
 
 #### Narrowing them
 
-```ts excerpt
-import { isFilterInValue, isFilterRangeValue } from "@flowpanel/kit";
+```ts
+import { isFilterInValue, isFilterRangeValue, type ListQueryContext } from "@flowpanel/kit";
 
-for (const [field, value] of Object.entries(ctx.filters)) {
-  if (isFilterRangeValue(value)) {
-    // value.gte / value.lte
-  } else if (isFilterInValue(value)) {
-    // value.values
-  } else {
-    // a scalar
+export function readFilters(ctx: ListQueryContext<Record<string, unknown>>): void {
+  for (const [field, value] of Object.entries(ctx.filters)) {
+    if (isFilterRangeValue(value)) {
+      console.log(field, value.gte, value.lte);
+    } else if (isFilterInValue(value)) {
+      console.log(field, value.values);
+    } else {
+      console.log(field, value);
+    }
   }
 }
 ```
@@ -157,7 +159,7 @@ A [`WidgetContext`](/docs/reference/widgets#widgetcontext) and a
 soft-delete filter. Add those predicates yourself, or use `ctx.count` and
 `ctx.read`, which apply them.
 
-```ts excerpt
+```ts
 metric("New signups", async (ctx) => {
   const [row] = await ctx.sql<{ n: number }>`
     select count(*)::int as n
@@ -172,9 +174,16 @@ Every interpolated value is a bound parameter. A `Date` binds as ISO-8601 text a
 a `bigint` as decimal text. Arrays bind differently per adapter; see
 [Raw SQL](/docs/reference/adapters#raw-sql). Drizzle `sql` fragments nest:
 
-```ts excerpt
+```ts
+import { sql } from "drizzle-orm";
+import { stat, type WidgetContext } from "@flowpanel/kit";
+
 const window = (c: WidgetContext) => sql`hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
-const rows = await ctx.sql<HourRow>`select * from scraper_hourly_stats where ${window(ctx)}`;
+
+stat("Runs in the period", async (ctx) => {
+  const rows = await ctx.sql<HourRow>`select * from scraper_hourly_stats where ${window(ctx)}`;
+  return rows.reduce((sum, row) => sum + row.runs, 0);
+});
 ```
 
 Cast counts and sums in SQL (`count(*)::int`, `sum(x)::float8`): Postgres returns
@@ -191,7 +200,7 @@ scope and soft-delete rules; a resource or field the session may not read counts
 `0`. `where` takes [where values](#where-values). An `undefined`, `null` or `""`
 value counts `0` and warns in development. A misspelt field throws.
 
-```ts excerpt
+```ts
 stat("Open tickets", (ctx) => ctx.count("tickets", { status: "open" }));
 ```
 
@@ -200,7 +209,7 @@ stat("Open tickets", (ctx) => ctx.count("tickets", { status: "open" }));
 `range` names the timestamp field bounded by `ctx.dateRange`, inclusive. Over a
 whole history it adds no bound.
 
-```ts excerpt
+```ts
 metric("Visits", (ctx) => ctx.count("user_visit", { userId: ctx.id }, { range: "startedAt" }), {
   compare: true,
 });
@@ -214,7 +223,7 @@ A `{ gte, lte }` on the same field in `where` narrows to the overlap.
 list; an unreadable resource returns `[]`. Identical reads share one query per
 request.
 
-```ts excerpt
+```ts
 const profileOf = async (ctx: WidgetContext) =>
   (
     await ctx.read("freelancer_profile", {
@@ -236,7 +245,7 @@ throws before any query.
 `ctx.rowOf(resource)` is the viewed record, typed. It throws on a dashboard or on
 another resource's page. `ctx.row` is the untyped record.
 
-```ts excerpt
+```ts
 stat("With us", async (c) => c.format.relative(c.rowOf("user").createdAt));
 ```
 
@@ -259,7 +268,7 @@ a boolean. Leave the field out, or pass `"__null__"`.
 
 Read the current context from AsyncLocalStorage when you cannot pass it down.
 
-```ts excerpt
+```ts
 import { getRequestContext, tryGetRequestContext } from "@flowpanel/kit";
 
 const ctx = getRequestContext();      // throws outside a request

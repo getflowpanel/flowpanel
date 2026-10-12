@@ -38,6 +38,6 @@ describe("banner", () => {
           dashboard({ path: "/system", label: "System", sections: [] }),
         ],
       }),
-    ).toThrow(/options\.more names dashboard "\/sytem".*Did you mean "\/system"\?/s);
+    ).toThrow(/options\.more: it names dashboard "\/sytem".*Did you mean "\/system"\?/s);
   });
 });

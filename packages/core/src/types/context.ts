@@ -39,7 +39,7 @@ export interface RequestContext {
   role: string;
   /** Tenant scope resolved by the admin-wide `scope`. Null when unscoped. */
   scope: Scope;
-  /** Caller IP from `x-forwarded-for`, when the proxy sets it. */
+  /** Caller IP as the proxies counted in `security.trustedProxies` recorded it, else `null`. For logs and rate limits, not for authentication. */
   ip: string | null;
   userAgent: string | null;
 }

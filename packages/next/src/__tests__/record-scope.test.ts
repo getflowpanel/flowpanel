@@ -83,8 +83,8 @@ describe("scopeToRecord", () => {
 
   it("throws on several referencing fields", () => {
     expect(() => scopeToRecord(config, card, "responses", {}, "metric", false)).toThrow(
-      'flowpanel: metric reads "responses" on a "users" card, and several of its columns ' +
-        'point at a "users" (userId, reviewerId); name one in where.',
+      '[flowpanel] metric: it reads "responses" on a "users" card, and several of its columns ' +
+        'point at a "users" (userId, reviewerId). Name one in where.',
     );
     expect(() =>
       scopeToRecord(
@@ -96,15 +96,15 @@ describe("scopeToRecord", () => {
         true,
       ),
     ).toThrow(
-      'flowpanel: timeline source reads "responses" on a "users" card, and several of its columns ' +
-        'point at a "users" (userId, reviewerId); pass by.',
+      '[flowpanel] timeline source: it reads "responses" on a "users" card, and several of its ' +
+        'columns point at a "users" (userId, reviewerId). Pass by.',
     );
   });
 
   it("counts unscoped, or throws, when nothing references the record", () => {
     expect(scopeToRecord(config, card, "notes", {}, "metric", false)).toEqual({});
     expect(() => scopeToRecord(config, card, "notes", {}, "heatmap source", true)).toThrow(
-      'flowpanel: heatmap source reads "notes" on a "users" card, but none of its columns ' +
+      '[flowpanel] heatmap source: it reads "notes" on a "users" card, but none of its columns ' +
         'declares reference: { resource: "users" }, so it would read every row. Pass by, or add the reference.',
     );
   });

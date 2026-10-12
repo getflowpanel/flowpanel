@@ -1,3 +1,4 @@
+import { FlowpanelConfigError } from "../types/config-error";
 import type { DashboardConfig } from "../types/dashboard";
 import type { DetailOptions, DetailTab } from "../types/detail";
 import type { ResourceConfig } from "../types/resource";
@@ -49,9 +50,9 @@ function assertUnique(owner: string, slots: readonly Slot[]): void {
         seen.add(id);
         continue;
       }
-      throw new Error(
-        `flowpanel: ${owner} ${site}[${index}] is a second timeline with the id "${id}" on its ` +
-          "page; give each timeline its own id.",
+      throw new FlowpanelConfigError(
+        `${owner} ${site}[${index}]`,
+        `a second timeline on the page has the id "${id}". Give each timeline its own id.`,
       );
     }
   }

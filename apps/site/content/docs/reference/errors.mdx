@@ -26,7 +26,7 @@ The base class. Every other error extends it.
 
 Construct it directly for a case the subclasses do not cover:
 
-```ts excerpt
+```ts
 throw new FlowpanelError("conflict", "This order is already being processed");
 ```
 
@@ -53,13 +53,13 @@ name, and `FlowpanelValidationError`, which takes its field errors first.
 
 It carries `fieldErrors`, keyed by field name, as the first constructor argument:
 
-```ts excerpt
+```ts fragment=signature
 constructor(fieldErrors: Record<string, string>, message = "Validation failed");
 ```
 
 Forms show each entry beside its input.
 
-```ts excerpt
+```ts
 import { FlowpanelValidationError } from "@flowpanel/kit";
 
 throw new FlowpanelValidationError({
@@ -89,13 +89,25 @@ The column is matched to the resource's field by name, ignoring case and `_`, so
 `user_id` reaches `userId`. A violation without a column it can match, and any
 other database error, stays a `500` and is reported as above.
 
-## Config-time errors are not in this hierarchy
+## FlowpanelConfigError
 
-`defineAdmin` throws plain `Error`s while the config loads, so the app fails to
-start. They cover duplicate or reserved names, duplicate action keys, unknown
-columns, an unintrospectable ref without `columns`, unresolved references, and
-`rowClick: "drawer"` without a drawer. Each names the config path and the closest
-match. See [Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots).
+`defineAdmin` throws a `FlowpanelConfigError` while the config loads, so the app
+fails to start. It is not a `FlowpanelError` and is never sent to the client:
+one thrown during a request, such as `devAuth()` in production, becomes a `500`.
+Every one reads the same way:
+
+```text
+[flowpanel] <where in the config>: <what is wrong>. <how to fix>.
+```
+
+<ApiSignature path="../../packages/core/src/types/config-error.ts" name="FlowpanelConfigError" />
+
+`where` holds the config path on its own, such as `resource "orders" drawer.tabs[0]`.
+The errors cover duplicate or reserved names, duplicate action keys, unknown
+columns, an unintrospectable ref without `columns`, unresolved references,
+`rowClick: "drawer"` without a drawer, removed options, unsafe route paths, a
+production admin without real auth, and `devAuth()` in production. See
+[Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots).
 
 ### Did you mean
 
@@ -103,8 +115,8 @@ An unknown name close to a registered one gets a suggestion: a match ignoring ca
 and `_`/`-`, else the closest within edit distance two.
 
 ```text
-resource "users" points at column "emial" via columns[0], but the adapter
-reports no such column. Did you mean "email"? Known columns: "id", "email".
+[flowpanel] resource "users" columns[0]: it points at column "emial", which the
+adapter does not report. Did you mean "email"? Known columns: "id", "email".
 ```
 
 It covers column, filter, sort, field, tab, reference, view and link names. A link,
@@ -168,7 +180,7 @@ the server log and the Sentry tag `widget.id` carry it.
 
 Inside an action's `run` you have both options:
 
-```ts excerpt
+```ts as="RowAction<RowOf<'orders'>>"
 run: async (row, input, ctx) => {
   if (row.status === "refunded") {
     return { ok: false, error: "Already refunded" };   // 200 with a failure body

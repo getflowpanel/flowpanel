@@ -16,9 +16,10 @@ Do this review before an admin takes production traffic. FlowPanel runs inside y
 
 ### Security boundary
 
-- **Authentication.** Replace any development session with real auth and set `auth.access`. See [Authentication](/docs/guides/authentication).
+- **Authentication.** Replace any development session with real auth and set `auth.access`. `devAuth()` refuses to start when `NODE_ENV` is `production`. See [Authentication](/docs/guides/authentication).
 - **Roles.** Use resource and action `access` and field rules; the server rejects fields an operation may not write. See [Roles and permissions](/docs/guides/permissions).
 - **Tenants.** Scope every tenant-owned resource. The first-party adapters fail closed when a bound scope does not constrain the query. See [Multi-tenant scope](/docs/guides/multi-tenant-scope).
+- **Client IP.** Set `security.trustedProxies` to the number of proxies that append to `X-Forwarded-For` (`1` on Vercel or behind one nginx). Without it `ctx.ip` is `null` and `rateLimit` with `per: "ip"` puts every caller in one bucket. Never grant access by `ctx.ip`. See [SecurityConfig](/docs/reference/define-config#securityconfig).
 - **Origins.** Cross-origin writes are blocked by default. Add exact `security.trustedOrigins` only for another frontend that must write. Server-to-server clients without an `Origin` header pass this check, so authenticate them yourself.
 - **Read-only mode.** `readOnly: true` turns off every generated write for a demo, maintenance or an incident.
 
@@ -73,11 +74,11 @@ FlowPanel reads the session from your existing auth provider and checks a role o
 | `withLucia(opts)` | the Lucia instance you pass | `user.role` |
 | `devAuth(role?)` | a fixed `{ id: "dev" }` | the `role` argument, default `"admin"` |
 
-A missing role resolves to `guest`. `devAuth()` authenticates nobody; use it only locally.
+A missing role resolves to `guest`. `devAuth()` authenticates nobody, so it throws when `NODE_ENV` is `production`, whatever `auth.access` says. Use it only locally.
 
 ### better-auth
 
-```ts excerpt
+```ts
 import { defineAdmin } from "@flowpanel/kit";
 import { withBetterAuth } from "@flowpanel/kit/auth";
 import { auth } from "@/lib/auth";
@@ -98,7 +99,7 @@ export default defineAdmin({
 
 When the role lives in your own table, `role` can be async:
 
-```ts excerpt
+```ts
 auth: withBetterAuth({
   auth,
   access: "admin",
@@ -120,7 +121,7 @@ It runs on every request, so keep it to one indexed read. FlowPanel does not cac
 
 Clerk must already protect the app: `clerkMiddleware()` covering the admin, API and stream paths, and `ClerkProvider` at the root. See [`examples/with-clerk`](https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk).
 
-```ts excerpt
+```ts
 import { defineAdmin } from "@flowpanel/kit";
 import { withClerk } from "@flowpanel/kit/auth";
 
@@ -139,7 +140,7 @@ Set the user's `publicMetadata.role`, and add `"publicMetadata": "{{user.public_
 
 ### Your own session
 
-```ts excerpt
+```ts
 auth: {
   session: getSession,
   role: (session) => session?.user?.role ?? "guest",
@@ -176,7 +177,7 @@ Every rule is checked on the server route; the UI only hides what a role cannot 
 
 `auth.access` protects every page, API handler and stream. See [Authentication](/docs/guides/authentication).
 
-```ts excerpt
+```ts
 auth: {
   session: getSession,
   role: (session) => session?.user?.role ?? "guest",
@@ -188,7 +189,7 @@ auth: {
 
 `access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`.
 
-```ts excerpt
+```ts
 dashboard({ path: "/finance", label: "Finance", access: "admin", sections });
 page({ path: "/audit", label: "Audit", component: AuditPage, access: ["admin", "support"] });
 queue(emailQueue, { label: "Emails", boardUrl, access: "admin" });
@@ -204,7 +205,7 @@ An action with its own `access` runs under that rule alone, the same one that sh
 
 `fieldAccess` on a resource is the one field policy: a `read` and a `write` rule per field. A field its `write` rule denies is treated like a `readOnly` one: read-only on the form, rejected from the API. A field the caller may neither read nor write is left out of the form. The route drops both from what it saves; an API or programmatic write that carries such a field is rejected. A field's `readOnly` wins over its `fieldAccess.write`. `hidden` is not an access rule; it only removes the control.
 
-```ts excerpt
+```ts
 resource(users, {
   fieldAccess: {
     role: { read: "admin", write: "admin" },
@@ -241,10 +242,10 @@ Tenant scope has two parts: the root config resolves the tenant from the session
 
 ### Resolve the tenant
 
-```ts excerpt
+```ts
 export default defineAdmin({
   adapter,
-  auth,
+  auth: flowpanelAuth,
   scope: async ({ session }) => {
     const tenantId = session?.user?.tenantId;
     if (!tenantId) throw new Error("No tenant selected");
@@ -260,7 +261,7 @@ The value reaches resource predicates as their first argument, and policies and 
 
 ### Bind each resource
 
-```ts excerpt
+```ts
 import type { QueryContext } from "@flowpanel/kit";
 import { eq, type SQL } from "drizzle-orm";
 
@@ -286,11 +287,15 @@ resource(schema.orders, {
 
 The adapter decides what `query` is, so annotate it: with Drizzle, something you call `.where(condition)` on; with Prisma, the `where` object. Merge the tenant into it:
 
-```ts excerpt
+```ts
 scope: (scope, where: Record<string, unknown>) => ({ ...where, tenantId: scope?.tenantId }),
 ```
 
-The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue` on a hidden field, as above, so the form never shows it. A hidden field does not stop a crafted request from sending another tenant ID; the adapter does. Drizzle checks that the created row matches the scope and Prisma merges the scope into the data, so the write fails or lands in the caller's tenant.
+The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue` on a hidden field, as above, so the form never shows it. A hidden field does not stop a crafted request from sending another tenant ID; the adapter does:
+
+- On create, Drizzle checks that the new row matches the scope, and Prisma merges the scope into the data, so the write fails or lands in the caller's tenant.
+- On update, both adapters refuse a change that would move the row out of the scope, through the JSON API, forms and inline edits alike. The request fails with `403` and the row stays as it was. Drizzle checks inside a transaction on PostgreSQL and MySQL and inside the `UPDATE` itself on SQLite.
+- A driver without interactive transactions, such as `drizzle-orm/neon-http`, gets the same guarantee from a check that runs just before the write, as on SQLite; Prisma uses `$transaction`.
 
 ### Fail closed
 
@@ -323,7 +328,7 @@ A committed change publishes a small event; lists and widgets subscribed to its 
 
 `realtime: true` on a resource refreshes its list. A record page does not subscribe on its own; give its widgets their own `realtime: { resource: "orders" }`. A widget takes a channel name, `{ resource: "orders" }`, or a list of them:
 
-```ts excerpt
+```ts
 metric("Open orders", openOrders, { realtime: { resource: "orders" } });
 custom(Pipeline, pipelineProps, { realtime: "pipeline" });
 ```
@@ -338,10 +343,13 @@ The default memory driver reaches only the process that published. Use Redis whe
 pnpm add ioredis
 ```
 
-```ts excerpt
+```ts
+import { defineAdmin } from "@flowpanel/kit";
+import { flowpanelAuth } from "@/server/lib/flowpanel-session";
+
 export default defineAdmin({
   adapter,
-  auth,
+  auth: flowpanelAuth,
   realtime: {
     driver: "redis",
     url: process.env.REDIS_URL,
@@ -357,7 +365,7 @@ Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel 
 
 A worker, cron job or script imports only `@flowpanel/kit/publish`: no admin config, adapter or Next.js. Share the admin's `realtime` options so both sides use the same URL and prefix:
 
-```ts excerpt
+```ts
 // src/shared/realtime.ts, imported by the admin config and the worker
 import type { PublisherOptions } from "@flowpanel/kit";
 
@@ -368,18 +376,20 @@ export const realtime = {
 } satisfies PublisherOptions;
 ```
 
-```ts excerpt
+```ts
 // worker/admin-events.ts
 import { createPublisher } from "@flowpanel/kit/publish";
 import { realtime } from "@/shared/realtime";
 
 export const adminEvents = createPublisher({
   ...realtime,
-  onError: (err, channel) => logger.warn({ err, channel }, "admin realtime publish failed"),
+  onError: (err, channel) => console.warn("admin realtime publish failed", { channel, err }),
 });
 
-await adminEvents.resource("orders", { id: order.id });
-await adminEvents.publish("pipeline");
+export async function orderShipped(order: { id: number }): Promise<void> {
+  await adminEvents.resource("orders", { id: order.id });
+  await adminEvents.publish("pipeline");
+}
 ```
 
 `resource(name, { id })` refreshes that resource's lists and the widgets subscribed to it; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.
@@ -414,7 +424,7 @@ pnpm add bullmq ioredis @bull-board/api @bull-board/express express
 
 ### Register a queue
 
-```ts excerpt
+```ts
 import { queue } from "@flowpanel/kit";
 import { emailQueue } from "@/server/queues";
 
@@ -433,7 +443,7 @@ The page embeds `boardUrl` in an iframe, and the board accepts a `?token=` query
 
 `flowpanel dev` starts `scripts/board-server.mts` (or `.ts`) when `REDIS_URL` is set, unless you pass `--no-board`:
 
-```ts excerpt
+```ts
 import { startBoardServer } from "@flowpanel/kit/bullmq/board";
 import { queuesByName } from "@/server/queues";
 

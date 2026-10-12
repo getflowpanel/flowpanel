@@ -10,12 +10,13 @@ embeds [bull-board](https://github.com/felixmosh/bull-board). Setup and security
 
 <ApiSignature path="../../packages/core/src/builders/queue.ts" name="queue" />
 
-```ts excerpt
+```ts
 import { defineAdmin, queue } from "@flowpanel/kit";
 import { emailQueue } from "@/lib/queues";
 
 export default defineAdmin({
-  // …adapter, auth…
+  adapter,
+  auth: flowpanelAuth,
   queues: [
     queue(emailQueue, {
       label: "Email",
@@ -48,22 +49,22 @@ What `queue()` returns.
 
 | Condition | Error |
 | --- | --- |
-| No `.name` on the ref **and** no `options.key` | `queue() requires options.key when the queue has no .name` |
-| Two queues resolve to the same key | `Duplicate queue key: "<key>". Each queue key must be unique.` |
-| The key is `dashboards`, `drawer` or `queues` | `queue "<key>" uses a name FlowPanel's routing reserves…` |
+| No `.name` on the ref **and** no `options.key` | `[flowpanel] queues[<index>]: the queue has no name to key it by. Set key in its options.` |
+| Two queues resolve to the same key | `[flowpanel] queue "<key>": two queues use this key. Give each queue its own key.` |
+| The key is `dashboards`, `drawer` or `queues` | `[flowpanel] queue "<key>": the name is one FlowPanel's routing reserves…` |
 
 ## Reading queue state from your own code
 
 To count jobs in a widget, wrap the same `Queue` instances with `bullmqAdapter`:
 
-```ts excerpt
+```ts
 import { bullmqAdapter } from "@flowpanel/kit/bullmq";
 import { emailQueue, scrapeQueue } from "@/lib/queues";
 
 export const jobs = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
 ```
 
-```ts excerpt
+```ts
 import { metric } from "@flowpanel/kit";
 import { jobs } from "@/lib/queue-adapter";
 

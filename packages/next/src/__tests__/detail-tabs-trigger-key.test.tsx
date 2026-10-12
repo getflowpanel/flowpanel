@@ -42,8 +42,8 @@ describe("DetailTabsClient", () => {
       <DetailTabsClient tabs={[{ key: "summary", label: "Сводка", content: <p>summary</p> }]} />,
     );
     const strip = getByRole("tablist");
-    expect(strip.className).toContain("max-w-full");
-    expect(strip.className).toContain("overflow-x-auto");
-    expect(strip.className).toContain("justify-start");
+    expect(strip.className).toContain("fp-max-w-full");
+    expect(strip.className).toContain("fp-overflow-x-auto");
+    expect(strip.className).toContain("fp-justify-start");
   });
 });

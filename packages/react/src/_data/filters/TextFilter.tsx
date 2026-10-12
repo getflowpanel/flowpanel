@@ -46,7 +46,7 @@ export function TextFilter({
         value={local}
         onChange={(e) => setLocal(e.target.value)}
         placeholder={placeholder ?? labels.filters.searchPlaceholder}
-        className={cn(BARE_CONTROL, "w-36")}
+        className={cn(BARE_CONTROL, "fp-w-36")}
       />
     </FilterField>
   );

@@ -33,7 +33,7 @@ export function SelectFilter({
   return (
     <FilterField label={label} htmlFor={id} active={Boolean(value)}>
       <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
-        <SelectTrigger id={id} className={cn(BARE_CONTROL, "w-auto justify-start")}>
+        <SelectTrigger id={id} className={cn(BARE_CONTROL, "fp-w-auto fp-justify-start")}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>

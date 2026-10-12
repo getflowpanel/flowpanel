@@ -9,7 +9,7 @@ import { StatCard } from "../StatCard";
 
 afterEach(cleanup);
 
-const SIZE = /(?:^|\s)(text-(?:xs|sm|base|lg|xl|2xl|3xl|\[[^\]]+\]))(?=\s|$)/;
+const SIZE = /(?:^|\s)(fp-text-(?:xs|sm|base|lg|xl|2xl|3xl|\[[^\]]+\]))(?=\s|$)/;
 
 function sizeOf(text: string): string | undefined {
   return screen.getByText(text).className.match(SIZE)?.[1];
@@ -24,14 +24,14 @@ describe("figures in one strip", () => {
         <ExpiredCard label="Old" caption={{ text: "kept for 30 days" }} plain />
       </StatStrip>,
     );
-    expect(sizeOf("1,204")).toBe("text-[2rem]");
-    expect(sizeOf("37")).toBe("text-[2rem]");
-    expect(sizeOf("—")).toBe("text-[2rem]");
+    expect(sizeOf("1,204")).toBe("fp-text-[2rem]");
+    expect(sizeOf("37")).toBe("fp-text-[2rem]");
+    expect(sizeOf("—")).toBe("fp-text-[2rem]");
   });
 
   it("keeps a framed stat card's smaller figure", () => {
     render(<StatCard label="Queue" value={37} />);
-    expect(sizeOf("37")).toBe("text-xl");
+    expect(sizeOf("37")).toBe("fp-text-xl");
   });
 
   it("sets a stat's hint as close under its figure as a metric's sublabel", () => {
@@ -42,8 +42,8 @@ describe("figures in one strip", () => {
       </StatStrip>,
     );
     const gap = (text: string) =>
-      screen.getByText(text).className.match(/(?:^|\s)(mt-[\w.]+)/)?.[1];
+      screen.getByText(text).className.match(/(?:^|\s)(fp-mt-[\w.]+)/)?.[1];
     expect(gap("waiting")).toBe(gap("this week"));
-    expect(screen.getByText("37").parentElement?.className).toContain("space-y-1");
+    expect(screen.getByText("37").parentElement?.className).toContain("fp-space-y-1");
   });
 });

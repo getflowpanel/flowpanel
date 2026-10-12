@@ -36,7 +36,7 @@ export interface KvCardProps {
 function Value({ item }: { item: KvCardItem }) {
   const value = isCardDate(item.value) ? <LocalTime date={item.value.iso} /> : item.value;
   return item.href ? (
-    <a href={item.href} className="hover:underline">
+    <a href={item.href} className="hover:fp-underline">
       {value}
     </a>
   ) : (
@@ -49,14 +49,14 @@ function LongValue({ item }: { item: KvCardItem }) {
     <dd
       data-long=""
       className={cn(
-        "mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed",
+        "fp-mt-0.5 fp-whitespace-pre-wrap fp-break-words fp-text-sm fp-leading-relaxed",
         toneTextClass[item.tone ?? "default"],
       )}
     >
       <Value item={item} />
       {item.rest ? (
-        <details className="mt-1">
-          <summary className={cn("cursor-pointer text-xs", QUIET_LINK)}>{item.more}</summary>
+        <details className="fp-mt-1">
+          <summary className={cn("fp-cursor-pointer fp-text-xs", QUIET_LINK)}>{item.more}</summary>
           {item.rest}
         </details>
       ) : null}
@@ -67,25 +67,25 @@ function LongValue({ item }: { item: KvCardItem }) {
 /** The facts about one thing, as a `kv()` widget. */
 export function KvCard({ label, items, columns = 2, caption }: KvCardProps) {
   return (
-    <Card className="h-full">
+    <Card className="fp-h-full">
       <CardHeading label={label} caption={caption} />
-      <CardContent className={label || caption ? "pt-0" : ""}>
-        <dl className={cn("grid gap-3", columns === 1 ? "grid-cols-1" : "grid-cols-2")}>
+      <CardContent className={label || caption ? "fp-pt-0" : ""}>
+        <dl className={cn("fp-grid fp-gap-3", columns === 1 ? "fp-grid-cols-1" : "fp-grid-cols-2")}>
           {items.map((item, index) => (
             <div
               // biome-ignore lint/suspicious/noArrayIndexKey: items are ordered and labels may repeat
               key={index}
               data-tone={item.tone}
-              className={item.long ? "col-span-full" : undefined}
+              className={item.long ? "fp-col-span-full" : undefined}
             >
-              <dt className={cn("truncate", LABEL_TEXT)}>{item.label}</dt>
+              <dt className={cn("fp-truncate", LABEL_TEXT)}>{item.label}</dt>
               {item.long ? (
                 <LongValue item={item} />
               ) : (
                 <dd
                   className={cn(
                     TWO_LINES,
-                    "mt-0.5 text-sm font-medium tabular-nums",
+                    "fp-mt-0.5 fp-text-sm fp-font-medium fp-tabular-nums",
                     toneTextClass[item.tone ?? "default"],
                   )}
                   {...fullTextTitle(item.value)}

@@ -15,9 +15,9 @@ describe("focus ring", () => {
     const weak: string[] = [];
     for (const file of sources(resolve(process.cwd(), "src"))) {
       for (const line of readFileSync(file, "utf8").split("\n")) {
-        if (line.includes("border-fp-focus")) continue;
-        for (const [, alpha] of line.matchAll(/ring-fp-focus\/(\d+)/g)) {
-          if (Number(alpha) < 60) weak.push(`${file}: ring-fp-focus/${alpha}`);
+        if (line.includes("fp-border-focus")) continue;
+        for (const [, alpha] of line.matchAll(/fp-ring-focus\/(\d+)/g)) {
+          if (Number(alpha) < 60) weak.push(`${file}: fp-ring-focus/${alpha}`);
         }
       }
     }

@@ -60,22 +60,22 @@ export function BarsCard({
       : rows.reduce((acc, row) => Math.max(acc, row.value), 0);
   const total = rows.reduce((acc, row) => acc + row.value, 0);
   return (
-    <Card className="h-full">
+    <Card className="fp-h-full">
       <CardHeading label={label} caption={caption} />
-      <CardContent className={cn("space-y-2.5", label || caption ? "pt-0" : "")}>
+      <CardContent className={cn("fp-space-y-2.5", label || caption ? "fp-pt-0" : "")}>
         {rows.length === 0 ? (
           <EmptyLine>{emptyState}</EmptyLine>
         ) : (
           rows.map((row, index) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: rows are ranked and labels may repeat
-            <div key={index} data-tone={row.tone} className="space-y-1">
-              <div className="flex items-baseline justify-between gap-3 text-xs">
+            <div key={index} data-tone={row.tone} className="fp-space-y-1">
+              <div className="fp-flex fp-items-baseline fp-justify-between fp-gap-3 fp-text-xs">
                 <span
-                  className={cn(TWO_LINES, "min-w-0 text-fp-text-2")}
+                  className={cn(TWO_LINES, "fp-min-w-0 fp-text-soft")}
                   {...fullTextTitle(row.label)}
                 >
                   {row.href ? (
-                    <a href={row.href} className="hover:underline">
+                    <a href={row.href} className="hover:fp-underline">
                       {row.label}
                     </a>
                   ) : (
@@ -94,10 +94,10 @@ export function BarsCard({
                   pointsLabel={widget.points}
                 />
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-fp-bg-3">
+              <div className="fp-h-1.5 fp-w-full fp-overflow-hidden fp-rounded-full fp-bg-fill">
                 <div
                   className={cn(
-                    "h-full rounded-full",
+                    "fp-h-full fp-rounded-full",
                     toneFillClass[row.tone ?? "default"],
                     barWidthClass(shareOfMax(row.value, max)),
                   )}

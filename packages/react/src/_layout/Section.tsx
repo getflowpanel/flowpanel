@@ -11,8 +11,8 @@ export interface SectionLabelProps {
 export function SectionLabel({ label, description, className }: SectionLabelProps) {
   return (
     <div className={className}>
-      <h2 className="text-base font-semibold text-fp-text-1">{label}</h2>
-      {description ? <p className="text-xs text-fp-text-3 mt-0.5">{description}</p> : null}
+      <h2 className="fp-text-base fp-font-semibold fp-text-ink">{label}</h2>
+      {description ? <p className="fp-text-xs fp-text-faint fp-mt-0.5">{description}</p> : null}
     </div>
   );
 }
@@ -22,7 +22,7 @@ export interface DividerProps {
 }
 
 export function Divider({ className }: DividerProps) {
-  return <hr className={cn("my-4 border-fp-border-1", className)} />;
+  return <hr className={cn("fp-my-4 fp-border-line", className)} />;
 }
 
 export interface SectionProps {
@@ -34,38 +34,40 @@ export interface SectionProps {
 }
 
 const colClass: Record<number, string> = {
-  1: "grid-cols-1",
-  2: "grid-cols-1 md:grid-cols-2",
-  3: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
-  4: "grid-cols-2 md:grid-cols-4",
-  6: "grid-cols-2 md:grid-cols-3 lg:grid-cols-6",
-  12: "grid-cols-12",
+  1: "fp-grid-cols-1",
+  2: "fp-grid-cols-1 md:fp-grid-cols-2",
+  3: "fp-grid-cols-1 md:fp-grid-cols-2 lg:fp-grid-cols-3",
+  4: "fp-grid-cols-2 md:fp-grid-cols-4",
+  6: "fp-grid-cols-2 md:fp-grid-cols-3 lg:fp-grid-cols-6",
+  12: "fp-grid-cols-12",
 };
 
 export const spanClass: Record<Span, string> = {
-  1: "col-span-12 sm:col-span-1",
-  2: "col-span-12 sm:col-span-2",
-  3: "col-span-12 sm:col-span-3",
-  4: "col-span-12 sm:col-span-4",
-  5: "col-span-12 sm:col-span-5",
-  6: "col-span-12 sm:col-span-6",
-  7: "col-span-12 sm:col-span-7",
-  8: "col-span-12 sm:col-span-8",
-  9: "col-span-12 sm:col-span-9",
-  10: "col-span-12 sm:col-span-10",
-  11: "col-span-12 sm:col-span-11",
-  12: "col-span-12",
+  1: "fp-col-span-12 sm:fp-col-span-1",
+  2: "fp-col-span-12 sm:fp-col-span-2",
+  3: "fp-col-span-12 sm:fp-col-span-3",
+  4: "fp-col-span-12 sm:fp-col-span-4",
+  5: "fp-col-span-12 sm:fp-col-span-5",
+  6: "fp-col-span-12 sm:fp-col-span-6",
+  7: "fp-col-span-12 sm:fp-col-span-7",
+  8: "fp-col-span-12 sm:fp-col-span-8",
+  9: "fp-col-span-12 sm:fp-col-span-9",
+  10: "fp-col-span-12 sm:fp-col-span-10",
+  11: "fp-col-span-12 sm:fp-col-span-11",
+  12: "fp-col-span-12",
 };
 
 export function Section({ label, description, columns = 1, className, children }: SectionProps) {
   return (
-    <section className={cn("space-y-3", className)} data-columns={columns}>
+    <section className={cn("fp-space-y-3", className)} data-columns={columns}>
       {label ? (
         <SectionLabel label={label} {...(description ? { description } : {})} />
       ) : description ? (
-        <p className="text-xs text-fp-text-3">{description}</p>
+        <p className="fp-text-xs fp-text-faint">{description}</p>
       ) : null}
-      <div className={cn("grid gap-3", colClass[columns] ?? "grid-cols-1")}>{children}</div>
+      <div className={cn("fp-grid fp-gap-3", colClass[columns] ?? "fp-grid-cols-1")}>
+        {children}
+      </div>
     </section>
   );
 }

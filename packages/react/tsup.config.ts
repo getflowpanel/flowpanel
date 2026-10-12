@@ -39,6 +39,7 @@ export default defineConfig({
     "next",
     "next/navigation",
     "@flowpanel/core",
+    "@flowpanel/core/class-names",
     "@flowpanel/core/format",
     "@flowpanel/core/internal",
     "@flowpanel/core/labels",

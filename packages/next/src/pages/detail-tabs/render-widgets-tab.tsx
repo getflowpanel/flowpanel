@@ -27,7 +27,7 @@ export async function renderWidgetsTab<Row extends Record<string, unknown>>(
   if (widgets.length === 0) {
     return (
       <Section columns={columns}>
-        <p className="text-sm text-fp-text-3">
+        <p className="fp-text-sm fp-text-faint">
           {tab.emptyState ?? mergeLabels(config.labels).widget.empty}
         </p>
       </Section>

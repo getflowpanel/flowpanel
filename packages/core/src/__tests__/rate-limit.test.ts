@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // --- Redis driver via mocked ioredis ---
 const redisClient = {
-  incr: vi.fn(async (_k: string) => 1),
-  pexpire: vi.fn(async (_k: string, _ms: number) => 1),
+  eval: vi.fn(
+    async (_script: string, _keys: number, _k: string, _ms: number): Promise<unknown> => 1,
+  ),
 };
 
 vi.mock("ioredis", () => ({
@@ -12,7 +13,7 @@ vi.mock("ioredis", () => ({
   }),
 }));
 
-import { createRateLimiter } from "../runtime/rate-limit";
+import { createRateLimiter, MEMORY_LIMITER_MAX_KEYS } from "../runtime/rate-limit";
 
 describe("createRateLimiter — memory", () => {
   afterEach(() => {
@@ -37,6 +38,17 @@ describe("createRateLimiter — memory", () => {
     expect(await rl.check("k")).toBe(true);
   });
 
+  it("caps how many keys it holds by dropping the oldest buckets", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const rl = createRateLimiter({ driver: "memory", limit: 1, windowMs: 1_000 });
+    expect(await rl.check("victim")).toBe(true);
+    for (let i = 0; i < MEMORY_LIMITER_MAX_KEYS * 2; i++) await rl.check(`forged-${i}`);
+    expect(await rl.check("victim")).toBe(true);
+    vi.setSystemTime(500);
+    expect(await rl.check("victim")).toBe(false);
+  });
+
   it("isolates buckets per key", async () => {
     const rl = createRateLimiter({ driver: "memory", limit: 1, windowMs: 60_000 });
     expect(await rl.check("alice")).toBe(true);
@@ -47,8 +59,7 @@ describe("createRateLimiter — memory", () => {
 
 describe("createRateLimiter — redis", () => {
   beforeEach(() => {
-    redisClient.incr.mockClear();
-    redisClient.pexpire.mockClear();
+    redisClient.eval.mockClear();
   });
 
   it("lazily imports ioredis (no calls before first check)", () => {
@@ -58,32 +69,22 @@ describe("createRateLimiter — redis", () => {
       limit: 5,
       windowMs: 60_000,
     });
-    expect(redisClient.incr).not.toHaveBeenCalled();
+    expect(redisClient.eval).not.toHaveBeenCalled();
   });
 
-  it("calls INCR + PEXPIRE on first check for a key", async () => {
+  it("counts and sets the expiry in one atomic script", async () => {
     const rl = createRateLimiter({
       driver: "redis",
       url: "redis://localhost:6379",
       limit: 3,
       windowMs: 60_000,
     });
-    redisClient.incr.mockResolvedValueOnce(1);
-    await rl.check("u:1");
-    expect(redisClient.incr).toHaveBeenCalledWith("fp:rl:u:1");
-    expect(redisClient.pexpire).toHaveBeenCalledWith("fp:rl:u:1", 60_000);
-  });
-
-  it("skips PEXPIRE on subsequent INCRs", async () => {
-    const rl = createRateLimiter({
-      driver: "redis",
-      url: "redis://localhost:6379",
-      limit: 3,
-      windowMs: 60_000,
-    });
-    redisClient.incr.mockResolvedValueOnce(2);
-    await rl.check("u:1");
-    expect(redisClient.pexpire).not.toHaveBeenCalled();
+    redisClient.eval.mockResolvedValueOnce(1);
+    expect(await rl.check("u:1")).toBe(true);
+    expect(redisClient.eval).toHaveBeenCalledOnce();
+    const [script, keys, key, ms] = redisClient.eval.mock.calls[0] ?? [];
+    expect(script).toMatch(/INCR[\s\S]*PEXPIRE/);
+    expect([keys, key, ms]).toEqual([1, "fp:rl:u:1", 60_000]);
   });
 
   it("returns false when count exceeds limit", async () => {
@@ -93,7 +94,7 @@ describe("createRateLimiter — redis", () => {
       limit: 3,
       windowMs: 60_000,
     });
-    redisClient.incr.mockResolvedValueOnce(4);
+    redisClient.eval.mockResolvedValueOnce(4);
     expect(await rl.check("u:1")).toBe(false);
   });
 
@@ -105,8 +106,7 @@ describe("createRateLimiter — redis", () => {
       windowMs: 60_000,
       keyPrefix: "app:",
     });
-    redisClient.incr.mockResolvedValueOnce(1);
     await rl.check("x");
-    expect(redisClient.incr).toHaveBeenCalledWith("app:x");
+    expect(redisClient.eval.mock.calls[0]?.[2]).toBe("app:x");
   });
 });

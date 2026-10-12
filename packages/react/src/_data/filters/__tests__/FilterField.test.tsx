@@ -15,7 +15,7 @@ describe("FilterField", () => {
     );
 
     const wrapper = screen.getByText("Plan").parentElement;
-    expect(wrapper?.className).toContain("h-11");
-    expect(wrapper?.className).toContain("sm:h-9");
+    expect(wrapper?.className).toContain("fp-h-11");
+    expect(wrapper?.className).toContain("sm:fp-h-9");
   });
 });

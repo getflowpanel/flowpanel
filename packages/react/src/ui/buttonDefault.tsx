@@ -6,23 +6,23 @@ import { cn } from "../lib/cn";
 import { named } from "../lib/named";
 
 export const buttonVariants = cva(
-  "fp-press inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-fp text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 focus-visible:ring-offset-1 focus-visible:ring-offset-fp-bg-1 disabled:pointer-events-none disabled:opacity-50",
+  "fp-press fp-inline-flex fp-items-center fp-justify-center fp-gap-2 fp-whitespace-nowrap fp-rounded fp-text-sm fp-font-medium focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 focus-visible:fp-ring-offset-1 focus-visible:fp-ring-offset-surface disabled:fp-pointer-events-none disabled:fp-opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-fp-accent text-fp-accent-text shadow-fp-xs hover:bg-fp-accent/85",
+        default: "fp-bg-accent fp-text-on-accent fp-shadow-xs hover:fp-bg-accent/85",
         // Solid destructive rides the AA-strength err tone; bg-1 flips with the scheme so the label stays readable.
-        destructive: "bg-fp-err-text text-fp-bg-1 shadow-fp-xs hover:bg-fp-err-text/85",
+        destructive: "fp-bg-err-ink fp-text-surface fp-shadow-xs hover:fp-bg-err-ink/85",
         outline:
-          "border border-fp-border-2 bg-fp-bg-1 text-fp-text-1 shadow-fp-xs hover:bg-fp-bg-2 hover:border-fp-border-2",
-        ghost: "text-fp-text-1 hover:bg-fp-bg-3/70",
-        link: "text-fp-accent underline-offset-4 hover:underline",
+          "fp-border fp-border-line-strong fp-bg-surface fp-text-ink fp-shadow-xs hover:fp-bg-canvas hover:fp-border-line-strong",
+        ghost: "fp-text-ink hover:fp-bg-fill/70",
+        link: "fp-text-accent fp-underline-offset-4 hover:fp-underline",
       },
       size: {
-        default: "h-11 px-4 py-2 sm:h-9",
-        sm: "h-11 rounded-fp-sm px-3 sm:h-8",
-        lg: "h-12 rounded-fp px-6 sm:h-10",
-        icon: "h-11 w-11 sm:h-9 sm:w-9",
+        default: "fp-h-11 fp-px-4 fp-py-2 sm:fp-h-9",
+        sm: "fp-h-11 fp-rounded-sm fp-px-3 sm:fp-h-8",
+        lg: "fp-h-12 fp-rounded fp-px-6 sm:fp-h-10",
+        icon: "fp-h-11 fp-w-11 sm:fp-h-9 sm:fp-w-9",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

@@ -15,7 +15,7 @@ export function warnNoSession(): void {
   console.warn(`[flowpanel] ${devAuthNote()}`);
 }
 
-const CODE = "rounded-fp-sm bg-fp-bg-3 px-1 py-0.5 font-mono text-xs text-fp-text-1";
+const CODE = "fp-rounded-sm fp-bg-fill fp-px-1 fp-py-0.5 fp-font-mono fp-text-xs fp-text-ink";
 
 function withCode(text: string) {
   return text.split("`").map((part, index) =>
@@ -35,12 +35,12 @@ export function DevAuthNote() {
   return (
     <div
       data-fp-dev-note=""
-      className="max-w-md rounded-fp border border-fp-border-1 bg-fp-bg-2 px-4 py-3 text-left text-sm leading-relaxed text-fp-text-2"
+      className="fp-max-w-md fp-rounded fp-border fp-border-line fp-bg-canvas fp-px-4 fp-py-3 fp-text-left fp-text-sm fp-leading-relaxed fp-text-soft"
     >
       <p>{withCode(devAuthNote())}</p>
       <a
         href={AUTH_GUIDE_URL}
-        className="mt-2 inline-block font-medium text-fp-text-1 underline underline-offset-4 hover:text-fp-text-2"
+        className="fp-mt-2 fp-inline-block fp-font-medium fp-text-ink fp-underline fp-underline-offset-4 hover:fp-text-soft"
       >
         Authentication guide
       </a>

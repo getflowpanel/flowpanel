@@ -9,18 +9,21 @@ import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 type Row = ListCardProps["rows"][number];
 
-const RULE = { err: "border-l-[3px] border-l-fp-err", warn: "border-l-[3px] border-l-fp-warn" };
+const RULE = {
+  err: "fp-border-l-[3px] fp-border-l-err",
+  warn: "fp-border-l-[3px] fp-border-l-warn",
+};
 
 function Trail({ row }: { row: Row }) {
   const after = [row.since, row.meta].filter(Boolean).join(" · ");
   if (!row.count && !after) return null;
   return (
     <span
-      className={cn(TWO_LINES, "max-w-[45%] shrink-0 text-right text-xs text-fp-text-3")}
+      className={cn(TWO_LINES, "fp-max-w-[45%] fp-shrink-0 fp-text-right fp-text-xs fp-text-faint")}
       {...fullTextTitle([row.count, after].filter(Boolean).join(" · "))}
     >
       {row.count ? (
-        <span className="font-medium tabular-nums text-fp-text-1">{row.count}</span>
+        <span className="fp-font-medium fp-tabular-nums fp-text-ink">{row.count}</span>
       ) : null}
       {row.count && after ? " · " : null}
       {after ? <span>{after}</span> : null}
@@ -30,9 +33,9 @@ function Trail({ row }: { row: Row }) {
 
 function Text({ row, className }: { row: Row; className: string }) {
   return (
-    <span className={cn(TWO_LINES, "min-w-0 flex-1", className)} {...fullTextTitle(row.text)}>
+    <span className={cn(TWO_LINES, "fp-min-w-0 fp-flex-1", className)} {...fullTextTitle(row.text)}>
       {row.href ? (
-        <a href={row.href} className="hover:underline">
+        <a href={row.href} className="hover:fp-underline">
           {row.text}
         </a>
       ) : (
@@ -56,47 +59,47 @@ export function ListBanner({ label, rows, allClear, more, caption }: ListBannerP
   const lead = rows[leadIndex];
   const rest = rows.filter((_, index) => index !== leadIndex);
   return (
-    <Card className={cn("h-full", worst ? RULE[worst] : "")} data-fp-banner={worst ?? "clear"}>
+    <Card className={cn("fp-h-full", worst ? RULE[worst] : "")} data-fp-banner={worst ?? "clear"}>
       <CardHeading label={label} caption={caption} />
-      <CardContent className={label || caption ? "pt-0" : ""}>
+      <CardContent className={label || caption ? "fp-pt-0" : ""}>
         {lead === undefined ? (
-          <p className="text-sm text-fp-text-2">{allClear}</p>
+          <p className="fp-text-sm fp-text-soft">{allClear}</p>
         ) : (
-          <ul className="space-y-2">
-            <li data-tone={lead.tone ?? "info"} className="flex items-baseline gap-3">
+          <ul className="fp-space-y-2">
+            <li data-tone={lead.tone ?? "info"} className="fp-flex fp-items-baseline fp-gap-3">
               <ToneWord tone={lead.tone ?? "info"} />
-              <Text row={lead} className="text-lg font-medium leading-6 text-fp-text-1" />
+              <Text row={lead} className="fp-text-lg fp-font-medium fp-leading-6 fp-text-ink" />
               <Trail row={lead} />
             </li>
             {rest.map((row, index) => (
               <li
                 key={row.key ?? `#${index + 1}`}
                 data-tone={row.tone ?? "info"}
-                className="flex items-baseline gap-2 text-sm"
+                className="fp-flex fp-items-baseline fp-gap-2 fp-text-sm"
               >
                 <span
                   aria-hidden
                   data-tone-dot=""
                   className={cn(
-                    "mt-1.5 h-2 w-2 shrink-0 self-start rounded-full",
+                    "fp-mt-1.5 fp-h-2 fp-w-2 fp-shrink-0 fp-self-start fp-rounded-full",
                     toneFillClass[row.tone ?? "info"],
                   )}
                 />
                 <ToneWord tone={row.tone ?? "info"} />
-                <Text row={row} className="text-fp-text-2" />
+                <Text row={row} className="fp-text-soft" />
                 <Trail row={row} />
               </li>
             ))}
           </ul>
         )}
         {more ? (
-          <div className="mt-3 text-xs">
+          <div className="fp-mt-3 fp-text-xs">
             {more.href ? (
               <a href={more.href} className={QUIET_LINK}>
                 {more.label}
               </a>
             ) : (
-              <span className="text-fp-text-3">{more.label}</span>
+              <span className="fp-text-faint">{more.label}</span>
             )}
           </div>
         ) : null}

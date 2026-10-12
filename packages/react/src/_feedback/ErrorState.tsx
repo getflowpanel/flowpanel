@@ -12,11 +12,14 @@ export function ErrorState({
   action,
 }: ErrorStateProps) {
   return (
-    <div role="alert" className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="text-base font-medium text-fp-text-1">{title}</div>
-      {description ? <div className="mt-1 text-sm text-fp-text-3">{description}</div> : null}
+    <div
+      role="alert"
+      className="fp-flex fp-flex-col fp-items-center fp-justify-center fp-py-16 fp-text-center"
+    >
+      <div className="fp-text-base fp-font-medium fp-text-ink">{title}</div>
+      {description ? <div className="fp-mt-1 fp-text-sm fp-text-faint">{description}</div> : null}
       {action ? (
-        <Button className="mt-4" onClick={action.onClick}>
+        <Button className="fp-mt-4" onClick={action.onClick}>
           {action.label}
         </Button>
       ) : null}

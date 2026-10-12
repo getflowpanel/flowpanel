@@ -1,4 +1,4 @@
-import { isFilterInValue, isFilterRangeValue } from "@flowpanel/core";
+import { type FilterCondition, filterConditions } from "@flowpanel/core/internal";
 import type { PrismaDmmf } from "./introspect";
 
 type NumberKind = "int" | "bigint" | "float";
@@ -23,35 +23,32 @@ function toNumber(value: unknown, kind: NumberKind | undefined): unknown {
   return parsed;
 }
 
+function prismaCondition(condition: FilterCondition, kind: NumberKind | undefined): unknown {
+  switch (condition.op) {
+    case "isNull":
+      return null;
+    case "notNull":
+      return { not: null };
+    case "range":
+      return {
+        ...(condition.gte !== undefined ? { gte: toNumber(condition.gte, kind) } : {}),
+        ...(condition.lte !== undefined ? { lte: toNumber(condition.lte, kind) } : {}),
+      };
+    case "in":
+      return { in: condition.values.map((value) => toNumber(value, kind)) };
+    case "eq":
+      return toNumber(condition.value, kind);
+  }
+}
+
 /** Translate FlowPanel filter values into one Prisma `where` object. */
 export function buildFilterWhere(
   filters: Record<string, unknown> | undefined,
   numbers: ReadonlyMap<string, NumberKind> = new Map(),
 ): Record<string, unknown> {
   const where: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(filters ?? {})) {
-    const kind = numbers.get(k);
-    if (v === undefined || v === null || v === "") continue;
-    if (v === "__null__") {
-      where[k] = null;
-      continue;
-    }
-    if (v === "__notnull__") {
-      where[k] = { not: null };
-      continue;
-    }
-    if (isFilterRangeValue(v)) {
-      const cond: Record<string, unknown> = {};
-      if (v.gte !== undefined) cond.gte = toNumber(v.gte, kind);
-      if (v.lte !== undefined) cond.lte = toNumber(v.lte, kind);
-      if (Object.keys(cond).length > 0) where[k] = cond;
-      continue;
-    }
-    if (isFilterInValue(v)) {
-      if (v.values.length > 0) where[k] = { in: v.values.map((value) => toNumber(value, kind)) };
-      continue;
-    }
-    where[k] = toNumber(v, kind);
+  for (const condition of filterConditions(filters)) {
+    where[condition.field] = prismaCondition(condition, numbers.get(condition.field));
   }
   return where;
 }

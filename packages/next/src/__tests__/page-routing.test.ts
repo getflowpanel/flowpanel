@@ -148,7 +148,7 @@ describe("pages — collisions", () => {
           page({ path: "/x", label: "Second", component: CostDeepDive }),
         ],
       }),
-    ).toThrow(/Duplicate page path/);
+    ).toThrow(/page "\/x": two pages use this path/);
   });
 
   it("throws when a page path collides with a dashboard path", async () => {
@@ -159,7 +159,7 @@ describe("pages — collisions", () => {
         dashboards: [{ path: "/overview", label: "Overview", sections: [] }],
         pages: [page({ path: "/overview", label: "Page", component: Reports })],
       }),
-    ).toThrow(/collides with a dashboard/);
+    ).toThrow(/a dashboard already uses this path/);
   });
 });
 

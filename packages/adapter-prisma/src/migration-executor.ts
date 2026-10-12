@@ -116,10 +116,7 @@ async function readClaim(prisma: PrismaClientLike, id: string): Promise<Migratio
   return rows[0] ?? null;
 }
 
-/**
- * The primary key decides the winner. Affected-row counts cannot: MySQL clients
- * differ on whether a no-op upsert reports zero rows or one matched row.
- */
+/** The primary key picks the winner; MySQL clients disagree on a no-op upsert's affected rows. */
 async function tryClaim(prisma: PrismaClientLike, id: string, owner: string): Promise<boolean> {
   try {
     return (await prisma.$executeRawUnsafe(CLAIM_INSERT, id, owner)) > 0;

@@ -89,7 +89,7 @@ describe("TableWidget realtime", () => {
     const framedAncestors: HTMLElement[] = [];
     let node = screen.getByRole("table").parentElement;
     while (node) {
-      if (node.classList.contains("border") && node.classList.contains("border-fp-border-1")) {
+      if (node.classList.contains("fp-border") && node.classList.contains("fp-border-line")) {
         framedAncestors.push(node);
       }
       node = node.parentElement;
@@ -108,6 +108,6 @@ describe("TableWidget realtime", () => {
       />,
     );
 
-    expect(screen.getByRole("table").closest(".h-full")).not.toBeNull();
+    expect(screen.getByRole("table").closest(".fp-h-full")).not.toBeNull();
   });
 });

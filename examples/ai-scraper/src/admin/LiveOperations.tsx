@@ -82,7 +82,7 @@ export function LiveOperations({ initial, running, tracked }: LiveOperationsProp
             <h3 className="text-sm font-medium text-fp-text-1">Throughput</h3>
             <span className="text-xs tabular-nums text-fp-text-3">Last 70 seconds</span>
           </div>
-          <dl className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-2 sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <LiveStat label="Pages / min" value={number.format(chartData.at(-1)?.rate ?? 0)} />
             <LiveStat label="Crawls running" value={number.format(running)} />
             <LiveStat label="Listings tracked" value={number.format(tracked)} />

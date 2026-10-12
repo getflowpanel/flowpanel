@@ -9,10 +9,10 @@ Tenant scope has two parts: the root config resolves the tenant from the session
 
 ## Resolve the tenant
 
-```ts excerpt
+```ts
 export default defineAdmin({
   adapter,
-  auth,
+  auth: flowpanelAuth,
   scope: async ({ session }) => {
     const tenantId = session?.user?.tenantId;
     if (!tenantId) throw new Error("No tenant selected");
@@ -28,7 +28,7 @@ The value reaches resource predicates as their first argument, and policies and 
 
 ## Bind each resource
 
-```ts excerpt
+```ts
 import type { QueryContext } from "@flowpanel/kit";
 import { eq, type SQL } from "drizzle-orm";
 
@@ -54,11 +54,15 @@ resource(schema.orders, {
 
 The adapter decides what `query` is, so annotate it: with Drizzle, something you call `.where(condition)` on; with Prisma, the `where` object. Merge the tenant into it:
 
-```ts excerpt
+```ts as="ResourceOptions<RowOf<'orders'>>"
 scope: (scope, where: Record<string, unknown>) => ({ ...where, tenantId: scope?.tenantId }),
 ```
 
-The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue` on a hidden field, as above, so the form never shows it. A hidden field does not stop a crafted request from sending another tenant ID; the adapter does. Drizzle checks that the created row matches the scope and Prisma merges the scope into the data, so the write fails or lands in the caller's tenant.
+The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue` on a hidden field, as above, so the form never shows it. A hidden field does not stop a crafted request from sending another tenant ID; the adapter does:
+
+- On create, Drizzle checks that the new row matches the scope, and Prisma merges the scope into the data, so the write fails or lands in the caller's tenant.
+- On update, both adapters refuse a change that would move the row out of the scope, through the JSON API, forms and inline edits alike. The request fails with `403` and the row stays as it was. Drizzle checks inside a transaction on PostgreSQL and MySQL and inside the `UPDATE` itself on SQLite.
+- A driver without interactive transactions, such as `drizzle-orm/neon-http`, gets the same guarantee from a check that runs just before the write, as on SQLite; Prisma uses `$transaction`.
 
 ## Fail closed
 

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "../lib/cn";
 
 export interface FormSectionProps {
   label: string;
@@ -9,12 +10,12 @@ export interface FormSectionProps {
 
 export function FormSection({ label, description, children, className }: FormSectionProps) {
   return (
-    <section className={`mb-6 space-y-3 ${className ?? ""}`}>
+    <section className={cn("fp-mb-6 fp-space-y-3", className)}>
       <div>
-        <div className="text-sm font-medium text-fp-text-1">{label}</div>
-        {description ? <div className="text-xs text-fp-text-3">{description}</div> : null}
+        <div className="fp-text-sm fp-font-medium fp-text-ink">{label}</div>
+        {description ? <div className="fp-text-xs fp-text-faint">{description}</div> : null}
       </div>
-      <div className="space-y-3">{children}</div>
+      <div className="fp-space-y-3">{children}</div>
     </section>
   );
 }

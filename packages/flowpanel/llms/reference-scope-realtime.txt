@@ -13,7 +13,7 @@ Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher,
 A scope is resolved once per request and applied by the adapter to every query.
 Guide: [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 
-```ts excerpt
+```ts
 type Scope = Record<string, unknown> | null;
 // FlowpanelTypes["session"] when you register it, else Record<string, unknown>
 type Session = Record<string, unknown>;
@@ -28,11 +28,8 @@ type Session = Record<string, unknown>;
 | `req` | `Request` |  |
 | `session` | `Session \| null` |  |
 
-```ts excerpt
-defineAdmin({
-  scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
-  // …
-});
+```ts
+scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
 ```
 
 The returned object reaches resource predicates as their first argument, and
@@ -71,7 +68,7 @@ The realtime transport, built from `AdminDefinition.realtime` by
 | `subscribe` | `(channel: string, handler: (payload: unknown) => void) => () => void` |  |
 | `close?` | `() => Promise<void>` | Release the transport's connections. Publishing afterwards throws. |
 
-```ts excerpt
+```ts
 type PublisherOptions =
   | { driver: "memory" }
   | { driver: "redis"; url?: string; client?: RedisLike; keyPrefix?: string };
@@ -122,11 +119,17 @@ connection.
 | `action?` | `"create" \| "update" \| "delete"` | Default: `"update"`. |
 | `id?` | `string \| number` | The changed record's key, when one record changed. |
 
-```ts excerpt
+```ts
 import { createPublisher } from "@flowpanel/kit/publish";
 
-const events = createPublisher({ redis: process.env.REDIS_URL!, onError: report });
-await events.resource("orders", { id });
+const events = createPublisher({
+  redis: process.env.REDIS_URL!,
+  onError: (err) => console.error("realtime publish failed", err),
+});
+
+export async function orderChanged(id: number): Promise<void> {
+  await events.resource("orders", { id });
+}
 ```
 
 It also takes the admin's `{ driver: "redis", url, keyPrefix }` options. A
@@ -156,7 +159,7 @@ process.env.REDIS_URL } in defineAdmin
 | --- | --- | --- |
 | `check` | `(key: string) => Promise<boolean>` | Returns true if the request is allowed; false if the limit is exceeded. |
 
-```ts excerpt
+```ts
 function createRateLimiter(opts: RateLimitOptions): RateLimiter;
 ```
 

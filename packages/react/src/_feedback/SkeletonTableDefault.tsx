@@ -1,3 +1,4 @@
+import { cn } from "../lib/cn";
 import { Skeleton } from "../ui/skeleton";
 
 export interface SkeletonTableProps {
@@ -13,17 +14,20 @@ export function DefaultSkeletonTable({ rows = 5, columns = 4, className }: Skele
       role="status"
       aria-label="Loading"
       aria-busy="true"
-      className={`overflow-hidden rounded-fp border border-fp-border-1 ${className ?? ""}`}
+      className={cn("fp-overflow-hidden fp-rounded fp-border fp-border-line", className)}
     >
-      <div className="border-b border-fp-border-1 bg-fp-bg-2 px-4 py-3">
-        <Skeleton className="h-4 w-40" />
+      <div className="fp-border-b fp-border-line fp-bg-canvas fp-px-4 fp-py-3">
+        <Skeleton className="fp-h-4 fp-w-40" />
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder — no identity
-        <div key={i} className="flex gap-4 px-4 py-3 border-b border-fp-border-1 last:border-b-0">
+        <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder — no identity
+          key={i}
+          className="fp-flex fp-gap-4 fp-px-4 fp-py-3 fp-border-b fp-border-line last:fp-border-b-0"
+        >
           {Array.from({ length: columns }).map((_, j) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder — no identity
-            <Skeleton key={j} className="h-4 flex-1" />
+            <Skeleton key={j} className="fp-h-4 fp-flex-1" />
           ))}
         </div>
       ))}

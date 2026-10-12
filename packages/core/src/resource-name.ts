@@ -1,3 +1,5 @@
+import { FlowpanelConfigError } from "./types/config-error";
+
 function describeRef(ref: unknown): string {
   if (ref === null) return "null";
   if (ref === undefined) return "undefined";
@@ -7,7 +9,7 @@ function describeRef(ref: unknown): string {
   return `object with keys [${keys.join(", ")}] and symbols [${symbols.join(", ")}]`;
 }
 
-/** Single source of truth for a resource's name — see invariant I-5. */
+/** The one place a resource's name is resolved. */
 export function resolveResourceName(resource: {
   ref: unknown;
   options: { name?: string };
@@ -32,9 +34,9 @@ export function resolveResourceName(resource: {
       }
     }
   }
-  throw new Error(
-    `Unable to resolve a resource name from this ref: ${describeRef(ref)}. ` +
-      "Pass options.name explicitly, or ensure the adapter ref exposes " +
-      "__name, _.name, Symbol(drizzle:Name) or Symbol(drizzle:BaseName).",
+  throw new FlowpanelConfigError(
+    `resource(${describeRef(ref)})`,
+    "the ref carries no name FlowPanel can read (__name, _.name, Symbol(drizzle:Name) or " +
+      "Symbol(drizzle:BaseName)). Pass name in the resource options.",
   );
 }

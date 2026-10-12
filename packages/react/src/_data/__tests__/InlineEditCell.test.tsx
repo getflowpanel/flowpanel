@@ -133,7 +133,7 @@ describe("InlineEditCell in a clickable row", () => {
 
   it("keeps the pencil visible while it has focus", () => {
     inRow(true);
-    expect(editButton().className).toContain("group-focus-within/edit:opacity-100");
+    expect(editButton().className).toContain("group-focus-within/edit:fp-opacity-100");
   });
 });
 

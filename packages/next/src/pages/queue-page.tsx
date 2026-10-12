@@ -8,22 +8,22 @@ export interface QueuePageProps {
 
 export function QueuePage({ queue, navigation = [] }: QueuePageProps) {
   return (
-    <div className="flex h-[calc(100vh-56px)] flex-col p-6">
+    <div className="fp-flex fp-h-[calc(100vh-56px)] fp-flex-col fp-p-6">
       <PageHeader title={queue.options.label} />
       {navigation.length > 1 ? (
         <nav
           aria-label="Queue boards"
-          className="mt-4 flex shrink-0 gap-1 overflow-x-auto border-b border-fp-border-1"
+          className="fp-mt-4 fp-flex fp-shrink-0 fp-gap-1 fp-overflow-x-auto fp-border-b fp-border-line"
         >
           {navigation.map((item) => (
             <a
               key={item.href}
               href={item.href}
               aria-current={item.active ? "page" : undefined}
-              className={`-mb-px min-h-10 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
+              className={`-fp-mb-px fp-min-h-10 fp-whitespace-nowrap fp-border-b-2 fp-px-3 fp-py-2 fp-text-sm fp-font-medium ${
                 item.active
-                  ? "border-fp-text-1 text-fp-text-1"
-                  : "border-transparent text-fp-text-3 hover:text-fp-text-1"
+                  ? "fp-border-ink fp-text-ink"
+                  : "fp-border-transparent fp-text-faint hover:fp-text-ink"
               }`}
             >
               {item.label}
@@ -33,7 +33,7 @@ export function QueuePage({ queue, navigation = [] }: QueuePageProps) {
       ) : null}
       <iframe
         src={queue.options.boardUrl}
-        className="mt-4 h-full w-full flex-1 rounded-fp border border-fp-border-1"
+        className="fp-mt-4 fp-h-full fp-w-full fp-flex-1 fp-rounded fp-border fp-border-line"
         title={`${queue.options.label} queue board`}
       />
     </div>

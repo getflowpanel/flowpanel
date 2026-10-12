@@ -51,7 +51,7 @@ export function chartFrame(
   return (
     <a
       href={drilldown}
-      className="block h-full rounded-fp-lg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
+      className="fp-block fp-h-full fp-rounded-lg fp-transition-opacity hover:fp-opacity-90 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
       {...(label ? { "aria-label": label } : {})}
     >
       {card}
@@ -66,9 +66,9 @@ export function ChartRenderer(props: ChartRendererProps) {
   }, []);
 
   return chartFrame(
-    <Card className="h-full">
+    <Card className="fp-h-full">
       <CardHeading label={props.label} caption={props.caption} />
-      <div className="p-3">{chartBody(props, mounted)}</div>
+      <div className="fp-p-3">{chartBody(props, mounted)}</div>
     </Card>,
     props,
   );

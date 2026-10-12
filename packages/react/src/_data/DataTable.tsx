@@ -138,7 +138,7 @@ export function DataTable<Row extends Record<string, unknown>>({
     setDensityOverride(null);
   }, [density]);
   const effectiveDensity = densityOverride ?? density;
-  const rowPadding = effectiveDensity === "compact" ? "py-2.5" : "py-3";
+  const rowPadding = effectiveDensity === "compact" ? "fp-py-2.5" : "fp-py-3";
 
   const selectionApi = useDataTableSelection<Row>({
     rows,
@@ -182,7 +182,8 @@ export function DataTable<Row extends Record<string, unknown>>({
     onSortChange?.({ field: c.field, dir: nextDir });
   };
 
-  const frame = "rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-xs overflow-hidden";
+  const frame =
+    "fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-shadow-xs fp-overflow-hidden";
 
   const exportConfig =
     rows.length === 0
@@ -208,10 +209,10 @@ export function DataTable<Row extends Record<string, unknown>>({
   const showToolbar =
     Boolean(exportConfig) || Boolean(importable) || showDensityToggle || Boolean(realtimeCfg);
   const toolbar = showToolbar ? (
-    <div className="flex items-center justify-end gap-1 border-b border-fp-border-1 bg-fp-bg-1 px-3 py-1.5">
+    <div className="fp-flex fp-items-center fp-justify-end fp-gap-1 fp-border-b fp-border-line fp-bg-surface fp-px-3 fp-py-1.5">
       {/* The row count was only readable at the very bottom of the page, while
           the left half of this bar sat empty. */}
-      <span className="mr-auto text-xs tabular-nums text-fp-text-3">
+      <span className="fp-mr-auto fp-text-xs fp-tabular-nums fp-text-faint">
         {formatCount(
           labels.plurals?.results ?? (total === 1 ? labels.table.result : labels.table.results),
           total,
@@ -293,7 +294,7 @@ export function DataTable<Row extends Record<string, unknown>>({
     return (
       <div className={cn(frame, className)}>
         {toolbar}
-        <div className="p-2">
+        <div className="fp-p-2">
           <MobileCardFold
             key={page}
             columns={orderedVisible}
@@ -328,7 +329,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   return (
     <div className={cn(frame, className)}>
       {toolbar}
-      <table className="w-full text-sm" aria-rowcount={total + 1}>
+      <table className="fp-w-full fp-text-sm" aria-rowcount={total + 1}>
         <DataTableHeader
           orderedVisible={orderedVisible}
           sort={sort}
@@ -359,7 +360,7 @@ export function DataTable<Row extends Record<string, unknown>>({
               ? labels.table.rowsHint
               : labels.table.rowsReadOnlyHint
           }
-          className="focus:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 focus-visible:ring-inset"
+          className="focus:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 focus-visible:fp-ring-inset"
         >
           {rows.map((r, idx) => {
             // A row the projection could not identify still renders, but nothing sends its identity anywhere.
@@ -410,18 +411,18 @@ export function DataTable<Row extends Record<string, unknown>>({
 /** The table's own empty state, which a host's `EmptyState` slot replaces. */
 function TableEmptyState({ title, description, action, icon }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
+    <div className="fp-flex fp-flex-col fp-items-center fp-justify-center fp-py-16 fp-text-center">
       {icon ? (
         <div
-          className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-3/60 text-2xl text-fp-text-2"
+          className="fp-mb-3 fp-flex fp-h-12 fp-w-12 fp-items-center fp-justify-center fp-rounded-full fp-bg-fill/60 fp-text-2xl fp-text-soft"
           aria-hidden="true"
         >
           {icon}
         </div>
       ) : null}
-      <div className="text-base font-medium text-fp-text-1">{title}</div>
-      {description ? <div className="mt-1 text-sm text-fp-text-3">{description}</div> : null}
-      {action ? <div className="mt-4">{action}</div> : null}
+      <div className="fp-text-base fp-font-medium fp-text-ink">{title}</div>
+      {description ? <div className="fp-mt-1 fp-text-sm fp-text-faint">{description}</div> : null}
+      {action ? <div className="fp-mt-4">{action}</div> : null}
     </div>
   );
 }

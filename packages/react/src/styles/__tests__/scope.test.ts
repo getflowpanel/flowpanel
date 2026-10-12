@@ -12,7 +12,7 @@ describe("Flowpanel stylesheet boundary", () => {
     expect(css).not.toMatch(/:root\s*\{/);
     expect(css).not.toMatch(/(^|\n)\.dark(?:\s|,|\{)/);
     expect(css).not.toMatch(/(^|\n)(?:html|body|\*)\s*\{/);
-    expect(css).toContain("@layer base.flowpanel");
+    expect(css).toContain("@layer components.flowpanel");
     expect(css).toContain(
       "[data-flowpanel-root] :where(h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd)",
     );

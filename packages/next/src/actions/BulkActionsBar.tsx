@@ -68,12 +68,12 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
   return (
     <section
       aria-label="Bulk actions"
-      className="mb-2 flex items-center justify-between gap-3 rounded-fp border border-fp-border-1 bg-fp-bg-2 px-3 py-2"
+      className="fp-mb-2 fp-flex fp-items-center fp-justify-between fp-gap-3 fp-rounded fp-border fp-border-line fp-bg-canvas fp-px-3 fp-py-2"
     >
-      <div className="text-sm text-fp-text-2">
-        <span className="font-medium text-fp-text-1">{selection.length}</span> selected
+      <div className="fp-text-sm fp-text-soft">
+        <span className="fp-font-medium fp-text-ink">{selection.length}</span> selected
       </div>
-      <div className="flex items-center gap-2">
+      <div className="fp-flex fp-items-center fp-gap-2">
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <Button size="sm" variant="default" disabled={pending !== null}>
@@ -86,9 +86,9 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
                 key={a.key}
                 disabled={pending === a.key}
                 onSelect={() => onActionPick(a)}
-                className={a.variant === "destructive" ? "text-fp-err" : undefined}
+                className={a.variant === "destructive" ? "fp-text-err" : undefined}
               >
-                {a.icon ? <FlowpanelIcon name={a.icon} className="mr-2 h-4 w-4" /> : null}
+                {a.icon ? <FlowpanelIcon name={a.icon} className="fp-mr-2 fp-h-4 fp-w-4" /> : null}
                 {a.label}
               </DropdownMenuItem>
             ))}

@@ -9,7 +9,7 @@ A dashboard is a page of widgets whose queries run on the server. Register it in
 
 ## A first dashboard
 
-```ts excerpt
+```ts
 import { dashboard, metric } from "@flowpanel/kit";
 
 export const overview = dashboard({
@@ -39,7 +39,7 @@ A section sets `columns` and widgets set `span` on a 12-column grid. `variant: "
 
 Write one SQL statement per screen area that returns plain rows for the picked range. Share it with `ctx.query(fn)` so it runs once, and fold it per widget: `series()` for a chart over time, `breakdown()` for ranked bars.
 
-```ts excerpt
+```ts
 import { barChart, bars, breakdown, enumOf, series, type WidgetContext } from "@flowpanel/kit";
 
 type HourRow = { at: Date; site: string; runs: number; failed: number; listings: number };
@@ -74,7 +74,7 @@ Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL
 
 A `Threshold` says where a number turns bad. Pass the same object to metrics, bars, trackers and table columns:
 
-```ts excerpt
+```ts
 import type { Threshold } from "@flowpanel/kit";
 
 export const RUN_ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
@@ -87,7 +87,7 @@ export const SUCCESS: Threshold = { warn: 0.9, err: 0.8 };
 
 `tracker()` shows one row per key and one block per hour for the last 24 hours, coloured by a threshold. Its `value` takes a column name or a fold over the bucket's rows, such as an error rate. `banner()` lists problems by severity and says "all clear" when there are none.
 
-```ts excerpt
+```ts
 const errorRate = (rows: HourRow[]) => {
   const runs = rows.reduce((sum, row) => sum + row.runs, 0);
   return runs === 0 ? null : rows.reduce((sum, row) => sum + row.failed, 0) / runs;
@@ -102,7 +102,7 @@ banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: 
 
 A dashboard filter adds a select beside the date picker; widgets read it as `ctx.filters`. `filterOnClick` on bars, a tracker or a table sets it on click.
 
-```ts excerpt
+```ts
 import type { DashboardFilter } from "@flowpanel/kit";
 
 const marketplace: DashboardFilter = { key: "site", label: "Marketplace", options: Site };

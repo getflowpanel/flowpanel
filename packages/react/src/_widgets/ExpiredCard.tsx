@@ -16,17 +16,19 @@ export function ExpiredCard({ label, caption, plain }: ExpiredCardProps) {
   const body = (
     <>
       <CardHeading label={label} caption={caption} />
-      <CardContent className={cn("pt-0 text-fp-text-3", plain ? FIGURE : "text-xl font-semibold")}>
+      <CardContent
+        className={cn("fp-pt-0 fp-text-faint", plain ? FIGURE : "fp-text-xl fp-font-semibold")}
+      >
         —
       </CardContent>
     </>
   );
   return plain ? (
-    <div className="h-full w-full bg-fp-bg-1" data-fp-expired="" data-plain="">
+    <div className="fp-h-full fp-w-full fp-bg-surface" data-fp-expired="" data-plain="">
       {body}
     </div>
   ) : (
-    <Card className="h-full" data-fp-expired="">
+    <Card className="fp-h-full" data-fp-expired="">
       {body}
     </Card>
   );

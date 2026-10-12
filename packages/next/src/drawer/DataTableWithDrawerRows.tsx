@@ -163,7 +163,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
                   return <RowActionsMenu resource={resource} id={idStr} actions={acts} />;
                 }
                 return (
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="fp-flex fp-items-center fp-justify-end fp-gap-1">
                     <RestoreButton resource={resource} id={idStr} />
                     {acts.length > 0 ? (
                       <RowActionsMenu resource={resource} id={idStr} actions={acts} />

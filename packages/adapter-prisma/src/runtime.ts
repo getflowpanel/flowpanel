@@ -87,26 +87,83 @@ function isColumnValue(value: unknown): boolean {
   return typeof value !== "object" && typeof value !== "function";
 }
 
+/** The single column values a scope pins, such as `{ companyId: "c1" }`; filter-shaped keys are left out. */
+function pinnedScopeValues(
+  input: Record<string, unknown>,
+  ctx: { boundScope?: { apply(query: unknown): unknown } },
+  onFilter: (key: string) => void,
+): Record<string, unknown> {
+  const scoped = applyScopeToWhere({ ...input }, ctx);
+  const pinned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(scoped)) {
+    if (key in input && Object.is(input[key], value)) continue;
+    if (!isColumnValue(value)) {
+      onFilter(key);
+      continue;
+    }
+    pinned[key] = value;
+  }
+  return pinned;
+}
+
 /** Resolve insert data for a scoped create: only equality scope keys can supply a column value. */
 export function applyScopeToData(
   input: Record<string, unknown>,
   ctx: { boundScope?: { apply(query: unknown): unknown } },
 ): Record<string, unknown> {
-  const scoped = applyScopeToWhere({ ...input }, ctx);
-  const data: Record<string, unknown> = { ...input };
-  for (const [key, value] of Object.entries(scoped)) {
-    if (key in input && Object.is(input[key], value)) continue;
-    if (!isColumnValue(value)) {
-      throw new FlowpanelAccessError(
-        `create refused: the bound Prisma scope predicate contributed "${key}" as a filter ` +
-          "rather than a single value, so it cannot be written into the new row. Use an equality " +
-          `scope (e.g. { ${key}: tenantId }) on resources that allow create, or keep the filter ` +
-          "scope and disable create for this resource.",
-      );
-    }
-    data[key] = value;
+  const pinned = pinnedScopeValues(input, ctx, (key) => {
+    throw new FlowpanelAccessError(
+      `create refused: the bound Prisma scope predicate contributed "${key}" as a filter ` +
+        "rather than a single value, so it cannot be written into the new row. Use an equality " +
+        `scope (e.g. { ${key}: tenantId }) on resources that allow create, or keep the filter ` +
+        "scope and disable create for this resource.",
+    );
+  });
+  return { ...input, ...pinned };
+}
+
+export const outOfScopeUpdate = (): FlowpanelAccessError =>
+  new FlowpanelAccessError(
+    "update refused: the changed row would fall outside the resource's tenant scope. " +
+      "Keep the tenant column at the current scope's value.",
+  );
+
+/** Refuses an update that sets a column the scope pins to a different value, before anything is written. */
+export function assertUpdateKeepsScope(
+  input: Record<string, unknown>,
+  ctx: { boundScope?: { apply(query: unknown): unknown } },
+): void {
+  const pinned = pinnedScopeValues(input, ctx, () => {});
+  if (Object.keys(pinned).some((key) => key in input)) throw outOfScopeUpdate();
+}
+
+/** Prisma's P2025 for the row itself (not a nested connect) means it is gone: `null`, as the adapter contract says. */
+function isGoneRow(err: unknown): boolean {
+  if (typeof err !== "object" || err === null || !("code" in err) || err.code !== "P2025") {
+    return false;
   }
-  return data;
+  const cause =
+    "meta" in err && typeof err.meta === "object" && err.meta !== null && "cause" in err.meta
+      ? err.meta.cause
+      : undefined;
+  return typeof cause !== "string" || /^Record to (update|delete)/.test(cause);
+}
+
+export async function missingAsNull<T>(write: Promise<T>): Promise<T | null> {
+  try {
+    return await write;
+  } catch (err) {
+    if (isGoneRow(err)) return null;
+    throw err;
+  }
+}
+
+/** An interactive transaction when the client has one; a client already inside one runs as is. */
+export function inTransaction<T>(
+  db: PrismaClientLike,
+  run: (tx: PrismaClientLike) => Promise<T>,
+): Promise<T> {
+  return db.$transaction ? db.$transaction(run) : run(db);
 }
 
 export const MIGRATIONS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (

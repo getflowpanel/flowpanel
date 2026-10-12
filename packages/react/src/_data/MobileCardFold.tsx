@@ -33,7 +33,7 @@ export function MobileCardFold<Row extends Record<string, unknown>>({
       {!unfolded && rows.length > MOBILE_ROWS ? (
         <Button
           variant="ghost"
-          className="mt-2 w-full"
+          className="fp-mt-2 fp-w-full"
           onClick={() => {
             focusFirstNew.current = true;
             setUnfolded(true);

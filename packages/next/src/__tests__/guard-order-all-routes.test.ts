@@ -50,7 +50,7 @@ function makeConfig(opts: { access?: string; rateLimited?: boolean } = {}) {
   return {
     adapter,
     auth: {
-      session: async () => null,
+      session: async () => (opts.rateLimited ? { id: "u1" } : null),
       role: () => "anonymous",
       ...(opts.access ? { access: opts.access } : {}),
     },

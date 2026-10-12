@@ -8,7 +8,11 @@ export function StatusDot({ tone = "ok", className }: { tone?: Tone; className?:
   return (
     <span
       aria-hidden
-      className={cn("inline-block h-2 w-2 rounded-full", toneFillClass[tone], className)}
+      className={cn(
+        "fp-inline-block fp-h-2 fp-w-2 fp-rounded-full",
+        toneFillClass[tone],
+        className,
+      )}
     />
   );
 }

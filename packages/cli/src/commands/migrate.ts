@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
 import { findAdminConfig } from "../scaffold/config-target";
+import { noConfigMessage } from "../utils/config-problem";
 import { missingConnectionEnv } from "../utils/db-env";
 import { detectPackageManager, pmCommands } from "../utils/detect";
 import { describeFatal } from "../utils/fail";
@@ -10,7 +11,7 @@ import { exitAfterFlush, writeJson } from "../utils/output";
 import { noNextProject } from "../utils/project-root";
 import { configDialect } from "../utils/sql-dialect";
 import { readTsconfigAliases } from "../utils/tsconfig";
-import { createUi } from "../utils/ui";
+import { createUi, failCommand } from "../utils/ui";
 
 interface MigrateOptions {
   dryRun?: boolean;
@@ -70,17 +71,14 @@ export function migrateCommand(cli: Command): void {
       const cwd = process.cwd();
       const pmc = pmCommands(await detectPackageManager(cwd));
       const dir = path.join(cwd, "flowpanel", "migrations");
-      const stop: (message: string) => never = (message) => {
-        if (opts.json) writeJson({ command: "migrate", applied: false, error: message });
-        else ui.cancel(message);
-        process.exit(1);
-      };
+      const stop: (message: string) => never = (message) =>
+        failCommand("migrate", opts.json, message);
 
       const notProject = await noNextProject(cwd);
       if (notProject) stop(notProject);
       const adminConfig = await findAdminConfig(cwd);
       if (adminConfig === null) {
-        stop(`flowpanel.config.ts not found. Run \`${pmc.dlx} @flowpanel/cli init\` first.`);
+        stop(noConfigMessage(cwd, pmc.dlx));
       }
       const cfgPath = adminConfig.root;
 

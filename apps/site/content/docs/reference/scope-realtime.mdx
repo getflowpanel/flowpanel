@@ -9,7 +9,7 @@ kind: reference
 A scope is resolved once per request and applied by the adapter to every query.
 Guide: [Multi-tenant scope](/docs/guides/multi-tenant-scope).
 
-```ts excerpt
+```ts
 type Scope = Record<string, unknown> | null;
 // FlowpanelTypes["session"] when you register it, else Record<string, unknown>
 type Session = Record<string, unknown>;
@@ -19,11 +19,8 @@ type Session = Record<string, unknown>;
 
 <AutoTypeTable path="../../packages/core/src/types/session.ts" name="ScopeContext" />
 
-```ts excerpt
-defineAdmin({
-  scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
-  // …
-});
+```ts as="AdminDefinition"
+scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
 ```
 
 The returned object reaches resource predicates as their first argument, and
@@ -55,7 +52,7 @@ The realtime transport, built from `AdminDefinition.realtime` by
 
 <ApiSignature path="../../packages/core/src/runtime/publish.ts" name="createRealtimeTransport" />
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type PublisherOptions =
   | { driver: "memory" }
   | { driver: "redis"; url?: string; client?: RedisLike; keyPrefix?: string };
@@ -88,11 +85,17 @@ connection.
 
 <AutoTypeTable path="../../packages/core/src/runtime/redis-publisher.ts" name="ResourceChange" />
 
-```ts excerpt
+```ts
 import { createPublisher } from "@flowpanel/kit/publish";
 
-const events = createPublisher({ redis: process.env.REDIS_URL!, onError: report });
-await events.resource("orders", { id });
+const events = createPublisher({
+  redis: process.env.REDIS_URL!,
+  onError: (err) => console.error("realtime publish failed", err),
+});
+
+export async function orderChanged(id: number): Promise<void> {
+  await events.resource("orders", { id });
+}
 ```
 
 It also takes the admin's `{ driver: "redis", url, keyPrefix }` options. A
@@ -122,7 +125,7 @@ process.env.REDIS_URL } in defineAdmin
 
 <AutoTypeTable path="../../packages/core/src/runtime/rate-limit.ts" name="RateLimiter" />
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 function createRateLimiter(opts: RateLimitOptions): RateLimiter;
 ```
 

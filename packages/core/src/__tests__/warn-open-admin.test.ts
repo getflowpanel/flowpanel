@@ -63,7 +63,7 @@ describe("no-access-control warning", () => {
 
   it("fails closed in production when anonymous access was not acknowledged", () => {
     process.env.NODE_ENV = "production";
-    expect(() => defineAdmin({ ...open })).toThrow(/production admin requires auth\.access/i);
+    expect(() => defineAdmin({ ...open })).toThrow(/auth\.access: a production admin requires it/);
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -105,7 +105,7 @@ describe("an auth.access that lets a signed-out visitor in", () => {
   it("refuses to start in production, like an admin without access", () => {
     process.env.NODE_ENV = "production";
     expect(() => defineAdmin({ ...open, auth: { ...open.auth, access: renamed } })).toThrow(
-      /auth\.access lets a signed-out visitor in.*\(\{ session \}\) => session !== null/,
+      /auth\.access: it lets a signed-out visitor in.*\(\{ session \}\) => session !== null/,
     );
     expect(() =>
       defineAdmin({

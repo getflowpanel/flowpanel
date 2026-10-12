@@ -148,13 +148,13 @@ export async function DashboardPage({
   const encodedPath = encodeDashboardPath(dashboard.path);
 
   return (
-    <div className="space-y-8">
+    <div className="fp-space-y-8">
       {dashboard.realtime ? (
         <RealtimeRefresh channels={realtimeChannels(dashboard.realtime)} />
       ) : null}
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h1 className="text-xl font-semibold text-fp-text-1">{dashboard.label}</h1>
-        <div className="flex flex-wrap items-center gap-3">
+      <header className="fp-flex fp-flex-wrap fp-items-center fp-justify-between fp-gap-x-4 fp-gap-y-2">
+        <h1 className="fp-text-xl fp-font-semibold fp-text-ink">{dashboard.label}</h1>
+        <div className="fp-flex fp-flex-wrap fp-items-center fp-gap-3">
           {shouldRenderActionsBar(actions.length, dashboard.hideActionsBar) ? (
             <DashboardActionsBar encodedPath={encodedPath} actions={actions} />
           ) : null}
@@ -231,7 +231,7 @@ function WidgetSlot({
   ...slot
 }: SlotProps & { dashboardPath: string; align?: SectionConfig["align"] }) {
   return (
-    <div className={slot.plain ? "flex min-w-0" : widgetSlotClassName(slot.widget, align)}>
+    <div className={slot.plain ? "fp-flex fp-min-w-0" : widgetSlotClassName(slot.widget, align)}>
       <WidgetErrorBoundary
         widgetId={describeOwner(slot.owner)}
         dashboardId={dashboardPath}

@@ -1,3 +1,4 @@
+import { FlowpanelConfigError } from "../types/config-error";
 import type { ResourceConfig } from "../types/resource";
 import type { WidgetConfig } from "../types/widget";
 import { withRecordTimelineIds } from "./timeline-ids";
@@ -15,9 +16,10 @@ function rejectInDrawer(name: string, resource: ResourceConfig): void {
     if (!("widgets" in tab)) return;
     (tab.widgets as WidgetConfig[]).forEach((widget, w) => {
       if (!SERVER_RENDERED.has(widget.kind)) return;
-      throw new Error(
-        `flowpanel: resource "${name}" drawer.tabs[${t}].widgets[${w}] is a ${widget.kind}, ` +
-          "which renders only on a page; put it in a detail tab (detail.tabs[].widgets).",
+      throw new FlowpanelConfigError(
+        `resource "${name}" drawer.tabs[${t}].widgets[${w}]`,
+        `a ${widget.kind} renders only on a page, not in a drawer. Put it in a detail tab ` +
+          "(detail.tabs[].widgets).",
       );
     });
   });

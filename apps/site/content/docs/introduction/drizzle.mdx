@@ -19,7 +19,9 @@ Search and filters are dialect-aware, pagination is offset-based, and a configur
 
 A resource can read a SQL view, so the list sorts and filters by numbers the view computes per row. Declare the view with `.existing()` so drizzle-kit leaves it alone, and create it in your own migration:
 
-```ts excerpt
+```ts
+import { integer, pgView, text } from "drizzle-orm/pg-core";
+
 export const adminUserRow = pgView("admin_user_row", {
   id: text("id").primaryKey(),
   name: text("name"),

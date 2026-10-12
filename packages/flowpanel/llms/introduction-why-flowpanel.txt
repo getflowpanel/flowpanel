@@ -1,0 +1,28 @@
+# FlowPanel — Getting started — Why FlowPanel
+
+## Why FlowPanel
+
+Decide whether an embedded, schema-aware admin fits your application better than a hosted tool, an admin framework or a database browser.
+
+Docs: https://flowpanel.tech/docs/introduction/why-flowpanel
+
+FlowPanel is for a team with a Next.js App Router app on Drizzle or Prisma that needs an internal admin: lists, forms, actions, dashboards, imports, queues and live updates. You name the tables and fields in a typed config; only those appear.
+
+### What stays in your application
+
+The admin is pages and route handlers in your Next.js app. Your repository holds the config, your database client runs the queries, your auth provider creates the session, and your deployment serves it. No third party receives your database credentials or rows.
+
+Authorization, tenant scope, migrations, monitoring and scaling the realtime publisher stay your responsibility. [Production readiness](/docs/guides/production-readiness) lists them.
+
+### How it compares
+
+- **Prisma Studio, Drizzle Studio** show every table to a developer. FlowPanel shows the resources and fields you name to operators, behind your auth and role checks.
+- **react-admin, Refine** are React frameworks: you write a data provider and the pages. FlowPanel queries through your ORM client and generates the pages from config.
+- **AdminJS** mounts a separate admin on Express, Fastify or Nest. FlowPanel runs inside the Next.js app you already deploy.
+- **Retool** and other hosted builders are edited in a browser and connect to your database from their side. A FlowPanel config goes through code review with the rest of your app.
+
+### When to choose something else
+
+Choose another tool if you need a hosted no-code admin, a frontend outside Next.js, the Pages Router, REST or GraphQL data providers, or a database neither Drizzle nor Prisma supports and you do not want to write an adapter.
+
+Before you commit, read [What FlowPanel does not do yet](/docs/introduction/limits). Next: [Getting started](/docs/introduction/getting-started).

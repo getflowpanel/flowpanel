@@ -25,7 +25,7 @@ function HeaderPill({ label, tone = "default", href }: Pill) {
   return (
     <a
       href={href}
-      className="rounded-full hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
+      className="fp-rounded-full hover:fp-opacity-80 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
     >
       {badge}
     </a>
@@ -43,14 +43,14 @@ export function DefaultPageHeader({
 }: PageHeaderProps) {
   const pills: Pill[] = badges ?? (badge ? [badge] : []);
   return (
-    <header className="mb-6">
+    <header className="fp-mb-6">
       {breadcrumbs && breadcrumbs.length > 0 ? (
-        <Breadcrumbs items={breadcrumbs} className="mb-2" />
+        <Breadcrumbs items={breadcrumbs} className="fp-mb-2" />
       ) : null}
-      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="break-words text-2xl font-semibold tracking-tight text-fp-text-1">
+      <div className="fp-flex fp-flex-wrap fp-items-end fp-justify-between fp-gap-x-4 fp-gap-y-2">
+        <div className="fp-min-w-0">
+          <div className="fp-flex fp-flex-wrap fp-items-center fp-gap-2">
+            <h1 className="fp-break-words fp-text-2xl fp-font-semibold fp-tracking-tight fp-text-ink">
               {title}
             </h1>
             {pills.map((pill, index) => (
@@ -58,9 +58,9 @@ export function DefaultPageHeader({
               <HeaderPill key={index} {...pill} />
             ))}
           </div>
-          {description ? <p className="mt-1 text-sm text-fp-text-3">{description}</p> : null}
+          {description ? <p className="fp-mt-1 fp-text-sm fp-text-faint">{description}</p> : null}
         </div>
-        {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
+        {actions ? <div className="fp-flex fp-shrink-0 fp-gap-2">{actions}</div> : null}
       </div>
     </header>
   );

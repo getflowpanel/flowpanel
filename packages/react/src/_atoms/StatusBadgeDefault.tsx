@@ -32,7 +32,7 @@ const TONE_MAP: Record<string, BadgeTone> = {
 /** Pure renderer — no context dependency. Used as the registry default. */
 export function DefaultStatusBadge({ status, label, tone, className }: StatusBadgeProps) {
   const resolved = tone ?? TONE_MAP[status.toLowerCase()] ?? "default";
-  const compactClassName = cn("px-1.5 py-px text-xs leading-4", className);
+  const compactClassName = cn("fp-px-1.5 fp-py-px fp-text-xs fp-leading-4", className);
   return (
     <DefaultBadge tone={resolved} className={compactClassName}>
       {label ?? status}

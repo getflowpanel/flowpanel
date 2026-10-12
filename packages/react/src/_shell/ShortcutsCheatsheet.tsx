@@ -30,26 +30,26 @@ export function ShortcutsCheatsheet({ open, onOpenChange, shortcuts }: Shortcuts
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="fp-max-w-md">
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="fp-space-y-4">
           {grouped.map(([group, items]) => (
             <section key={group}>
-              <h4 className="mb-2 text-xs font-medium text-fp-text-2">{group}</h4>
-              <ul className="space-y-1.5">
+              <h4 className="fp-mb-2 fp-text-xs fp-font-medium fp-text-soft">{group}</h4>
+              <ul className="fp-space-y-1.5">
                 {items.map((s) => (
                   <li
                     key={s.description}
-                    className="flex items-center justify-between gap-3 text-sm"
+                    className="fp-flex fp-items-center fp-justify-between fp-gap-3 fp-text-sm"
                   >
-                    <span className="text-fp-text-2">{s.description}</span>
-                    <span className="flex shrink-0 items-center gap-1">
+                    <span className="fp-text-soft">{s.description}</span>
+                    <span className="fp-flex fp-shrink-0 fp-items-center fp-gap-1">
                       {s.keys.map((k, i) => (
                         <React.Fragment key={k}>
-                          {i > 0 ? <span className="text-fp-text-3">or</span> : null}
-                          <kbd className="rounded-fp-sm border border-fp-border-1 bg-fp-bg-2 px-1.5 py-0.5 font-mono text-xs text-fp-text-1">
+                          {i > 0 ? <span className="fp-text-faint">or</span> : null}
+                          <kbd className="fp-rounded-sm fp-border fp-border-line fp-bg-canvas fp-px-1.5 fp-py-0.5 fp-font-mono fp-text-xs fp-text-ink">
                             {k}
                           </kbd>
                         </React.Fragment>

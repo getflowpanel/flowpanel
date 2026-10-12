@@ -26,10 +26,7 @@ function withOptions<T extends { type?: string; options?: unknown }>(
   return { ...entry, options };
 }
 
-/**
- * A `select`, `multiselect` or `radio` filter or form field that declares no `options`, on a
- * column whose badge format carries `labels` (as `enumOf(...).format` does), lists those labels.
- */
+/** A select, multiselect or radio without `options` lists the labels of its column's badge format. */
 export function withEnumOptions(resource: ResourceConfig): ResourceConfig {
   const labels = badgeLabels(resource);
   if (labels.size === 0) return resource;

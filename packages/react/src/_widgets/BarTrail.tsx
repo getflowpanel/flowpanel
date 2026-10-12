@@ -36,10 +36,10 @@ export function BarTrail(props: BarTrailProps) {
           print,
         );
   return (
-    <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
-      <span className="text-fp-text-1">{print.value(value)}</span>
+    <span className="fp-flex fp-shrink-0 fp-items-baseline fp-gap-2 fp-tabular-nums">
+      <span className="fp-text-ink">{print.value(value)}</span>
       {share === undefined ? null : (
-        <span data-share="" className="w-10 text-right text-fp-text-3">
+        <span data-share="" className="fp-w-10 fp-text-right fp-text-faint">
           {formatPercentValue(share, formatting, 0)}
         </span>
       )}

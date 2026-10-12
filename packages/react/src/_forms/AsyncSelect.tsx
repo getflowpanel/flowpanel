@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { useLabels } from "../_provider/LabelsContext";
+import { cn } from "../lib/cn";
 import { Button } from "../ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
@@ -26,8 +27,9 @@ export interface AsyncSelectProps {
   "aria-required"?: true;
 }
 
-const ITEM_CLASS = "cursor-pointer rounded-fp-sm px-2 py-1.5 text-sm aria-selected:bg-fp-bg-2";
-const MESSAGE_CLASS = "px-3 py-4 text-center text-sm";
+const ITEM_CLASS =
+  "fp-cursor-pointer fp-rounded-sm fp-px-2 fp-py-1.5 fp-text-sm aria-selected:fp-bg-canvas";
+const MESSAGE_CLASS = "fp-px-3 fp-py-4 fp-text-center fp-text-sm";
 
 export function AsyncSelect({
   value,
@@ -154,15 +156,15 @@ export function AsyncSelect({
           aria-invalid={ariaInvalid}
           {...(describedBy ? { "aria-describedby": describedBy } : {})}
           {...(ariaRequired ? { "aria-required": true as const } : {})}
-          className={`w-full justify-between border border-fp-border-1 ${className ?? ""}`}
+          className={cn("fp-w-full fp-justify-between fp-border fp-border-line", className)}
         >
-          <span className={label || value ? "text-fp-text-1" : "text-fp-text-3"}>
+          <span className={label || value ? "fp-text-ink" : "fp-text-faint"}>
             {label ?? value ?? placeholder}
           </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="p-0">
-        <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1">
+      <PopoverContent align="start" className="fp-p-0">
+        <div className="fp-rounded fp-border fp-border-line fp-bg-surface">
           <input
             id={`${listId}-search`}
             type="text"
@@ -179,14 +181,14 @@ export function AsyncSelect({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={placeholder}
-            className="h-9 w-full border-b border-fp-border-1 bg-transparent px-3 text-sm outline-none placeholder:text-fp-text-3"
+            className="fp-h-9 fp-w-full fp-border-b fp-border-line fp-bg-transparent fp-px-3 fp-text-sm fp-outline-none placeholder:fp-text-faint"
           />
           {/* The scroll port is the listbox itself: only then is it exempt from `scrollable-region-focusable`. */}
           <div
             id={listId}
             role="listbox"
             aria-label={placeholder}
-            className={`max-h-60 overflow-auto ${showList ? "p-1" : ""}`}
+            className={`fp-max-h-60 fp-overflow-auto ${showList ? "fp-p-1" : ""}`}
           >
             {showList
               ? opts.map((o, i) => (
@@ -209,7 +211,7 @@ export function AsyncSelect({
           {message !== null ? (
             <div
               role={error ? "alert" : "status"}
-              className={`${MESSAGE_CLASS} ${error ? "text-fp-err-text" : "text-fp-text-3"}`}
+              className={`${MESSAGE_CLASS} ${error ? "fp-text-err-ink" : "fp-text-faint"}`}
             >
               {message}
             </div>

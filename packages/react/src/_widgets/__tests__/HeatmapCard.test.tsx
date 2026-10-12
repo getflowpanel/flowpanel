@@ -27,9 +27,9 @@ describe("HeatmapCard", () => {
     );
     const grid = screen.getByRole("img", { name: "3 visits in the last 14 days" });
     expect(grid.querySelectorAll("[data-level]")).toHaveLength(14);
-    expect(grid.querySelector("[data-level='0']")?.className).toContain("bg-fp-bg-3");
+    expect(grid.querySelector("[data-level='0']")?.className).toContain("fp-bg-fill");
     expect(grid.querySelector("[title='day 0: 4']")).toBeTruthy();
-    expect(container.querySelector(".overflow-x-auto")).toBeTruthy();
+    expect(container.querySelector(".fp-overflow-x-auto")).toBeTruthy();
     expect(screen.getByText("Less")).toBeTruthy();
     expect(screen.getByText("Sep")).toBeTruthy();
   });
@@ -82,8 +82,8 @@ describe("HeatmapCard", () => {
       />,
     );
     expect(container.querySelector("[style]")).toBeNull();
-    expect(container.querySelector("[data-level='2']")?.className).toContain("bg-fp-data/50");
-    expect(container.querySelector("[data-level='3']")?.className).toContain("bg-fp-data/75");
+    expect(container.querySelector("[data-level='2']")?.className).toContain("fp-bg-data/50");
+    expect(container.querySelector("[data-level='3']")?.className).toContain("fp-bg-data/75");
     const cells = [...container.querySelectorAll("[data-level]")];
     expect(cells.some((cell) => cell.className.includes("opacity-"))).toBe(false);
     expect(screen.getByText("3 visits in the last 14 days").getAttribute("aria-hidden")).toBe(

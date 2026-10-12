@@ -100,8 +100,8 @@ describe("timelines at defineAdmin", () => {
         },
       }),
     ).toThrow(
-      'flowpanel: resource "users" detail.tabs[0].widgets[0] is a second timeline with the id "log" ' +
-        "on its page; give each timeline its own id.",
+      '[flowpanel] resource "users" detail.tabs[0].widgets[0]: a second timeline on the page has ' +
+        'the id "log". Give each timeline its own id.',
     );
   });
 
@@ -109,8 +109,8 @@ describe("timelines at defineAdmin", () => {
     expect(() =>
       admin({ drawer: { tabs: [{ key: "t", label: "T", widgets: [events()] }] } }),
     ).toThrow(
-      'flowpanel: resource "users" drawer.tabs[0].widgets[0] is a timeline, which renders only ' +
-        "on a page; put it in a detail tab (detail.tabs[].widgets).",
+      '[flowpanel] resource "users" drawer.tabs[0].widgets[0]: a timeline renders only on a page, ' +
+        "not in a drawer. Put it in a detail tab (detail.tabs[].widgets).",
     );
   });
 });
@@ -120,8 +120,8 @@ describe("checklists at defineAdmin", () => {
     expect(() =>
       admin({ drawer: { tabs: [{ key: "t", label: "T", widgets: [checklist({ items: [] })] }] } }),
     ).toThrow(
-      'flowpanel: resource "users" drawer.tabs[0].widgets[0] is a checklist, which renders only ' +
-        "on a page; put it in a detail tab (detail.tabs[].widgets).",
+      '[flowpanel] resource "users" drawer.tabs[0].widgets[0]: a checklist renders only on a page, ' +
+        "not in a drawer. Put it in a detail tab (detail.tabs[].widgets).",
     );
   });
 });
@@ -132,8 +132,8 @@ describe("trackers at defineAdmin", () => {
     expect(() =>
       admin({ drawer: { tabs: [{ key: "t", label: "T", widgets: [status] }] } }),
     ).toThrow(
-      'flowpanel: resource "users" drawer.tabs[0].widgets[0] is a tracker, which renders only ' +
-        "on a page; put it in a detail tab (detail.tabs[].widgets).",
+      '[flowpanel] resource "users" drawer.tabs[0].widgets[0]: a tracker renders only on a page, ' +
+        "not in a drawer. Put it in a detail tab (detail.tabs[].widgets).",
     );
   });
 });

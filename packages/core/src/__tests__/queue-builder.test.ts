@@ -53,6 +53,6 @@ describe("defineAdmin — queues", () => {
           queue({ name: "scraper" }, { label: "B", boardUrl: "http://x/b" }),
         ],
       });
-    expect(build).toThrow(/duplicate queue/i);
+    expect(build).toThrow(/queue "scraper": two queues use this key/);
   });
 });

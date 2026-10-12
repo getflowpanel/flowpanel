@@ -17,24 +17,24 @@ export function ResourceListSkeleton({
   className,
 }: ResourceListSkeletonProps) {
   return (
-    <div className={cn("space-y-4", className)} aria-busy="true" aria-live="polite">
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-7 w-48" />
-        <Skeleton className="h-9 w-28" />
+    <div className={cn("fp-space-y-4", className)} aria-busy="true" aria-live="polite">
+      <div className="fp-flex fp-items-center fp-justify-between">
+        <Skeleton className="fp-h-7 fp-w-48" />
+        <Skeleton className="fp-h-9 fp-w-28" />
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Skeleton className="h-9 w-64" />
-        <Skeleton className="h-9 w-32" />
-        <Skeleton className="h-9 w-32" />
+      <div className="fp-flex fp-flex-wrap fp-gap-2">
+        <Skeleton className="fp-h-9 fp-w-64" />
+        <Skeleton className="fp-h-9 fp-w-32" />
+        <Skeleton className="fp-h-9 fp-w-32" />
       </div>
-      <div className="overflow-hidden rounded-fp border border-fp-border-1 bg-fp-bg-1">
-        <table className="w-full text-sm">
-          <thead className="bg-fp-bg-2">
+      <div className="fp-overflow-hidden fp-rounded fp-border fp-border-line fp-bg-surface">
+        <table className="fp-w-full fp-text-sm">
+          <thead className="fp-bg-canvas">
             <tr>
               {Array.from({ length: columns }).map((_, i) => (
                 // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder.
-                <th key={i} className="px-4 py-2 text-left">
-                  <Skeleton className="h-3 w-20" />
+                <th key={i} className="fp-px-4 fp-py-2 fp-text-left">
+                  <Skeleton className="fp-h-3 fp-w-20" />
                 </th>
               ))}
             </tr>
@@ -42,11 +42,11 @@ export function ResourceListSkeleton({
           <tbody>
             {Array.from({ length: rows }).map((_, r) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder.
-              <tr key={r} className="border-t border-fp-border-1">
+              <tr key={r} className="fp-border-t fp-border-line">
                 {Array.from({ length: columns }).map((_, c) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder.
-                  <td key={c} className="px-4 py-3">
-                    <Skeleton className="h-4 w-24" />
+                  <td key={c} className="fp-px-4 fp-py-3">
+                    <Skeleton className="fp-h-4 fp-w-24" />
                   </td>
                 ))}
               </tr>
@@ -66,20 +66,20 @@ export interface ResourceDetailSkeletonProps {
 
 export function ResourceDetailSkeleton({ rows = 8, className }: ResourceDetailSkeletonProps) {
   return (
-    <div className={cn("space-y-4", className)} aria-busy="true" aria-live="polite">
-      <div className="flex items-center justify-between">
-        <Skeleton className="h-7 w-72" />
-        <Skeleton className="h-9 w-20" />
+    <div className={cn("fp-space-y-4", className)} aria-busy="true" aria-live="polite">
+      <div className="fp-flex fp-items-center fp-justify-between">
+        <Skeleton className="fp-h-7 fp-w-72" />
+        <Skeleton className="fp-h-9 fp-w-20" />
       </div>
-      <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-[max-content_1fr]">
+      <div className="fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
+        <dl className="fp-grid fp-grid-cols-1 fp-gap-x-6 fp-gap-y-3 sm:fp-grid-cols-[max-content_1fr]">
           {Array.from({ length: rows }).map((_, i) => (
             <React.Fragment
               // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder.
               key={i}
             >
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-4 w-48" />
+              <Skeleton className="fp-h-4 fp-w-24" />
+              <Skeleton className="fp-h-4 fp-w-48" />
             </React.Fragment>
           ))}
         </dl>
@@ -95,19 +95,19 @@ export interface DashboardSkeletonProps {
 
 export function DashboardSkeleton({ metrics = 4, className }: DashboardSkeletonProps) {
   return (
-    <div className={cn("space-y-6", className)} aria-busy="true" aria-live="polite">
-      <Skeleton className="h-7 w-56" />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className={cn("fp-space-y-6", className)} aria-busy="true" aria-live="polite">
+      <Skeleton className="fp-h-7 fp-w-56" />
+      <div className="fp-grid fp-grid-cols-1 fp-gap-3 sm:fp-grid-cols-2 lg:fp-grid-cols-4">
         {Array.from({ length: metrics }).map((_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder.
-          <div key={i} className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4">
-            <Skeleton className="mb-3 h-3 w-20" />
-            <Skeleton className="h-8 w-24" />
+          <div key={i} className="fp-rounded fp-border fp-border-line fp-bg-surface fp-p-4">
+            <Skeleton className="fp-mb-3 fp-h-3 fp-w-20" />
+            <Skeleton className="fp-h-8 fp-w-24" />
           </div>
         ))}
       </div>
-      <div className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-6">
-        <Skeleton className="h-64 w-full" />
+      <div className="fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
+        <Skeleton className="fp-h-64 fp-w-full" />
       </div>
     </div>
   );

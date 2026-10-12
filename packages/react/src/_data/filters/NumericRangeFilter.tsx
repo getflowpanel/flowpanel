@@ -23,11 +23,11 @@ export function NumericRangeFilter({ label, value, onChange, step }: NumericRang
         value={min ?? ""}
         step={step}
         onChange={(e) => emit(e.target.value, max ?? "")}
-        className={cn(BARE_CONTROL, "w-16")}
+        className={cn(BARE_CONTROL, "fp-w-16")}
         aria-label="Min"
         placeholder="min"
       />
-      <span aria-hidden className="px-0.5 text-fp-text-3">
+      <span aria-hidden className="fp-px-0.5 fp-text-faint">
         –
       </span>
       <Input
@@ -35,7 +35,7 @@ export function NumericRangeFilter({ label, value, onChange, step }: NumericRang
         value={max ?? ""}
         step={step}
         onChange={(e) => emit(min ?? "", e.target.value)}
-        className={cn(BARE_CONTROL, "w-16")}
+        className={cn(BARE_CONTROL, "fp-w-16")}
         aria-label="Max"
         placeholder="max"
       />

@@ -198,6 +198,7 @@
     "postcss-value-parser": "^4.2.0",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
     "tailwindcss3": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",

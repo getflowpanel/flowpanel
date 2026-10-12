@@ -28,7 +28,7 @@ export function CreateDrawer({ label, title, children }: CreateDrawerProps) {
         title={title}
       >
         <DrawerHeader>
-          <h2 className="text-base font-medium text-fp-text-1">{title}</h2>
+          <h2 className="fp-text-base fp-font-medium fp-text-ink">{title}</h2>
         </DrawerHeader>
         <DrawerContent>{children}</DrawerContent>
       </Drawer>

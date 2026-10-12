@@ -39,11 +39,11 @@ for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   }
 }
 
-// Rule 3: adapters reach @flowpanel/core through its public index. The one
-// exception is `internal/migration-sql`: core exports the SQL lexer on that
-// subpath so the two adapters share one tokenizer instead of forking it, and
-// the `internal/` prefix keeps it out of the user-facing API.
-const SHARED_CORE_INTERNALS = new Set(["internal/migration-sql"]);
+// Rule 3: adapters reach @flowpanel/core through its public index. The
+// exceptions are `internal/migration-sql`, the SQL lexer, and `internal`, which
+// carries the filter walk: the two adapters share them instead of forking them,
+// and the `internal` prefix keeps them out of the user-facing API.
+const SHARED_CORE_INTERNALS = new Set(["internal", "internal/migration-sql"]);
 for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   for (const file of globSync(`packages/${pkg}/src/**/*.ts`, {
     exclude: ["**/__tests__/**", "**/*.test.ts"],

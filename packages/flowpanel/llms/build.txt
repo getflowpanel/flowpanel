@@ -85,7 +85,7 @@ export default defineAdmin({
 
 Export each resource from its own module and compose them at the root:
 
-```ts excerpt
+```ts
 // src/admin/resources/users.ts
 import { resource } from "@flowpanel/kit";
 import { users } from "@/server/lib/db/schema";
@@ -96,11 +96,20 @@ export const usersResource = resource(users, {
 });
 ```
 
-```ts excerpt
+```ts
 // flowpanel.config.ts
+import { defineAdmin } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { overviewDashboard } from "@/admin/dashboards/overview";
+import { ordersResource } from "@/admin/resources/orders";
+import { usersResource } from "@/admin/resources/users";
+import { getSession } from "@/server/lib/auth";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  auth,
+  auth: { session: getSession, role: (s) => s?.user.role ?? "guest", access: "admin" },
   resources: [usersResource, ordersResource],
   dashboards: [overviewDashboard],
 });
@@ -112,7 +121,7 @@ export default defineAdmin({
 
 Register your client and schema once, so `ctx.db` is your client and every table and view is a typed resource name and row:
 
-```ts excerpt
+```ts
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
@@ -127,7 +136,7 @@ Register `session` too and `ctx.session` is typed everywhere. Prisma resources u
 
 `navGroup` on a dashboard, page, resource or queue moves its entry into a named group:
 
-```ts excerpt
+```ts
 const journals = { label: "Journals", collapsed: true } as const;
 
 resource(schema.runs, { navGroup: journals });
@@ -156,7 +165,7 @@ A resource is one table or model in the admin: its list, forms, record page or d
 
 ##### Drizzle
 
-```ts excerpt
+```ts
 resource(schema.users, {
   columns: ["email", "name", "createdAt"],
 })
@@ -164,7 +173,7 @@ resource(schema.users, {
 
 ##### Prisma
 
-```ts excerpt
+```ts
 resource("User", {
   name: "users",
   columns: ["email", "name", "createdAt"],
@@ -177,7 +186,7 @@ resource("User", {
 
 `name` is the registry key and URL segment; keep it stable once links depend on it. `label` names one row and `plural` the list.
 
-```ts excerpt
+```ts
 resource(schema.people, {
   name: "customers",
   label: "Customer",
@@ -190,7 +199,7 @@ resource(schema.people, {
 
 Search and filters are off until you name fields. Their values live in the URL with sorting and pagination, so a filtered list is a shareable link.
 
-```ts excerpt
+```ts
 resource(schema.orders, {
   columns: ["number", "customerEmail", "status", "total", "createdAt"],
   search: ["number", "customerEmail"],
@@ -232,7 +241,7 @@ Create and edit forms are generated from the table. Declare `create.fields` and 
 
 ### Declare the fields
 
-```ts excerpt
+```ts
 resource(schema.users, {
   columns: ["email", "name", "role", "createdAt"],
   create: {
@@ -261,7 +270,7 @@ resource(schema.users, {
 
 A reference field stores the foreign key and shows a searchable label from another resource:
 
-```ts excerpt
+```ts
 {
   name: "customerId",
   label: "Customer",
@@ -302,10 +311,12 @@ An action is a server function an operator runs from the admin: on a row, on a s
 
 ### A row action
 
-```ts excerpt
+```ts
 import { resource, rowAction } from "@flowpanel/kit";
 import { db } from "@/db";
+import * as schema from "@/db/schema";
 
+type User = typeof schema.users.$inferSelect;
 type SuspendInput = { reason: string };
 
 const suspend = rowAction<User, SuspendInput>({
@@ -358,7 +369,7 @@ A row click opens the record page, even before you add `detail`: without it the 
 
 ### Keep the card in its own file
 
-```ts excerpt
+```ts
 import { type DetailOptions, type RowOf } from "@flowpanel/kit";
 
 export const customerCard = {
@@ -372,7 +383,7 @@ export const customerCard = {
 
 `title`, `subtitle` and `badge` receive the row and the admin's formatters and link builder:
 
-```ts excerpt
+```ts
 subtitle: (c, { format }) => `Customer since ${format.date(c.createdAt)}`,
 badge: (c) => [
   AccountStatus.badge(c.status, { href: { resource: "customers", filter: { status: c.status } } }),
@@ -389,21 +400,23 @@ A `null` badge is dropped; `href` makes a badge a link.
 
 ### Key numbers
 
-```ts excerpt
+```ts
 export const paidInvoices = metric(
   "Paid invoices",
   { count: "invoices", where: { status: "paid" }, range: "paidAt" },
   { compare: true },
 );
 
-stats: [metric("Monitors", { count: "monitors" }), paidInvoices],
+export const customerCard = {
+  stats: [metric("Monitors", { count: "monitors" }), paidInvoices],
+} satisfies DetailOptions<RowOf<"customers">>;
 ```
 
 `stats` is a strip on every tab. On a record page `{ count }` counts only rows that point at this record, through the target's `reference`, and links to them. `range` names a `daterange` filter of the counted resource.
 
 ### Side column
 
-```ts excerpt
+```ts
 aside: [
   kv({
     label: "Account",
@@ -421,7 +434,7 @@ A `kv` item with `field` reads the viewed row; `record: (c) => …` reads anothe
 
 ### Related rows
 
-```ts excerpt
+```ts
 tabs: [
   related("monitors"),
   related("invoices", { pageSize: 10, sort: { field: "createdAt", dir: "desc" } }),
@@ -432,7 +445,7 @@ tabs: [
 
 ### Activity
 
-```ts excerpt
+```ts
 timeline({
   kinds: Activity,
   sources: [
@@ -450,21 +463,21 @@ Each source reads one resource filtered to this record; its `where` can narrow b
 
 A tab with `widgets` instead of `fields` draws dashboard widgets. `ctx.row` is the record and `ctx.id` its key:
 
-```ts excerpt
+```ts
 {
   key: "activity",
   label: "Activity",
   columns: 2,
   widgets: [
-    stat("Orders", (ctx) => ctx.count("orders", { userId: ctx.id })),
-    bars({ label: "Spend by month", query: (ctx) => spendByMonth(ctx.db, ctx.id) }),
+    stat("Orders", (ctx) => ctx.count("orders", { customerId: ctx.rowOf("customers").id })),
+    bars({ label: "Spend by month", query: (ctx) => spendByMonth(ctx.db, ctx.rowOf("customers").id) }),
   ],
 }
 ```
 
 ### Drawer
 
-```ts excerpt
+```ts
 resource(schema.orders, {
   columns: ["number", "customerEmail", "status", "total"],
   rowClick: "drawer",
@@ -483,14 +496,23 @@ resource(schema.orders, {
 
 ### Test a card
 
-```ts excerpt
+```ts
 import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
+import { expect, it } from "vitest";
 import admin from "@/admin/config";
 import { paidInvoices } from "@/admin/config/resources/customer-card";
 
-const ctx = widgetContext({ admin, resource: "customers", row: customer, rows: { invoices } });
-const { props } = await resolveWidget(paidInvoices, ctx);
-expect(props.value).toBe(2);
+it("counts the customer's paid invoices", async () => {
+  const customer = { id: 1, email: "ada@example.com" };
+  const invoices = [
+    { id: 1, customerId: 1, status: "paid", paidAt: new Date("2026-09-02") },
+    { id: 2, customerId: 1, status: "paid", paidAt: new Date("2026-09-20") },
+    { id: 3, customerId: 1, status: "open", paidAt: null },
+  ];
+  const ctx = widgetContext({ admin, resource: "customers", row: customer, rows: { invoices } });
+  const { props } = await resolveWidget(paidInvoices, ctx);
+  expect(props.value).toBe(2);
+});
 ```
 
 Pass `admin` so the count finds its filter through the `reference` on `invoices`. See [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).
@@ -507,7 +529,7 @@ A dashboard is a page of widgets whose queries run on the server. Register it in
 
 ### A first dashboard
 
-```ts excerpt
+```ts
 import { dashboard, metric } from "@flowpanel/kit";
 
 export const overview = dashboard({
@@ -537,7 +559,7 @@ A section sets `columns` and widgets set `span` on a 12-column grid. `variant: "
 
 Write one SQL statement per screen area that returns plain rows for the picked range. Share it with `ctx.query(fn)` so it runs once, and fold it per widget: `series()` for a chart over time, `breakdown()` for ranked bars.
 
-```ts excerpt
+```ts
 import { barChart, bars, breakdown, enumOf, series, type WidgetContext } from "@flowpanel/kit";
 
 type HourRow = { at: Date; site: string; runs: number; failed: number; listings: number };
@@ -572,7 +594,7 @@ Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL
 
 A `Threshold` says where a number turns bad. Pass the same object to metrics, bars, trackers and table columns:
 
-```ts excerpt
+```ts
 import type { Threshold } from "@flowpanel/kit";
 
 export const RUN_ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
@@ -585,7 +607,7 @@ export const SUCCESS: Threshold = { warn: 0.9, err: 0.8 };
 
 `tracker()` shows one row per key and one block per hour for the last 24 hours, coloured by a threshold. Its `value` takes a column name or a fold over the bucket's rows, such as an error rate. `banner()` lists problems by severity and says "all clear" when there are none.
 
-```ts excerpt
+```ts
 const errorRate = (rows: HourRow[]) => {
   const runs = rows.reduce((sum, row) => sum + row.runs, 0);
   return runs === 0 ? null : rows.reduce((sum, row) => sum + row.failed, 0) / runs;
@@ -600,7 +622,7 @@ banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: 
 
 A dashboard filter adds a select beside the date picker; widgets read it as `ctx.filters`. `filterOnClick` on bars, a tracker or a table sets it on click.
 
-```ts excerpt
+```ts
 import type { DashboardFilter } from "@flowpanel/kit";
 
 const marketplace: DashboardFilter = { key: "site", label: "Marketplace", options: Site };
@@ -627,7 +649,7 @@ Import and export are per-resource options. Each takes the file formats and an a
 
 ### Export
 
-```ts excerpt
+```ts
 resource(schema.users, {
   columns: ["email", "name", "role", "createdAt"],
   export: {
@@ -641,7 +663,7 @@ Export is off until you set `export`. It writes the rows on the current page, af
 
 ### Import
 
-```ts excerpt
+```ts
 resource(schema.users, {
   columns: ["email", "name", "role"],
   import: {

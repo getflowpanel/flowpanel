@@ -46,13 +46,9 @@
     "README.md"
   ],
   "devDependencies": {
-    "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/semver": "^7.8.0",
     "drizzle-orm": "catalog:",
-    "postcss": "catalog:",
-    "tailwindcss": "catalog:",
-    "tailwindcss3": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

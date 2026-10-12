@@ -173,7 +173,7 @@ export function Calendar({
 
   return (
     <table
-      className="border-separate border-spacing-0"
+      className="fp-border-separate fp-border-spacing-0"
       aria-label={label}
       onClick={handleClick}
       onKeyDown={onKeyDown}
@@ -187,7 +187,7 @@ export function Calendar({
             <th
               key={d.getDay()}
               scope="col"
-              className="pb-2 text-center text-xs font-normal text-fp-text-3"
+              className="fp-pb-2 fp-text-center fp-text-xs fp-font-normal fp-text-faint"
             >
               {weekdayFmt.format(d)}
             </th>
@@ -212,10 +212,10 @@ export function Calendar({
                   data-day={outside ? undefined : toISODate(d)}
                   className={cn(
                     // The band lives on the cell, so it runs edge to edge between days.
-                    "p-0",
-                    banded && "bg-fp-accent/10",
-                    isStart && "rounded-l-full",
-                    isEnd && "rounded-r-full",
+                    "fp-p-0",
+                    banded && "fp-bg-accent/10",
+                    isStart && "fp-rounded-l-full",
+                    isEnd && "fp-rounded-r-full",
                   )}
                 >
                   <button
@@ -224,14 +224,15 @@ export function Calendar({
                     aria-pressed={selected}
                     aria-label={dayFmt.format(d)}
                     className={cn(
-                      "h-10 w-10 rounded-full text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
-                      outside ? "text-fp-text-3/50" : "text-fp-text-1",
-                      !selected && "hover:bg-fp-bg-3",
-                      selected && "bg-fp-accent font-medium text-fp-accent-text hover:bg-fp-accent",
+                      "fp-h-10 fp-w-10 fp-rounded-full fp-text-sm fp-tabular-nums fp-transition-colors focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+                      outside ? "fp-text-faint/50" : "fp-text-ink",
+                      !selected && "hover:fp-bg-fill",
+                      selected &&
+                        "fp-bg-accent fp-font-medium fp-text-on-accent hover:fp-bg-accent",
                       // Today reads as a ring, so it survives being inside the band.
                       isToday &&
                         !selected &&
-                        "font-semibold ring-1 ring-inset ring-fp-border-2 hover:ring-fp-text-3",
+                        "fp-font-semibold fp-ring-1 fp-ring-inset fp-ring-line-strong hover:fp-ring-faint",
                     )}
                   >
                     {d.getDate()}

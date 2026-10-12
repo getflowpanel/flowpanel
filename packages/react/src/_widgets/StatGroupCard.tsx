@@ -46,26 +46,26 @@ function statText(
 export function StatGroupCard({ label, stats, caption }: StatGroupCardProps) {
   const formatting = useFormatting();
   return (
-    <Card className="h-full">
+    <Card className="fp-h-full">
       <CardHeading label={label} caption={caption} />
-      <CardContent className={label || caption ? "pt-0" : ""}>
-        <dl className="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-x-4 gap-y-3">
+      <CardContent className={label || caption ? "fp-pt-0" : ""}>
+        <dl className="fp-grid fp-grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] fp-gap-x-4 fp-gap-y-3">
           {stats.map((s, index) => {
             const text = statText(s.value, s.format, formatting);
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: stats are ordered and labels may repeat
-              <div key={index} data-tone={s.tone} className="min-w-0">
-                <dt className={cn("break-words", LABEL_TEXT)}>{s.label}</dt>
+              <div key={index} data-tone={s.tone} className="fp-min-w-0">
+                <dt className={cn("fp-break-words", LABEL_TEXT)}>{s.label}</dt>
                 <dd
                   className={cn(
                     TWO_LINES,
-                    "mt-0.5 min-w-0 text-base font-medium tabular-nums",
+                    "fp-mt-0.5 fp-min-w-0 fp-text-base fp-font-medium fp-tabular-nums",
                     toneTextClass[s.tone ?? "default"],
                   )}
                   {...fullTextTitle(text)}
                 >
                   {s.href ? (
-                    <a href={s.href} className="hover:underline">
+                    <a href={s.href} className="hover:fp-underline">
                       {text}
                     </a>
                   ) : (

@@ -87,16 +87,16 @@ describe("related tabs at defineAdmin", () => {
 
   it("asks for by when no column references the record", () => {
     expect(() => admin([related("notes")])).toThrow(
-      'flowpanel: resource "users" tab "notes" reads "notes" on a "users" card, but none of its ' +
-        'columns declares reference: { resource: "users" }, so it would read every row. Pass by, ' +
-        "or add the reference.",
+      '[flowpanel] resource "users" tab "notes": it reads "notes" on a "users" card, but none of ' +
+        'its columns declares reference: { resource: "users" }, so it would read every row. Pass ' +
+        "by, or add the reference.",
     );
   });
 
   it("asks for by when several columns reference the record", () => {
     expect(() => admin([related("responses")])).toThrow(
-      'flowpanel: resource "users" tab "responses" reads "responses" on a "users" card, and ' +
-        'several of its columns point at a "users" (userId, reviewerId); pass by.',
+      '[flowpanel] resource "users" tab "responses": it reads "responses" on a "users" card, and ' +
+        'several of its columns point at a "users" (userId, reviewerId). Pass by.',
     );
   });
 
@@ -129,7 +129,7 @@ describe("related tabs at defineAdmin", () => {
 
   it("names a by that is not a column of the target", () => {
     expect(() => admin([related("scores", { by: "usrId" as never })])).toThrow(
-      /detail\.tabs\[0\]\.by names column "usrId" on "scores".* Did you mean "userId"\?/,
+      /detail\.tabs\[0\]\.by: it names column "usrId" on "scores".* Did you mean "userId"\?/,
     );
   });
 
@@ -140,13 +140,13 @@ describe("related tabs at defineAdmin", () => {
       widgets: [widget],
     });
     expect(() => admin([tab(table({ resource: "scores", where: { usrId: "u1" } }))])).toThrow(
-      /options\.where names column "usrId" on "scores".* Did you mean "userId"\?/,
+      /options\.where: it names column "usrId" on "scores".* Did you mean "userId"\?/,
     );
     expect(() => admin([tab(table({ resource: "scores", range: "createdAt" }))])).toThrow(
-      /options\.range names column "createdAt" on "scores"/,
+      /options\.range: it names column "createdAt" on "scores"/,
     );
     expect(() => admin([tab(table({ query: async () => [], where: { a: 1 } }))])).toThrow(
-      "sets where or range, which narrow a resource read; a query table filters its own rows.",
+      "where and range narrow a resource read, and this table runs its own query. Filter the rows in the query instead.",
     );
   });
 });

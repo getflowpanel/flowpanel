@@ -18,13 +18,30 @@ export function createRateLimiter(opts: RateLimitOptions): RateLimiter {
   return createRedisLimiter(opts);
 }
 
+/** Most distinct keys one memory limiter keeps; when full, expired buckets go first, then the oldest tenth. */
+export const MEMORY_LIMITER_MAX_KEYS = 10_000;
+const KEEP_AFTER_EVICTION = MEMORY_LIMITER_MAX_KEYS * 0.9;
+
 function createMemoryLimiter(opts: Extract<RateLimitOptions, { driver: "memory" }>): RateLimiter {
   const buckets = new Map<string, { count: number; resetAt: number }>();
+
+  function makeRoom(now: number): void {
+    for (const [key, bucket] of buckets) {
+      if (bucket.resetAt <= now) buckets.delete(key);
+    }
+    for (const key of buckets.keys()) {
+      if (buckets.size <= KEEP_AFTER_EVICTION) break;
+      buckets.delete(key);
+    }
+  }
+
   return {
     async check(key) {
       const now = Date.now();
       const b = buckets.get(key);
       if (!b || b.resetAt <= now) {
+        buckets.delete(key);
+        if (buckets.size >= MEMORY_LIMITER_MAX_KEYS) makeRoom(now);
         buckets.set(key, { count: 1, resetAt: now + opts.windowMs });
         return true;
       }
@@ -35,12 +52,16 @@ function createMemoryLimiter(opts: Extract<RateLimitOptions, { driver: "memory" 
   };
 }
 
+/** One round trip: count the hit and make sure the key expires, even one an older version left without a TTL. */
+const HIT_SCRIPT = `local count = redis.call("INCR", KEYS[1])
+if redis.call("PTTL", KEYS[1]) < 0 then redis.call("PEXPIRE", KEYS[1], ARGV[1]) end
+return count`;
+
 function createRedisLimiter(opts: Extract<RateLimitOptions, { driver: "redis" }>): RateLimiter {
   type RedisCtor = new (
     url: string,
   ) => {
-    incr: (key: string) => Promise<number>;
-    pexpire: (key: string, ms: number) => Promise<number>;
+    eval: (script: string, numKeys: number, key: string, windowMs: number) => Promise<unknown>;
   };
 
   let client: InstanceType<RedisCtor> | null = null;
@@ -67,8 +88,7 @@ function createRedisLimiter(opts: Extract<RateLimitOptions, { driver: "redis" }>
     async check(key) {
       const redis = await load();
       const full = prefix + key;
-      const count = await redis.incr(full);
-      if (count === 1) await redis.pexpire(full, opts.windowMs);
+      const count = Number(await redis.eval(HIT_SCRIPT, 1, full, opts.windowMs));
       return count <= opts.limit;
     },
   };

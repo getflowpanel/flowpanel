@@ -23,7 +23,7 @@ export function TagFilter({ label, value, onChange, placeholder = "tag1, tag2" }
         onChange={(e) => setLocal(e.target.value)}
         onBlur={() => onChange(local.trim() === "" ? null : local.trim())}
         placeholder={placeholder}
-        className={cn(BARE_CONTROL, "w-40")}
+        className={cn(BARE_CONTROL, "fp-w-40")}
       />
     </FilterField>
   );

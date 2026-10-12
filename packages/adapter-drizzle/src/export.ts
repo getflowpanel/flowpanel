@@ -1,16 +1,9 @@
-/** A leading formula sigil would execute when the CSV opens in a spreadsheet. */
-function neutralizeFormula(value: string): string {
-  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
-}
+import { csvField } from "@flowpanel/core/internal";
 
 function escapeCsv(v: unknown): string {
   if (v === null || v === undefined) return "";
-  let s: string;
-  if (v instanceof Date) s = v.toISOString();
-  else if (typeof v === "object") s = JSON.stringify(v);
-  else s = String(v);
-  s = neutralizeFormula(s);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  if (v instanceof Date) return csvField(v.toISOString());
+  return csvField(typeof v === "object" ? JSON.stringify(v) : String(v));
 }
 
 /** Serialize an array of row objects to CSV. */

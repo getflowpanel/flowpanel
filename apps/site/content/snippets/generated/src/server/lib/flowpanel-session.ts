@@ -1,0 +1,17 @@
+// Session module for better-auth; flowpanel.config.ts takes its auth block from flowpanelAuth.
+import { withBetterAuth } from "@flowpanel/kit/auth";
+import { auth } from "@/lib/auth";
+
+export const flowpanelAuth = withBetterAuth({
+  auth,
+  access: "admin",
+  // role: async (session) => (await findMember(session?.user?.id))?.role ?? "guest",
+});
+
+export const getSession = flowpanelAuth.session;
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    session: typeof auth.$Infer.Session;
+  }
+}

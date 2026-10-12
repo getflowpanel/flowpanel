@@ -34,12 +34,12 @@ describe("ChecklistCard", () => {
     );
     const done = screen.getAllByRole("img", { name: "Done" });
     expect(done).toHaveLength(2);
-    expect(done[0]?.className).toContain("text-fp-ok-text");
-    expect(done[1]?.className).toContain("text-fp-accent-badge-text");
+    expect(done[0]?.className).toContain("fp-text-ok-ink");
+    expect(done[1]?.className).toContain("fp-text-accent-ink");
     expect(screen.getByRole("img", { name: "Optional" }).textContent).toBe("–");
     expect(screen.getByRole("img", { name: "Not done" }).textContent).toBe("○");
     expect(screen.getByText("2 of 3")).toBeTruthy();
-    expect(container.querySelector("[data-share]")?.className).toContain("w-[65%]");
+    expect(container.querySelector("[data-share]")?.className).toContain("fp-w-[65%]");
     expect(screen.getByRole("link", { name: "Scored" }).getAttribute("href")).toBe("/orders/o1");
     expect(screen.getByText("Sep 24, 2026, 10:05 · +5 min")).toBeTruthy();
     expect(screen.getByText("Linked in the bot")).toBeTruthy();
@@ -48,10 +48,10 @@ describe("ChecklistCard", () => {
   it("lays steps out in a row from md and in a column on a phone", () => {
     const { container } = render(<ChecklistCard items={items} layout="steps" emptyState="" />);
     const list = container.querySelector("ol") as HTMLElement;
-    expect(list.className).toContain("flex-col");
-    expect(list.className).toContain("md:flex-row");
+    expect(list.className).toContain("fp-flex-col");
+    expect(list.className).toContain("md:fp-flex-row");
     expect(container.querySelector("[data-share]")).toBeNull();
-    expect(screen.getByText("Published").className).toContain("break-words");
+    expect(screen.getByText("Published").className).toContain("fp-break-words");
   });
 
   it("shows the empty state without items", () => {

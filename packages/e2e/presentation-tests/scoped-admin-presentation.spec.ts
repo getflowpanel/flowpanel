@@ -101,13 +101,13 @@ function pageMarkup(css: string, legacy = false): string {
     </section>
     <main data-flowpanel-root>
       <nav data-flowpanel-nav aria-label="Управление"><a href="#nav">Настройки</a></nav>
-      <button id="admin-button" class="border border-fp-border-1 p-4">Open</button>
-      <div id="utility-probe" class="mt-12 ring-2 ring-fp-focus/60 -translate-x-1/2 -translate-y-1/2">Probe</div>
-      <div id="backdrop-probe" class="backdrop-blur-md">Backdrop</div>
-      <div id="metrics" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">${cards}</div>
-      <div id="non-metrics" class="grid grid-cols-3">${nonMetricWidgets}</div>
+      <button id="admin-button" class="fp-border fp-border-line fp-p-4">Open</button>
+      <div id="utility-probe" class="fp-mt-12 fp-ring-2 fp-ring-focus/60 -fp-translate-x-1/2 -fp-translate-y-1/2">Probe</div>
+      <div id="backdrop-probe" class="fp-backdrop-blur-md">Backdrop</div>
+      <div id="metrics" class="fp-grid fp-grid-cols-1 md:fp-grid-cols-2 lg:fp-grid-cols-3">${cards}</div>
+      <div id="non-metrics" class="fp-grid fp-grid-cols-3">${nonMetricWidgets}</div>
     </main>
-    <aside data-flowpanel-portal class="border border-fp-border-1 p-4" id="portal-root"><button id="portal-button" class="border border-fp-border-1 p-4">Portal</button></aside>
+    <aside data-flowpanel-portal class="fp-border fp-border-line fp-p-4" id="portal-root"><button id="portal-button" class="fp-border fp-border-line fp-p-4">Portal</button></aside>
     <script>document.querySelector('#admin-button').addEventListener('click', () => document.body.dataset.clicked = 'true')</script>`;
 }
 
@@ -247,3 +247,94 @@ for (const hostVersion of ["v3", "v4"] as const) {
     await expect(page).toHaveURL(/#metric-a$/);
   });
 }
+
+const hostWidget = `<p id="host-outside" class="mt-3 font-semibold">Host page</p>
+<div data-flowpanel-root>
+  <h2 id="host-heading" class="mt-3 text-sm font-semibold">Live operations</h2>
+  <dl id="host-widget" class="grid grid-cols-2 gap-2 sm:grid-cols-4 px-2">
+    <div>Pages</div><div>Crawls</div><div>Listings</div><div>Latency</div>
+  </dl>
+</div>`;
+
+async function hostTailwindCss(version: "v3" | "v4"): Promise<string> {
+  const fixture = mkdtempSync(join(tmpdir(), `fp-host-${version}-`));
+  try {
+    write(join(fixture, "widget.html"), hostWidget);
+    if (version === "v4") {
+      mkdirSync(join(fixture, "node_modules"), { recursive: true });
+      symlinkSync(tailwindV4Dir, join(fixture, "node_modules/tailwindcss"));
+      const source = '@import "tailwindcss" source(none);\n@source "./widget.html";\n';
+      const from = join(fixture, "app.css");
+      return (await postcss([tailwindV4({ base: fixture })]).process(source, { from })).css;
+    }
+    const tailwindV3 = requireCli("tailwindcss3") as (config: unknown) => unknown;
+    const source = "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n";
+    const plugin = tailwindV3({ content: [join(fixture, "widget.html")] });
+    return (await postcss([plugin]).process(source, { from: join(fixture, "app.css") })).css;
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+}
+
+for (const hostVersion of ["v3", "v4"] as const) {
+  test(`${hostVersion}: the host's own utilities work inside the admin root`, async ({ page }) => {
+    const host = await hostTailwindCss(hostVersion);
+    const columns = () =>
+      page
+        .locator("#host-widget")
+        .evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+    for (const order of [
+      [precompiledCss(), host],
+      [host, precompiledCss()],
+    ]) {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.setContent(`${order.map((css) => `<style>${css}</style>`).join("")}${hostWidget}`);
+      expect(await columns()).toBe(4);
+      expect(
+        await page.locator("#host-widget").evaluate((el) => getComputedStyle(el).paddingLeft),
+      ).toBe("8px");
+      expect(
+        await page.locator("#host-heading").evaluate((el) => {
+          const style = getComputedStyle(el);
+          return [style.fontWeight, style.fontSize, style.marginTop];
+        }),
+      ).toEqual(["600", "14px", "12px"]);
+      expect(
+        await page.locator("#host-outside").evaluate((el) => {
+          const style = getComputedStyle(el);
+          return [style.fontWeight, style.marginTop];
+        }),
+      ).toEqual(["600", "12px"]);
+      await page.setViewportSize({ width: 390, height: 844 });
+      expect(await columns()).toBe(2);
+    }
+  });
+}
+
+const layeredHost = `
+  @layer reset, base, tokens, recipes, utilities;
+  @layer reset { p { margin: 0 } }
+  @layer utilities { .mt_4 { margin-top: 16px } }
+`;
+
+test("a layered host without Tailwind keeps its own layer order", async ({ page }) => {
+  const margin = (id: string) => page.locator(id).evaluate((el) => getComputedStyle(el).marginTop);
+  const markup = `<p id="outside" class="mt_4">Host</p>
+    <div data-flowpanel-root><p id="inside" class="mt_4">Admin</p></div>`;
+  for (const [order, inside] of [
+    [[layeredHost, precompiledCss()], undefined],
+    [[precompiledCss(), layeredHost], "16px"],
+  ] as const) {
+    await page.setContent(`${order.map((css) => `<style>${css}</style>`).join("")}${markup}`);
+    expect(await margin("#outside")).toBe("16px");
+    if (inside) expect(await margin("#inside")).toBe(inside);
+    const layers = await page.evaluate(() =>
+      [...document.styleSheets].flatMap((sheet) =>
+        [...sheet.cssRules].flatMap((rule) =>
+          rule instanceof CSSLayerStatementRule ? [rule.nameList.join(",")] : [],
+        ),
+      ),
+    );
+    expect(layers).toEqual(["reset,base,tokens,recipes,utilities"]);
+  }
+});

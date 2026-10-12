@@ -97,8 +97,8 @@ describe("chartFrame", () => {
       drilldown: "/admin/ai_run",
     }) as ReactElement<{ href: string; "aria-label"?: string; className: string }>;
     expect(framed.type).toBe("a");
-    expect(framed.props.className).toContain("focus-visible:ring-2");
-    expect(framed.props.className).toContain("h-full");
+    expect(framed.props.className).toContain("focus-visible:fp-ring-2");
+    expect(framed.props.className).toContain("fp-h-full");
     expect(framed.props.href).toBe("/admin/ai_run");
     expect(framed.props["aria-label"]).toBe("Runs");
   });

@@ -18,7 +18,7 @@ pnpm add -D @playwright/test @axe-core/playwright
 
 ## smokeAdmin
 
-```ts excerpt
+```ts
 import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/kit/test";
 
@@ -59,18 +59,20 @@ is visible, since realtime pages never reach network idle.
 `smokeAdmin` resolves with the report, or throws an `Error` listing each problem
 and the report as JSON.
 
-```ts excerpt
+```ts
+import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/kit/test";
 
-const report = await smokeAdmin(page, {
-  paths: { admin: "/admin" },
-  cookie: { name: "session", value: process.env.E2E_SESSION ?? "" },
-  resources: ["/", "customers", "orders"],
-  maxRows: 3,
-  a11y: true,
+test("the admin is healthy", async ({ page }) => {
+  const report = await smokeAdmin(page, {
+    paths: { admin: "/admin" },
+    cookie: { name: "session", value: process.env.E2E_SESSION ?? "" },
+    resources: ["/", "customers", "orders"],
+    maxRows: 3,
+    a11y: true,
+  });
+  console.log(`${report.visited.length} routes visited`);
 });
-
-console.log(`${report.visited.length} routes visited`);
 ```
 
 `resources` takes nav segments: `"/"` is the landing dashboard, `"customers"` is
@@ -81,7 +83,7 @@ console.log(`${report.visited.length} routes visited`);
 `widgetContext` builds a widget context over rows you pass instead of a database.
 `resolveWidget` runs the widget as a dashboard does and returns its card's props.
 
-```ts excerpt
+```ts
 import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
 import { expect, it } from "vitest";
 import { paidToday } from "@/admin/config/dashboards/money";
@@ -117,12 +119,29 @@ references. Access rules apply, so pass `session` and `role`; tenant scope does 
 `headerContext` builds the second argument of `detail.title`, `subtitle` and
 `badge`:
 
-```ts excerpt
+```ts
 import { headerContext } from "@flowpanel/kit/test/widgets";
+import { expect, it } from "vitest";
 import admin from "@/admin/config";
+import { customerCard } from "@/admin/config/resources/customer-card";
 
-const ctx = headerContext({ admin });
-expect(customers.options.detail?.title?.(row, ctx)).toBe("Northwind Audio");
+it("says how long the customer has been with us", () => {
+  const ctx = headerContext({ admin });
+  const row = {
+    id: 1,
+    email: "ops@northwind.example",
+    name: "Ada",
+    company: "Northwind Audio",
+    plan: "pro",
+    status: "active",
+    mrr: 4900,
+    churned: false,
+    createdAt: new Date("2026-01-05"),
+    lastSeenAt: null,
+    deletedAt: null,
+  } as const;
+  expect(customerCard.subtitle(row, ctx)).toContain("Customer since");
+});
 ```
 
 <ApiSignature path="../../packages/test/src/widgets/context.ts" name="headerContext" />
@@ -134,7 +153,7 @@ expect(customers.options.detail?.title?.(row, ctx)).toBe("Northwind Audio");
 Inline FlowPanel's packages, or the run fails with `ERR_MODULE_NOT_FOUND` for
 `next/cache`, and alias `@/`, since Vitest does not read `tsconfig.json` paths:
 
-```ts excerpt
+```ts
 // vitest.config.ts
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
@@ -149,7 +168,7 @@ export default defineConfig({
 
 `smokeAdmin` calls `page.goto(paths.admin)`, so set a `baseURL` and a `webServer`:
 
-```ts excerpt
+```ts
 // playwright.config.ts
 import { defineConfig } from "@playwright/test";
 
@@ -168,13 +187,16 @@ The test user needs the role your admin requires.
 next-auth and other providers that sign sessions, sign in first; `smokeAdmin` reuses
 the page's context.
 
-```ts excerpt
+```ts
+import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/kit/test";
 
-await page.goto("/login");
-await page.getByLabel("Email").fill("admin@example.com");
-await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
-await page.getByRole("button", { name: "Sign in" }).click();
+test("the admin is healthy", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("admin@example.com");
+  await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
+  await page.getByRole("button", { name: "Sign in" }).click();
 
-await smokeAdmin(page);
+  await smokeAdmin(page);
+});
 ```

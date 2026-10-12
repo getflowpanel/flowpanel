@@ -7,7 +7,7 @@ kind: reference
 FlowPanel takes your types from the database client, Drizzle schema and auth
 instance you register once, with no code generator:
 
-```ts excerpt
+```ts
 import type { auth } from "@/lib/auth";
 import type { db } from "@/db";
 import type * as schema from "@/db/schema";
@@ -31,13 +31,13 @@ entry is optional: without it the types fall back to `unknown`, `string` or
 
 A registry for framework-wide type bindings: `db`, `schema` and `session`.
 
-```ts excerpt
+```ts
 interface FlowpanelTypes {}
 ```
 
 ### InferDB
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;
 ```
 
@@ -68,7 +68,7 @@ callbacks. Otherwise it is `Record<string, unknown>`.
 
 ### RowOf
 
-```ts excerpt
+```ts
 type RowOf<N extends string> = N extends keyof AllResources ? AllResources[N] : Record<string, unknown>;
 ```
 
@@ -80,7 +80,7 @@ A map of resource name to row type, keyed by the name `defineAdmin` uses (the SQ
 table name unless `options.name` is set). With Prisma, register every model here,
 under the resource's `name` when it has one, as `flowpanel new` does:
 
-```ts excerpt
+```ts
 declare module "@flowpanel/kit" {
   interface FlowpanelResources {
     users: import("@prisma/client").User;
@@ -92,13 +92,13 @@ With a registered Drizzle `schema`, add an entry only for a renamed resource, su
 as `user: typeof schema.adminUserRow.$inferSelect`. An entry replaces the schema's
 row of the same name.
 
-```ts excerpt
+```ts
 interface FlowpanelResources {}
 ```
 
 ### InferRow
 
-```ts excerpt
+```ts
 type InferRow<Ref> = Ref extends { $inferSelect: infer R }
   ? R
   : Ref extends keyof AllResources
@@ -114,7 +114,7 @@ the `users` entry.
 
 ### ResourceName
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type ResourceName = [keyof AllResources] extends [never]
   ? string
   : keyof AllResources & string;
@@ -125,7 +125,7 @@ The type of a resource name used elsewhere in config: a tab's `resource`, a
 
 ### ReferenceSpec
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type ReferenceSpec = [keyof AllResources] extends [never]
   ? { resource: string; labelField: string }
   : {
@@ -139,7 +139,7 @@ type ReferenceSpec = [keyof AllResources] extends [never]
 A foreign-key target for `ColumnDef.reference` and `FieldDef.reference`.
 `labelField` must be a column of the named resource.
 
-```ts excerpt
+```ts as="ColumnDef<RowOf<'orders'>>"
 { field: "userId", reference: { resource: "users", labelField: "email" } }
 //                                                  ^ keyof users row, not of orders
 ```

@@ -1,4 +1,5 @@
 import type { ResourceConfig } from "@flowpanel/core";
+import { FlowpanelConfigError } from "../types/config-error";
 
 /** The target's columns whose `reference` points at `parent`, in declaration order. */
 export function referencingFields(target: ResourceConfig, parent: string): string[] {
@@ -39,29 +40,28 @@ export function recordField(
   return pointingField(target, parent);
 }
 
-/**
- * Why a record-page read cannot tell which field points at the record. `pick` is what the host
- * sets to choose: a count metric's `where`, or the `by` of a source or a related tab.
- */
+/** The error for a record-page read that cannot tell which field points at the record; `pick` names how to choose. */
 export function recordFieldError(
   site: string,
   target: string,
   parent: string,
   found: Extract<RecordField, { kind: "none" | "many" }>,
   pick: "where" | "by" = "where",
-): string {
+): FlowpanelConfigError {
   if (found.kind === "many") {
-    return (
-      `flowpanel: ${site} reads "${target}" on a "${parent}" card, and several of its columns ` +
-      `point at a "${parent}" (${found.candidates.join(", ")}); ` +
-      (pick === "by" ? "pass by." : "name one in where.")
+    return new FlowpanelConfigError(
+      site,
+      `it reads "${target}" on a "${parent}" card, and several of its columns point at a ` +
+        `"${parent}" (${found.candidates.join(", ")}). ` +
+        (pick === "by" ? "Pass by." : "Name one in where."),
     );
   }
-  return (
-    `flowpanel: ${site} reads "${target}" on a "${parent}" card, but none of its columns ` +
-    `declares reference: { resource: "${parent}" }, so it would read every row. ` +
-    (pick === "by"
-      ? "Pass by, or add the reference."
-      : "Add the reference, or name the field in where.")
+  return new FlowpanelConfigError(
+    site,
+    `it reads "${target}" on a "${parent}" card, but none of its columns declares ` +
+      `reference: { resource: "${parent}" }, so it would read every row. ` +
+      (pick === "by"
+        ? "Pass by, or add the reference."
+        : "Add the reference, or name the field in where."),
   );
 }

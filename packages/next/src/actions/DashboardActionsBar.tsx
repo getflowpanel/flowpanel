@@ -58,20 +58,20 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
   }
 
   return (
-    <div className="flex max-w-full flex-wrap items-center gap-2">
+    <div className="fp-flex fp-max-w-full fp-flex-wrap fp-items-center fp-gap-2">
       {actions.map((a) => (
         <Button
           key={a.key}
           size="sm"
           variant={buttonVariant(a)}
           {...(a.emphasis !== "primary" && a.variant === "destructive"
-            ? { className: "text-fp-err-text" }
+            ? { className: "fp-text-err-ink" }
             : {})}
           disabled={pending === a.key}
           onClick={() => onClick(a)}
           aria-busy={pending === a.key || undefined}
         >
-          {a.icon ? <FlowpanelIcon name={a.icon} className="h-4 w-4" /> : null}
+          {a.icon ? <FlowpanelIcon name={a.icon} className="fp-h-4 fp-w-4" /> : null}
           {a.label}
         </Button>
       ))}

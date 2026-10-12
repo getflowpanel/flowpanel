@@ -39,9 +39,9 @@ export function renderCellValue(
 }
 
 export const ALIGN_CLASS = {
-  left: "text-left",
-  center: "text-center",
-  right: "text-right",
+  left: "fp-text-left",
+  center: "fp-text-center",
+  right: "fp-text-right",
 } as const;
 
 export function widthToCss(w: number | string | undefined): string | undefined {

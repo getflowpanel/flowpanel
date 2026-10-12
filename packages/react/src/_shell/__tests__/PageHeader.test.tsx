@@ -66,7 +66,7 @@ describe("PageHeader", () => {
       <PageHeader title="Ada" actions={<button type="button">E</button>} />,
     );
     const row = container.querySelector("header > div");
-    expect(row?.className).toContain("flex-wrap");
+    expect(row?.className).toContain("fp-flex-wrap");
   });
 });
 

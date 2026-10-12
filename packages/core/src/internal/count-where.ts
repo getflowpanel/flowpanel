@@ -1,10 +1,7 @@
 import { didYouMean } from "../suggest";
 import { quoted } from "./validate-shared";
 
-/**
- * `ctx.count(resource, where)` filters by column name; both count paths check the keys against introspection first.
- * An adapter that reports no columns cannot resolve the ref, and guessing would reject a valid config.
- */
+/** Throws on a `ctx.count` where key that is not a column; skipped when the adapter reports no columns. */
 export function assertCountWhereColumns(
   resource: string,
   where: Record<string, unknown>,

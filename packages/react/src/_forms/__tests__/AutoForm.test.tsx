@@ -122,8 +122,8 @@ describe("AutoForm", () => {
     const input = screen.getByLabelText("SKU") as HTMLInputElement;
     expect(input.readOnly).toBe(true);
     expect(input.getAttribute("aria-readonly")).toBe("true");
-    expect(input.className).toContain("aria-readonly:bg-fp-bg-2");
-    expect(input.className).toContain("aria-readonly:focus-visible:ring-0");
+    expect(input.className).toContain("aria-readonly:fp-bg-canvas");
+    expect(input.className).toContain("aria-readonly:focus-visible:fp-ring-0");
   });
 
   it("marks a readOnly textarea and select read-only for assistive tech and styles", () => {
@@ -145,7 +145,7 @@ describe("AutoForm", () => {
     for (const name of ["Notes", "Status"]) {
       const control = screen.getByLabelText(name);
       expect(control.getAttribute("aria-readonly")).toBe("true");
-      expect(control.className).toContain("aria-readonly:bg-fp-bg-2");
+      expect(control.className).toContain("aria-readonly:fp-bg-canvas");
     }
   });
 

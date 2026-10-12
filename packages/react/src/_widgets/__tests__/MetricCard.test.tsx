@@ -22,13 +22,13 @@ describe("MetricCard", () => {
     const link = screen.getByRole("link", { name: /x/i });
     expect(link).toBeTruthy();
     expect((link as HTMLAnchorElement).getAttribute("href")).toBe("/x");
-    expect(link.className).toContain("h-full");
-    expect(link.firstElementChild?.className).toContain("h-full");
+    expect(link.className).toContain("fp-h-full");
+    expect(link.firstElementChild?.className).toContain("fp-h-full");
   });
 
   it("fills the grid slot when it is not a drilldown link", () => {
     const { container } = render(<MetricCard label="X" value={1} />);
-    expect(container.firstElementChild?.className).toContain("h-full");
+    expect(container.firstElementChild?.className).toContain("fp-h-full");
   });
 
   it("applies tone data-attribute", () => {
@@ -47,7 +47,7 @@ describe("MetricCard", () => {
     );
     const delta = container.querySelector("[data-delta]") as HTMLElement;
     expect(delta.textContent).toBe("+12.3% prev week");
-    expect(delta.className).not.toMatch(/rounded-full|bg-fp-/);
+    expect(delta.className).not.toMatch(/fp-rounded-full|fp-bg-/);
     expect(screen.queryByText(/▲|▼/)).toBeNull();
   });
 
@@ -70,7 +70,7 @@ describe("MetricCard", () => {
     const { container } = render(
       <MetricCard label="Visits" value={103} delta={{ value: 0.03, vs: "prev" }} />,
     );
-    expect(container.querySelector("[data-delta='good']")?.className).toContain("text-fp-text-3");
+    expect(container.querySelector("[data-delta='good']")?.className).toContain("fp-text-faint");
   });
 
   it("reads a fall as good news for goodWhen: down", () => {
@@ -82,7 +82,7 @@ describe("MetricCard", () => {
         goodWhen="down"
       />,
     );
-    expect(container.querySelector(".text-fp-ok-text")).toBeTruthy();
+    expect(container.querySelector(".fp-text-ok-ink")).toBeTruthy();
     expect(screen.getByText(/−20%/)).toBeTruthy();
   });
 
@@ -95,7 +95,7 @@ describe("MetricCard", () => {
         goodWhen="down"
       />,
     );
-    expect(container.querySelector(".text-fp-err-text")).toBeTruthy();
+    expect(container.querySelector(".fp-text-err-ink")).toBeTruthy();
   });
 
   it("renders icon when given", () => {
@@ -145,7 +145,7 @@ describe("MetricCard", () => {
     const { container } = render(
       <MetricCard label="Visits" value={100} delta={{ value: 0.001, vs: "prev" }} />,
     );
-    expect(container.querySelector("[data-delta='flat']")?.className).toContain("text-fp-text-3");
+    expect(container.querySelector("[data-delta='flat']")?.className).toContain("fp-text-faint");
     expect(screen.queryByText(/▲|▼/)).toBeNull();
   });
 });

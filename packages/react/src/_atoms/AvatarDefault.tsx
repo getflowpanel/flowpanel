@@ -1,3 +1,5 @@
+import { cn } from "../lib/cn";
+
 export interface AvatarProps {
   src?: string;
   alt?: string;
@@ -7,7 +9,7 @@ export interface AvatarProps {
 }
 
 const SIZE = { sm: 24, md: 32, lg: 48 } as const;
-const SIZE_CLASS = { sm: "w-6 h-6", md: "w-8 h-8", lg: "w-12 h-12" } as const;
+const SIZE_CLASS = { sm: "fp-w-6 fp-h-6", md: "fp-w-8 fp-h-8", lg: "fp-w-12 fp-h-12" } as const;
 
 /** Pure renderer — no context dependency. Used as the registry default. */
 export function DefaultAvatar({ src, alt, fallback, size = "md", className }: AvatarProps) {
@@ -22,14 +24,18 @@ export function DefaultAvatar({ src, alt, fallback, size = "md", className }: Av
         alt={alt ?? ""}
         width={px}
         height={px}
-        className={`rounded-full object-cover ${className ?? ""}`}
+        className={cn("fp-rounded-full fp-object-cover", className)}
       />
     );
   }
   return (
     <div
       aria-hidden
-      className={`flex items-center justify-center rounded-full bg-fp-bg-2 text-xs font-medium text-fp-text-2 ${sizeClass} ${className ?? ""}`}
+      className={cn(
+        "fp-flex fp-items-center fp-justify-center fp-rounded-full fp-bg-canvas fp-text-xs fp-font-medium fp-text-soft",
+        sizeClass,
+        className,
+      )}
     >
       {initials}
     </div>

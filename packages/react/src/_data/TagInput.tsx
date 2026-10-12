@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { cn } from "../lib/cn";
 import { Input } from "../ui/input";
 
 export interface TagInputProps {
@@ -41,19 +42,22 @@ export function TagInput({
 
   return (
     <div
-      className={`flex flex-wrap items-center gap-1.5 rounded-fp border border-fp-border-1 bg-fp-bg-1 p-1.5 shadow-fp-xs transition-colors focus-within:border-fp-focus focus-within:ring-2 focus-within:ring-fp-focus/25 ${className ?? ""}`}
+      className={cn(
+        "fp-flex fp-flex-wrap fp-items-center fp-gap-1.5 fp-rounded fp-border fp-border-line fp-bg-surface fp-p-1.5 fp-shadow-xs fp-transition-colors focus-within:fp-border-focus focus-within:fp-ring-2 focus-within:fp-ring-focus/25",
+        className,
+      )}
     >
       {value.map((t) => (
         <span
           key={t}
-          className="inline-flex items-center gap-1 rounded-fp-sm bg-fp-bg-2 px-2 py-0.5 text-xs text-fp-text-1"
+          className="fp-inline-flex fp-items-center fp-gap-1 fp-rounded-sm fp-bg-canvas fp-px-2 fp-py-0.5 fp-text-xs fp-text-ink"
         >
           {t}
           <button
             type="button"
             aria-label={`Remove ${t}`}
             onClick={() => onChange(value.filter((x) => x !== t))}
-            className="text-fp-text-3 transition-colors hover:text-fp-text-1"
+            className="fp-text-faint fp-transition-colors hover:fp-text-ink"
           >
             ×
           </button>
@@ -76,7 +80,7 @@ export function TagInput({
         aria-invalid={ariaInvalid}
         {...(describedBy ? { "aria-describedby": describedBy } : {})}
         {...(ariaRequired ? { "aria-required": true as const } : {})}
-        className="h-7 flex-1 min-w-[80px] border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+        className="fp-h-7 fp-flex-1 fp-min-w-[80px] fp-border-0 fp-bg-transparent fp-p-0 fp-text-sm fp-shadow-none focus-visible:fp-ring-0"
       />
     </div>
   );

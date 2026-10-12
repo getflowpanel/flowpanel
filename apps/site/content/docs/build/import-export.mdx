@@ -9,7 +9,7 @@ Import and export are per-resource options. Each takes the file formats and an a
 
 ## Export
 
-```ts excerpt
+```ts
 resource(schema.users, {
   columns: ["email", "name", "role", "createdAt"],
   export: {
@@ -23,7 +23,7 @@ Export is off until you set `export`. It writes the rows on the current page, af
 
 ## Import
 
-```ts excerpt
+```ts
 resource(schema.users, {
   columns: ["email", "name", "role"],
   import: {

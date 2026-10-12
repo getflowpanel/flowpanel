@@ -64,12 +64,12 @@ export function RelatedTabTable<Row extends Record<string, unknown>>({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="fp-space-y-2">
       {openListHref ? (
-        <div className="flex justify-end">
+        <div className="fp-flex fp-justify-end">
           <Link
             href={openListHref}
-            className="text-sm text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline focus-visible:underline"
+            className="fp-text-sm fp-text-soft fp-underline-offset-4 hover:fp-text-ink hover:fp-underline focus-visible:fp-underline"
           >
             {openListLabel}
           </Link>

@@ -20,7 +20,7 @@ const PopoverContent = /* @__PURE__ */ named(
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "fp-anim-pop fp-anim-no-exit z-50 w-72 rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-4 text-fp-text-1 shadow-fp-md outline-none",
+          "fp-anim-pop fp-anim-no-exit fp-z-50 fp-w-72 fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-4 fp-text-ink fp-shadow-md fp-outline-none",
           className,
         )}
         {...props}

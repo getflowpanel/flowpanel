@@ -8,7 +8,7 @@ A column's `format` covers badges, money, numbers, dates, durations, percentages
 
 ## Built-in formats
 
-```ts excerpt
+```ts
 columns: [
   "email",
   {
@@ -27,7 +27,7 @@ A formatted column still sorts, filters and exports by its stored value. All for
 
 ## A server cell
 
-```tsx excerpt
+```tsx as="ResourceOptions<RowOf<'orders'>>"
 columns: [
   {
     field: "customerId",
@@ -46,7 +46,7 @@ columns: [
 
 `render` may return a client component with serializable props:
 
-```tsx excerpt
+```tsx as="ColumnDef<RowOf<'orders'>>"
 render: (row) => <CopyId value={String(row.id)} />
 ```
 
@@ -56,7 +56,7 @@ A mutation from a client cell goes through an authorized route, not through prop
 
 Omit `field` when the cell is computed from the row, and set `label`:
 
-```tsx excerpt
+```tsx as="ColumnDef<RowOf<'orders'>>"
 {
   label: "Customer",
   render: (order) => `${order.firstName} ${order.lastName}`,

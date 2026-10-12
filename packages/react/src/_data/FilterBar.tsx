@@ -1,6 +1,7 @@
 "use client";
 import type { FilterType } from "@flowpanel/core";
 import { useLabels } from "../_provider/LabelsContext";
+import { cn } from "../lib/cn";
 import { humanize } from "../lib/humanize";
 import { BooleanFilter } from "./filters/BooleanFilter";
 import { DateRangeFilter } from "./filters/DateRangeFilter";
@@ -31,7 +32,7 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
   const hasAny = Object.keys(values).length > 0;
   return (
     <div
-      className={`flex flex-wrap items-center gap-2 ${className ?? ""}`}
+      className={cn("fp-flex fp-flex-wrap fp-items-center fp-gap-2", className)}
       role="toolbar"
       aria-label={labels.filters.label}
     >
@@ -67,7 +68,7 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
         <button
           type="button"
           onClick={onClear}
-          className="fp-press ml-1 rounded-fp-sm px-1 text-sm text-fp-text-2 underline underline-offset-4 transition-colors hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60"
+          className="fp-press fp-ml-1 fp-rounded-sm fp-px-1 fp-text-sm fp-text-soft fp-underline fp-underline-offset-4 fp-transition-colors hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
         >
           {labels.filters.clear}
         </button>

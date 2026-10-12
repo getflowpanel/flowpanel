@@ -34,16 +34,16 @@ function InertWhenReadOnly({
 }) {
   if (!readOnly) return <>{children}</>;
   return (
-    <fieldset disabled className="m-0 min-w-0 border-0 p-0">
+    <fieldset disabled className="fp-m-0 fp-min-w-0 fp-border-0 fp-p-0">
       {children}
     </fieldset>
   );
 }
 
-const CONTROL_CLASS = `w-full rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-sm shadow-fp-xs transition-colors hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25 ${READ_ONLY_CLASS} aria-readonly:focus:border-fp-border-1 aria-readonly:focus:ring-0`;
+const CONTROL_CLASS = `fp-w-full fp-rounded fp-border fp-border-line fp-bg-surface fp-px-3 fp-py-2 fp-text-sm fp-shadow-xs fp-transition-colors hover:fp-border-line-strong focus:fp-border-focus focus:fp-outline-none focus:fp-ring-2 focus:fp-ring-focus/25 ${READ_ONLY_CLASS} aria-readonly:focus:fp-border-line aria-readonly:focus:fp-ring-0`;
 
 /** A native `<select>`, since the form posts to a route, dressed to match `ui/select`'s trigger and chevron. */
-const SELECT_CLASS = `${CONTROL_CLASS} h-9 appearance-none py-0 pr-9 text-fp-text-1 disabled:cursor-not-allowed disabled:opacity-50 aria-readonly:disabled:cursor-default aria-readonly:disabled:opacity-100`;
+const SELECT_CLASS = `${CONTROL_CLASS} fp-h-9 fp-appearance-none fp-py-0 fp-pr-9 fp-text-ink disabled:fp-cursor-not-allowed disabled:fp-opacity-50 aria-readonly:disabled:fp-cursor-default aria-readonly:disabled:fp-opacity-100`;
 
 type ScalarInputType =
   | "text"
@@ -169,7 +169,7 @@ export function MultiSelectField({
         {...(readOnly ? { disabled: true } : {})}
         {...(labelId ? { "aria-labelledby": labelId } : { "aria-label": label ?? field.name })}
         {...aria}
-        className="m-0 flex min-w-0 flex-wrap gap-2 rounded-fp border border-fp-border-1 bg-fp-bg-1 p-2"
+        className="fp-m-0 fp-flex fp-min-w-0 fp-flex-wrap fp-gap-2 fp-rounded fp-border fp-border-line fp-bg-surface fp-p-2"
       >
         {options.map((o) => {
           const checked = list.includes(o.value);
@@ -178,7 +178,7 @@ export function MultiSelectField({
             <label
               key={o.value}
               htmlFor={optionId}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-fp-sm border border-fp-border-1 bg-fp-bg-2 px-2 py-1 text-xs"
+              className="fp-inline-flex fp-cursor-pointer fp-items-center fp-gap-1.5 fp-rounded-sm fp-border fp-border-line fp-bg-canvas fp-px-2 fp-py-1 fp-text-xs"
             >
               <Checkbox
                 id={optionId}
@@ -307,7 +307,7 @@ export function TextareaField({
       {...(placeholder ? { placeholder } : {})}
       {...(readOnly ? { readOnly: true, "aria-readonly": true } : {})}
       {...aria}
-      className={`${CONTROL_CLASS} ${markdown ? "font-mono" : ""}`}
+      className={`${CONTROL_CLASS} ${markdown ? "fp-font-mono" : ""}`}
     />
   );
 }
@@ -337,7 +337,7 @@ export function SelectField({
       {readOnly ? (
         <input type="hidden" name={field.name} value={rawValue == null ? "" : String(rawValue)} />
       ) : null}
-      <div className="relative">
+      <div className="fp-relative">
         <select
           {...getSelectProps(field, { value: false })}
           value={control.value ?? ""}
@@ -355,7 +355,7 @@ export function SelectField({
         </select>
         <ChevronDown
           aria-hidden
-          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fp-text-2 opacity-50"
+          className="fp-pointer-events-none fp-absolute fp-right-3 fp-top-1/2 fp-h-4 fp-w-4 -fp-translate-y-1/2 fp-text-soft fp-opacity-50"
         />
       </div>
     </>
@@ -377,20 +377,23 @@ export function RadioField({ field, readOnly, options, rawValue, aria, labelId }
     <fieldset
       {...(labelId ? { "aria-labelledby": labelId } : {})}
       {...aria}
-      className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
+      className="fp-m-0 fp-flex fp-min-w-0 fp-flex-col fp-gap-1.5 fp-border-0 fp-p-0"
     >
       {readOnly && rawValue != null && rawValue !== "" ? (
         <input type="hidden" name={field.name} value={String(rawValue)} />
       ) : null}
       {options.map((o) => (
-        <label key={o.value} className="inline-flex items-center gap-2 text-sm text-fp-text-1">
+        <label
+          key={o.value}
+          className="fp-inline-flex fp-items-center fp-gap-2 fp-text-sm fp-text-ink"
+        >
           <input
             {...getInputProps(field, { type: "radio", value: false })}
             value={o.value}
             checked={control.value === o.value}
             onChange={() => control.change(o.value)}
             {...(readOnly ? { disabled: true } : {})}
-            className="accent-fp-accent"
+            className="fp-accent-accent"
           />
           {o.label}
         </label>
@@ -437,7 +440,7 @@ export function CheckboxField({ field, readOnly, aria }: CheckboxFieldProps) {
         onChange={(e) => control.change(e.target.checked ? "on" : "")}
         {...(readOnly ? { disabled: true } : {})}
         {...aria}
-        className="h-4 w-4 accent-fp-accent"
+        className="fp-h-4 fp-w-4 fp-accent-accent"
       />
     </>
   );

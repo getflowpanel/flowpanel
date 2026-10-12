@@ -48,14 +48,14 @@ function Avatar({ user }: { user: AccountMenuUser }) {
         src={user.avatar}
         alt=""
         aria-hidden="true"
-        className="h-6 w-6 rounded-full object-cover"
+        className="fp-h-6 fp-w-6 fp-rounded-full fp-object-cover"
       />
     );
   }
   return (
     <span
       aria-hidden="true"
-      className="flex h-6 w-6 items-center justify-center rounded-full bg-fp-accent text-[11px] font-semibold text-fp-accent-text"
+      className="fp-flex fp-h-6 fp-w-6 fp-items-center fp-justify-center fp-rounded-full fp-bg-accent fp-text-[11px] fp-font-semibold fp-text-on-accent"
     >
       {initials(user)}
     </span>
@@ -72,23 +72,30 @@ export function AccountMenu({ user, align = "start", className, compact }: Accou
       <DropdownMenuTrigger
         aria-label={navigation.accountMenu}
         className={cn(
-          "flex min-h-11 w-full items-center gap-2 rounded-fp-sm px-2 py-1.5 text-left text-sm text-fp-text-1 hover:bg-fp-bg-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60 sm:min-h-9",
+          "fp-flex fp-min-h-11 fp-w-full fp-items-center fp-gap-2 fp-rounded-sm fp-px-2 fp-py-1.5 fp-text-left fp-text-sm fp-text-ink hover:fp-bg-canvas focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 sm:fp-min-h-9",
           className,
         )}
       >
         <Avatar user={user} />
-        <span className={cn("min-w-0 flex-1 truncate", compact && "hidden sm:block")}>{label}</span>
+        <span
+          className={cn("fp-min-w-0 fp-flex-1 fp-truncate", compact && "fp-hidden sm:fp-block")}
+        >
+          {label}
+        </span>
         <ChevronsUpDown
-          className={cn("h-3.5 w-3.5 shrink-0 text-fp-text-3", compact && "hidden sm:block")}
+          className={cn(
+            "fp-h-3.5 fp-w-3.5 fp-shrink-0 fp-text-faint",
+            compact && "fp-hidden sm:fp-block",
+          )}
           aria-hidden="true"
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="min-w-56">
+      <DropdownMenuContent align={align} className="fp-min-w-56">
         {user.name && user.email ? (
           <>
-            <div className="px-2 py-1.5">
-              <div className="truncate text-sm font-medium text-fp-text-1">{user.name}</div>
-              <div className="truncate text-xs text-fp-text-3">{user.email}</div>
+            <div className="fp-px-2 fp-py-1.5">
+              <div className="fp-truncate fp-text-sm fp-font-medium fp-text-ink">{user.name}</div>
+              <div className="fp-truncate fp-text-xs fp-text-faint">{user.email}</div>
             </div>
             <DropdownMenuSeparator />
           </>
@@ -99,7 +106,7 @@ export function AccountMenu({ user, align = "start", className, compact }: Accou
             asChild={item.href !== undefined}
             className={cn(
               item.variant === "destructive" &&
-                "text-fp-err-text focus:bg-fp-err/10 focus:text-fp-err-text",
+                "fp-text-err-ink focus:fp-bg-err/10 focus:fp-text-err-ink",
             )}
           >
             {item.href !== undefined ? (
@@ -114,7 +121,7 @@ export function AccountMenu({ user, align = "start", className, compact }: Accou
             {items.length > 0 ? <DropdownMenuSeparator /> : null}
             <DropdownMenuItem asChild>
               <a href={user.signOut}>
-                <LogOut className="h-4 w-4" aria-hidden="true" />
+                <LogOut className="fp-h-4 fp-w-4" aria-hidden="true" />
                 {navigation.signOut}
               </a>
             </DropdownMenuItem>

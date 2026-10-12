@@ -26,7 +26,7 @@ describe("CaptionLine", () => {
     const line = container.querySelector("[data-fp-caption]");
     expect(line?.textContent).toBe("Data as of 2026-09-21 06:00");
     expect(line?.getAttribute("title")).toBe("6 hours ago");
-    expect(line?.className).toContain("text-fp-text-3");
+    expect(line?.className).toContain("fp-text-faint");
   });
 
   it("marks a stale caption with a glyph as well as the warn colour", () => {
@@ -35,8 +35,8 @@ describe("CaptionLine", () => {
     );
     const line = container.querySelector("[data-fp-caption]");
     expect(line?.textContent).toBe("▲ Warning Data as of 06:00");
-    expect(screen.getByText("Warning").className).toContain("sr-only");
-    expect(line?.className).toContain("text-fp-warn-text");
+    expect(screen.getByText("Warning").className).toContain("fp-sr-only");
+    expect(line?.className).toContain("fp-text-warn-ink");
   });
 
   it("marks an error caption with ✕, the error glyph", () => {

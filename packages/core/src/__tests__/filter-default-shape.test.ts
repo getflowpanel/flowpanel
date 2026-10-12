@@ -46,7 +46,7 @@ describe("a filter's defaultValue at defineAdmin", () => {
 
   it("names a default the list would read as other rows", () => {
     expect(boot([{ field: "plan", type: "select", defaultValue: ["free", "pro"] }])).toThrow(
-      /filters\[0\]\.defaultValue filters "user" by "plan" = \["free","pro"\].*needs a "multiselect" filter there/,
+      /filters\[0\]\.defaultValue: it filters "user" by "plan" = \["free","pro"\].*needs a "multiselect" filter there/,
     );
   });
 });

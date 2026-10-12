@@ -45,37 +45,37 @@ export function ListCard(props: ListCardProps) {
   if (props.variant === "banner") return <ListBanner {...props} />;
   const { label, rows, emptyState, caption, more } = props;
   return (
-    <Card className="h-full">
+    <Card className="fp-h-full">
       <CardHeading label={label} caption={caption} />
-      <CardContent className={label || caption ? "pt-0" : ""}>
+      <CardContent className={label || caption ? "fp-pt-0" : ""}>
         {rows.length === 0 ? (
           <EmptyLine>{emptyState}</EmptyLine>
         ) : (
-          <ul className="divide-y divide-fp-border-1">
+          <ul className="fp-divide-y fp-divide-line">
             {rows.map((row, index) => (
               <li
                 key={row.key ?? `#${index}`}
                 data-tone={row.tone}
-                className="flex items-baseline justify-between gap-3 py-1.5 first:pt-0 last:pb-0"
+                className="fp-flex fp-items-baseline fp-justify-between fp-gap-3 fp-py-1.5 first:fp-pt-0 last:fp-pb-0"
               >
-                <span className="flex min-w-0 items-baseline gap-2">
+                <span className="fp-flex fp-min-w-0 fp-items-baseline fp-gap-2">
                   {row.tone && row.tone !== "default" ? (
                     <span
                       aria-hidden
                       data-tone-dot=""
                       className={cn(
-                        "mt-1.5 h-2 w-2 shrink-0 self-start rounded-full",
+                        "fp-mt-1.5 fp-h-2 fp-w-2 fp-shrink-0 fp-self-start fp-rounded-full",
                         toneFillClass[row.tone],
                       )}
                     />
                   ) : null}
                   <ToneWord tone={row.tone} />
                   <span
-                    className={cn(TWO_LINES, "min-w-0 text-sm text-fp-text-1")}
+                    className={cn(TWO_LINES, "fp-min-w-0 fp-text-sm fp-text-ink")}
                     {...fullTextTitle(row.text)}
                   >
                     {row.href ? (
-                      <a href={row.href} className="hover:underline">
+                      <a href={row.href} className="hover:fp-underline">
                         {row.text}
                       </a>
                     ) : (
@@ -87,7 +87,7 @@ export function ListCard(props: ListCardProps) {
                   <span
                     className={cn(
                       TWO_LINES,
-                      "max-w-[45%] shrink-0 text-right text-xs tabular-nums text-fp-text-3",
+                      "fp-max-w-[45%] fp-shrink-0 fp-text-right fp-text-xs fp-tabular-nums fp-text-faint",
                     )}
                     {...fullTextTitle([row.count, row.since, row.meta].filter(Boolean).join(" · "))}
                   >
@@ -99,13 +99,13 @@ export function ListCard(props: ListCardProps) {
           </ul>
         )}
         {more ? (
-          <div className="mt-2 text-xs">
+          <div className="fp-mt-2 fp-text-xs">
             {more.href ? (
               <a href={more.href} className={QUIET_LINK}>
                 {more.label}
               </a>
             ) : (
-              <span className="text-fp-text-3">{more.label}</span>
+              <span className="fp-text-faint">{more.label}</span>
             )}
           </div>
         ) : null}

@@ -60,7 +60,7 @@ describe("a statGroup in the drawer", () => {
     await vi.waitFor(() => expect(screen.getByText("Errors")).toBeTruthy());
     const errors = screen.getByRole("link", { name: "2" });
     expect(errors.getAttribute("href")).toBe("/admin/runs");
-    expect(errors.parentElement?.className).toContain("text-fp-err-text");
+    expect(errors.parentElement?.className).toContain("fp-text-err-ink");
     expect(screen.getByText("$1,200")).toBeTruthy();
   });
 });

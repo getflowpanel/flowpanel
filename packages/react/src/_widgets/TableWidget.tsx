@@ -40,27 +40,30 @@ export function TableWidget<Row extends Record<string, unknown>>(props: TableWid
   const onRowClick = useRowHrefClick(rows, hrefs) ?? props.onRowClick;
 
   return (
-    <Card className="h-full overflow-hidden">
+    <Card className="fp-h-full fp-overflow-hidden">
       {props.label || props.seeAllHref || props.caption ? (
-        <CardHeader className="flex items-center justify-between gap-3">
-          <span className="min-w-0">
-            <span className="block truncate">{props.label}</span>
+        <CardHeader className="fp-flex fp-items-center fp-justify-between fp-gap-3">
+          <span className="fp-min-w-0">
+            <span className="fp-block fp-truncate">{props.label}</span>
             <CaptionLine caption={props.caption} />
           </span>
           {props.seeAllHref ? (
-            <a href={props.seeAllHref} className={`shrink-0 text-xs font-normal ${QUIET_LINK}`}>
+            <a
+              href={props.seeAllHref}
+              className={`fp-shrink-0 fp-text-xs fp-font-normal ${QUIET_LINK}`}
+            >
               {props.seeAllLabel}
             </a>
           ) : null}
         </CardHeader>
       ) : null}
       {rows.length === 0 ? (
-        <CardContent className={props.label || props.caption ? "pt-0" : ""}>
+        <CardContent className={props.label || props.caption ? "fp-pt-0" : ""}>
           <EmptyLine>{emptyState ?? widget.empty}</EmptyLine>
         </CardContent>
       ) : (
         <DataTable
-          className="rounded-none border-0 shadow-none"
+          className="fp-rounded-none fp-border-0 fp-shadow-none"
           rows={rows}
           columns={props.columns}
           rowKey={props.rowKey}

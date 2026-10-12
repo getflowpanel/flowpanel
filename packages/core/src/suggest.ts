@@ -19,10 +19,7 @@ function distance(a: string, b: string, max: number): number {
 
 const squash = (value: string): string => value.toLowerCase().replace(/[_-]/g, "");
 
-/**
- * The known name a typo most likely meant: an exact match once casing and word
- * separators are ignored, else the closest within an edit distance that grows with the name, up to two.
- */
+/** The known name a typo most likely meant, ignoring case and separators, within an edit distance of two. */
 export function near(target: string, known: readonly string[]): string | null {
   const squashed = squash(target);
   const same = known.find((candidate) => squash(candidate) === squashed);

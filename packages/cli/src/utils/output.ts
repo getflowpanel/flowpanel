@@ -5,6 +5,13 @@ export function writeJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
+/** One `kind  path` line per planned operation, the way every command prints a plan. */
+export function planLines(plan: FilesystemPlan): string {
+  return publicPlan(plan)
+    .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
+    .join("\n");
+}
+
 export function writePlanJson(
   command: string,
   plan: FilesystemPlan,

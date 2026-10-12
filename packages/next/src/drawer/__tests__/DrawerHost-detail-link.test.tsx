@@ -65,7 +65,7 @@ describe("DrawerHost detail link", () => {
     expect(link.dataset.size).toBe("sm");
     const heading = screen
       .getAllByRole("heading", { name: "a@b.c" })
-      .find((h) => !h.className.includes("sr-only")) as HTMLElement;
+      .find((h) => !h.className.includes("fp-sr-only")) as HTMLElement;
     expect(link.closest("h2")).toBeNull();
     expect(heading.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(link.parentElement).toBe(heading.parentElement?.parentElement);

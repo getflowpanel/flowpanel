@@ -43,8 +43,8 @@ export interface AuthConfig {
   allowUnauthenticated?: boolean;
 }
 
-/** Slot registry for L2 component overrides registered via `theme.components`. */
-// biome-ignore lint/suspicious/noEmptyInterface: must stay an interface — @flowpanel/react and consumers augment it via `declare module` merging (I-11); a `type` alias cannot be merged into.
+/** Component slots a host can override through `theme.components`. */
+// biome-ignore lint/suspicious/noEmptyInterface: must stay an interface — @flowpanel/react and consumers augment it via `declare module` merging; a `type` alias cannot be merged into.
 export interface FlowpanelComponentSlots {}
 
 /** A design token FlowPanel's stylesheet reads. Colours hold a bare HSL triplet. */
@@ -172,6 +172,14 @@ export interface SecurityConfig {
   sameOrigin?: boolean;
   /** Additional exact origins allowed to submit writes, for example `https://ops.example.com`. */
   trustedOrigins?: string[];
+  /**
+   * How many proxies in front of the app append to `X-Forwarded-For`; `ctx.ip` is the entry the outermost one wrote.
+   * `1` for Vercel, a single nginx, or Cloudflare straight to the app; `2` for Cloudflare in front of nginx.
+   * With `0`, `ctx.ip` is `null`, because every header could come from the client.
+   * `ctx.ip` is for logs and rate limits, not for deciding who may sign in.
+   * @defaultValue 0
+   */
+  trustedProxies?: number;
 }
 
 export interface AdminDefinition<

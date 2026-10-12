@@ -14,11 +14,11 @@ import { toneTextClass } from "../lib/tone-classes";
 
 const HEAT_CLASS = [
   "",
-  "bg-fp-data/10",
-  "bg-fp-data/20",
-  "bg-fp-data/30",
-  "bg-fp-data/40",
-  "bg-fp-data/50",
+  "fp-bg-data/10",
+  "fp-bg-data/20",
+  "fp-bg-data/30",
+  "fp-bg-data/40",
+  "fp-bg-data/50",
 ] as const;
 
 export interface HeatCellProps {
@@ -33,7 +33,7 @@ export function HeatCell({ level, text }: HeatCellProps) {
     <span
       data-heat={level}
       className={cn(
-        "inline-block rounded-fp-sm px-1.5 py-0.5 tabular-nums",
+        "fp-inline-block fp-rounded-sm fp-px-1.5 fp-py-0.5 fp-tabular-nums",
         HEAT_CLASS[level] ?? "",
       )}
     >
@@ -54,7 +54,7 @@ export function UrlCell({ href, text }: UrlCellProps) {
     <a
       href={href}
       title={href}
-      className="block max-w-72 truncate text-fp-accent hover:underline"
+      className="fp-block fp-max-w-72 fp-truncate fp-text-accent hover:fp-underline"
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
@@ -74,7 +74,7 @@ export function BooleanCell({ value }: BooleanCellProps) {
   return (
     <span>
       <span aria-hidden>{value ? "✓" : "✕"}</span>
-      <span className="sr-only">{value ? filters.yes : filters.no}</span>
+      <span className="fp-sr-only">{value ? filters.yes : filters.no}</span>
     </span>
   );
 }
@@ -110,7 +110,7 @@ export interface ToneTextProps {
 /** A numeric cell coloured by its threshold's tone. */
 export function ToneText({ tone, text }: ToneTextProps) {
   return (
-    <span data-tone={tone} className={`tabular-nums ${toneTextClass[tone]}`}>
+    <span data-tone={tone} className={`fp-tabular-nums ${toneTextClass[tone]}`}>
       <ToneWord tone={tone} />
       {text}
     </span>

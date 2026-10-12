@@ -262,11 +262,11 @@ export interface ResourceOptions<Row> {
   expose?: (keyof Row & string)[];
 
   /** Columns of the list table, in order; a bare string is a field name. Omitted, `defineAdmin` fills it in introspection order. */
-  columns?: (keyof Row | ColumnDef<Row>)[];
+  columns?: ((keyof Row & string) | ColumnDef<Row>)[];
   /** Fields the search box queries. Without this, search is disabled. */
   search?: (keyof Row & string)[];
   /** Filter controls above the list. A bare string always renders a text filter — declare a `FilterDef` for any other control. */
-  filters?: (keyof Row | FilterDef<Row>)[];
+  filters?: ((keyof Row & string) | FilterDef<Row>)[];
   /** Sort applied when the URL carries none. */
   defaultSort?: { field: keyof Row & string; dir: "asc" | "desc" };
   /** Rows per page.

@@ -9,7 +9,7 @@ function inferredBy(name: string, tab: DetailTab<Row>, target: ResourceConfig): 
   const found = pointingField(target, name);
   if (found.kind === "one") return found.field;
   const site = `resource "${name}" tab "${tab.key}"`;
-  throw new Error(recordFieldError(site, String(tab.resource), name, found, "by"));
+  throw recordFieldError(site, String(tab.resource), name, found, "by");
 }
 
 function resolveTab(
@@ -34,10 +34,7 @@ function resolveTab(
   return out;
 }
 
-/**
- * Resolves each related tab's `by` — given, or inferred for a `related()` tab — into its
- * `filter` and `hide`. A plain tab without `by` is left as written.
- */
+/** Turns each related tab's `by`, given or inferred, into its `filter` and `hide`. */
 export function resolveRelatedTabs(
   name: string,
   resource: ResourceConfig,

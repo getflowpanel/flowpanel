@@ -60,9 +60,9 @@ export function FunnelCard({
           -1,
         );
   return (
-    <Card className="h-full">
+    <Card className="fp-h-full">
       <CardHeading label={label} caption={caption} />
-      <CardContent className={cn("space-y-2.5", label || caption ? "pt-0" : "")}>
+      <CardContent className={cn("fp-space-y-2.5", label || caption ? "fp-pt-0" : "")}>
         {steps.length === 0 ? (
           <EmptyLine>{emptyState}</EmptyLine>
         ) : (
@@ -76,30 +76,30 @@ export function FunnelCard({
                 key={index}
                 data-step=""
                 {...(alert ? { "data-tone": "warn" } : {})}
-                className="space-y-1"
+                className="fp-space-y-1"
               >
-                <div className="flex items-baseline justify-between gap-3 text-xs">
+                <div className="fp-flex fp-items-baseline fp-justify-between fp-gap-3 fp-text-xs">
                   <span
-                    className={cn(TWO_LINES, "min-w-0 text-fp-text-2")}
+                    className={cn(TWO_LINES, "fp-min-w-0 fp-text-soft")}
                     {...fullTextTitle(step.label)}
                   >
                     {step.href ? (
-                      <a href={step.href} className="hover:underline">
+                      <a href={step.href} className="hover:fp-underline">
                         {step.label}
                       </a>
                     ) : (
                       step.label
                     )}
                   </span>
-                  <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
-                    <span className="text-fp-text-1">
+                  <span className="fp-flex fp-shrink-0 fp-items-baseline fp-gap-2 fp-tabular-nums">
+                    <span className="fp-text-ink">
                       {formatNumber(step.value, format, formatting)}
                     </span>
-                    <span className="text-fp-text-3">
+                    <span className="fp-text-faint">
                       {formatPercentValue(share, formatting, 0)}
                     </span>
                     {visibleDrop(dropOff) ? (
-                      <span className={alert ? toneTextClass.warn : "text-fp-text-3"}>
+                      <span className={alert ? toneTextClass.warn : "fp-text-faint"}>
                         {alert ? <ToneWord tone="warn" /> : null}
                         {dropOff < 0
                           ? `+${formatPercentValue(-dropOff, formatting, 0)}`
@@ -108,10 +108,10 @@ export function FunnelCard({
                     ) : null}
                   </span>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-fp-bg-3">
+                <div className="fp-h-1.5 fp-w-full fp-overflow-hidden fp-rounded-full fp-bg-fill">
                   <div
                     className={cn(
-                      "h-full rounded-full",
+                      "fp-h-full fp-rounded-full",
                       toneFillClass[alert ? "warn" : "default"],
                       barWidthClass(share),
                     )}

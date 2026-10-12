@@ -45,7 +45,9 @@ describe("DashboardFilters", () => {
   it("offers a clear button once a filter is set, and it drops every filter", () => {
     nav.search = "preset=today&f_platform=kwork";
     render(<DashboardFilters filters={filters} />);
-    expect(screen.getByRole("button", { name: "Clear filters" }).className).toContain("min-h-11");
+    expect(screen.getByRole("button", { name: "Clear filters" }).className).toContain(
+      "fp-min-h-11",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(nav.router.push).toHaveBeenCalledWith("/admin/parsing?preset=today", { scroll: false });
   });

@@ -20,20 +20,20 @@ export function DefaultEmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className="flex flex-col items-center justify-center py-16 text-center"
+      className="fp-flex fp-flex-col fp-items-center fp-justify-center fp-py-16 fp-text-center"
       {...(failed !== undefined ? { "data-fp-error": failed } : {})}
     >
       {icon ? (
         <div
-          className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-fp-bg-3/60 text-2xl text-fp-text-2"
+          className="fp-mb-3 fp-flex fp-h-12 fp-w-12 fp-items-center fp-justify-center fp-rounded-full fp-bg-fill/60 fp-text-2xl fp-text-soft"
           aria-hidden="true"
         >
           {icon}
         </div>
       ) : null}
-      <div className="text-base font-semibold text-fp-text-1">{title}</div>
-      {description ? <div className="mt-1 text-sm text-fp-text-3">{description}</div> : null}
-      {action ? <div className="mt-4">{action}</div> : null}
+      <div className="fp-text-base fp-font-semibold fp-text-ink">{title}</div>
+      {description ? <div className="fp-mt-1 fp-text-sm fp-text-faint">{description}</div> : null}
+      {action ? <div className="fp-mt-4">{action}</div> : null}
     </div>
   );
 }

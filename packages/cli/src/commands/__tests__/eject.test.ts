@@ -43,7 +43,7 @@ describe("runEject — resource", () => {
   it("refuses a resource the config does not register", async () => {
     await expect(
       runEject({ cwd: tmp, target: "resource", name: "ghosts", version: "1.0.0" }),
-    ).rejects.toThrow('eject: resource "ghosts" not found in flowpanel.config.ts');
+    ).rejects.toThrow('[flowpanel] resources: no resource "ghosts" in flowpanel.config.ts.');
   });
 
   it("writes under the configured admin mount", async () => {
@@ -131,7 +131,7 @@ describe("runEject — dashboard", () => {
   it("throws when the dashboard path is not in the config", async () => {
     await expect(
       runEject({ cwd: tmp, target: "dashboard", name: "/ghost", version: "1.0.0" }),
-    ).rejects.toThrow(/dashboard with path "\/ghost" not found/);
+    ).rejects.toThrow(/\[flowpanel\] dashboards: no dashboard with path "\/ghost"/);
   });
 });
 
@@ -187,7 +187,7 @@ describe("runEject — before init", () => {
     await expect(
       runEject({ cwd: bare, target: "resource", name: "users", version: "1.0.0" }),
     ).rejects.toThrow(
-      /flowpanel\.config\.ts not found\. Run `pnpm dlx @flowpanel\/cli init` first/,
+      /\[flowpanel\] flowpanel\.config\.ts: not found in .*\. Run `\w+( dlx)? @flowpanel\/cli init` first/,
     );
   });
 
@@ -202,7 +202,7 @@ describe("runEject — before init", () => {
   it("checks before ejecting a dashboard too", async () => {
     await expect(
       runEject({ cwd: bare, target: "dashboard", name: "/", version: "1.0.0" }),
-    ).rejects.toThrow(/flowpanel\.config\.ts not found/);
+    ).rejects.toThrow(/flowpanel\.config\.ts: not found/);
     expect(await fs.readdir(bare)).toEqual([]);
   });
 });
@@ -376,6 +376,6 @@ export default defineAdmin({
 
     await expect(
       runEject({ cwd: splitTmp, target: "resource", name: "ghost", version: "1.0.0" }),
-    ).rejects.toThrow(/resource "ghost" not found in .*index\.ts or .*resources/);
+    ).rejects.toThrow(/no resource "ghost" in .*index\.ts or .*resources/);
   });
 });

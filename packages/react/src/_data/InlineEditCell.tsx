@@ -11,7 +11,7 @@ import { cn } from "../lib/cn";
 import { humanize } from "../lib/humanize";
 
 const PENCIL_REVEAL =
-  "opacity-0 group-hover/row:opacity-100 group-hover/edit:opacity-100 group-focus-within/edit:opacity-100 [@media(hover:none)]:opacity-100";
+  "fp-opacity-0 group-hover/row:fp-opacity-100 group-hover/edit:fp-opacity-100 group-focus-within/edit:fp-opacity-100 [@media(hover:none)]:fp-opacity-100";
 
 /** Editable table cell. */
 export interface InlineEditCellProps {
@@ -117,8 +117,8 @@ export function InlineEditCell({
     const shown = display ? display(value) : formatDisplay(value, valueType);
     if (rowClickable) {
       return (
-        <span className="group/edit flex min-w-0 items-center gap-1">
-          <span className={cn("min-w-0 flex-1 text-fp-text-1", className)}>{shown}</span>
+        <span className="fp-group/edit fp-flex fp-min-w-0 fp-items-center fp-gap-1">
+          <span className={cn("fp-min-w-0 fp-flex-1 fp-text-ink", className)}>{shown}</span>
           <button
             ref={triggerRef}
             type="button"
@@ -127,7 +127,7 @@ export function InlineEditCell({
             aria-label={editLabel}
             className={cn(
               PENCIL_REVEAL,
-              "shrink-0 rounded-fp-sm p-0.5 text-fp-text-3 transition-opacity hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+              "fp-shrink-0 fp-rounded-sm fp-p-0.5 fp-text-faint fp-transition-opacity hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
             )}
           >
             <Pencil size={14} aria-hidden />
@@ -143,15 +143,15 @@ export function InlineEditCell({
         onKeyDown={editOnKey}
         aria-label={editLabel}
         className={cn(
-          "group/edit flex w-full min-w-0 cursor-text items-center gap-1 rounded-fp-sm text-left text-fp-text-1 transition-colors hover:-mx-1 hover:-my-0.5 hover:bg-fp-bg-3/60 hover:px-1 hover:py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/60",
+          "fp-group/edit fp-flex fp-w-full fp-min-w-0 fp-cursor-text fp-items-center fp-gap-1 fp-rounded-sm fp-text-left fp-text-ink fp-transition-colors hover:-fp-mx-1 hover:-fp-my-0.5 hover:fp-bg-fill/60 hover:fp-px-1 hover:fp-py-0.5 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
           className,
         )}
       >
-        <span className="min-w-0 flex-1">{shown}</span>
+        <span className="fp-min-w-0 fp-flex-1">{shown}</span>
         <Pencil
           size={14}
           aria-hidden
-          className={cn(PENCIL_REVEAL, "shrink-0 text-fp-text-3 transition-opacity")}
+          className={cn(PENCIL_REVEAL, "fp-shrink-0 fp-text-faint fp-transition-opacity")}
         />
       </button>
     );
@@ -177,7 +177,7 @@ export function InlineEditCell({
       }}
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        "w-full rounded-fp-sm border border-fp-border-2 bg-fp-bg-1 px-1.5 py-0.5 text-fp-text-1 focus:border-fp-accent focus:outline-none",
+        "fp-w-full fp-rounded-sm fp-border fp-border-line-strong fp-bg-surface fp-px-1.5 fp-py-0.5 fp-text-ink focus:fp-border-accent focus:fp-outline-none",
         className,
       )}
     />
@@ -225,7 +225,7 @@ function inputStringToValue(draft: string, t: InlineEditCellProps["valueType"]):
 }
 
 function formatDisplay(v: unknown, t: InlineEditCellProps["valueType"]): React.ReactNode {
-  if (v === null || v === undefined) return <span className="text-fp-text-3">—</span>;
+  if (v === null || v === undefined) return <span className="fp-text-faint">—</span>;
   if (t === "date") {
     const d = v instanceof Date ? v : new Date(String(v));
     if (!Number.isNaN(d.getTime())) {

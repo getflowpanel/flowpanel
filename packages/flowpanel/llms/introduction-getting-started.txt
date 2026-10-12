@@ -1,0 +1,211 @@
+# FlowPanel — Getting started — Getting started
+
+## Getting started
+
+Add FlowPanel to an existing Next.js App Router project, expose your first Drizzle table or Prisma model, and open /admin.
+
+Docs: https://flowpanel.tech/docs/introduction/getting-started
+
+### Before you start
+
+| Requirement | Supported range | Note |
+| --- | --- | --- |
+| Node.js | `>=20` | Required by the CLI and the kit. |
+| Next.js | `>=15.5.0 <17.0.0` | App Router only. With `cacheComponents` on, 16.3 or newer. |
+| React | `^19.0.0` | React DOM uses the same major version. |
+| Drizzle ORM | `>=0.45.2 <1.0.0` | Required only when using the Drizzle adapter. |
+| Prisma Client | `>=5.0.0 <7.0.0` | Prisma 5 and 6, only when using the Prisma adapter. Prisma 7 is not supported yet. |
+
+Tailwind is optional: the admin stylesheet is precompiled. The Pages Router is not supported. Run every command from the project root.
+
+### Initialize
+
+```bash
+pnpm dlx @flowpanel/cli init
+```
+
+`init` detects the package manager, ORM, app directory, path alias, database client, schema and auth helper, asks you to confirm the paths, then installs `@flowpanel/kit` and a local `@flowpanel/cli`. It stops on a conflicting file and writes nothing. `--dry-run` prints the plan without writing; `--path /ops/admin` picks the mount.
+
+Everything the admin runs comes from `@flowpanel/kit` and its subpaths. The only other packages are the CLI and the optional [ESLint plugin](/docs/reference/eslint-plugin).
+
+With npm, run `npx @flowpanel/cli init` and then `npx flowpanel <command>`. Yarn and bun work the same way.
+
+### Open the config
+
+`init` wrote `flowpanel.config.ts` at the project root. When it found no auth provider and no `getSession`, it looks like this, with your own import paths:
+
+##### Drizzle
+
+```ts
+import { defineAdmin } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+import { getSession } from "@/server/lib/auth";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+    schema: typeof schema;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
+  }
+}
+
+export default defineAdmin({
+  paths: { admin: "/admin", api: "/api/flowpanel" },
+  adapter: drizzleAdapter({ db, schema }),
+
+  auth: {
+    session: getSession,
+    role: (s) => s?.user.role ?? "guest",
+    access: "admin",
+  },
+
+  realtime: { driver: "memory" },
+
+  theme: {
+    brand: { name: "My app" },
+    mode: "auto",
+  },
+
+  resources: [
+    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })
+  ],
+});
+```
+
+##### Prisma
+
+```ts
+import { defineAdmin } from "@flowpanel/kit";
+import { prismaAdapter } from "@flowpanel/kit/prisma";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/server/lib/auth";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof prisma;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
+  }
+}
+
+export default defineAdmin({
+  paths: { admin: "/admin", api: "/api/flowpanel" },
+  adapter: prismaAdapter({ prisma, provider: "postgresql" }),
+
+  auth: {
+    session: getSession,
+    role: (s) => s?.user.role ?? "guest",
+    access: "admin",
+  },
+
+  realtime: { driver: "memory" },
+
+  theme: {
+    brand: { name: "My app" },
+    mode: "auto",
+  },
+
+  resources: [
+    // pnpm flowpanel new <model>  adds an entry; or write resource("User", { columns: ["email", "name", "createdAt"] })
+  ],
+});
+```
+
+The `declare module` block registers your database, your schema and your session type, so resource names, rows and the `s` in `auth.role` are typed. If your auth module already exports `getSession`, the config imports it and `role` is a longer guard that reads `user.role` defensively. When `init` finds better-auth, Auth.js, Clerk or Lucia, `auth` is `flowpanelAuth` from `server/lib/flowpanel-session.ts` instead, and that module registers the session.
+
+### Connect auth
+
+`access: "admin"` lets in only sessions whose role is `admin`, so the admin needs your session.
+
+- With a detected provider, `server/lib/flowpanel-session.ts` holds the matching preset, which reads the role from `session.user.role`. Make sure your user's session carries the `admin` role.
+- With your own `getSession`, the config uses it as it is.
+- Otherwise `server/lib/auth.ts` exports a `getSession` that returns `null`, so every request is denied. Return your session from it, or run `pnpm flowpanel init --dev-auth` for a development identity that refuses to run in production.
+
+The stub `init` wrote in that last case, which denies every request:
+
+```ts
+// Return the signed-in session here, e.g. auth.api.getSession({ headers: await headers() }); until then the admin rejects every request.
+type Session = { user: { id: string; role: string } };
+
+export async function getSession(): Promise<Session | null> {
+  return null;
+}
+```
+
+[Authentication](/docs/guides/authentication) covers each provider and how the role is read.
+
+### Add your first resource
+
+`pnpm flowpanel new <table>` (the model name with Prisma) writes a resource entry for you; see [flowpanel new](/docs/reference/cli#flowpanel-new). To write it yourself, open `flowpanel.config.ts`, add `resource` to the `@flowpanel/kit` import and put this entry in `resources`:
+
+##### Drizzle
+
+```ts
+resources: [
+  resource(schema.users, {
+    columns: ["email", "name", "role", "createdAt"],
+    search: ["email", "name"],
+    defaultSort: { field: "createdAt", dir: "desc" },
+  }),
+],
+```
+Drizzle infers the row type from the table, so a misspelt column fails the type check.
+
+##### Prisma
+
+```ts
+resources: [
+  resource("User", {
+    name: "users",
+    columns: ["email", "name", "role", "createdAt"],
+    search: ["email", "name"],
+    defaultSort: { field: "createdAt", dir: "desc" },
+  }),
+],
+```
+A Prisma resource is a model name, so bind it to the generated type: add `interface FlowpanelResources { users: import("@prisma/client").User }` inside the `declare module "@flowpanel/kit"` block. The columns are then checked against the model. `flowpanel new` does this for you.
+
+### Start the admin
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000/admin](http://localhost:3000/admin). The resource is in the navigation. A sign-in screen means the request had no session with the `admin` role; see [Connect auth](#connect-auth).
+
+`pnpm flowpanel dev` runs Next.js too, and also starts the [queue board](/docs/guides/queues) when `REDIS_URL` is set and `scripts/board-server.mts` exists. Only the board needs `tsx` (`pnpm add -D tsx`).
+
+### What `init` created
+
+Paths start with `src/` in a `src/app` project.
+
+| File | Purpose |
+| --- | --- |
+| `flowpanel.config.ts` | Resources, dashboards, auth, scope, realtime and theme |
+| `server/lib/flowpanel-session.ts` | With a detected auth provider: its preset, your session and role |
+| `server/lib/auth.ts` | With no provider and no `getSession`: a stub that denies every request |
+| `app/admin/[[...slug]]/page.tsx` | Catch-all admin page; exports `generateMetadata` |
+| `app/admin/layout.tsx` | Imports the stylesheet and the theme script |
+| `app/admin/not-found.tsx` | 404 page inside the admin chrome |
+| `app/api/flowpanel/[...route]/route.ts` | Resource and action handlers |
+| `app/api/flowpanel/stream/route.ts` | Authenticated SSE endpoint |
+| `styles/admin.css` | One import of the precompiled, isolated stylesheet |
+| `flowpanel/migrations/0001_init.sql` | SQL for `_flowpanel_migrations` and `flowpanel_audit_log` |
+
+`init` also adds `suppressHydrationWarning` to the root layout's `<html>` tag, because `ThemeScript` sets an attribute on it before hydration. If it cannot patch the file safely, it prints the edit. `flowpanel doctor --fix` restores a missing route file.
+
+### Optional: audit log tables
+
+```bash
+pnpm flowpanel migrate
+```
+
+Skip this step unless you turn on the audit log with `audit: { enabled: true }`. The command applies `flowpanel/migrations` through the database client in `flowpanel.config.ts` and creates `_flowpanel_migrations` and `flowpanel_audit_log`. `init` writes the SQL for your database: PostgreSQL, MySQL or SQLite. See [`AuditConfig`](/docs/reference/define-config#auditconfig).
+
+### Next
+
+- [Build a complete admin](/docs/introduction/founder-admin): dashboards, a record page, live updates and a smoke test.
+- [ScrapeAI](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper): a larger admin in the same domain as the tutorial, running as the [live demo](https://demo.flowpanel.tech/admin).
+- [Resources](/docs/build/resources), [Forms](/docs/build/forms), [Actions](/docs/build/actions).
+- [Production readiness](/docs/guides/production-readiness) before you deploy.

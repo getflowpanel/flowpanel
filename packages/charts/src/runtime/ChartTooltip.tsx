@@ -42,31 +42,31 @@ export function ChartTooltip({
   if (!active || !payload || payload.length === 0) return null;
   const total = payload.reduce((sum, p) => (typeof p.value === "number" ? sum + p.value : sum), 0);
   return (
-    <div className="min-w-[9rem] rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 px-3 py-2 text-xs shadow-fp-md">
+    <div className="fp-min-w-[9rem] fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-px-3 fp-py-2 fp-text-xs fp-shadow-md">
       {compact ? null : (
-        <div className="flex items-baseline justify-between gap-6 pb-1.5 font-medium text-fp-text-1">
+        <div className="fp-flex fp-items-baseline fp-justify-between fp-gap-6 fp-pb-1.5 fp-font-medium fp-text-ink">
           <span>{label}</span>
           {/* A total beside a single series would just print the same number twice. */}
           {payload.length > 1 ? (
-            <span className="tabular-nums">{show(total, format, formatting)}</span>
+            <span className="fp-tabular-nums">{show(total, format, formatting)}</span>
           ) : null}
         </div>
       )}
-      <div className="flex flex-col gap-1">
+      <div className="fp-flex fp-flex-col fp-gap-1">
         {payload.map((p) => (
           <div
             key={String(p.dataKey ?? p.name)}
-            className="flex items-center justify-between gap-6"
+            className="fp-flex fp-items-center fp-justify-between fp-gap-6"
           >
-            <span className="flex min-w-0 items-center gap-1.5 text-fp-text-2">
+            <span className="fp-flex fp-min-w-0 fp-items-center fp-gap-1.5 fp-text-soft">
               <span
                 aria-hidden
-                className="h-2 w-2 shrink-0 rounded-[2px]"
+                className="fp-h-2 fp-w-2 fp-shrink-0 fp-rounded-[2px]"
                 style={{ background: p.color }}
               />
-              <span className="truncate">{p.name}</span>
+              <span className="fp-truncate">{p.name}</span>
             </span>
-            <span className="shrink-0 tabular-nums font-medium text-fp-text-1">
+            <span className="fp-shrink-0 fp-tabular-nums fp-font-medium fp-text-ink">
               {show(p.value, format, formatting)}
             </span>
           </div>

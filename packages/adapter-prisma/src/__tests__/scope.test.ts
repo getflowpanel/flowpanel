@@ -222,6 +222,46 @@ describe("prismaAdapter tenant scope enforcement", () => {
     expect(result).toEqual({ id: "i1", companyId: "c1", name: "A2" });
   });
 
+  it("SECURITY: update refuses to move a row to another tenant before writing", async () => {
+    const { item, _d } = makeMock();
+    const adapter = prismaAdapter({ prisma: { item }, dmmf, provider: "postgresql" });
+
+    await expect(
+      adapter.update("Item", {
+        id: "i1",
+        input: { name: "A2", companyId: "c2" },
+        db: undefined,
+        boundScope: bindAdapterScope(applyScopeC1),
+      } as never),
+    ).rejects.toBeInstanceOf(FlowpanelAccessError);
+    expect(_d.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("SECURITY: update under a filter scope fails when the row leaves the scope", async () => {
+    const { item, _d } = makeMock();
+    _d.updateMany.mockResolvedValue({ count: 1 });
+    _d.findFirst.mockResolvedValue(null);
+    const run = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn({ item }));
+    const adapter = prismaAdapter({
+      prisma: { item, $transaction: run },
+      dmmf,
+      provider: "postgresql",
+    });
+
+    await expect(
+      adapter.update("Item", {
+        id: "i1",
+        input: { companyId: "c9" },
+        db: undefined,
+        boundScope: bindAdapterScope((where: unknown) => ({
+          ...(where as object),
+          companyId: { in: ["c1", "c2"] },
+        })),
+      } as never),
+    ).rejects.toBeInstanceOf(FlowpanelAccessError);
+    expect(run).toHaveBeenCalledOnce();
+  });
+
   it("delete uses deleteMany with merged scope", async () => {
     const { item, _d } = makeMock();
     _d.deleteMany.mockResolvedValue({ count: 0 });

@@ -4,8 +4,9 @@ import { printConfigWarnings } from "../doctor/config-warnings";
 import { type Check, runDoctorChecks } from "../doctor/run-checks";
 import { publicPlan } from "../plan/filesystem-plan";
 import { log } from "../utils/log";
-import { writeJson } from "../utils/output";
+import { planLines, writeJson } from "../utils/output";
 import { noNextProject } from "../utils/project-root";
+import { failCommand } from "../utils/ui";
 
 export { type Check, runDoctorChecks };
 
@@ -30,11 +31,7 @@ export function doctorCommand(cli: Command): void {
     .action(async (opts: { fix?: boolean; dryRun?: boolean; json?: boolean; path?: string }) => {
       const cwd = process.cwd();
       const notProject = await noNextProject(cwd);
-      if (notProject) {
-        if (opts.json) writeJson({ command: "doctor", ok: false, error: notProject });
-        else log.err(notProject);
-        process.exit(1);
-      }
+      if (notProject) failCommand("doctor", opts.json, notProject, { ok: false });
       const {
         checks,
         bad,
@@ -72,9 +69,7 @@ export function doctorCommand(cli: Command): void {
 
       if (plan && opts.dryRun) {
         process.stdout.write(`\n${pc.bold("Fixes (dry run — nothing written):")}\n`);
-        for (const operation of publicPlan(plan).operations) {
-          process.stdout.write(`  ${operation.kind.padEnd(6)} ${operation.path}\n`);
-        }
+        process.stdout.write(`${planLines(plan).replace(/^/gm, "  ")}\n`);
       }
 
       printConfigWarnings(configWarnings);

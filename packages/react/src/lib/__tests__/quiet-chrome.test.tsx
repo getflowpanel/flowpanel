@@ -46,7 +46,7 @@ describe("labels read in sentence case", () => {
       />,
     );
     expectQuietLabel(container.querySelector("thead"));
-    expect(container.querySelector("thead th")?.className).toContain("font-normal");
+    expect(container.querySelector("thead th")?.className).toContain("fp-font-normal");
   });
 
   it("over a nav group", () => {
@@ -70,7 +70,7 @@ describe("the active nav item", () => {
     );
     const link = screen.getByRole("link", { name: "Users" });
     expect(link.className).not.toContain("fp-accent");
-    expect(link.className).toContain("bg-fp-bg-3");
-    expect(link.className).toContain("text-fp-text-1");
+    expect(link.className).toContain("fp-bg-fill");
+    expect(link.className).toContain("fp-text-ink");
   });
 });

@@ -22,8 +22,8 @@ describe("card and section titles", () => {
   it("sets a card title in text-2 at regular weight", () => {
     render(<CardHeader>Runs</CardHeader>);
     const title = screen.getByText("Runs");
-    expect(title.className).toContain("text-fp-text-2");
-    expect(title.className).not.toContain("text-fp-text-1");
+    expect(title.className).toContain("fp-text-soft");
+    expect(title.className).not.toContain("fp-text-ink");
     expect(weightOf(title)).toEqual([]);
   });
 
@@ -41,7 +41,7 @@ describe("card and section titles", () => {
   it("sets a section title in text-1 at semibold", () => {
     render(<SectionLabel label="Pipeline" />);
     const title = screen.getByRole("heading", { name: "Pipeline" });
-    expect(title.className).toContain("text-fp-text-1");
-    expect(title.className).toContain("font-semibold");
+    expect(title.className).toContain("fp-text-ink");
+    expect(title.className).toContain("fp-font-semibold");
   });
 });

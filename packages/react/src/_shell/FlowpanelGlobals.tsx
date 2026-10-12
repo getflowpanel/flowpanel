@@ -43,7 +43,7 @@ export function FlowpanelGlobals({
           <LabelsProvider {...(labels ? { value: labels } : {})}>
             <RealtimeProvider {...(endpoint ? { endpoint } : {})}>
               <ToastProvider>
-                <div data-flowpanel-root="" className="min-h-full">
+                <div data-flowpanel-root="" className="fp-min-h-full">
                   <ThemeRuntime {...(themeMode ? { defaultMode: themeMode } : {})} />
                   {children}
                 </div>

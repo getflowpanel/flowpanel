@@ -59,23 +59,23 @@ export function ResourceListSearch({ placeholder = "Search…" }: ResourceListSe
   }, [draft, table]);
 
   return (
-    <div className="relative w-56">
-      <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fp-text-3" />
+    <div className="fp-relative fp-w-56">
+      <SearchIcon className="fp-pointer-events-none fp-absolute fp-left-3 fp-top-1/2 fp-h-3.5 fp-w-3.5 -fp-translate-y-1/2 fp-text-faint" />
       <input
         type="search"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}
-        className="h-9 w-full rounded-full border border-fp-border-1 bg-fp-bg-1 pl-9 pr-8 text-sm text-fp-text-1 shadow-fp-xs transition-colors placeholder:text-fp-text-3 hover:border-fp-border-2 focus:border-fp-focus focus:outline-none focus:ring-2 focus:ring-fp-focus/25 [&::-webkit-search-cancel-button]:hidden"
+        className="fp-h-9 fp-w-full fp-rounded-full fp-border fp-border-line fp-bg-surface fp-pl-9 fp-pr-8 fp-text-sm fp-text-ink fp-shadow-xs fp-transition-colors placeholder:fp-text-faint hover:fp-border-line-strong focus:fp-border-focus focus:fp-outline-none focus:fp-ring-2 focus:fp-ring-focus/25 [&::-webkit-search-cancel-button]:fp-hidden"
       />
       {draft ? (
         <button
           type="button"
           aria-label="Clear search"
           onClick={() => setDraft("")}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-fp-sm p-1 text-fp-text-3 transition-colors hover:bg-fp-bg-3/70 hover:text-fp-text-1"
+          className="fp-absolute fp-right-2 fp-top-1/2 -fp-translate-y-1/2 fp-rounded-sm fp-p-1 fp-text-faint fp-transition-colors hover:fp-bg-fill/70 hover:fp-text-ink"
         >
-          <XIcon className="h-3 w-3" />
+          <XIcon className="fp-h-3 fp-w-3" />
         </button>
       ) : null}
     </div>

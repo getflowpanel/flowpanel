@@ -1,5 +1,6 @@
 import { stripVTControlCharacters as bare } from "node:util";
 import * as p from "@clack/prompts";
+import { writeJson } from "./output";
 
 /** A command's human output: clack frames on a terminal, plain marked lines in a pipe, nothing under --json. */
 export interface Ui {
@@ -11,7 +12,16 @@ export interface Ui {
   outro(message: string): void;
   /** Stops with `message`; extra lines stay inside the clack frame. */
   cancel(message: string): void;
+  /** A slow step: a spinner on a terminal, a start line and an outcome line in a pipe. */
+  step(message: string): Step;
 }
+
+export interface Step {
+  done(message: string): void;
+  failed(message: string): void;
+}
+
+const quietStep: Step = { done: () => {}, failed: () => {} };
 
 const silent: Ui = {
   intro: () => {},
@@ -21,6 +31,7 @@ const silent: Ui = {
   note: () => {},
   outro: () => {},
   cancel: () => {},
+  step: () => quietStep,
 };
 
 const framed: Ui = {
@@ -31,21 +42,52 @@ const framed: Ui = {
   note: (body, title) => p.note(body, title),
   outro: (message) => p.outro(message),
   cancel: (message) => p.cancel(message.replaceAll("\n", "\n   ")),
+  step: (message) => {
+    const spinner = p.spinner();
+    spinner.start(message);
+    return { done: (end) => spinner.stop(end), failed: (end) => spinner.stop(end) };
+  },
 };
 
-const out = (line: string) => process.stdout.write(`${bare(line)}\n`);
-
-const plain: Ui = {
-  intro: () => {},
-  info: (message) => out(`· ${message}`),
-  ok: (message) => out(`✓ ${message}`),
-  warn: (message) => out(`! ${message}`),
-  note: (body, title) => out(`${title}\n${body.replace(/^/gm, "  ")}`),
-  outro: (message) => out(message),
-  cancel: (message) => process.stderr.write(`✗ ${bare(message)}\n`),
-};
+/** Plain lines; a titled block and the closing line start after a blank line unless they come first. */
+function plainUi(): Ui {
+  let printed = false;
+  const out = (line: string) => {
+    process.stdout.write(`${bare(line)}\n`);
+    printed = true;
+  };
+  const apart = (text: string) => out(printed ? `\n${text}` : text);
+  return {
+    intro: () => {},
+    info: (message) => out(`· ${message}`),
+    ok: (message) => out(`✓ ${message}`),
+    warn: (message) => out(`! ${message}`),
+    note: (body, title) => apart(`${title}\n${body.replace(/^/gm, "  ")}`),
+    outro: (message) => apart(message),
+    cancel: (message) => process.stderr.write(`✗ ${bare(message)}\n`),
+    step: (message) => {
+      out(`· ${message}`);
+      return {
+        done: (end) => out(`✓ ${end}`),
+        failed: (end) => process.stderr.write(`✗ ${bare(end)}\n`),
+      };
+    },
+  };
+}
 
 export function createUi(json: boolean | undefined): Ui {
   if (json) return silent;
-  return process.stdout.isTTY ? framed : plain;
+  return process.stdout.isTTY ? framed : plainUi();
+}
+
+/** Stops a command with exit code 1: `{ command, applied: false, error }` under --json, a cancel line otherwise. */
+export function failCommand(
+  command: string,
+  json: boolean | undefined,
+  message: string,
+  payload: Record<string, unknown> = { applied: false },
+): never {
+  if (json) writeJson({ command, ...payload, error: message });
+  else createUi(false).cancel(message);
+  process.exit(1);
 }

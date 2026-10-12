@@ -17,3 +17,9 @@ model TestUser {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
 }
+
+model TestItem {
+  id        String @id
+  name      String
+  companyId String
+}

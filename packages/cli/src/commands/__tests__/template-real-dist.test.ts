@@ -4,6 +4,8 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { afterAll, describe, expect, it } from "vitest";
+import type { TableDescription } from "../../scaffold/describe-schema";
+import { renderResourceEntry } from "../../scaffold/render-resource";
 import { tpl } from "../../utils/template";
 import { roleMapping } from "../init-auth";
 
@@ -174,5 +176,69 @@ describe.runIf(BUILT)("every scaffolded config and session module on the real bu
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain("TS2339");
     expect(errors[0]).toContain("email");
+  }, 60_000);
+
+  const POSTS: TableDescription = {
+    exportName: "posts",
+    tableName: "posts",
+    columns: [
+      { key: "id", dataType: "number", columnType: "PgSerial", primary: true },
+      { key: "title", dataType: "string", columnType: "PgText", primary: false },
+      {
+        key: "authorId",
+        dataType: "string",
+        columnType: "PgText",
+        primary: false,
+        references: { table: "users", labelField: "email" },
+      },
+      {
+        key: "status",
+        dataType: "string",
+        columnType: "PgEnumColumn",
+        primary: false,
+        enumValues: ["draft", "live"],
+      },
+      { key: "publishedAt", dataType: "date", columnType: "PgTimestamp", primary: false },
+    ],
+  };
+  const POST_ROW =
+    '{ id: number; title: string; authorId: string; status: "draft" | "live"; publishedAt: Date | null }';
+
+  it("types the reference picker new writes for a Drizzle foreign key", async () => {
+    const root = await builtKitApp("drizzle", CLOSED_STUB);
+    write(
+      path.join(root, "src/blog.ts"),
+      `export const posts = {} as { $inferSelect: ${POST_ROW} };\n`,
+    );
+    write(
+      path.join(root, "probe.ts"),
+      [
+        'import { resource } from "@flowpanel/kit";',
+        'import * as schema from "@/blog";',
+        `export const posts = ${renderResourceEntry(POSTS, "schema.posts", { hidden: false })};`,
+        "",
+      ].join("\n"),
+    );
+    expect(typecheck(root, ["probe.ts", "src/env.d.ts"])).toEqual([]);
+  }, 60_000);
+
+  it("types the reference picker new writes for a Prisma relation", async () => {
+    const root = await builtKitApp("prisma", CLOSED_STUB);
+    const model = { ...POSTS, exportName: "Post" };
+    write(
+      path.join(root, "probe.ts"),
+      [
+        'import { resource } from "@flowpanel/kit";',
+        'declare module "@flowpanel/kit" {',
+        "  interface FlowpanelResources {",
+        "    users: { id: string; email: string };",
+        `    posts: ${POST_ROW};`,
+        "  }",
+        "}",
+        `export const posts = ${renderResourceEntry(model, '"Post"', { hidden: false, name: "posts" })};`,
+        "",
+      ].join("\n"),
+    );
+    expect(typecheck(root, ["probe.ts", "src/env.d.ts"])).toEqual([]);
   }, 60_000);
 });

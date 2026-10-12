@@ -32,22 +32,22 @@ export function DateRangePicker({
     (offered.includes("last7d") ? "last7d" : offered[0]);
   return (
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger className="inline-flex h-11 items-center gap-2 rounded-fp border border-fp-border-1 bg-fp-bg-1 px-3 text-sm text-fp-text-1 hover:bg-fp-bg-2 sm:h-9">
-        <Calendar className="h-3.5 w-3.5 text-fp-text-3" aria-hidden />
+      <DropdownMenu.Trigger className="fp-inline-flex fp-h-11 fp-items-center fp-gap-2 fp-rounded fp-border fp-border-line fp-bg-surface fp-px-3 fp-text-sm fp-text-ink hover:fp-bg-canvas sm:fp-h-9">
+        <Calendar className="fp-h-3.5 fp-w-3.5 fp-text-faint" aria-hidden />
         {custom ?? (active ? dateRange[active] : null)}
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           data-flowpanel-portal=""
-          className="min-w-44 rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 p-1 shadow-fp-md"
+          className="fp-min-w-44 fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-1 fp-shadow-md"
           align="end"
         >
           {offered.map((key) => (
             <DropdownMenu.Item
               key={key}
               className={cn(
-                "flex min-h-11 cursor-pointer items-center rounded px-3 py-1.5 text-sm outline-none hover:bg-fp-bg-2 focus:bg-fp-bg-2 sm:min-h-9",
-                key === value.preset && "bg-fp-bg-2",
+                "fp-flex fp-min-h-11 fp-cursor-pointer fp-items-center fp-rounded-[0.25rem] fp-px-3 fp-py-1.5 fp-text-sm fp-outline-none hover:fp-bg-canvas focus:fp-bg-canvas sm:fp-min-h-9",
+                key === value.preset && "fp-bg-canvas",
               )}
               onSelect={() => onChange({ preset: key })}
             >

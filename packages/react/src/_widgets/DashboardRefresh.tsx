@@ -45,7 +45,7 @@ export function DashboardRefresh({
   }, [intervalMs, router]);
 
   return (
-    <span className="whitespace-nowrap text-xs text-fp-text-3" aria-live="polite">
+    <span className="fp-whitespace-nowrap fp-text-xs fp-text-faint" aria-live="polite">
       {formatLabel(labels.widget.updated, { ago: ago(labels, now - renderedAt) })}
     </span>
   );

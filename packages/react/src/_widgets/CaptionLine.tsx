@@ -16,8 +16,8 @@ export function CaptionLine({ caption }: CaptionLineProps) {
       data-fp-caption={caption.tone ?? ""}
       title={caption.title}
       className={cn(
-        "mt-0.5 block text-xs font-normal",
-        alarming && caption.tone ? toneTextClass[caption.tone] : "text-fp-text-3",
+        "fp-mt-0.5 fp-block fp-text-xs fp-font-normal",
+        alarming && caption.tone ? toneTextClass[caption.tone] : "fp-text-faint",
       )}
     >
       {alarming ? <span aria-hidden>{caption.tone === "err" ? "✕ " : "▲ "}</span> : null}

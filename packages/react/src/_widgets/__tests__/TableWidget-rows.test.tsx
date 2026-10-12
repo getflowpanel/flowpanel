@@ -67,15 +67,15 @@ describe("TableWidget heading and empty state", () => {
   it("says a string empty state in one quiet line, with no table and no tall box", () => {
     render(<TableWidget rows={[]} columns={columns} rowKey="id" emptyState="No users yet" />);
     const line = screen.getByText("No users yet");
-    expect(line.className).toContain("text-sm");
-    expect(line.className).toContain("text-fp-text-2");
+    expect(line.className).toContain("fp-text-sm");
+    expect(line.className).toContain("fp-text-soft");
     expect(line.className).not.toMatch(/py-16|text-center|justify-center/);
     expect(screen.queryByRole("table")).toBeNull();
   });
 
   it("falls back to the labels' empty line", () => {
     render(<TableWidget rows={[]} columns={columns} rowKey="id" />);
-    expect(screen.getByText("No data yet").className).toContain("text-fp-text-2");
+    expect(screen.getByText("No data yet").className).toContain("fp-text-soft");
   });
 
   it("renders a node empty state in place of the table", () => {

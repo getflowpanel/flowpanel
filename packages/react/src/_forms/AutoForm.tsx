@@ -32,15 +32,15 @@ function inputTypeFor(meta: ColumnMeta): InputType {
 }
 
 const SPAN_CLASS: Record<NonNullable<ResolvedField["span"]>, string> = {
-  1: "sm:col-span-1",
-  2: "sm:col-span-2",
-  3: "sm:col-span-3",
-  4: "sm:col-span-4",
-  6: "sm:col-span-6",
-  12: "sm:col-span-12",
+  1: "sm:fp-col-span-1",
+  2: "sm:fp-col-span-2",
+  3: "sm:fp-col-span-3",
+  4: "sm:fp-col-span-4",
+  6: "sm:fp-col-span-6",
+  12: "sm:fp-col-span-12",
 };
 
-const GRID = "grid grid-cols-1 gap-4 sm:grid-cols-12";
+const GRID = "fp-grid fp-grid-cols-1 fp-gap-4 sm:fp-grid-cols-12";
 
 export function buildReferenceSearchUrl(
   action: string,
@@ -176,12 +176,12 @@ export function AutoForm({
         </div>
       )}
       <FormError />
-      <div className="flex items-center gap-3">
+      <div className="fp-flex fp-items-center fp-gap-3">
         <FormSubmit>{submitLabel ?? labels.actions.save}</FormSubmit>
         {cancelHref ? (
           <Link
             href={cancelHref}
-            className="text-sm text-fp-text-2 underline-offset-4 hover:text-fp-text-1 hover:underline"
+            className="fp-text-sm fp-text-soft fp-underline-offset-4 hover:fp-text-ink hover:fp-underline"
           >
             {labels.actions.cancel}
           </Link>

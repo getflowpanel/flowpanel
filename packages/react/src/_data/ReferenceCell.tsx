@@ -15,7 +15,7 @@ export function ReferenceCell({ label, href, className }: ReferenceCellProps) {
     <Link
       href={href}
       className={cn(
-        "text-fp-text-1 underline decoration-fp-border-2 underline-offset-2 hover:decoration-fp-text-3",
+        "fp-text-ink fp-underline fp-decoration-line-strong fp-underline-offset-2 hover:fp-decoration-faint",
         className,
       )}
       onClick={(e) => e.stopPropagation()}

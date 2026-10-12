@@ -24,7 +24,7 @@ export function ResourceListDeletedToggle() {
       variant={active ? "default" : "outline"}
       onClick={toggle}
       aria-pressed={active}
-      className="rounded-full"
+      className="fp-rounded-full"
     >
       {active ? "Hide deleted" : "Show deleted"}
     </Button>

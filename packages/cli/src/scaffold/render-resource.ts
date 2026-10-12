@@ -71,6 +71,47 @@ function columnSource(column: ColumnDescription, kind: ColumnKind, enumConsts: b
   return field;
 }
 
+function fieldSource(
+  column: ColumnDescription,
+  kind: ColumnKind,
+  enumOptions: string | null,
+): string | null {
+  if (column.primary || column.dataType === "buffer") return null;
+  const name = `name: ${JSON.stringify(column.key)}`;
+  if (column.references) {
+    const { table, labelField } = column.references;
+    const label = referenceLabel(column.key);
+    return `{ ${name}, ${label ? `label: ${JSON.stringify(label)}, ` : ""}reference: { resource: ${JSON.stringify(table)}, labelField: ${JSON.stringify(labelField)} } }`;
+  }
+  if (column.enumValues) {
+    const values = `[${column.enumValues.map((value) => JSON.stringify(value)).join(", ")}]`;
+    return `{ ${name}, type: "select", options: ${enumOptions ?? values} }`;
+  }
+  if (kind === "timestamp") return `{ ${name}, type: "datetime" }`;
+  if (kind === "date") return `{ ${name}, type: "date" }`;
+  if (column.dataType === "boolean") return `{ ${name}, type: "checkbox" }`;
+  if (column.dataType === "number") return `{ ${name}, type: "number" }`;
+  if (column.dataType === "json") return `{ ${name}, type: "json" }`;
+  if (/Text$/.test(column.columnType) && LONG_TEXT.test(column.key)) {
+    return `{ ${name}, type: "textarea" }`;
+  }
+  return `{ ${name} }`;
+}
+
+/** The create and edit form, written only when a foreign key can become a picker. */
+function formLines(table: TableDescription, enumConsts: ReadonlySet<string>): string[] {
+  if (!table.columns.some((column) => column.references)) return [];
+  const fields = table.columns.flatMap((column) => {
+    const source = fieldSource(
+      column,
+      columnKind(column),
+      enumConsts.has(column.key) ? `${pascal(column.key)}.options` : null,
+    );
+    return source === null ? [] : [`      ${source},`];
+  });
+  return ["  create: {", "    fields: [", ...fields, "    ],", "  },"];
+}
+
 export interface RenderOptions {
   hidden: boolean;
   /** The specifier the resource file imports `* as schema` from. */
@@ -91,6 +132,7 @@ function plan(table: TableDescription): Planned {
 
 /** The option lines of a scaffolded `resource(...)` call, indented two spaces. */
 function optionLines(
+  table: TableDescription,
   { kept, enums }: Planned,
   options: { hidden: boolean; enumConsts: boolean; name?: string },
 ): string[] {
@@ -119,6 +161,8 @@ function optionLines(
   if (sort) {
     lines.push(`  defaultSort: { field: ${JSON.stringify(sort.column.key)}, dir: "desc" },`);
   }
+  const consts = new Set(options.enumConsts ? enums.map(({ column }) => column.key) : []);
+  lines.push(...formLines(table, consts));
   return lines;
 }
 
@@ -130,7 +174,7 @@ export function renderResourceEntry(
 ): string {
   return [
     `resource(${ref}, {`,
-    ...optionLines(plan(table), { ...options, enumConsts: false }),
+    ...optionLines(table, plan(table), { ...options, enumConsts: false }),
     "})",
   ].join("\n");
 }
@@ -152,7 +196,7 @@ export function renderResourceFile(table: TableDescription, options: RenderOptio
   }
   if (planned.enums.length > 0) lines.push("");
   lines.push(`export const ${table.exportName} = resource(schema.${table.exportName}, {`);
-  lines.push(...optionLines(planned, { hidden: options.hidden, enumConsts: true }));
+  lines.push(...optionLines(table, planned, { hidden: options.hidden, enumConsts: true }));
   lines.push("});", "");
   return lines.join("\n");
 }
