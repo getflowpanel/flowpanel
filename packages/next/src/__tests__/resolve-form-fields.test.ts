@@ -94,6 +94,17 @@ describe("resolveFormFields — hidden / readOnly / defaultValue", () => {
     const edit = await resolveFormFields(config, fields, ctx("admin"), { status: "live" });
     expect(edit.map((f) => f.defaultValue)).toEqual([undefined, undefined]);
   });
+
+  it("hands a money field its currency and a default in major units", async () => {
+    const fields: Fields = [
+      { name: "price", type: "money", currency: "EUR", defaultValue: 1999 },
+      { name: "fee", type: "money", minorUnits: 0, defaultValue: 50 },
+    ];
+    const [price, fee] = await resolveFormFields(config, fields, ctx("admin"));
+    expect(price).toMatchObject({ type: "money", currency: "EUR", defaultValue: "19.99" });
+    expect(fee).toMatchObject({ type: "money", defaultValue: "50" });
+    expect(fee).not.toHaveProperty("currency");
+  });
 });
 
 describe("resolveFormFields — reference fields (current-value label, not a preloaded list)", () => {
@@ -152,6 +163,24 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
     };
     expect(listCtx.filters).toEqual({ id: "u42" });
     expect(listCtx.pageSize).toBe(1);
+  });
+
+  it("labels a reference field by the record it points to, and keeps a label the host wrote", async () => {
+    const { config: cfg } = configWith({});
+    const [named] = await resolveFormFields(cfg, fields, ctx("admin"));
+    expect(named?.label).toBe("Owner");
+    const [kept] = await resolveFormFields(
+      cfg,
+      [
+        {
+          name: "ownerId",
+          label: "Owner ID",
+          reference: { resource: "users", labelField: "email" },
+        },
+      ],
+      ctx("admin"),
+    );
+    expect(kept?.label).toBe("Owner ID");
   });
 
   it("returns no options on a create form (no current value) without querying at all", async () => {

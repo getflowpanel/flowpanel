@@ -26,11 +26,11 @@ Not listed here: `@flowpanel/kit/client` holds
 | `Brand` | Renders a `ShellBrand` (logo/name) in the shell header. |
 | `Breadcrumbs` | Breadcrumb trail from a `BreadcrumbItem[]`. |
 | `CommandPalette` | The ⌘K command palette, built on `cmdk`. |
-| `Drawer`, `DrawerHeader`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. |
+| `Drawer`, `DrawerHeader`, `DrawerTitle`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. A `DrawerTitle` is the visible heading that names the dialog; without one, `title` (or `labels.drawer.title`) names it for screen readers. On close, focus goes back to the element that opened the drawer, or to `returnFocus()` when that element is gone. |
 | `DetailShell` | Chrome around a resource detail page. |
 | `FlowpanelGlobals` | Mounts the component, formatting, API-base and label providers, the realtime provider, the toast host and the theme runtime, once per admin. |
 | `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. `badges` renders several pills in order, each an optional link. |
-| `ShortcutsCheatsheet`, `DEFAULT_SHORTCUTS` | The `?`-triggered keyboard shortcuts overlay and the shortcut list it ships with. |
+| `ShortcutsCheatsheet` | The keyboard shortcuts sheet. `FlowpanelGlobals` mounts it: `?` opens it and `/` focuses the list's search box, outside text fields. Without `shortcuts` it lists the admin's own keys in its labels' language. |
 | `ThemeScript` | Inline script that applies the stored theme class before hydration, avoiding a flash. |
 | `ComponentsProvider`, `useComponents` | Provider/reader for the `FlowpanelComponentSlots` override map. |
 | `useComponent` | Resolves a single slot: `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
@@ -39,11 +39,11 @@ Not listed here: `@flowpanel/kit/client` holds
 | `FormattingProvider`, `useFormatting` | Provider/reader for the resolved locale, time zone and currency. |
 | `ApiBaseProvider`, `useApiBase` | Provider/reader for the API mount (`paths.api`, default `/api/flowpanel`), including a Next.js `basePath`. |
 
-<AutoTypeTable path="../../packages/react/src/_shell/AdminShell.tsx" name="AdminShellProps" />
+<AutoTypeTable path="../../packages/react/src/shell/AdminShell.tsx" name="AdminShellProps" />
 
-<AutoTypeTable path="../../packages/react/src/_shell/Drawer.tsx" name="DrawerProps" />
+<AutoTypeTable path="../../packages/react/src/shell/Drawer.tsx" name="DrawerProps" />
 
-<AutoTypeTable path="../../packages/react/src/_shell/CommandPalette.tsx" name="CommandPaletteProps" />
+<AutoTypeTable path="../../packages/react/src/shell/CommandPalette.tsx" name="CommandPaletteProps" />
 
 ## Data table & filters
 
@@ -55,6 +55,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `ColumnVisibilityMenu` | Toolbar menu for showing/hiding columns. |
 | `DensityToggle` | Toggles `DataTableDensity` (row spacing) in the toolbar. |
 | `FilterBar` | Renders a `FilterBarSpec[]` as the filter row above the table. |
+| `FilterSheet` | Shows its children in line from the `sm` breakpoint up, and on a phone behind one "Filters (n)" button that opens them in a bottom sheet. `active` is the number of set filters. |
 | `BooleanFilter`, `DateRangeFilter`, `MultiSelectFilter`, `NumericRangeFilter`, `SelectFilter`, `TagFilter`, `TextFilter` | One filter control per `ColumnMeta.type`, each driven by `FilterBar`. `DateRangeFilter` opens a two-month range calendar with presets. |
 | `DateRangePicker` | Standalone preset dropdown (Today, Last 7 days, MTD, …) for dashboards; `presets` narrows and orders the list, and a `from`/`to` value without a preset shows as its two days. |
 | `Pagination`, `DefaultPagination` | Page controls under the table and their default renderer. |
@@ -67,7 +68,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `renderFormatCell` | Renders a declarative `ColumnFormat` value. `DataTable` cells call it internally. |
 | `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell`, `ToneText` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time, a boolean and a number coloured by its threshold. Use them in a custom cell to match the table. |
 
-<AutoTypeTable path="../../packages/react/src/_data/data-table-types.ts" name="DataTableProps" />
+<AutoTypeTable path="../../packages/react/src/data/data-table-types.ts" name="DataTableProps" />
 
 ## Forms
 
@@ -80,14 +81,15 @@ Not listed here: `@flowpanel/kit/client` holds
 | `FormError` | Renders the form-level error from `useFormContext`. |
 | `FormSection` | Labeled fieldset grouping for `AutoForm`/`Form` fields. |
 | `FormSubmit` | Submit button that reflects the form's pending state. |
+| `confirmLeave` | `confirmLeave(proceed)` runs `proceed` now, or after the reader agrees to drop a form's unsaved changes. Call it before your own navigation or drawer close; links in the admin already go through it. |
 | `AsyncSelect` | Debounced async-search select, used by reference fields. |
 | `ResolvedField` (type) | The server-resolved field shape `AutoForm` consumes. |
 
-<AutoTypeTable path="../../packages/react/src/_forms/AutoForm.tsx" name="AutoFormProps" />
+<AutoTypeTable path="../../packages/react/src/forms/AutoForm.tsx" name="AutoFormProps" />
 
-<AutoTypeTable path="../../packages/react/src/_forms/Form.tsx" name="FormProps" />
+<AutoTypeTable path="../../packages/react/src/forms/Form.tsx" name="FormProps" />
 
-<AutoTypeTable path="../../packages/react/src/_forms/Field.tsx" name="FieldProps" />
+<AutoTypeTable path="../../packages/react/src/forms/Field.tsx" name="FieldProps" />
 
 The table above is exported as `FormField` and `FormFieldProps`. Its `type` accepts:
 
@@ -159,17 +161,20 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | `Mono` | Monospace inline text, for IDs and code-like values. |
 | `FlowpanelIcon` | Renders a public `IconName` as the same decorative Lucide SVG used by nav and actions. |
 
-<AutoTypeTable path="../../packages/react/src/_atoms/FlowpanelIcon.tsx" name="FlowpanelIconProps" />
+<AutoTypeTable path="../../packages/react/src/atoms/FlowpanelIcon.tsx" name="FlowpanelIconProps" />
 
 ## Hooks
 
 All hooks are client-only.
 
-**`useLiveChannel(channel, onMessage, options?)`** subscribes to one SSE channel;
-instances on the same channel share one `EventSource`. It returns a `RealtimeStatus`
-(`LiveStatus` is the same type under its 0.3 name):
-`idle`, `connecting`, `live`, `reconnecting`, or `offline` after six failed
-attempts (retries continue).
+**`useLiveChannel(channel, onMessage, options?)`** subscribes to one SSE channel and
+hands you each payload. Under `RealtimeProvider` (every admin page) it joins the admin's
+one `EventSource` and does not refresh the route; without a provider, hooks on the same
+endpoint share one. It returns a `RealtimeStatus` (`LiveStatus` is the same type under
+its 0.3 name): `idle`, `connecting`, `live` once the server's first frame arrives,
+`reconnecting` from the first error until a frame arrives again, or `offline` once
+failures have lasted 30 seconds (retries continue). A stream the server ends on purpose reconnects
+without leaving `live`.
 
 ```tsx
 const status = useLiveChannel("resource.orders", (payload) => {
@@ -177,7 +182,7 @@ const status = useLiveChannel("resource.orders", (payload) => {
 });
 ```
 
-**`useAdminTable()`** reads and writes the list URL state (`?page=`, `?perPage=`,
+**`useAdminTable()`** reads and writes the list URL state (`?page=`, `?pageSize=`,
 `?q=`, `?sort=field:dir`, `?f_<field>=`). `pageSize` is `null` when the URL sets
 none. Setters use `router.replace`.
 

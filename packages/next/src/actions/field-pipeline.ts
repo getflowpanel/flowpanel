@@ -11,6 +11,7 @@ import { assertWritableInput, formatLabel, humanize, runWithRequestContext } fro
 import { declaredWriteFields, writeTarget } from "@flowpanel/core/internal";
 import type { z } from "zod";
 import { fieldFlag } from "../runtime/resolve-form-fields";
+import { choiceErrors } from "./field-choices";
 
 export { declaredWriteFields };
 
@@ -37,6 +38,16 @@ export function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig
   }
   const inferred = config.adapter.inferSchema(writeTarget(resource));
   return { create: inferred.create, update: inferred.update };
+}
+
+/** The schema narrowed to one column, so an inline edit is not failed by the columns it leaves alone. */
+export function pickSchema(
+  schema: z.ZodTypeAny | undefined,
+  field: string,
+): z.ZodTypeAny | undefined {
+  const pick = (schema as { pick?: (mask: Record<string, true>) => z.ZodTypeAny } | undefined)
+    ?.pick;
+  return typeof pick === "function" ? pick.call(schema, { [field]: true }) : schema;
 }
 
 /** The generated form may only offer columns a write is allowed to carry. */
@@ -177,6 +188,23 @@ export async function applyFieldDefaults(
     }
   }
   return out;
+}
+
+/** Per-field validators, then the choices and references the form offered this caller. */
+export async function fieldRuleErrors(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  fields: FieldDef<Record<string, unknown>>[] | undefined,
+  values: Record<string, unknown>,
+  current: Record<string, unknown> | null,
+  reqCtx: RequestContext,
+  labels: ResolvedLabels,
+): Promise<Record<string, string> | null> {
+  const errors = {
+    ...(await runFieldValidators(fields, values)),
+    ...(await choiceErrors(config, resource, fields, values, current, reqCtx, labels)),
+  };
+  return Object.keys(errors).length > 0 ? errors : null;
 }
 
 export async function runFieldValidators(

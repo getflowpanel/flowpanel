@@ -25,9 +25,10 @@ Do this review before an admin takes production traffic. FlowPanel runs inside y
 ## Writes and their effects
 
 - Declare explicit create and update fields.
-- Configure `audit.sink`: FlowPanel emits audit events but stores nothing.
+- Turn on the [audit log](/docs/guides/audit-log) and run `flowpanel migrate`, or pass `audit.sink` to keep events in your own store.
 - Use the Redis rate-limit driver with more than one instance; the memory driver counts per process.
-- Audit, realtime and revalidation run after commit. A failure there returns a warning and leaves the write committed; alert on these warnings ([codes](/docs/reference/runtime-contracts#post-commit-effects)).
+- `rateLimit` counts each admin page view once, page and metadata together, and a router prefetch counts like a view. The admin's own links do not prefetch; give your own links into the admin `prefetch={false}`, or set the limit with room for their prefetches.
+- Audit, realtime and revalidation run after commit. A failure there is logged on the server and leaves the write committed; alert on those log lines ([details](/docs/reference/runtime-contracts#post-commit-effects)).
 
 ## Migrations
 
@@ -52,7 +53,7 @@ Run `smokeAdmin` from `@flowpanel/kit/test` in CI. It opens every dashboard, lis
 - [ ] Every tenant-owned resource is scoped; cross-tenant reads and writes fail.
 - [ ] Trusted origins are set only where needed.
 - [ ] Forms, imports, exports, actions and hidden resources expose nothing unintended.
-- [ ] Audit sink, rate limiting, logs, request IDs and alerts are configured.
+- [ ] Audit log, rate limiting, logs, request IDs and alerts are configured.
 - [ ] Pending migrations were reviewed with `--dry-run`; backup and recovery are documented.
 - [ ] Realtime and queues use production drivers and protected origins.
 - [ ] Typecheck, lint, build and `smokeAdmin` pass.

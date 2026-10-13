@@ -8,6 +8,7 @@ export default defineConfig({
   clean: true,
   external: [
     "@flowpanel/core",
+    "@flowpanel/core/internal",
     "@flowpanel/core/internal/migration-sql",
     "drizzle-orm",
     "drizzle-zod",

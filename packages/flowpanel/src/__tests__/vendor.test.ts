@@ -72,7 +72,7 @@ describe("vendoring the internal packages into the kit", () => {
 
     const types = rewriteFile(
       'import { A } from "@flowpanel/core";\ndeclare module "@flowpanel/core" {\n  interface Slots {}\n}',
-      join(dist, "react/_provider/Context.d.ts"),
+      join(dist, "react/provider/Context.d.ts"),
       packages,
     );
     expect(types.errors).toEqual([]);

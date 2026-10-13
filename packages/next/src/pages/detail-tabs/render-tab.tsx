@@ -92,21 +92,3 @@ export async function renderDetailTabs<Row extends Record<string, unknown>>(
     content: tab === active ? content : null,
   }));
 }
-
-/** Build a tab's explicitly declared field dependencies without reading `*` as a DB wildcard. */
-export function detailFieldsForTab<Row>(baseFields: Set<string>, tab: DetailTab<Row>): Set<string> {
-  const fields = new Set(baseFields);
-  const add = (list: unknown) => {
-    if (!Array.isArray(list)) return;
-    for (const entry of list) {
-      if (typeof entry === "string" || typeof entry === "number" || typeof entry === "symbol") {
-        fields.add(String(entry));
-      } else if (entry && typeof entry === "object" && typeof entry.name === "string") {
-        fields.add(entry.name);
-      }
-    }
-  };
-  add(tab.fields);
-  for (const section of tab.sections ?? []) add(section.fields);
-  return fields;
-}

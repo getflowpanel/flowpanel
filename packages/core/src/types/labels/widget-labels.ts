@@ -1,5 +1,7 @@
 /** Dashboard and detail-tab widget chrome. */
 export interface WidgetLabels {
+  /** A sparkline's accessible name. */
+  trend?: string;
   /** Zero-row state shared by tables, cards and charts. */
   empty?: string;
   /** Link from a card heading to the full list. */

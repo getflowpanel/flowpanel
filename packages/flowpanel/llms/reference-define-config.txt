@@ -15,7 +15,7 @@ script or test can import the config freely.
 ### AdminDefinition
 
 `adapter` and `auth` are required. Without the rest you get no resources, the
-sidebar shell, English labels, no audit sink, in-process realtime and no rate limit.
+sidebar shell, English labels, no audit log, in-process realtime and no rate limit.
 
 `AdminDefinition`
 
@@ -82,7 +82,7 @@ The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
 | `cssVars?` | `ThemeTokens` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
 | `cssVarsDark?` | `ThemeTokens` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
 | `components?` | `Partial<FlowpanelComponentSlots>` | Replace built-in components. See the styling guide. |
-| `user?` | `(s: Session \| null) => \| { name?: string; email?: string; avatar?: string; items?: Array<{ label: string; href?: string; variant?: "default" \| "destructive" }>; signOut?: string; } \| undefined` | What the account menu shows for the current session. Return `undefined` to render no menu at all — the usual choice when there is no session. |
+| `user?` | `(s: Session \| null) => \| { /** `null` or `undefined` shows nothing, so an auth library's nullable fields pass straight through. */ name?: string \| null \| undefined; email?: string \| null \| undefined; avatar?: string \| null \| undefined; items?: Array<{ label: string; href?: string; variant?: "default" \| "destructive" }>; signOut?: string; } \| undefined` | What the account menu shows for the current session. Return `undefined` to render no menu at all — the usual choice when there is no session. |
 
 `components` is `Partial<FlowpanelComponentSlots>`; see
 [theme slots](/docs/customization/styling#replace-a-shared-component).
@@ -160,26 +160,32 @@ and `collapsed` do not show there.
 
 ### AuditConfig
 
+`audit: { enabled: true }` writes every event to `flowpanel_audit_log`, which `flowpanel migrate` creates, and adds the record History tab and the Audit log page. A `sink` sends events elsewhere instead, and the admin then shows neither. An adapter without `auditLog` needs a `sink`, or `defineAdmin` throws. `access` defaults to everyone `auth.access` admits. See [Audit log](/docs/guides/audit-log).
+
 `AuditConfig`
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `enabled?` | `boolean` | Turn auditing on. Individual resources can opt out with `audit: false`. |
-| `sink?` | `(event: AuditEvent) => Promise<void>` | Where events go — your table, your log pipeline, anywhere. |
+| `enabled?` | `boolean` | Turn auditing on. Individual resources can opt out with `audit: false`. Default: `true once `audit` is set`. |
+| `sink?` | `(event: AuditEvent) => Promise<void>` | Sends events somewhere else instead of the `flowpanel_audit_log` table. The admin cannot read them back, so it shows no History tab and no Audit log page. |
+| `access?` | `AccessRule` | Who sees the Audit log page and the History tab on records. Default: `everyone `auth.access` lets into the admin`. |
 
 #### AuditEvent
 
-What `audit.sink` receives. FlowPanel stores no audit rows itself.
+What the audit table or `audit.sink` receives.
 
 `AuditEvent`
 
 | Property | Type | Notes |
 | --- | --- | --- |
 | `actorId` | `string \| null` | Who acted, from `AuthConfig.userId`. Null when unresolvable. |
+| `actorName?` | `string` | The actor's display name or email, from `theme.user`, when the admin shows one. |
 | `action` | `string` | What ran, e.g. `"orders.action.refund"` or `"orders.inline-update"`. |
 | `resource?` | `string` | Resource name the action targeted. |
 | `targetId?` | `string` | Id of the affected row. Bulk actions carry the first ten, comma-joined. |
-| `diff?` | `{ before: unknown; after: unknown }` | Before/after values, for mutations that can compute them. |
+| `targetIds?` | `readonly string[]` | Every affected id of a bulk action. |
+| `diff?` | `{ before: unknown; after: unknown }` | Before/after values of the changed, readable, non-sensitive fields. |
+| `scope?` | `Exclude<Scope, null>` | The tenant the request was scoped to, when the admin has a `scope`. |
 | `ip?` | `string` |  |
 | `userAgent?` | `string` |  |
 | `at` | `Date` |  |
@@ -294,30 +300,35 @@ keeps English under a Russian locale.
 | --- | --- | --- |
 | `noResults?` | `string` | Empty list state — used when a resource list returns 0 rows. |
 | `allOption?` | `string` | Empty filter / select dropdown — the "any/all" sentinel. |
-| `navigation?` | `{ skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; scrollHint?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; }` |  |
-| `table?` | `{ /** Templates use `{n}`. Separate one/many templates avoid English suffixes. */ result?: string; results?: string; actions?: string; rowActions?: string; rowsHint?: string; rowsReadOnlyHint?: string; selectRow?: string; selectAll?: string; deselectAll?: string; /** Title of a list with no rows and no `emptyState`. Use `{label}` for the plural label. */ empty?: string; /** The pencil on an editable cell. Use `{label}` for the column label. */ editCell?: string; /** After an editable cell saves. */ saved?: string; }` |  |
+| `navigation?` | `{ /** The breadcrumb trail above a page heading. */ breadcrumb?: string; /** The tab row of queue boards. */ queueBoards?: string; /** A queue board frame. Use `{label}` for the queue. */ queueBoard?: string; /** The region toasts appear in. */ notifications?: string; /** A toast's close button. */ closeNotification?: string; skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; scrollHint?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; /** The menu holding the nav tabs that do not fit. */ more?: string; }` |  |
+| `table?` | `TableLabels` |  |
 | `dateRange?` | `{ /** Locale for calendar presentation; identical during SSR and hydration. */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
 | `savedViews?` | `{ save?: string; saveTrigger?: string; name?: string; current?: string; label?: string; yours?: string; saveCurrent?: string; saved?: string; deleted?: string; delete?: string; storageError?: string; }` |  |
 | `pagination?` | `{ label?: string; previous?: string; next?: string; of?: string; rowsPerPage?: string; /** Accessible page button name. Use `{n}` for the page number. */ page?: string; /** Page-size option. Use `{n}` for the row count. */ pageSize?: string; }` | Pagination chrome. |
-| `filters?` | `{ label?: string; clear?: string; yes?: string; no?: string; searchPlaceholder?: string; }` |  |
-| `bulkBar?` | `{ /** Use `{n}` for the selection count. Default: `"{n} selected"`. */ selected?: string; clear?: string; }` | Bulk action bar. |
+| `filters?` | `{ /** A tag filter's example input. */ tagsPlaceholder?: string; /** A number range filter's lower bound. */ min?: string; max?: string; /** Empties the list search. */ clearSearch?: string; label?: string; clear?: string; yes?: string; no?: string; searchPlaceholder?: string; /** The phone button that opens the filters. Use `{n}` for the active ones; `open` when none are. */ open?: string; openCount?: string; /** Closes the phone filter sheet. */ done?: string; }` |  |
+| `bulkBar?` | `{ /** The bulk action toolbar. */ label?: string; /** The bulk action picker before a choice. */ choose?: string; /** Clears the selection. */ clearSelection?: string; /** Use `{n}` for the selection count. Default: `"{n} selected"`. */ selected?: string; clear?: string; }` | Bulk action bar. |
 | `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */ events?: PluralLabel; }` | Count templates per `Intl.PluralRules` category; when set, they win over `table.result`/`results` and `bulkBar.selected`. |
 | `searchPlaceholder?` | `string` | Resource search input placeholder. Use `{label}` for the resource's label. |
-| `actions?` | `{ edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; }` | Generic action buttons. |
-| `form?` | `{ /** Edit page heading. Use `{label}` for the resource's singular label. */ editTitle?: string; /** Create page heading. Use `{label}` for the resource's singular label. */ createTitle?: string; /** The empty choice in a select control. */ selectPlaceholder?: string; /** A reference search with nothing to offer. */ noOptions?: string; /** A reference search still in flight. */ searching?: string; /** A reference search that failed. */ loadFailed?: string; /** An empty value the write needs. Use `{label}` for the field's label. */ required?: string; /** A value that is not a number. Use `{label}`. */ invalidNumber?: string; /** A value that is neither true nor false. Use `{label}`. */ invalidBoolean?: string; /** A value that is not a date. Use `{label}`. */ invalidDate?: string; /** A value a unique column already holds. Use `{label}`. */ taken?: string; /** A unique violation the database did not tie to one column. */ conflict?: string; /** A reference to a row that does not exist. Use `{label}`. */ missingReference?: string; /** A foreign key violation the database did not tie to one column. */ missingLink?: string; /** A delete that other rows still reference. */ inUse?: string; /** The create page of a resource with `create.disabled`. */ createDisabled?: string; /** The edit page of a resource with `update.disabled`. */ editDisabled?: string; }` | Generated create and edit form chrome. |
-| `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; /** A widget kind a drawer does not draw. Use `{kind}`. */ unsupported?: string; /** The dialog's name before the record loads. */ title?: string; /** The record could not be loaded. */ loadFailed?: string; }` | Drawer chrome. |
-| `detail?` | `{ /** A fields tab with nothing the reader is allowed to see. */ noFields?: string; /** A tab naming a resource that is not registered. Use `{resource}`. */ unknownResource?: string; /** A counted tab's label. Use `{label}` and `{count}`. */ tabCount?: string; }` | Full-page detail chrome. |
+| `actions?` | `{ /** A bulk action's confirm title when it names none. Use `{label}`. */ runConfirm?: string; /** A bulk action that succeeded. Use `{label}` and `{n}`. */ ranOn?: string; /** An action that succeeded without a message of its own. Use `{label}`. */ ran?: string; edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; /** The menu holding a record's actions on its page and in its drawer. */ more?: string; /** A bulk delete that stopped part way. Use `{done}` and `{total}`. */ deletedSome?: string; }` | Generic action buttons. |
+| `form?` | `FormLabels` | Generated create and edit form chrome. |
+| `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; /** A widget kind a drawer does not draw. Use `{kind}`. */ unsupported?: string; /** The dialog's name before the record loads. */ title?: string; /** The record could not be loaded. */ loadFailed?: string; /** The record is gone, or the reader may not see it. */ missing?: string; }` | Drawer chrome. |
+| `detail?` | `{ /** The fields tab a record gets beside History when it declares no tabs of its own. */ details?: string; /** A fields tab with nothing the reader is allowed to see. */ noFields?: string; /** A tab naming a resource that is not registered. Use `{resource}`. */ unknownResource?: string; /** A counted tab's label. Use `{label}` and `{count}`. */ tabCount?: string; /** A soft-deleted record opened by someone who may restore it. Use `{label}` for the singular label. */ deleted?: string; deletedDescription?: string; }` | Full-page detail chrome. |
 | `related?` | `{ /** Link from a related tab to the target resource's own list. */ openList?: string; }` | Related detail-tab chrome. |
-| `notFound?` | `{ title?: string; description?: string; back?: string; }` | The admin's own not-found page, for a URL no resource or dashboard matches. |
-| `access?` | `{ /** No session: the reader has to sign in. */ signInTitle?: string; signInDescription?: string; /** A session whose role the admin does not allow. */ deniedTitle?: string; deniedDescription?: string; }` | The screens shown in place of the admin when `auth.signInUrl` or `auth.forbiddenUrl` is not set. |
+| `notFound?` | `NotFoundLabels` | The admin's own not-found page, for a URL no resource or dashboard matches. |
+| `access?` | `AccessLabels` | The screens shown in place of a page when `auth.signInUrl` or `auth.forbiddenUrl` is not set, or the rate limit refuses it. |
 | `formError?` | `string` | Form-level banner shown when a submit fails with no field errors of its own. |
-| `confirm?` | `{ title?: string; ok?: string; cancel?: string; }` | Confirm dialog. |
+| `confirm?` | `{ /** The built-in bulk delete's confirm title. */ deleteSelectedTitle?: string; title?: string; ok?: string; cancel?: string; /** Deleting one record. Use `{label}` for the resource's singular label. */ deleteTitle?: string; /** Under `deleteTitle` when the delete is permanent and `delete.confirm` is not set. */ deleteDescription?: string; /** Under `deleteTitle` when the resource soft-deletes and `delete.confirm` is not set. */ softDeleteDescription?: string; }` | Confirm dialog. |
 | `widget?` | `WidgetLabels` | Dashboard and detail-tab widget chrome. |
 | `timeline?` | `TimelineLabels` | `timeline()` chrome. |
 | `heatmap?` | `HeatmapLabels` | `heatmap()` chrome. |
 | `checklist?` | `ChecklistLabels` | `checklist()` chrome. |
-| `errors?` | `{ /** Failed page read. Use `{resource}` and `{operation}`. */ queryTitle?: string; /** What to check after a failed page read. */ queryHint?: string; /** What to check when the database refused the connection or could not be reached. */ connectionHint?: string; /** Correlation line tying the card to the server log. Use `{id}`. */ requestId?: string; /** Failed widget, shown in the widget's own frame. */ widgetTitle?: string; widgetHint?: string; /** Button that re-runs a failed widget. */ retry?: string; /** Disclosure holding the error's own message, outside production only. */ details?: string; }` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
-| `palette?` | `{ placeholder?: string; noResults?: string; title?: string; description?: string; loading?: string; }` | ⌘K palette. |
+| `errors?` | `ErrorLabels` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
+| `palette?` | `{ /** The palette's result list. */ suggestions?: string; placeholder?: string; noResults?: string; title?: string; description?: string; loading?: string; }` | ⌘K palette. |
+| `saving?` | `SavingLabels` | What a create or edit form says after it saves, and when it would lose typed changes. |
+| `importer?` | `ImporterLabels` | The list's file import. |
+| `shortcuts?` | `ShortcutsLabels` | The `?` keyboard cheat sheet. |
+| `realtime?` | `RealtimeLabels` | A live list's or widget's connection badge. |
+| `audit?` | `AuditLabels` | The record History tab and the Audit log page. |
 
 ### CommandPaletteConfig
 
@@ -369,6 +380,7 @@ What `defineAdmin` returns.
 | `pagesByPath` | `Map<string, PageConfig>` |  |
 | `queuesByKey` | `Map<string, QueueConfig>` |  |
 | `paths` | `AdminPaths` | Normalized mount points with leading slashes and no trailing slash. |
+| `auditLog` | `AuditLogStore \| null` | The table History tabs and the Audit log page read; null when audit is off or a `sink` replaces it. |
 | `warnings` | `readonly string[]` | Config problems that do not stop the admin from booting. `flowpanel doctor` prints them; development prints each once. |
 
 `defineAdmin` throws if two resources share a name, two dashboards or pages
@@ -406,9 +418,24 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 
 ### Default bulk delete
 
-When a resource has delete enabled and declares no `bulkActions`, `defineAdmin`
-injects a default `delete` bulk action. Set `delete.confirm` to replace its confirmation description. Opt out
-with `bulkActions: []` or `delete: { disabled: true }`.
+When a resource has delete enabled, `defineAdmin` adds a default `delete` bulk
+action after the resource's own `bulkActions`. Its label and confirm come from
+`labels.actions.delete` and `labels.confirm`. Set `delete.confirm` to replace the
+confirmation text, for this menu and for one record's Delete alike. Give it plural
+forms to word it by how many rows go, `{n}` being the count:
+
+```ts
+delete: {
+  confirm: {
+    one: "The order and its items are deleted for good.",
+    other: "{n} orders and their items are deleted for good.",
+  },
+},
+```
+
+Opt out with `delete: { bulk: false }` or
+`delete: { disabled: true }`; a bulk action of your own with the key `delete`
+replaces it.
 
 `readOnly: true` short-circuits the whole rule: a read-only admin rewrites
 every resource to `bulkActions: []` (and empties `actions` and the drawer's
@@ -417,9 +444,10 @@ column's `editable`), so no default delete is injected for any resource.
 
 ### Reserved names
 
-`defineAdmin` throws when a resource name or queue key is `dashboards`, `drawer`
-or `queues`: the admin's own routes use those URL segments. Change `options.name`
-on the resource or `options.key` on the queue.
+`defineAdmin` throws when a resource name or queue key is `audit-log`, `dashboards`,
+`drawer`, `export`, `palette` or `queues`: the admin's own routes use those URL segments.
+Change `options.name` on the resource or `options.key` on the queue. With the audit log
+on, a dashboard or page at `/audit-log` throws too.
 
 ### Behavior beyond validation
 

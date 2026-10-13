@@ -9,13 +9,18 @@ if (liveQueues.length === 0) {
 }
 
 // This port is outside the admin — FlowPanel's `auth.access` does not reach it.
-const token = process.env.BOARD_TOKEN ?? "";
-if (!token) {
-  console.error("BOARD_TOKEN is required — the board exposes destructive job controls.");
+const secret = process.env.BOARD_SECRET ?? "";
+if (!secret) {
+  console.error("BOARD_SECRET is required — the board exposes destructive job controls.");
   process.exit(1);
 }
 
-const server = startBoardServer({ queues: queuesByName, port, auth: { token } });
+const server = startBoardServer({
+  queues: queuesByName,
+  port,
+  auth: { secret },
+  trustedProxies: Number(process.env.BOARD_TRUSTED_PROXIES ?? 0),
+});
 console.log(`bull-board listening on http://localhost:${port}`);
 
 function shutdown() {

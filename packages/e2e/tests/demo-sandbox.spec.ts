@@ -6,7 +6,7 @@ async function createProduct(page: Page, title: string): Promise<string> {
   await page.getByLabel("SKU").fill(`E2E-${Date.now()}`);
   await page.getByLabel("Product").fill(title);
   await page.getByLabel("Category").selectOption("Headphones");
-  await page.getByLabel(/our price/i).fill("1999");
+  await page.getByLabel(/our price/i).fill("19.99");
   await page.getByRole("combobox", { name: "Customer" }).click();
   await page.getByRole("listbox").getByRole("option").first().click();
   await page.getByRole("button", { name: "Create" }).click();
@@ -159,7 +159,7 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
     await bulkActions.getByRole("button", { name: "Action…" }).click();
     await pageA.getByRole("menuitem", { name: "Delete" }).click();
     const deleteDialog = pageA.getByRole("alertdialog");
-    await expect(deleteDialog).toContainText("products and their matches");
+    await expect(deleteDialog).toContainText("The product and its matches");
     await deleteDialog.getByRole("button", { name: "Delete (1)" }).click();
     await expect(pageA.getByText(editedTitleA, { exact: false })).toHaveCount(0);
     await pageA.reload();

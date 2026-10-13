@@ -1,5 +1,6 @@
 "use client";
-import { Button, ConfirmDialog, FlowpanelIcon, useApiBase } from "@flowpanel/react";
+import { formatLabel } from "@flowpanel/core/labels";
+import { Button, ConfirmDialog, FlowpanelIcon, useApiBase, useLabels } from "@flowpanel/react";
 import * as React from "react";
 import { ActionFormDialog } from "./ActionFormDialog";
 import type { ActionFormFieldErrors } from "./action-form-field";
@@ -19,6 +20,7 @@ export interface DashboardActionsBarProps {
 
 export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBarProps) {
   const apiBase = useApiBase();
+  const labels = useLabels();
   const runAction = useActionRunner();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedDashboardAction | null>(null);
@@ -36,8 +38,8 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
         `${apiBase}/dashboards/${encodedPath}/actions/${encodeURIComponent(action.key)}`,
         input,
         {
-          successMessage: `${action.label} ran`,
-          failureMessage: `${action.label} failed`,
+          successMessage: formatLabel(labels.actions.ran, { label: action.label }),
+          failureMessage: formatLabel(labels.errors.actionFailed, { label: action.label }),
         },
       );
     } finally {
@@ -82,11 +84,11 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
           onOpenChange={(open) => {
             if (!open) setConfirming(null);
           }}
-          title={confirming.confirm?.title ?? "Are you sure?"}
+          title={confirming.confirm?.title ?? labels.confirm.title}
           {...(confirming.confirm?.description
             ? { description: confirming.confirm.description }
             : {})}
-          confirmLabel={confirming.confirm?.confirmLabel ?? "Confirm"}
+          confirmLabel={confirming.confirm?.confirmLabel ?? labels.confirm.ok}
           variant={confirming.variant === "destructive" ? "destructive" : "default"}
           onConfirm={() => {
             const action = confirming;

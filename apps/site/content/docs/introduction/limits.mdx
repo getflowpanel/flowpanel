@@ -16,7 +16,7 @@ A form writes the columns of one table, so it cannot add or remove rows of a joi
 
 ## Signing in as a user
 
-The admin has no "sign in as" button. Your auth provider decides how impersonation works, so call it from a [row action](/docs/build/actions): better-auth's admin plugin, for example, creates an impersonation session for a user id, and the action returns `redirect` with the URL to open as that user.
+The admin has no "sign in as" button. Your auth provider decides how impersonation works, so call it from a [row action](/docs/build/actions): better-auth's admin plugin, for example, creates an impersonation session for a user id, and the action returns `redirect` with the path to open as that user.
 
 ## Prisma 7
 

@@ -11,6 +11,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { DrawerHost } from "../DrawerHost";
+import { RECORD_DEFAULTS } from "./payload-fixture";
 
 afterEach(() => {
   cleanup();
@@ -43,6 +44,7 @@ const payload = {
   actions: [],
   prerendered: {},
   labels: {},
+  ...RECORD_DEFAULTS,
   formats: {},
 };
 

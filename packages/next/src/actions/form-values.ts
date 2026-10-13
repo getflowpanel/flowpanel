@@ -1,7 +1,12 @@
+import { type MoneyStorage, parseMoney } from "@flowpanel/core/format";
+
 /** A control's name and resolved type — the two things that decide how its value decodes. */
 export interface FormFieldShape {
   name: string;
   type?: string | undefined;
+  /** `money` only: digits after the decimal point, and how the column holds the amount. */
+  minorUnits?: number | undefined;
+  storage?: MoneyStorage | undefined;
 }
 
 const LIST_TYPES = new Set(["multiselect", "tags"]);
@@ -16,6 +21,16 @@ function decodeList(raw: string): string[] {
   } catch {
     return [];
   }
+}
+
+/** A `money` amount as its column takes it, or the text as typed when it is not one, for the server to reject. */
+function readMoney(raw: string, shape: FormFieldShape): number | string {
+  if (raw.trim() === "") return "";
+  const parsed = parseMoney(raw, {
+    minorUnits: shape.minorUnits ?? 2,
+    ...(shape.storage ? { storage: shape.storage } : {}),
+  });
+  return parsed ?? raw;
 }
 
 /**
@@ -34,6 +49,7 @@ export function readFormValues(
     if (LIST_TYPES.has(type)) out[f.name] = decodeList(raw);
     else if (BOOLEAN_TYPES.has(type)) out[f.name] = raw === "on" || raw === "true";
     else if (type === "number") out[f.name] = raw === "" ? "" : Number(raw);
+    else if (type === "money") out[f.name] = readMoney(raw, f);
     else out[f.name] = raw;
   }
   return out;

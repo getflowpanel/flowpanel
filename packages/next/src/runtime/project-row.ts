@@ -140,14 +140,3 @@ export async function projectAuthorizedRow<Row extends Record<string, unknown>>(
 ): Promise<Row> {
   return projectRowFields(row, await resolveRowProjection(resource, reqCtx, extraFields));
 }
-
-/** A page of rows shares one policy decision; a field policy may be async. */
-export async function projectAuthorizedRows<Row extends Record<string, unknown>>(
-  resource: ResourceConfig,
-  rows: readonly Row[],
-  reqCtx: RequestContext,
-  extraFields?: Iterable<string>,
-): Promise<Row[]> {
-  const readable = await resolveRowProjection(resource, reqCtx, extraFields);
-  return rows.map((row) => projectRowFields(row, readable));
-}

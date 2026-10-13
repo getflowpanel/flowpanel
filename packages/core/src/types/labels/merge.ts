@@ -58,6 +58,11 @@ export function mergeLabels(
     checklist: { ...base.checklist, ...defined(user.checklist ?? {}) },
     errors: { ...base.errors, ...defined(user.errors ?? {}) },
     palette: { ...base.palette, ...defined(user.palette ?? {}) },
+    saving: { ...base.saving, ...defined(user.saving ?? {}) },
+    importer: { ...base.importer, ...defined(user.importer ?? {}) },
+    shortcuts: { ...base.shortcuts, ...defined(user.shortcuts ?? {}) },
+    realtime: { ...base.realtime, ...defined(user.realtime ?? {}) },
+    audit: { ...base.audit, ...defined(user.audit ?? {}) },
   };
 }
 

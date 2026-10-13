@@ -1,6 +1,7 @@
 import { and, eq, gt, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../../db/schema";
+import { deleteSandboxAudit } from "./audit-rows";
 import type { DemoSandboxConfig } from "./config";
 import {
   assertCreationAllowed,
@@ -88,6 +89,7 @@ export async function ensureSandbox({
 
     if (existing && (existing.inactivityExpiresAt <= now || existing.absoluteExpiresAt <= now)) {
       await tx.delete(schema.demoSandboxes).where(eq(schema.demoSandboxes.id, id));
+      await deleteSandboxAudit(tx, [id]);
       existing = undefined;
     }
 

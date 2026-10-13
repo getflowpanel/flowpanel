@@ -5,6 +5,7 @@
     "authentication",
     "permissions",
     "multi-tenant-scope",
+    "audit-log",
     "realtime",
     "queues"
   ]

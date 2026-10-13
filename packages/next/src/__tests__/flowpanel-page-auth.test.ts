@@ -6,7 +6,6 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { FlowpanelAccessError, FlowpanelAuthError } from "@flowpanel/core";
-import { EmptyState } from "@flowpanel/react";
 import { isValidElement, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,6 +29,7 @@ import { DashboardPage } from "../pages/dashboard";
 import { QueuePage } from "../pages/queue-page";
 import { ResourceListPage } from "../pages/resource-list";
 import { UserPage } from "../pages/user-page";
+import { Wall } from "../pages/wall";
 import { Welcome } from "../pages/welcome";
 import { DevAuthNote, devAuthNote } from "../runtime/dev-auth-note";
 
@@ -290,7 +290,7 @@ describe("handleRenderError", () => {
       new Request("http://localhost/admin"),
     );
     expect(redirectSpy).not.toHaveBeenCalled();
-    expect(isValidElement(node) && node.type).toBe(EmptyState);
+    expect(isValidElement(node) && node.type).toBe(Wall);
     expect(isValidElement(node) && (node.props as { title: string }).title).toBe(
       "Sign in required",
     );
@@ -309,8 +309,10 @@ describe("handleRenderError", () => {
       new Request("http://localhost/admin"),
     );
     expect(redirectSpy).not.toHaveBeenCalled();
-    expect(isValidElement(node) && node.type).toBe(EmptyState);
-    expect(isValidElement(node) && (node.props as { title: string }).title).toBe("Access denied");
+    expect(isValidElement(node) && node.type).toBe(Wall);
+    expect(isValidElement(node) && (node.props as { title: string }).title).toBe(
+      "You don't have access to this admin",
+    );
   });
 });
 
@@ -322,7 +324,7 @@ describe("the sign-in wall for a developer", () => {
       new FlowpanelAccessError(),
       signedOut(),
       new Request("http://localhost/admin"),
-    )) as ReactElement<{ action?: ReactElement; "data-fp-error"?: string }>;
+    )) as ReactElement<{ children?: ReactElement | null }>;
 
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -331,8 +333,8 @@ describe("the sign-in wall for a developer", () => {
 
   it("puts the development note under the description outside production", async () => {
     const node = await wall();
-    expect(node.props["data-fp-error"]).toBe("");
-    expect(node.props.action?.type).toBe(DevAuthNote);
+    expect(node.type).toBe(Wall);
+    expect(node.props.children?.type).toBe(DevAuthNote);
   });
 
   it("warns the same sentence once per process", async () => {
@@ -351,8 +353,7 @@ describe("the sign-in wall for a developer", () => {
     vi.stubEnv("NODE_ENV", "production");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const node = await wall();
-    expect(node.props.action).toBeUndefined();
-    expect(node.props["data-fp-error"]).toBe("");
+    expect(node.props.children).toBeNull();
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -363,8 +364,8 @@ describe("the sign-in wall for a developer", () => {
         auth: { session: async () => ({ user: { id: "u1" } }), role: () => "viewer" },
       } as never),
       new Request("http://localhost/admin"),
-    )) as ReactElement<{ action?: unknown }>;
-    expect(node.props.action).toBeUndefined();
+    )) as ReactElement<{ children?: unknown }>;
+    expect(node.props.children).toBeUndefined();
   });
 });
 

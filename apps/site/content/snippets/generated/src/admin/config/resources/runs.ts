@@ -16,15 +16,4 @@ export const runs = resource(schema.runs, {
   ],
   filters: [{ field: "status", type: "select" }],
   defaultSort: { field: "startedAt", dir: "desc" },
-  create: {
-    fields: [
-      { name: "monitorId", label: "Monitor", reference: { resource: "monitors", labelField: "name" } },
-      { name: "status", type: "select", options: Status.options },
-      { name: "pagesCrawled", type: "number" },
-      { name: "durationMs", type: "number" },
-      { name: "startedAt", type: "datetime" },
-      { name: "finishedAt", type: "datetime" },
-      { name: "error" },
-    ],
-  },
 });

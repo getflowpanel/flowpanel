@@ -14,7 +14,7 @@ script or test can import the config freely.
 ## AdminDefinition
 
 `adapter` and `auth` are required. Without the rest you get no resources, the
-sidebar shell, English labels, no audit sink, in-process realtime and no rate limit.
+sidebar shell, English labels, no audit log, in-process realtime and no rate limit.
 
 <AutoTypeTable path="../../packages/core/src/types/config.ts" name="AdminDefinition" />
 
@@ -109,13 +109,15 @@ and `collapsed` do not show there.
 
 ## AuditConfig
 
-<AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditConfig" />
+`audit: { enabled: true }` writes every event to `flowpanel_audit_log`, which `flowpanel migrate` creates, and adds the record History tab and the Audit log page. A `sink` sends events elsewhere instead, and the admin then shows neither. An adapter without `auditLog` needs a `sink`, or `defineAdmin` throws. `access` defaults to everyone `auth.access` admits. See [Audit log](/docs/guides/audit-log).
+
+<AutoTypeTable path="../../packages/core/src/types/audit.ts" name="AuditConfig" />
 
 ### AuditEvent
 
-What `audit.sink` receives. FlowPanel stores no audit rows itself.
+What the audit table or `audit.sink` receives.
 
-<AutoTypeTable path="../../packages/core/src/types/config.ts" name="AuditEvent" />
+<AutoTypeTable path="../../packages/core/src/types/audit.ts" name="AuditEvent" />
 
 ## SecurityConfig
 
@@ -264,9 +266,24 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 
 ## Default bulk delete
 
-When a resource has delete enabled and declares no `bulkActions`, `defineAdmin`
-injects a default `delete` bulk action. Set `delete.confirm` to replace its confirmation description. Opt out
-with `bulkActions: []` or `delete: { disabled: true }`.
+When a resource has delete enabled, `defineAdmin` adds a default `delete` bulk
+action after the resource's own `bulkActions`. Its label and confirm come from
+`labels.actions.delete` and `labels.confirm`. Set `delete.confirm` to replace the
+confirmation text, for this menu and for one record's Delete alike. Give it plural
+forms to word it by how many rows go, `{n}` being the count:
+
+```ts as="ResourceOptions<RowOf<'orders'>>"
+delete: {
+  confirm: {
+    one: "The order and its items are deleted for good.",
+    other: "{n} orders and their items are deleted for good.",
+  },
+},
+```
+
+Opt out with `delete: { bulk: false }` or
+`delete: { disabled: true }`; a bulk action of your own with the key `delete`
+replaces it.
 
 `readOnly: true` short-circuits the whole rule: a read-only admin rewrites
 every resource to `bulkActions: []` (and empties `actions` and the drawer's
@@ -275,9 +292,10 @@ column's `editable`), so no default delete is injected for any resource.
 
 ## Reserved names
 
-`defineAdmin` throws when a resource name or queue key is `dashboards`, `drawer`
-or `queues`: the admin's own routes use those URL segments. Change `options.name`
-on the resource or `options.key` on the queue.
+`defineAdmin` throws when a resource name or queue key is `audit-log`, `dashboards`,
+`drawer`, `export`, `palette` or `queues`: the admin's own routes use those URL segments.
+Change `options.name` on the resource or `options.key` on the queue. With the audit log
+on, a dashboard or page at `/audit-log` throws too.
 
 ## Behavior beyond validation
 

@@ -1,13 +1,13 @@
 import type {
   AccessRule,
   ActionResult,
-  AuditConfig,
   AuditEvent,
   RequestContext,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
 import { accessAllows } from "@flowpanel/core";
 import { emitAudit } from "@flowpanel/core/internal";
+import { accountUser } from "./account-user";
 import { actionFailure } from "./action-failure";
 import { publish } from "./publish";
 import { type RequestBodyError, readActionObject, requestBodyErrorResponse } from "./request-body";
@@ -96,19 +96,34 @@ export async function filterActionsByAccess<Action extends { access?: AccessRule
   return visible;
 }
 
+type AuditBase = Pick<AuditEvent, "action" | "resource" | "targetId" | "targetIds" | "diff">;
+
+function actorName(config: ResolvedAdminConfig, session: RequestContext["session"]): string | null {
+  try {
+    const user = accountUser(config, session);
+    return user?.name ?? user?.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Build the standard `AuditEvent` shape every action handler emits. */
 export function buildAuditEvent(
+  config: ResolvedAdminConfig,
   reqCtx: RequestContext,
-  base: { action: string; resource?: string; targetId?: string; diff?: AuditEvent["diff"] },
-  extractUserId?: (session: RequestContext["session"]) => string | null,
+  base: AuditBase,
 ): AuditEvent {
+  const name = actorName(config, reqCtx.session);
   return {
-    actorId: actorIdFromSession(reqCtx.session, extractUserId),
+    actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
     action: base.action,
     at: new Date(),
+    ...(name ? { actorName: name } : {}),
     ...(base.resource !== undefined ? { resource: base.resource } : {}),
     ...(base.targetId !== undefined ? { targetId: base.targetId } : {}),
+    ...(base.targetIds !== undefined ? { targetIds: base.targetIds } : {}),
     ...(base.diff !== undefined ? { diff: base.diff } : {}),
+    ...(reqCtx.scope ? { scope: reqCtx.scope } : {}),
     ...(reqCtx.ip ? { ip: reqCtx.ip } : {}),
     ...(reqCtx.userAgent ? { userAgent: reqCtx.userAgent } : {}),
   };
@@ -117,24 +132,36 @@ export function buildAuditEvent(
 /** Wrap an action handler's success branch with the audit emit. */
 export async function maybeEmitAudit(
   result: ActionResult<unknown>,
-  auditConfig: AuditConfig | undefined,
+  config: ResolvedAdminConfig,
   resourceAudit: boolean | undefined,
   event: AuditEvent,
 ): Promise<void> {
-  if (!result.ok) return;
-  if (resourceAudit === false) return;
-  await emitAudit(auditConfig, event);
+  if (!result.ok || resourceAudit === false) return;
+  await emitAudit(config, event);
 }
 
-export function isAuditActive(
-  auditConfig: AuditConfig | undefined,
-  resourceAudit: boolean | undefined,
-): boolean {
-  if (resourceAudit === false) return false;
-  return Boolean(auditConfig?.sink);
+function jsonOf(value: object): string | null {
+  try {
+    return JSON.stringify(value, (_key, inner: unknown) =>
+      typeof inner === "bigint" ? inner.toString() : inner,
+    );
+  } catch {
+    return null;
+  }
 }
 
-/** Shallow before/after diff for an auto-audited mutation. */
+/** A re-submitted form hands back equal values in new objects: a date or JSON value that reads the same is no change. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const left = jsonOf(a);
+    return left !== null && left === jsonOf(b);
+  }
+  return false;
+}
+
+/** Field-by-field before/after diff for an auto-audited mutation. */
 export function computeShallowDiff(
   before: Record<string, unknown> | null,
   after: Record<string, unknown> | null,
@@ -147,7 +174,7 @@ export function computeShallowDiff(
   const changedAfter: Record<string, unknown> = {};
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   for (const key of keys) {
-    if (!Object.is(before[key], after[key])) {
+    if (!sameValue(before[key], after[key])) {
       changedBefore[key] = before[key];
       changedAfter[key] = after[key];
     }

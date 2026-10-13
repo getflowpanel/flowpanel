@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
-import { Button, PageHeader } from "@flowpanel/react";
+import { RecordActionsBar } from "@flowpanel/next/client";
+import { PageHeader } from "@flowpanel/react";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -75,15 +76,32 @@ describe("dashboard action emphasis", () => {
   });
 });
 
-function editButton(tree: ReactNode) {
+function recordMenu(tree: ReactNode) {
   const actions = findAll(tree, PageHeader)[0]?.actions as ReactNode;
-  return findAll(actions, Button).find((props) => props.asChild);
+  return findAll(actions, RecordActionsBar)[0];
+}
+
+function editLink(emphasis?: "primary" | "secondary") {
+  render(
+    <RecordActionsBar
+      resource="users"
+      id="u1"
+      rowActions={[]}
+      drawerActions={[]}
+      editHref="/admin/users/u1/edit"
+      delete={null}
+      afterDelete="list"
+      {...(emphasis ? { editEmphasis: emphasis } : {})}
+    />,
+  );
+  return screen.getByRole("link", { name: "Edit" });
 }
 
 describe("the record page's edit button", () => {
   it("is secondary by default", async () => {
     const { tree } = await renderDetail({ label: "User", columns: ["id"] });
-    expect(editButton(tree)?.variant).toBe("outline");
+    expect(recordMenu(tree)?.editEmphasis).toBeUndefined();
+    expect(editLink().dataset.variant).toBe("outline");
   });
 
   it("is primary when update says so", async () => {
@@ -92,6 +110,7 @@ describe("the record page's edit button", () => {
       columns: ["id"],
       update: { emphasis: "primary" },
     });
-    expect(editButton(tree)?.variant).toBe("default");
+    expect(recordMenu(tree)?.editEmphasis).toBe("primary");
+    expect(editLink("primary").dataset.variant).toBe("default");
   });
 });

@@ -6,7 +6,7 @@ Tenant scoping, the publisher contract, and the rate limiter.
 
 Docs: https://flowpanel.tech/docs/reference/scope-realtime
 
-Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher, createRealtimeTransport, createPublisher, PublisherClient, RedisLike, ResourceChange, encodeEnvelope, decodeEnvelope, RateLimiter
+Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher, createRealtimeTransport, RealtimeChannel, createPublisher, PublisherClient, RedisLike, ResourceChange, encodeEnvelope, decodeEnvelope, RateLimiter
 
 ### Scope
 
@@ -73,6 +73,16 @@ type PublisherOptions =
   | { driver: "memory" }
   | { driver: "redis"; url?: string; client?: RedisLike; keyPrefix?: string };
 ```
+
+`AdminDefinition.realtime` also takes `channels`, the channels of your own the
+stream may serve ([Realtime](/docs/guides/realtime#declare-your-own-channels)):
+
+`RealtimeChannel`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `access?` | `AccessRule` | Who may subscribe. Default: everyone `auth.access` admits. |
+| `tenantSafe?` | `boolean` | The payload carries nothing tenant-specific. Under an admin-wide `scope`, a channel without it delivers `{}`, so subscribers only learn that something changed. Default: `false`. |
 
 The memory driver reaches only the publishing process. The Redis driver loads the
 optional `ioredis` peer on first use and needs `url` or `client`; with `client`,

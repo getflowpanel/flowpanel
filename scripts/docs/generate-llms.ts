@@ -26,7 +26,7 @@ const COMPATIBILITY = /<Compatibility\s*\/>/g;
 const THEME_SLOTS = /<ThemeSlots\s*\/>/g;
 const INCLUDE = /^[ \t]*<include(?:\s[^>]*)?>([^<]+\.(tsx?))<\/include>[ \t]*$/gm;
 const ADAPTER_TAB = /^[ \t]*<AdapterTab\s+adapter="([^"]+)">[ \t]*$/gm;
-const THEME_SLOTS_FILE = "packages/react/src/_provider/ComponentsContext.tsx";
+const THEME_SLOTS_FILE = "packages/react/src/provider/ComponentsContext.tsx";
 const ATTRIBUTE = /([A-Za-z][\w-]*)="([^"]*)"/g;
 
 export interface DocsPage {

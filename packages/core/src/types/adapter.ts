@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { AuditLogStore } from "./audit";
 import type { ItemQueryContext, ListQueryContext, MutationContext } from "./context";
 import type { InferDB } from "./registry";
 import type { ListResult } from "./resource";
@@ -11,6 +12,8 @@ export interface ColumnMeta {
   nullable: boolean;
   unique: boolean;
   primaryKey: boolean;
+  /** A `number` column that holds whole numbers only, such as `integer` or `bigint`; `false` for decimals and floats. */
+  integer?: boolean;
   /** Allowed values, for `enum` columns. */
   enumValues?: readonly string[];
   /** Foreign key target, when the column references another table. */
@@ -36,6 +39,8 @@ export interface ResourceIntrospection {
   name: string;
   columns: ColumnMeta[];
   primaryKey: string;
+  /** Every column of a composite primary key, in order, when the adapter can see them. */
+  keyColumns?: readonly string[];
   /**
    * What the ref is. A view has no write path of its own; see `ResourceOptions.writeTo`.
    * @defaultValue "table"
@@ -99,4 +104,6 @@ export interface Adapter<DB = InferDB, Ref = unknown> {
    */
   applyMigration?(id: string, sql: string): Promise<void>;
   listAppliedMigrations?(): Promise<Set<string>>;
+  /** The `flowpanel_audit_log` table that `flowpanel migrate` creates. Without it, `audit` needs a `sink`. */
+  auditLog?: AuditLogStore;
 }

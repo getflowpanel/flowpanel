@@ -9,7 +9,7 @@ export interface TableSort {
 
 export interface UseAdminTable {
   page: number;
-  /** `?perPage=`, or null when the resource's configured size applies. */
+  /** `?pageSize=`, or null when the resource's configured size applies. */
   pageSize: number | null;
   search: string;
   sort: TableSort | null;
@@ -30,7 +30,7 @@ export function useAdminTable(): UseAdminTable {
 
   const pageRaw = Number(sp.get("page") ?? "1");
   const page = Number.isFinite(pageRaw) ? Math.max(1, Math.trunc(pageRaw)) : 1;
-  const pageSize = Number(sp.get("perPage")) || null;
+  const pageSize = Number(sp.get("pageSize")) || null;
   const search = sp.get("q") ?? "";
   const sortRaw = sp.get("sort");
   const sort: TableSort | null = sortRaw
@@ -61,8 +61,8 @@ export function useAdminTable(): UseAdminTable {
   const setPageSize = React.useCallback(
     (n: number | null) =>
       navigate((q) => {
-        if (n == null) q.delete("perPage");
-        else q.set("perPage", String(n));
+        if (n == null) q.delete("pageSize");
+        else q.set("pageSize", String(n));
         q.delete("page");
       }, true),
     [navigate],

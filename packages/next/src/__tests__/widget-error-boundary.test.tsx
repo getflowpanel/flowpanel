@@ -61,3 +61,22 @@ describe("WidgetErrorBoundary and Next's control flow", () => {
     expect(container.querySelector("[data-outer]")).toBeNull();
   });
 });
+
+describe("a failed widget's card", () => {
+  it("keeps the widget's title and gives the digest the server log printed, with Retry", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { getByText, getByRole } = render(
+      <WidgetErrorBoundary widgetId="w1" title="Live operations">
+        <Throws digest="1713761390" />
+      </WidgetErrorBoundary>,
+    );
+    expect(getByText("Live operations")).toBeTruthy();
+    expect(getByText("Couldn't load this widget")).toBeTruthy();
+    expect(
+      getByText("Try again in a moment. If it keeps failing, send this ID to your developer."),
+    ).toBeTruthy();
+    expect(getByText("Error 1713761390")).toBeTruthy();
+    expect(getByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(getByRole("button", { name: "Copy ID" })).toBeTruthy();
+  });
+});

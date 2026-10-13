@@ -1,4 +1,4 @@
-import { ADAPTER_COOKIE, ADAPTERS, DEFAULT_ADAPTER } from "@/shared/lib/adapter";
+import { ADAPTER_COOKIE, ADAPTERS } from "@/shared/lib/adapter";
 
 // Applies the stored adapter before first paint; reading the cookie on the server would end prerendering.
 const SOURCE = `try{var m=document.cookie.match(/(?:^|;\\s*)${ADAPTER_COOKIE}=([^;]*)/);
@@ -7,5 +7,3 @@ if(m&&${JSON.stringify(ADAPTERS)}.indexOf(m[1])>-1)document.documentElement.data
 export function AdapterScript() {
   return <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: SOURCE }} />;
 }
-
-export { DEFAULT_ADAPTER };

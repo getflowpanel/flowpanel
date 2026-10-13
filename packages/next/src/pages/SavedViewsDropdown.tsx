@@ -17,75 +17,32 @@ import {
   useLabels,
   useToast,
 } from "@flowpanel/react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
+import { useListNavigation } from "./list-navigation";
+import {
+  LIST_KEYS,
+  type ListDefaults,
+  loadUserViews,
+  parseSortParam,
+  persistUserViews,
+  type SavedView,
+  stateKey,
+  urlState,
+  viewState,
+  viewToUrlParams,
+} from "./saved-views-state";
 
-/** Wire-safe shape of a saved view passed from the server. */
-export interface SavedView {
-  name: string;
-  description?: string;
-  filters?: Record<string, unknown>;
-  sort?: { field: string; dir: "asc" | "desc" };
-  search?: string;
-  /** "static" views come from the resource config; "user" views live in localStorage. */
-  source: "static" | "user";
-}
+export type { SavedView } from "./saved-views-state";
 
 export interface SavedViewsDropdownProps {
   resource: string;
   staticViews: ReadonlyArray<Omit<SavedView, "source">>;
+  /** What the list shows with nothing in the URL, so a view equal to it is recognised. */
+  defaults?: ListDefaults;
 }
 
-const LS_PREFIX = "flowpanel:views";
-
-function loadUserViews(resource: string): Array<Omit<SavedView, "source">> {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(`${LS_PREFIX}:${resource}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed as Array<Omit<SavedView, "source">>;
-  } catch {
-    return [];
-  }
-}
-
-function persistUserViews(
-  resource: string,
-  views: ReadonlyArray<Omit<SavedView, "source">>,
-): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    window.localStorage.setItem(`${LS_PREFIX}:${resource}`, JSON.stringify(views));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function searchParamsToViewKey(params: URLSearchParams): string {
-  const entries = Array.from(params.entries()).sort(([a], [b]) => a.localeCompare(b));
-  return new URLSearchParams(entries).toString();
-}
-
-function viewToUrlParams(view: Omit<SavedView, "source">): URLSearchParams {
-  const params = new URLSearchParams();
-  if (view.search) params.set("q", view.search);
-  if (view.sort) params.set("sort", `${view.sort.field}:${view.sort.dir}`);
-  if (view.filters) {
-    for (const [k, v] of Object.entries(view.filters)) {
-      if (v === undefined || v === null) continue;
-      params.set(`f_${k}`, String(v));
-    }
-  }
-  return params;
-}
-
-export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdownProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+export function SavedViewsDropdown({ resource, staticViews, defaults }: SavedViewsDropdownProps) {
+  const { navigate, params: searchParams } = useListNavigation();
   const toast = useToast();
   const labels = useLabels();
   const copy = labels.savedViews;
@@ -107,20 +64,16 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
     [staticViews, userViews],
   );
 
-  const activeKey = React.useMemo(
-    () => searchParamsToViewKey(new URLSearchParams(searchParams.toString())),
-    [searchParams],
-  );
-  const activeView = React.useMemo(
-    () => allViews.find((v) => searchParamsToViewKey(viewToUrlParams(v)) === activeKey),
-    [allViews, activeKey],
-  );
+  const activeKey = stateKey(urlState(searchParams), defaults);
+  const activeView = allViews.find((v) => stateKey(viewState(v), defaults) === activeKey);
+  const unfiltered = activeKey === stateKey({ filters: {}, sort: "", search: "" }, defaults);
 
   function applyView(view: Omit<SavedView, "source">): void {
-    const params = viewToUrlParams(view);
     setOpen(false);
-    const query = params.toString();
-    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    navigate((next) => {
+      for (const key of [...next.keys()]) if (LIST_KEYS.test(key)) next.delete(key);
+      for (const [key, value] of viewToUrlParams(view)) next.set(key, value);
+    }, "push");
   }
 
   function saveCurrent(): void {
@@ -215,7 +168,11 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" className="fp-rounded-full">
-            {formatLabel(copy.current, { name: activeView?.name ?? labels.allOption })}
+            {activeView
+              ? formatLabel(copy.current, { name: activeView.name })
+              : unfiltered
+                ? formatLabel(copy.current, { name: labels.allOption })
+                : copy.label}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="fp-w-56">
@@ -264,11 +221,4 @@ export function SavedViewsDropdown({ resource, staticViews }: SavedViewsDropdown
       </DropdownMenu>
     </>
   );
-}
-
-function parseSortParam(raw: string | null): { field: string; dir: "asc" | "desc" } | null {
-  if (!raw) return null;
-  const [field, dir] = raw.split(":");
-  if (!field || (dir !== "asc" && dir !== "desc")) return null;
-  return { field, dir };
 }

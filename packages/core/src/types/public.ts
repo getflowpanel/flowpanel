@@ -16,14 +16,22 @@ export type {
   ResourceIntrospection,
 } from "./adapter";
 export type {
+  AuditConfig,
+  AuditEvent,
+  AuditLogEntry,
+  AuditLogFacets,
+  AuditLogPage,
+  AuditLogQuery,
+  AuditLogStore,
+  AuditLogVisibility,
+} from "./audit";
+export type {
   CommandGroup,
   CommandItem,
   CommandPaletteConfig,
 } from "./command";
 export type {
   AdminDefinition,
-  AuditConfig,
-  AuditEvent,
   AuthConfig,
   FlowpanelComponentSlots,
   FlowpanelToken,
@@ -84,7 +92,7 @@ export type {
   ResourceOperation,
 } from "./policy";
 export type { QueueConfig, QueueOptions, QueueRef } from "./queue";
-export type { RealtimeConfig, RealtimeOption, RealtimeTarget } from "./realtime";
+export type { RealtimeChannel, RealtimeConfig, RealtimeOption, RealtimeTarget } from "./realtime";
 export type {
   AllResources,
   FlowpanelResources,

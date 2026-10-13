@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { guessedPaths } from "../../packages/cli/src/commands/init-detect";
@@ -7,7 +8,7 @@ import {
   configTemplateCall,
   renderCall,
 } from "../../packages/cli/src/commands/init-templates";
-import { wireResourcesDir } from "../../packages/cli/src/scaffold/config-edits";
+import { dirSpecifier, wireResourcesDir } from "../../packages/cli/src/scaffold/config-edits";
 import {
   describeSchema,
   type TableDescription,
@@ -85,6 +86,24 @@ async function newResources(): Promise<Record<string, string>> {
   return files;
 }
 
+/** The specifier `new --dir src/admin/config/resources` writes into the tutorial's config, in a `src/` project. */
+async function tutorialResourcesSpecifier(): Promise<string> {
+  const project = mkdtempSync(join(tmpdir(), "flowpanel-snippets-"));
+  try {
+    writeFileSync(
+      join(project, "tsconfig.json"),
+      JSON.stringify({ compilerOptions: { paths: { "@/*": ["./src/*"] } } }),
+    );
+    return await dirSpecifier(
+      project,
+      join(project, "src/admin/config/index.ts"),
+      join(project, "src/admin/config/resources"),
+    );
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+}
+
 /** Every generated file, keyed by its path under `content/snippets/generated`. */
 export async function renderInitSnippets(): Promise<Record<string, string>> {
   const drizzle = guessedPaths("drizzle", "strip-src");
@@ -99,7 +118,7 @@ export async function renderInitSnippets(): Promise<Record<string, string>> {
     appName: "scrapeai",
     session: "own",
   });
-  const moved = wireResourcesDir(tutorial, "@/admin/config/resources", () => false);
+  const moved = wireResourcesDir(tutorial, await tutorialResourcesSpecifier(), () => false);
   if (moved.kind !== "wired") throw new Error("new --dir no longer wires the tutorial's config.");
   return {
     "init/drizzle-config.ts": await config({ ...stub, orm: "drizzle", ...drizzle }),

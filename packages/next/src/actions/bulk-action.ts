@@ -1,25 +1,25 @@
 import type {
-  ActionResult,
   ActionVariant,
   BulkAction,
   IconName,
+  PluralLabel,
+  RequestContext,
   ResolvedAdminConfig,
+  ResolvedLabels,
+  ResourceConfig,
 } from "@flowpanel/core";
-import { FlowpanelNotFoundError, runWithRequestContext } from "@flowpanel/core";
-import { isBuiltinBulkDelete } from "@flowpanel/core/internal";
-import { actionFailure, validationFailure } from "../runtime/action-failure";
 import {
-  buildActionContext,
-  buildAuditEvent,
-  invalidJsonResponse,
-  maybeEmitAudit,
-  notFoundResponse,
-} from "../runtime/action-helpers";
-import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
-import { applyActionResult } from "../runtime/apply-action-result";
+  DEFAULT_LABELS,
+  FlowpanelError,
+  FlowpanelNotFoundError,
+  formatLabel,
+  mergeLabels,
+} from "@flowpanel/core";
+import { isBuiltinBulkDelete } from "@flowpanel/core/internal";
+import { actionFailure } from "../runtime/action-failure";
+import { invalidJsonResponse } from "../runtime/action-helpers";
 import { deleteRow } from "../runtime/delete-row";
 import { buildHref } from "../runtime/href";
-import { bindPublisher } from "../runtime/publish";
 import { readRow } from "../runtime/read-row";
 import {
   formDataObject,
@@ -27,7 +27,14 @@ import {
   readJsonObject,
   readRequestFormData,
 } from "../runtime/request-body";
-import { withGuards } from "../runtime/with-guards";
+import {
+  commitEffects,
+  guardedRoute,
+  invokeDeclaredAction,
+  lookupAction,
+  lookupResource,
+  parseDeclaredInput,
+} from "../runtime/write-pipeline";
 import type { ActionFormField } from "./action-form-field";
 import { serializeActionForm } from "./serialize-action-field";
 
@@ -37,14 +44,39 @@ export interface SerializedBulkAction {
   label: string;
   icon?: IconName;
   variant?: ActionVariant;
-  confirm?: { title: string; description?: string; confirmLabel?: string };
+  /** A `PluralLabel` form is worded for the selection's size; `{n}` is the count. */
+  confirm?: {
+    title: string;
+    description?: string | PluralLabel;
+    confirmLabel?: string;
+  };
   hasForm: boolean;
   form?: ActionFormField[];
 }
 
 /** Serialize a `BulkAction` for client consumption. */
-export function serializeBulkAction<Row>(a: BulkAction<Row>): SerializedBulkAction {
+export function serializeBulkAction<Row>(
+  a: BulkAction<Row>,
+  labels: ResolvedLabels = DEFAULT_LABELS,
+  resource?: ResourceConfig,
+): SerializedBulkAction {
   const hasForm = Array.isArray(a.form) && a.form.length > 0;
+  if (isBuiltinBulkDelete(a)) {
+    const del = resource?.options.delete;
+    const soft = del?.softDelete !== undefined;
+    return {
+      key: a.key,
+      label: labels.actions.delete,
+      variant: "destructive",
+      hasForm: false,
+      confirm: {
+        title: labels.confirm.deleteSelectedTitle,
+        description:
+          del?.confirm ??
+          (soft ? labels.confirm.softDeleteDescription : labels.confirm.deleteDescription),
+      },
+    };
+  }
   const out: SerializedBulkAction = {
     key: a.key,
     label: a.label,
@@ -129,123 +161,143 @@ async function eachLimited(
   await Promise.all(Array.from({ length: Math.min(limit, ids.length) }, worker));
 }
 
+function bulkBodyFailure(reason: Exclude<BulkBody, { ok: true }>["reason"]): Response {
+  if (reason === "input") return actionFailure("bad_request", "input must be an object");
+  if (reason === "ids") {
+    return actionFailure("bad_request", "ids must be a non-empty array of strings");
+  }
+  return invalidJsonResponse(reason);
+}
+
+function auditTargets(ids: readonly string[]): string {
+  return ids.slice(0, 10).join(",") + (ids.length > 10 ? "…" : "");
+}
+
+/** The whole selection in one transaction where the driver holds one, else row by row up to the first failure. */
+async function deleteSelection(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  ids: readonly string[],
+  reqCtx: RequestContext,
+): Promise<{ deleted: string[]; failure?: unknown }> {
+  const transaction = config.adapter.transaction;
+  if (transaction) {
+    let started = false;
+    try {
+      await transaction.call(config.adapter, async (db) => {
+        started = true;
+        for (const id of ids) await deleteRow(config, resource, id, reqCtx, db);
+      });
+      return { deleted: [...ids] };
+    } catch (err) {
+      if (started || err instanceof FlowpanelError) throw err;
+    }
+  }
+  const deleted: string[] = [];
+  for (const id of ids) {
+    try {
+      await deleteRow(config, resource, id, reqCtx);
+    } catch (failure) {
+      return { deleted, failure };
+    }
+    deleted.push(id);
+  }
+  return { deleted };
+}
+
 export function bulkActionRoute(config: ResolvedAdminConfig) {
-  bindPublisher(config);
-
-  return async function POST(
-    req: Request,
-    ctx: { params: Promise<{ resource: string; action: string }> },
-  ): Promise<Response> {
-    const { resource: resourceName, action: actionKey } = await ctx.params;
-    const resource = config.resourcesByName.get(resourceName);
-    if (!resource) {
-      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
+  return guardedRoute<
+    { resource: string; action: string },
+    {
+      resource: ResourceConfig;
+      action: BulkAction<Record<string, unknown>>;
+      builtinDelete: boolean;
     }
-    const actions = resource.options.bulkActions as
-      | BulkAction<Record<string, unknown>>[]
-      | undefined;
-    const action = actions?.find((a) => a.key === actionKey);
-    if (!action) {
-      return notFoundResponse(
-        "action",
-        actionKey,
-        (actions ?? []).map((a) => a.key),
-      );
-    }
+  >(config, {
+    resolve: (params) => {
+      const resource = lookupResource(config, params.resource);
+      if (resource instanceof Response) return resource;
+      const actions = resource.options.bulkActions as
+        | BulkAction<Record<string, unknown>>[]
+        | undefined;
+      const action = lookupAction(actions, params.action);
+      if (action instanceof Response) return action;
+      const builtinDelete = isBuiltinBulkDelete(action);
+      return {
+        spec: {
+          resource,
+          actionAccess: action.access,
+          ...(builtinDelete ? { operation: "delete" as const } : {}),
+        },
+        target: { resource, action, builtinDelete },
+      };
+    },
+    handle: async ({ req, reqCtx, target: { resource, action, builtinDelete }, params }) => {
+      const name = params.resource;
+      const body = await parseBulkBody(req);
+      if (!body.ok) return bulkBodyFailure(body.reason);
+      const ids = [...new Set(body.ids)];
+      const max = action.max ?? MAX_BULK;
+      if (ids.length > max) {
+        return actionFailure("validation_failed", `too many ids (max ${max})`);
+      }
 
-    const builtinDelete = isBuiltinBulkDelete(action);
+      const input = builtinDelete
+        ? {}
+        : await parseDeclaredInput(config, reqCtx, action, body.input);
+      if (input instanceof Response) return input;
 
-    return withGuards(
-      config,
-      req,
-      {
-        resource,
-        actionAccess: action.access,
-        ...(builtinDelete ? { operation: "delete" as const } : {}),
-      },
-      async (reqCtx) => {
-        const body = await parseBulkBody(req);
-        if (!body.ok) {
-          if (
-            body.reason === "invalid-json" ||
-            body.reason === "object-required" ||
-            body.reason === "payload-too-large" ||
-            body.reason === "invalid-form"
-          ) {
-            return invalidJsonResponse(body.reason);
-          }
-          if (body.reason === "input") {
-            return actionFailure("bad_request", "input must be an object");
-          }
-          return actionFailure("bad_request", "ids must be a non-empty array of strings");
-        }
-        const ids = [...new Set(body.ids)];
-        const max = action.max ?? MAX_BULK;
-        if (ids.length > max) {
-          return actionFailure("validation_failed", `too many ids (max ${max})`);
-        }
+      await eachLimited(ids, EXISTENCE_CHECKS_AT_ONCE, async (id) => {
+        const row = await readRow(config, resource, id, reqCtx);
+        if (!row) throw new FlowpanelNotFoundError();
+      });
 
-        const parsedInput = await parseActionInputSchema(
-          action.form as Parameters<typeof parseActionInputSchema>[0],
-          action.inputSchema,
-          body.input,
+      const effects = {
+        audit: {
+          action: `${name}.bulk.${action.key}`,
+          resource: name,
+          targetId: auditTargets(ids),
+          targetIds: ids,
+        },
+        resourceAudit: resource.options.audit,
+        publish: {
+          resourceName: name,
+          pathname: buildHref(config, name),
+          ...(builtinDelete ? { change: { action: "delete" as const } } : {}),
+        },
+      };
+      if (!builtinDelete) {
+        return invokeDeclaredAction(
+          config,
+          reqCtx,
+          action,
+          input,
+          (parsed, actionCtx) => action.run(ids, parsed, actionCtx),
+          effects,
         );
-        if (parsedInput.issues) {
-          return validationFailure(parsedInput.issues, reqCtx.requestId);
-        }
+      }
 
-        const actionCtx = buildActionContext(config, reqCtx, action);
-
-        await eachLimited(ids, EXISTENCE_CHECKS_AT_ONCE, async (id) => {
-          const row = await readRow(config, resource, id, reqCtx);
-          if (!row) throw new FlowpanelNotFoundError();
-        });
-
-        let result: ActionResult<unknown>;
-        if (builtinDelete) {
-          // One failure must not leave a half-deleted selection behind an audit entry that claims the whole batch.
-          const deleteAll = async (db: unknown) => {
-            for (const id of ids) await deleteRow(config, resource, id, reqCtx, db);
-          };
-          const transaction = config.adapter.transaction;
-          if (transaction) await transaction.call(config.adapter, deleteAll);
-          else await deleteAll(config.adapter.db);
-          result = { ok: true, message: `Deleted ${ids.length}` };
-        } else {
-          result = validateActionOutput(
-            action.outputSchema,
-            (await runWithRequestContext(reqCtx, () =>
-              action.run(ids, parsedInput.data, actionCtx),
-            )) as ActionResult<unknown>,
-          );
-        }
-
-        const targetId = ids.slice(0, 10).join(",") + (ids.length > 10 ? "…" : "");
-        await maybeEmitAudit(
-          result,
-          config.audit,
-          resource.options.audit,
-          buildAuditEvent(
-            reqCtx,
-            {
-              action: `${resourceName}.bulk.${actionKey}`,
-              resource: resourceName,
-              targetId,
-            },
-            config.auth.userId,
-          ),
+      const { deleted, failure } = await deleteSelection(config, resource, ids, reqCtx);
+      if (deleted.length > 0) {
+        await commitEffects(
+          config,
+          reqCtx,
+          { ok: true },
+          {
+            ...effects,
+            audit: { ...effects.audit, targetId: auditTargets(deleted), targetIds: deleted },
+          },
         );
-
-        if (result.ok) {
-          await applyActionResult(result, {
-            resourceName,
-            pathname: buildHref(config, resourceName),
-            ...(builtinDelete ? { change: { action: "delete" as const } } : {}),
-          });
-        }
-
-        return Response.json(result);
-      },
-    );
-  };
+      }
+      if (failure === undefined) return Response.json({ ok: true });
+      if (deleted.length === 0 || !(failure instanceof FlowpanelError)) throw failure;
+      const done = formatLabel(mergeLabels(config.labels).actions.deletedSome, {
+        done: deleted.length,
+        total: ids.length,
+      });
+      return actionFailure(failure.code, `${done} ${failure.safeMessage}`, {
+        status: failure.status,
+      });
+    },
+  });
 }

@@ -3,16 +3,19 @@ import {
   accessAllows,
   FlowpanelAccessError,
   FlowpanelAuthError,
+  FlowpanelRateLimitError,
   mergeLabels,
   resolveOperationAccess,
 } from "@flowpanel/core";
+import { AUDIT_LOG_SEGMENT, auditReadable } from "./audit-view";
 import { matchDashboard } from "./dashboard-routing";
 import { decodeAtom } from "./href";
 import { readableByCaller } from "./nav";
 import { matchPage } from "./page-routing";
 import { type PageParams, pageRequest, resolveCatchAllSegments, toSearchParams } from "./page-url";
+import { recordTitle } from "./record-title";
 import { buildRequestContext } from "./request-setup";
-import { pluralLabel, singularLabel, singularTitle } from "./resource-title";
+import { pluralLabel, singularTitle } from "./resource-title";
 
 /** The part of Next's `Metadata` the admin fills. */
 export interface FlowpanelMetadata {
@@ -48,6 +51,9 @@ async function titleFor(
     if (!queue) return labels.notFound.title;
     return (await accessAllows(queue.options.access, reqCtx)) ? queue.options.label : undefined;
   }
+  if (name === AUDIT_LOG_SEGMENT && id === undefined && config.auditLog) {
+    return (await auditReadable(config, reqCtx)) ? labels.audit.title : undefined;
+  }
   if (name === undefined) return config.theme?.brand?.name;
   const resource = config.resourcesByName.get(name);
   if (!resource) return labels.notFound.title;
@@ -62,19 +68,20 @@ async function titleFor(
     if (!(await allowedForCaller(resource, "update", reqCtx))) return undefined;
     return singularTitle(labels.form.editTitle, resource, name);
   }
-  return singularLabel(resource, name);
+  return (await recordTitle(config, resource, name, id, reqCtx)) ?? labels.notFound.title;
 }
 
-/** The title of the sign-in or access-denied wall the page shows for this error, as `handleRenderError` picks it. */
+/** The title of the wall the page shows for this error, as `handleRenderError` picks it. */
 async function wallTitle(
   err: unknown,
   config: ResolvedAdminConfig,
   req: Request | undefined,
 ): Promise<string | undefined> {
+  const { access } = mergeLabels(config.labels);
+  if (err instanceof FlowpanelRateLimitError) return access.rateLimitedTitle;
   if (!(err instanceof FlowpanelAccessError) && !(err instanceof FlowpanelAuthError))
     return undefined;
   const session = req ? await config.auth.session(req).catch(() => null) : null;
-  const { access } = mergeLabels(config.labels);
   return err instanceof FlowpanelAuthError || session === null
     ? access.signInTitle
     : access.deniedTitle;

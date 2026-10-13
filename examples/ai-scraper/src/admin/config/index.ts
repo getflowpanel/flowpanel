@@ -4,6 +4,7 @@ import { queues } from "@/src/admin/queues";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 import { type AdminSession, getDemoSession } from "@/src/demo/auth/session";
+import { LIVE_OPERATIONS_CHANNEL } from "@/src/demo/realtime/types";
 import { readSandboxConfig } from "@/src/demo/sandbox/config";
 import { requireSandboxId } from "@/src/demo/sandbox/scope";
 import { overview } from "./dashboards/overview";
@@ -29,16 +30,13 @@ const sandboxConfig = readSandboxConfig();
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
   readOnly: sandboxConfig.readOnly,
+  ...(process.env.DEMO_LOCALE ? { formatting: { locale: process.env.DEMO_LOCALE } } : {}),
   scope: ({ session }) => ({ sandboxId: requireSandboxId(session) }),
-  realtime: { driver: "memory" },
-  audit: {
-    enabled: true,
-    sink: async (e) => {
-      console.log(
-        `[audit] ${e.action} ${e.resource ?? ""}#${e.targetId ?? "?"} by ${e.actorId ?? "anon"}`,
-      );
-    },
+  realtime: {
+    driver: "memory",
+    channels: { [LIVE_OPERATIONS_CHANNEL]: { tenantSafe: true } },
   },
+  audit: { enabled: true },
   rateLimit: { driver: "memory", limit: 240, windowMs: 60_000, per: "ip", enabled: true },
   security: { trustedProxies: 1 },
   auth: {

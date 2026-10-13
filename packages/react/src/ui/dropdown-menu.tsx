@@ -1,6 +1,6 @@
 "use client";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import { Check, ChevronRight, Circle } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { cn } from "../lib/cn";
 import { named } from "../lib/named";
@@ -8,9 +8,7 @@ import { named } from "../lib/named";
 const DropdownMenu = DropdownMenuPrimitive.Root;
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
 const DropdownMenuGroup = DropdownMenuPrimitive.Group;
-const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
-const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 const DropdownMenuSubTrigger = /* @__PURE__ */ named(
   /* @__PURE__ */ React.forwardRef<
@@ -114,30 +112,6 @@ const DropdownMenuCheckboxItem = /* @__PURE__ */ named(
   DropdownMenuPrimitive.CheckboxItem,
 );
 
-const DropdownMenuRadioItem = /* @__PURE__ */ named(
-  /* @__PURE__ */ React.forwardRef<
-    React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
-    React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
-  >(({ className, children, ...props }, ref) => (
-    <DropdownMenuPrimitive.RadioItem
-      ref={ref}
-      className={cn(
-        "fp-relative fp-flex fp-cursor-default fp-select-none fp-items-center fp-rounded-sm fp-py-1.5 fp-pl-8 fp-pr-2 fp-text-sm fp-outline-none fp-transition-colors focus:fp-bg-fill/70 data-[disabled]:fp-pointer-events-none data-[disabled]:fp-opacity-50",
-        className,
-      )}
-      {...props}
-    >
-      <span className="fp-absolute fp-left-2 fp-flex fp-h-3.5 fp-w-3.5 fp-items-center fp-justify-center">
-        <DropdownMenuPrimitive.ItemIndicator>
-          <Circle className="fp-h-2 fp-w-2 fp-fill-current" />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
-      {children}
-    </DropdownMenuPrimitive.RadioItem>
-  )),
-  DropdownMenuPrimitive.RadioItem,
-);
-
 const DropdownMenuLabel = /* @__PURE__ */ named(
   /* @__PURE__ */ React.forwardRef<
     React.ElementRef<typeof DropdownMenuPrimitive.Label>,
@@ -187,9 +161,6 @@ export {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuPortal,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuSub,

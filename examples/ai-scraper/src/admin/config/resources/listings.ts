@@ -26,7 +26,10 @@ export const listings = resource(schema.listings, {
   density: "compact",
   create: { disabled: true },
   delete: {
-    confirm: "Permanently delete selected listings and their matches? This cannot be undone.",
+    confirm: {
+      one: "The listing and its matches are deleted for good. This cannot be undone.",
+      other: "{n} listings and their matches are deleted for good. This cannot be undone.",
+    },
   },
   rowClick: "drawer",
   export: {

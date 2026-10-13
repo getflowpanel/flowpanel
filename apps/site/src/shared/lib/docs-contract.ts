@@ -6,8 +6,6 @@ export const DOC_KINDS = [
   "troubleshooting",
 ] as const;
 
-export type DocKind = (typeof DOC_KINDS)[number];
-
 export interface DocRedirect {
   source: "/docs" | `/docs/${string}`;
   destination: `/docs/${string}` | "/changelog";

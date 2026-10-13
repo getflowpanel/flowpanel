@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ADAPTER_COOKIE,
-  ADAPTERS,
-  type Adapter,
-  DEFAULT_ADAPTER,
-  isAdapter,
-} from "@/shared/lib/adapter";
+import { ADAPTER_COOKIE, ADAPTERS, type Adapter, isAdapter } from "@/shared/lib/adapter";
 
 interface AdapterToggleProps {
   /** Server-resolved initial value — prevents flash on first paint. */
@@ -64,5 +58,3 @@ export function AdapterToggle({ initial }: AdapterToggleProps) {
 function labelFor(adapter: Adapter): string {
   return adapter === "prisma" ? "Prisma" : "Drizzle";
 }
-
-export { DEFAULT_ADAPTER };

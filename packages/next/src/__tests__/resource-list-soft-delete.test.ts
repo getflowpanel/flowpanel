@@ -53,15 +53,20 @@ function makeAdapter(listSpy: (ctx: ListQueryContext<unknown>) => void): Adapter
   };
 }
 
-function mkConfig(listSpy: (ctx: ListQueryContext<unknown>) => void, withSoftDelete: boolean) {
+function mkConfig(
+  listSpy: (ctx: ListQueryContext<unknown>) => void,
+  withSoftDelete: boolean,
+  role = "admin",
+) {
   return defineAdmin({
     adapter: makeAdapter(listSpy),
-    auth: { session: async () => null, role: () => "admin" },
+    auth: { session: async () => null, role: () => role },
     resources: [
       resource(
         { __name: "users" },
         {
           columns: ["id", "email"],
+          access: { read: ["admin", "viewer"], update: "admin" },
           ...(withSoftDelete ? { delete: { softDelete: "deletedAt" } } : {}),
         },
       ),
@@ -126,6 +131,24 @@ describe("ResourceListPage — soft-delete wiring", () => {
 
     const ctx = listSpy.mock.calls[0]?.[0] as ListQueryContext<unknown>;
     expect(ctx.includeDeleted).toBe(true);
+  });
+
+  it("shows deleted rows only to a role that could restore them", async () => {
+    const listSpy = vi.fn();
+    const config = mkConfig(listSpy, true, "viewer");
+    const resourceCfg = config.resourcesByName.get("users");
+    if (!resourceCfg) throw new Error("users resource not registered");
+
+    const node = await ResourceListPage({
+      config,
+      resource: resourceCfg,
+      searchParams: new URLSearchParams("deleted=1"),
+      req: new Request("http://localhost/admin/users?deleted=1"),
+    });
+
+    const ctx = listSpy.mock.calls[0]?.[0] as ListQueryContext<unknown>;
+    expect(ctx.includeDeleted).toBe(false);
+    expect(findElement(node, ResourceListDeletedToggle)).toBeUndefined();
   });
 
   it("computes deletedRowKeys from raw rows (pre-projection) and strips the soft-delete column from client rows", async () => {

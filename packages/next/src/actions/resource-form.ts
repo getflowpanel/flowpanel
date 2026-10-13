@@ -1,14 +1,17 @@
-import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import type { ResolvedAdminConfig, ResolvedLabels, ResourceConfig } from "@flowpanel/core";
 import {
   FlowpanelError,
   FlowpanelValidationError,
+  formatLabel,
+  humanize,
   mergeLabels,
   resolveFormatting,
 } from "@flowpanel/core";
+import { moneyDecimals, parseMoney } from "@flowpanel/core/format";
 import { writeTarget } from "@flowpanel/core/internal";
 import { actionFailure } from "../runtime/action-failure";
-import { notFoundResponse } from "../runtime/action-helpers";
 import { coerceRowByColumns } from "../runtime/coerce-values";
+import { moneyExample, moneyShape } from "../runtime/money-field";
 import {
   type RequestBodyError,
   readRequestFormData,
@@ -16,7 +19,7 @@ import {
 } from "../runtime/request-body";
 import { declaredFormFields } from "../runtime/resolve-form-fields";
 import { rowKeyOf } from "../runtime/row-identity";
-import { withGuards } from "../runtime/with-guards";
+import { guardedRoute, lookupResource } from "../runtime/write-pipeline";
 import { declaredWriteFields } from "./field-pipeline";
 import { type FormFieldShape, readFormValues } from "./form-values";
 import { type FormActionResult, makeActions } from "./resource-actions";
@@ -32,6 +35,8 @@ function renderedFieldShapes(
 ): FormFieldShape[] {
   const { columns } = config.adapter.introspect(writeTarget(resource));
   const booleanColumns = new Set(columns.filter((c) => c.type === "boolean").map((c) => c.name));
+  const byName = new Map(columns.map((c) => [c.name, c]));
+  const formatting = resolveFormatting(config.formatting);
   const declared = declaredFormFields(resource, mode);
   const writable = new Set(declaredWriteFields(resource, declared));
   if (!declared) {
@@ -44,7 +49,44 @@ function renderedFieldShapes(
     .map((f) => ({
       name: f.name,
       type: f.type ?? (booleanColumns.has(f.name) ? "boolean" : undefined),
+      ...(f.type === "money" ? moneyShape(f, byName.get(f.name), formatting) : {}),
     }));
+}
+
+/** A `money` control that posted something other than an amount with the currency's decimals. */
+function moneyErrors(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  mode: "create" | "update",
+  fd: FormData,
+  values: Record<string, unknown>,
+  labels: ResolvedLabels,
+): Record<string, string> {
+  const formatting = resolveFormatting(config.formatting);
+  const { columns } = config.adapter.introspect(writeTarget(resource));
+  const errors: Record<string, string> = {};
+  for (const field of declaredFormFields(resource, mode) ?? []) {
+    if (field.type !== "money") continue;
+    const raw = fd.get(field.name);
+    if (typeof raw !== "string" || raw.trim() === "") continue;
+    const shape = moneyShape(
+      field,
+      columns.find((c) => c.name === field.name),
+      formatting,
+    );
+    if (parseMoney(raw, shape) !== null) continue;
+    const decimals = moneyDecimals(raw);
+    const message =
+      decimals !== null && decimals > shape.minorUnits
+        ? labels.form.moneyTooPrecise
+        : labels.form.invalidMoney;
+    errors[field.name] = formatLabel(message, {
+      label: field.label ?? humanize(field.name),
+      example: moneyExample(shape, formatting.locale),
+    });
+    delete values[field.name];
+  }
+  return errors;
 }
 
 /**
@@ -60,13 +102,17 @@ function coerceFormData(
   const raw: Record<string, unknown> = {};
   for (const [k, v] of fd.entries()) raw[k] = v;
   Object.assign(raw, readFormValues(renderedFieldShapes(resource, config, mode), fd));
+  const labels = mergeLabels(config.labels);
+  const invalidMoney = moneyErrors(config, resource, mode, fd, raw, labels);
   const { columns } = config.adapter.introspect(writeTarget(resource));
-  const { values, fieldErrors } = coerceRowByColumns(
+  const coerced = coerceRowByColumns(
     columns,
     raw,
-    mergeLabels(config.labels),
+    labels,
     resolveFormatting(config.formatting).timeZone,
   );
+  const values = coerced.values;
+  const fieldErrors = { ...coerced.fieldErrors, ...invalidMoney };
   for (const [k, v] of Object.entries(values)) {
     if (v === "") values[k] = null;
   }
@@ -100,76 +146,59 @@ function formActionError(err: unknown): Response {
   });
 }
 
-export function resourceCreateRoute(config: ResolvedAdminConfig) {
-  return async function POST(
-    req: Request,
-    ctx: { params: Promise<{ resource: string }> },
-  ): Promise<Response> {
-    const { resource: resourceName } = await ctx.params;
-    const resource = config.resourcesByName.get(resourceName);
-    if (!resource) {
-      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
-    }
-    if (resource.options.create?.disabled) {
-      return actionFailure("operation_disabled", "create is disabled");
-    }
+function formResource(config: ResolvedAdminConfig, operation: "create" | "update") {
+  return (params: { resource: string }) => {
+    const resource = lookupResource(config, params.resource);
+    if (resource instanceof Response) return resource;
+    return { spec: { resource, operation }, target: resource };
+  };
+}
 
-    return withGuards(config, req, { resource, operation: "create" }, async (reqCtx) => {
+/** POST /<resource>/create — the generated create form. */
+export function resourceCreateRoute(config: ResolvedAdminConfig) {
+  return guardedRoute<{ resource: string }, ResourceConfig>(config, {
+    resolve: formResource(config, "create"),
+    handle: async ({ req, reqCtx, target: resource }) => {
       const parsed = await parseFormBody(req, resource, config, "create");
       if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
-
-      const actions = makeActions(config, resource, { reqCtx, fromForm: true });
       try {
         if (Object.keys(parsed.fieldErrors).length > 0) {
           throw new FlowpanelValidationError(parsed.fieldErrors);
         }
-        const created = await actions.create(parsed.values);
-        const rowKey = rowKeyOf(resource);
-        const createdValue =
+        const created = await makeActions(config, resource, { reqCtx, fromForm: true }).create(
+          parsed.values,
+        );
+        const key =
           created && typeof created === "object"
-            ? (created as Record<string, unknown>)[rowKey]
+            ? (created as Record<string, unknown>)[rowKeyOf(resource)]
             : undefined;
         return Response.json({
           ok: true,
-          ...(createdValue !== undefined && createdValue !== null
-            ? { createdKey: String(createdValue) }
-            : {}),
+          ...(key !== undefined && key !== null ? { createdKey: String(key) } : {}),
         } satisfies FormActionResult);
       } catch (err) {
         return formActionError(err);
       }
-    });
-  };
+    },
+  });
 }
 
+/** POST /<resource>/<id>/edit — the generated edit form. */
 export function resourceUpdateRoute(config: ResolvedAdminConfig) {
-  return async function POST(
-    req: Request,
-    ctx: { params: Promise<{ resource: string; id: string }> },
-  ): Promise<Response> {
-    const { resource: resourceName, id } = await ctx.params;
-    const resource = config.resourcesByName.get(resourceName);
-    if (!resource) {
-      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
-    }
-    if (resource.options.update?.disabled) {
-      return actionFailure("operation_disabled", "editing is disabled");
-    }
-
-    return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {
+  return guardedRoute<{ resource: string; id: string }, ResourceConfig>(config, {
+    resolve: formResource(config, "update"),
+    handle: async ({ req, reqCtx, target: resource, params: { id } }) => {
       const parsed = await parseFormBody(req, resource, config, "update");
       if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
-
-      const actions = makeActions(config, resource, { reqCtx, fromForm: true });
       try {
         if (Object.keys(parsed.fieldErrors).length > 0) {
           throw new FlowpanelValidationError(parsed.fieldErrors);
         }
-        await actions.update(id, parsed.values);
+        await makeActions(config, resource, { reqCtx, fromForm: true }).update(id, parsed.values);
         return Response.json({ ok: true } satisfies FormActionResult);
       } catch (err) {
         return formActionError(err);
       }
-    });
-  };
+    },
+  });
 }

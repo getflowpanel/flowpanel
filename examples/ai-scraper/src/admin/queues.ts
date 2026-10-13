@@ -9,23 +9,24 @@ const base = (
   process.env.BOARD_URL ?? `http://localhost:${process.env.BOARD_PORT ?? "3001"}`
 ).replace(/\/+$/, "");
 
-function iframeBoardUrl(name: string): string {
-  const token = process.env.BOARD_TOKEN;
-  if (!token) {
+function boardSecret(): string {
+  const secret = process.env.BOARD_SECRET;
+  if (!secret) {
     throw new Error(
-      "BOARD_TOKEN is required whenever REDIS_URL is set — it is the only guard on the board's destructive job controls.",
+      "BOARD_SECRET is required whenever REDIS_URL is set — it is the only guard on the board's destructive job controls.",
     );
   }
-  return `${base}/queue/${name}?token=${encodeURIComponent(token)}`;
+  return secret;
 }
 
-// The tokenized board URL grants destructive job controls, so the public demo gets no queues section.
+// The board grants destructive job controls, so the public demo gets no queues section.
 export const queues = readSandboxConfig().publicMode
   ? []
   : liveQueues.map((q) =>
       queue(q.instance, {
         label: label(q.name),
         icon: "workflow",
-        boardUrl: iframeBoardUrl(q.name),
+        boardUrl: `${base}/queue/${q.name}`,
+        boardSecret: boardSecret(),
       }),
     );

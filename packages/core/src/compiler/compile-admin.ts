@@ -10,7 +10,8 @@ import type { DashboardConfig, PageConfig } from "../types/dashboard";
 import { type LabelsConfig, mergeLabels } from "../types/labels";
 import type { QueueConfig } from "../types/queue";
 import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
-import { createBuiltinBulkDelete } from "./builtin-bulk-delete";
+import { resolveAuditLog } from "./audit-log";
+import { withBuiltinBulkDelete } from "./builtin-bulk-delete";
 import { resolveDetailWidgets } from "./detail-widgets";
 import { withEnumOptions } from "./enum-options";
 import { tryIntrospect } from "./introspect";
@@ -28,6 +29,7 @@ import {
 } from "./validate/config";
 import { validateDashboardFilters } from "./validate/dashboard-filters";
 import { type LinkCheck, validateLinks } from "./validate/links";
+import { assertMoneyFields } from "./validate/money-fields";
 import { validateRealtime } from "./validate/realtime";
 import { validateRecordSources } from "./validate/record-sources";
 import { assertNoRemovedConfigKeys, assertNoRemovedResourceKeys } from "./validate/removed-keys";
@@ -103,6 +105,8 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   const compiledResourcesByName = new Map<string, CompiledResource>();
   const routeNames = new RouteNameRegistry();
   const warnings: string[] = rateLimitWarning ? [rateLimitWarning] : [];
+  const auditLog = resolveAuditLog(config.audit, config.adapter);
+  if (auditLog) routeNames.addPath("page", "/audit-log", "the built-in Audit log");
 
   for (const raw of config.resources ?? []) {
     const name = resolveResourceName(raw);
@@ -129,25 +133,12 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     assertServableActionForm(raw.options.actions, name, "actions");
     assertServableActionForm(raw.options.bulkActions, name, "bulkActions");
     assertBulkActionLimits(raw, name);
+    assertMoneyFields(raw, name);
     const probe = tryIntrospect(config.adapter, raw.ref);
     const introspection = probe.introspection;
     const viewed = viewResource(name, raw, introspection, config.adapter);
 
-    let resource: ResourceConfig = viewed;
-    if (config.readOnly) {
-      resource = readOnlyResource(viewed);
-    } else if (
-      viewed.options.delete?.disabled !== true &&
-      viewed.options.bulkActions === undefined
-    ) {
-      resource = {
-        ...viewed,
-        options: {
-          ...viewed.options,
-          bulkActions: [createBuiltinBulkDelete(viewed.options.delete?.confirm)],
-        },
-      };
-    }
+    let resource = config.readOnly ? readOnlyResource(viewed) : withBuiltinBulkDelete(viewed);
 
     const columns = introspection?.columns ?? null;
     if (resource.options.columns === undefined) {
@@ -246,7 +237,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     if (compiled) compiledResourcesByName.set(name, { ...compiled, definition: resolved });
   }
   validateResourceRefs(resourcesByName, dashboards);
-  validateRealtime(resourcesByName, dashboards);
+  validateRealtime(resourcesByName, dashboards, config.realtime);
   validateDashboardFilters(dashboards, resourcesByName);
   validateThresholds(dashboards, resourcesByName);
   const linkCheck: LinkCheck = {
@@ -282,6 +273,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     pagesByPath,
     queuesByKey,
     paths,
+    auditLog,
     warnings,
   };
 

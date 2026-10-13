@@ -46,6 +46,7 @@ These names are gone in 0.4. Most were deprecated in 0.3; `requireRole` goes eve
 | `createPublisher` from `@flowpanel/kit` (the realtime transport) | `createRealtimeTransport`. The worker `createPublisher` in `@flowpanel/kit/publish` keeps its name but no longer rejects when Redis fails; see below. |
 | `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
 | `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration` |
+| `DEFAULT_SHORTCUTS` from `@flowpanel/kit/react` | `<ShortcutsCheatsheet>` without `shortcuts`, which lists the admin's keys in its labels' language |
 
 A field gated by `fieldAccess` shows read-only to a caller its `write` rule denies, and leaves the form only when its `read` rule denies them too. 0.3 left a `requireRole` field out of the form entirely.
 
@@ -55,6 +56,8 @@ A field gated by `fieldAccess` shows read-only to a caller its `write` rule deni
 - A resource `scope` function that returns the query unchanged now throws instead of running it unscoped.
 - A list row opens its record page when the resource has no drawer, even without `detail`. Set `rowClick: false` to keep rows from opening.
 - The drawer keeps its open tab in `?drawerTab=` instead of `?tab=`. Update saved links that open a drawer on a tab.
+- A list keeps its page size in `?pageSize=` instead of `?perPage=`, the name the JSON API uses. A saved link with `?perPage=` opens at the default size.
+- `useLiveChannel` reports `live` on the server's first frame, not when the connection opens, and `reconnecting` from the first error. Under `RealtimeProvider`, which every admin page mounts, it joins the admin's stream instead of opening a second one.
 - Date presets and `daterange` filters start at midnight in `formatting.timeZone`.
 - With a Russian `formatting.locale`, the built-in text is Russian. Your `labels` still win, so set them to keep English text.
 - `fillDays` buckets days in `range.timeZone` when its options name no zone, and a zoneless timestamp string without seconds, such as `"2026-10-07T10:00"`, stays text instead of reading as a date.
@@ -78,6 +81,6 @@ A field gated by `fieldAccess` shows read-only to a caller its `write` rule deni
 - A resource without `labelOne` or `label` names one record by its singular name, "User" for `users`, and the "New …" and "Edit …" titles put the label mid-sentence: "New customer".
 - A field's `readOnly` now applies to writes, and a `readOnly` function receives the stored row on edit. `readOnly` also wins over the resource's `fieldAccess.write`.
 - A form field that `fieldAccess.write` denies to the signed-in role shows read-only, and saving the form no longer fails with "cannot be changed".
-- An unknown admin path and a missing record render your `not-found.tsx` through `notFound()`, with a 404 status. Under `cacheComponents` Next has already streamed the static shell, so the status stays 200 and the page carries `noindex`. Add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix`.
+- An unknown admin path and a missing record render your `not-found.tsx` through `notFound()`, with a 404 status, inside the admin's navigation. Under `cacheComponents` Next has already streamed the static shell, so the status stays 200 and the page carries `noindex`. Add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix`.
 
 The [changelog](/changelog) lists every other change, per package.

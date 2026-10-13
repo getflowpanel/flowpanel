@@ -17,15 +17,4 @@ export const monitors = resource(schema.monitors, {
   search: ["name"],
   filters: [{ field: "status", type: "select" }],
   defaultSort: { field: "createdAt", dir: "desc" },
-  create: {
-    fields: [
-      { name: "customerId", label: "Customer", reference: { resource: "customers", labelField: "email" } },
-      { name: "name" },
-      { name: "targetUrl" },
-      { name: "status", type: "select", options: Status.options },
-      { name: "errorRate", type: "number" },
-      { name: "createdAt", type: "datetime" },
-      { name: "lastRunAt", type: "datetime" },
-    ],
-  },
 });

@@ -22,6 +22,17 @@ function makeResource(_name: string, read?: string | string[]): ResourceConfig {
   } as unknown as ResourceConfig;
 }
 
+const DECLARED = Object.fromEntries(
+  [
+    "custom",
+    "foo",
+    "x",
+    "other",
+    "ok-channel",
+    ...Array.from({ length: 40 }, (_, i) => `ch-${i}`),
+  ].map((name) => [name, {}]),
+);
+
 function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdminConfig {
   return {
     auth: {
@@ -29,6 +40,7 @@ function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdmin
       role: roleFromUser,
     },
     resourcesByName: new Map(),
+    realtime: { driver: "memory", channels: DECLARED },
     ...overrides,
   } as ResolvedAdminConfig;
 }

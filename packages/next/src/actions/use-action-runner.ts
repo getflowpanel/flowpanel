@@ -1,5 +1,5 @@
 "use client";
-import { triggerDownload, useToast } from "@flowpanel/react";
+import { connectionMessage, triggerDownload, useLabels, useToast } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import type { ActionFormFieldErrors } from "./action-form-field";
@@ -23,6 +23,10 @@ export interface RunActionOptions {
   failureMessage: string;
   /** Runs after a successful action has refreshed the page. */
   onRefreshed?: () => void;
+  /** `DELETE` sends no body, for the resource's own delete route. */
+  method?: "POST" | "DELETE";
+  /** Where a success goes, in place of this entry, when the action names no `redirect`: the list after a delete. */
+  redirectTo?: string;
 }
 
 /**
@@ -35,16 +39,22 @@ export function useActionRunner(): (
   opts: RunActionOptions,
 ) => Promise<ActionFormFieldErrors | null> {
   const router = useRouter();
+  const { errors } = useLabels();
   const toast = useToast();
 
   return React.useCallback(
     async (url, input, opts) => {
       try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(input),
-        });
+        const res = await fetch(
+          url,
+          opts.method === "DELETE"
+            ? { method: "DELETE" }
+            : {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(input),
+              },
+        );
         // A proxy or a crash answers with HTML, not JSON; fall back to the status line instead of a parse error.
         const result = (await res
           .json()
@@ -63,16 +73,18 @@ export function useActionRunner(): (
         if (result.download) triggerDownload(result.download);
         if (result.redirect) {
           router.push(result.redirect);
+        } else if (opts.redirectTo) {
+          router.replace(opts.redirectTo);
         } else if (result.refresh !== false) {
           router.refresh();
           opts.onRefreshed?.();
         }
         return null;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Network error");
+      } catch {
+        toast.error(connectionMessage(errors));
         return null;
       }
     },
-    [router, toast],
+    [router, toast, errors],
   );
 }

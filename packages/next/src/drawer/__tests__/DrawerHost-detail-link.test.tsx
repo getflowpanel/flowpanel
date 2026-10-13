@@ -26,6 +26,11 @@ function mkPayload(detailHref: string | null): DrawerPayload {
     labels: { email: "Email" },
     formats: {},
     detailHref,
+    deleted: false,
+    restorable: false,
+    rowActions: [],
+    editHref: null,
+    delete: null,
   };
 }
 
@@ -68,7 +73,7 @@ describe("DrawerHost detail link", () => {
       .find((h) => !h.className.includes("fp-sr-only")) as HTMLElement;
     expect(link.closest("h2")).toBeNull();
     expect(heading.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(link.parentElement).toBe(heading.parentElement?.parentElement);
+    expect(link.parentElement?.parentElement).toBe(heading.parentElement?.parentElement);
   });
 
   it("renders no link when the resource has no detail page", async () => {

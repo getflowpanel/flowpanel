@@ -280,7 +280,7 @@ describe("serializeWidget — error & unknown", () => {
     expect(out).toEqual({
       kind: "unsupported",
       label: "Boom",
-      reason: "Its query failed. Retry, or look in the server log.",
+      reason: "Try again in a moment.",
       failed: true,
     });
   });

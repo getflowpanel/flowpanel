@@ -1,7 +1,6 @@
 import {
   assertResourceScope,
   FlowpanelAccessError,
-  type ListQueryContext,
   type RequestContext,
   type ResolvedAdminConfig,
   type ResourceConfig,
@@ -10,7 +9,8 @@ import {
   runWithRequestContext,
 } from "@flowpanel/core";
 import { assertCountWhereColumns } from "@flowpanel/core/internal";
-import { declaredRowFields, projectRowFields, selectKnownFields } from "./project-row";
+import { listReadableRows, requireListAccess } from "./list-rows";
+import { declaredRowFields } from "./project-row";
 import { resolveReadableFieldSet } from "./readable-fields";
 import { requireAccessIfSet } from "./require-access";
 import { scopeBinding } from "./scope-binding";
@@ -107,7 +107,8 @@ export async function readRelatedRows(
 
 /**
  * The same authorized related read, with the adapter's own total, so a history
- * longer than one page stays reachable.
+ * longer than one page stays reachable. `filters` are relationship constraints:
+ * a field the caller cannot read, or a missing value, empties the page.
  */
 export async function readRelatedPage(
   config: ResolvedAdminConfig,
@@ -116,79 +117,22 @@ export async function readRelatedPage(
   opts: RelatedReadOptions = {},
 ): Promise<RelatedPage | null> {
   try {
-    requireAuthorized(config, target);
-    await requireAccessIfSet(resolveOperationAccess(target.options.access, "read"), reqCtx);
+    await requireListAccess(config, target, reqCtx);
   } catch (err) {
     if (err instanceof FlowpanelAccessError) return null;
     throw err;
   }
-
-  const page = opts.page ?? 1;
-  const pageSize = opts.pageSize ?? 20;
-  const empty: RelatedPage = { rows: [], total: 0, page, pageSize };
-  const filters = opts.filters ?? {};
-  const filterFields = Object.keys(filters);
-  // A missing projected relationship value must not turn a related query into an unfiltered list.
-  if (Object.values(filters).some((value) => value === undefined)) return empty;
-  const requestedSearchFields = opts.searchFields ?? [];
-  const defaultSort = target.options.defaultSort;
-  const requestedSort =
-    opts.sort ??
-    (defaultSort ? { field: String(defaultSort.field), dir: defaultSort.dir } : undefined);
-  const requestedSortField = requestedSort?.field;
-  const outputFields = declaredRowFields(target);
-  for (const field of opts.extraFields ?? []) outputFields.add(field);
-  const readable = await resolveReadableFieldSet(
-    [
-      ...outputFields,
-      ...filterFields,
-      ...requestedSearchFields,
-      ...(requestedSortField ? [requestedSortField] : []),
-    ],
-    target.options.fieldAccess,
-    reqCtx,
-  );
-  // Relationship filters are constraints; if policy removes one, fail closed instead of widening the result.
-  if (filterFields.some((field) => !readable.has(field))) return empty;
-  const searchFields = requestedSearchFields.filter((field) => readable.has(field));
-  if (requestedSearchFields.length > 0 && searchFields.length === 0) return empty;
-  const sort = requestedSort && readable.has(requestedSort.field) ? requestedSort : null;
-  const projectedFields = opts.countOnly
-    ? []
-    : [...outputFields].filter((field) => readable.has(field));
-  const select = opts.countOnly
-    ? []
-    : selectKnownFields(projectedFields, config.adapter.introspect(target.ref).columns);
-
-  const softDelete = target.options.delete?.softDelete;
-  const listCtx: ListQueryContext<unknown> = {
-    ...reqCtx,
-    dateRange: opts.dateRange ?? { from: new Date(0), to: new Date() },
-    searchParams: new URLSearchParams(),
-    signal: new AbortController().signal,
-    filters,
-    sort: sort as ListQueryContext<unknown>["sort"],
-    page,
-    pageSize,
-    search: searchFields.length > 0 ? (opts.search ?? "") : "",
-    ...(searchFields.length > 0 ? { searchFields } : {}),
-    select,
-    ...(softDelete
-      ? { softDelete: { column: String(softDelete) }, includeDeleted: opts.includeDeleted }
-      : {}),
-    ...scopeBinding(target, reqCtx),
-  };
-
-  const result = await runWithRequestContext(reqCtx, () =>
-    config.adapter.list(target.ref, listCtx),
-  );
-  const rows = (result.rows as Record<string, unknown>[]).map((row) =>
-    projectRowFields(row, projectedFields),
-  );
-  return {
-    rows,
-    total: result.total ?? rows.length,
-    page: result.page ?? page,
-    pageSize: result.pageSize ?? pageSize,
-  };
+  const page = await listReadableRows(config, target, reqCtx, {
+    constraints: opts.filters ?? {},
+    ...(opts.sort ? { sort: opts.sort } : {}),
+    page: opts.page ?? 1,
+    pageSize: opts.pageSize ?? 20,
+    search: opts.search ?? "",
+    ...(opts.searchFields ? { searchFields: opts.searchFields } : {}),
+    fields: [...declaredRowFields(target), ...(opts.extraFields ?? [])],
+    ...(opts.includeDeleted !== undefined ? { includeDeleted: opts.includeDeleted } : {}),
+    ...(opts.countOnly ? { countOnly: true } : {}),
+    ...(opts.dateRange ? { dateRange: opts.dateRange } : {}),
+  });
+  return { rows: page.rows, total: page.total, page: page.page, pageSize: page.pageSize };
 }

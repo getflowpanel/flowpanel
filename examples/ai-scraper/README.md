@@ -16,6 +16,7 @@ pnpm install
 pnpm --filter "./packages/**" build
 pnpm --filter ai-scraper docker:up
 pnpm --filter ai-scraper db:push
+pnpm --filter ai-scraper db:migrate
 pnpm --filter ai-scraper db:seed
 pnpm --filter ai-scraper dev
 ```
@@ -31,6 +32,7 @@ Open [http://localhost:3000](http://localhost:3000) and choose **Open admin**. T
 - **Listings**: full-text search, marketplace, stock and date filters, export, and each listing's AI match.
 - **Products**: grouped forms, customer references, field-level roles.
 - **Matches**: ambiguous matches, lowest confidence first, with Confirm and Reject.
+- **Audit log**: every change in your sandbox, by who, what and when. Each record's History tab shows its own changes field by field.
 
 ## Where the code is
 
@@ -66,11 +68,11 @@ Without `REDIS_URL` the queue screens are absent. To try them:
 ```bash
 docker run -d -p 6379:6379 redis:7-alpine
 export REDIS_URL=redis://localhost:6379
-export BOARD_TOKEN=$(openssl rand -hex 16)
+export BOARD_SECRET=$(openssl rand -hex 32)
 pnpm --filter ai-scraper dev
 ```
 
-In a second terminal with the same `REDIS_URL` and `BOARD_TOKEN`, start the board: `pnpm --filter ai-scraper flowpanel:board`.
+In a second terminal with the same `REDIS_URL` and `BOARD_SECRET`, start the board: `pnpm --filter ai-scraper flowpanel:board`.
 
 Set `BOARD_URL` to a browser-reachable HTTPS origin when deployed.
 

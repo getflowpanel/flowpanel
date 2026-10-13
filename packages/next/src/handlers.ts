@@ -1,15 +1,18 @@
-import type { RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
+import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { errorResult, FlowpanelNotFoundError, resolveFormatting } from "@flowpanel/core";
 import { bulkActionRoute } from "./actions/bulk-action";
 import { dashboardActionRoute } from "./actions/dashboard-action";
 import { inlineUpdateRoute } from "./actions/inline-update";
 import { referenceSearchRoute } from "./actions/reference-search";
+import { exportRoute } from "./actions/resource-export";
 import { resourceCreateRoute, resourceUpdateRoute } from "./actions/resource-form";
 import { importRoute } from "./actions/resource-import";
 import { restoreRoute } from "./actions/restore";
 import { rowActionRoute } from "./actions/row-action";
+import { recordSearchRoute } from "./command/record-search";
 import { createResourceController } from "./controllers/resource-controller";
-import { drawerActionRoute, drawerRoute } from "./drawer/drawer-route";
+import { drawerActionRoute } from "./drawer/drawer-action-route";
+import { drawerRoute } from "./drawer/drawer-route";
 import {
   declaredFieldSet,
   resolveFilterSpecs,
@@ -18,7 +21,7 @@ import {
 } from "./runtime/parse-list-params";
 import { filterReadableDeclarations, resolveReadableFieldSet } from "./runtime/readable-fields";
 import { readJsonObject } from "./runtime/request-body";
-import { withGuards } from "./runtime/with-guards";
+import { withResolvedGuards } from "./runtime/with-guards";
 import { methodNotAllowed, wireResponse } from "./wire/response";
 
 export interface RouteContext {
@@ -118,26 +121,30 @@ function resourceResult(
   run: (
     controller: ReturnType<typeof createResourceController>,
     ctx: RequestContext,
+    resource: ResourceConfig,
   ) => Promise<Response>,
 ): Promise<Response> {
-  return withGuards(
+  return withResolvedGuards(
     config,
     req,
-    { operation, write: operation !== "read", route: resourceName, envelope: "result" },
-    async (ctx) => {
+    { write: operation !== "read", route: resourceName, envelope: "result" },
+    (ctx) => {
       const resource = config.resourcesByName.get(resourceName);
       if (!resource) {
         return wireResponse(errorResult(new FlowpanelNotFoundError(), ctx.requestId ?? "unknown"));
       }
-      return run(createResourceController(config, resource, ctx), ctx);
+      return { spec: { resource, operation }, target: resource };
     },
+    async (ctx, resource) => run(createResourceController(config, resource, ctx), ctx, resource),
   );
 }
 
 /** The catch-all `/api/flowpanel/[...route]/route.ts` handler. */
 export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
   const getDrawer = drawerRoute(config);
+  const getRecordSearch = recordSearchRoute(config);
   const getReferenceSearch = referenceSearchRoute(config);
+  const getExport = exportRoute(config);
   const postDrawerAction = drawerActionRoute(config);
   const postRowAction = rowActionRoute(config);
   const postBulkAction = bulkActionRoute(config);
@@ -156,18 +163,17 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
     const matched = dispatch(
       [
         { segments: ["drawer", ":resource", ":id"], handler: getDrawer },
+        { segments: ["palette", "search"], handler: getRecordSearch },
+        { segments: ["export", ":resource"], handler: getExport },
         { segments: [":resource", "reference", ":field"], handler: getReferenceSearch },
       ] as ReadonlyArray<RoutePattern<never>>,
       req,
       route,
     );
     if (matched) return matched;
-    const listed =
-      route.length === 1 && route[0] ? config.resourcesByName.get(route[0]) : undefined;
-    if (listed && route[0]) {
-      const resource = route[0];
+    if (route.length === 1 && route[0]) {
       const url = new URL(req.url);
-      return resourceResult(config, req, resource, "read", async (controller, ctx) => {
+      return resourceResult(config, req, route[0], "read", async (controller, ctx, listed) => {
         const declared = declaredFieldSet(listed.options);
         const readable = await resolveReadableFieldSet(declared, listed.options.fieldAccess, ctx);
         const raw: Record<string, unknown> = {};
@@ -230,12 +236,11 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
       route,
     );
     if (matched) return matched;
-    if (route.length === 1 && route[0] && config.resourcesByName.has(route[0])) {
-      const input = await readJsonRequest(req);
-      if (input instanceof Response) return input;
-      return resourceResult(config, req, route[0], "create", async (controller) =>
-        wireResponse(await controller.create(input)),
-      );
+    if (route.length === 1 && route[0]) {
+      return resourceResult(config, req, route[0], "create", async (controller) => {
+        const input = await readJsonRequest(req);
+        return input instanceof Response ? input : wireResponse(await controller.create(input));
+      });
     }
     return Response.json(
       { ok: false, error: { code: "not_found", message: "not found" } },
@@ -248,11 +253,11 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
     if (route.length !== 2 || !route[0] || !route[1]) {
       return methodNotAllowed(METHODS);
     }
-    const input = await readJsonRequest(req);
-    if (input instanceof Response) return input;
-    return resourceResult(config, req, route[0], "update", async (controller) =>
-      wireResponse(await controller.update(route[1] as string, input)),
-    );
+    const id = route[1];
+    return resourceResult(config, req, route[0], "update", async (controller) => {
+      const input = await readJsonRequest(req);
+      return input instanceof Response ? input : wireResponse(await controller.update(id, input));
+    });
   }
 
   async function DELETE(req: Request, ctx: RouteContext): Promise<Response> {

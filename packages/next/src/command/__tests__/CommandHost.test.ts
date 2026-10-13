@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildCommandGroups } from "../CommandHost";
+import { buildCommandGroups, recordCommandGroups } from "../CommandHost";
 
 describe("buildCommandGroups", () => {
   it("navigates via nav.push when a built-in nav item is selected", () => {
@@ -71,5 +71,35 @@ describe("buildCommandGroups", () => {
     const groups = buildCommandGroups([], undefined, { push: vi.fn(), close: vi.fn() });
     const themeGroup = groups.find((g) => g.label === "Theme");
     expect(themeGroup?.items.map((it) => it.label)).toEqual(["Toggle dark mode"]);
+  });
+});
+
+describe("recordCommandGroups", () => {
+  it("turns found records into palette lines that open each record and always match the query", () => {
+    const nav = { push: vi.fn(), close: vi.fn() };
+    const [group] = recordCommandGroups(
+      [
+        {
+          resource: "customers",
+          label: "Customers",
+          items: [
+            { title: "Harbor Audio", detail: "maya@harbor.test", href: "/admin/customers/7" },
+          ],
+        },
+      ],
+      "maya",
+      nav,
+    );
+    expect(group?.label).toBe("Customers");
+    const item = group?.items[0];
+    expect(item).toMatchObject({
+      label: "Harbor Audio",
+      detail: "maya@harbor.test",
+      value: "/admin/customers/7",
+      keywords: ["maya"],
+    });
+    item?.onSelect();
+    expect(nav.close).toHaveBeenCalled();
+    expect(nav.push).toHaveBeenCalledWith("/admin/customers/7");
   });
 });

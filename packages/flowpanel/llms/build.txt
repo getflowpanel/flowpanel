@@ -215,7 +215,7 @@ A filter's `defaultValue` applies until the operator changes it; `hidden: true` 
 
 ### Operations
 
-`actions` run on one row and `bulkActions` on a selection; see [Actions](/docs/build/actions). With delete enabled and no `bulkActions`, a bulk delete is added; `bulkActions: []` removes it. Forms are generated from the table until you declare [form fields](/docs/build/forms). [Import and export](/docs/build/import-export) are opt-in.
+`actions` run on one row and `bulkActions` on a selection; see [Actions](/docs/build/actions). With delete enabled, a bulk delete follows your own `bulkActions`; `delete: { bulk: false }` removes it. Forms are generated from the table until you declare [form fields](/docs/build/forms). [Import and export](/docs/build/import-export) are opt-in.
 
 ### Access
 
@@ -262,9 +262,23 @@ resource(schema.users, {
 
 ### Controls
 
-`type` picks the input: text, textarea, number, email, password, url, date, datetime, time, boolean, switch, checkbox, select, multiselect, radio, json, markdown, tags, reference, hidden or color. Add `label`, `help` or `placeholder` when the name is not enough.
+`type` picks the input: text, textarea, number, money, email, password, url, date, datetime, time, boolean, switch, checkbox, select, multiselect, radio, json, markdown, tags, reference, hidden or color. Add `label`, `help` or `placeholder` when the name is not enough.
 
 `options` takes strings, `{ label, value }` pairs, or a function resolved on the server per request. A `select`, `multiselect` or `radio` field whose column has an `enumOf` format lists the enum's labels without `options`.
+
+### Money fields
+
+A `money` field edits an amount stored in minor units, such as cents, the way the `money` column format shows it:
+
+```ts
+{ name: "amountCents", label: "Amount", type: "money", currency: "EUR" }
+```
+
+The form shows `399.99` with the currency's sign beside it, in the admin's decimal separator, and the server stores `39999`. `currency` defaults to `formatting.currency`, and `minorUnits`, the digits after the decimal point (0 to 8), to the currency's own: 2 for USD, 0 for JPY, 3 for KWD.
+
+`storage` says what the column holds. `"minor"`, the default for an integer column, stores whole minor units. `"major"`, the default for a `numeric`, `decimal` or float column, stores the amount itself, `399.99`. Saving a form without touching a valid amount keeps the stored value exactly. A stored value the currency cannot hold, such as `1999.5` minor units, shows unrounded as `19.995`, and the form will not save until someone corrects it.
+
+A comma works as the decimal separator. Text that is not an amount is rejected with `invalidMoney`, and an amount with more decimals than `minorUnits` with `moneyTooPrecise`. The JSON API takes and returns the column's own value. Pair a minor-unit field with `format: { kind: "money", scale: 100 }` on the column, so the list and record show the same amount.
 
 ### Relation fields
 
@@ -291,7 +305,7 @@ A timestamp column gets a `datetime-local` control that shows the stored time on
 
 #### Rejection messages
 
-A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`, and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
 
 ### Restrict fields
 
@@ -299,7 +313,11 @@ A rejected write returns one message per field, from `labels.form`. A missing va
 
 ### Submission
 
-Forms post to FlowPanel's route handlers. A create returns to the list, an update to the row. For a multi-step transaction or several resources at once, build a custom page. Every option: [FieldDef](/docs/reference/resources#fielddef).
+Forms post to FlowPanel's route handlers. A create returns to the list with the new row highlighted for two seconds and a "Customer created" toast (`labels.saving.created`); an update returns to the row with "Changes saved" (`labels.saving.saved`). The form sends one request at a time: a double click or Enter during a save does nothing, and the form stays locked until the next page opens.
+
+A rejected submit keeps the button enabled; submitting again moves focus to the first field in error. Each error shows under its field, and the banner above the button appears only for an error no field on the form can show.
+
+While a form has unsaved changes, leaving it asks first: reloading or closing the tab shows the browser's prompt, and Cancel or any link in the admin opens a "Discard unsaved changes?" dialog (`labels.saving`). For a multi-step transaction or several resources at once, build a custom page. Every option: [FieldDef](/docs/reference/resources#fielddef).
 
 ## Add actions
 
@@ -365,7 +383,7 @@ Docs: https://flowpanel.tech/docs/build/detail-cards
 
 A record page shows one row at `/admin/<resource>/<id>`: a header, a strip of numbers, facts beside the tabs, related rows and activity. A drawer shows a row over the list without leaving it. Every piece is optional.
 
-A row click opens the record page, even before you add `detail`: without it the page lists the row's readable fields with an Edit button. Declare a `drawer` and the click opens it instead; `rowClick: false` keeps rows from opening.
+A row click opens the record page, even before you add `detail`: without it the page lists the row's readable fields. Its header carries Edit and one menu with the resource's row actions and Delete, each shown only to a role that may run it; Delete asks first, with `delete.confirm` when you set it. Declare a `drawer` and the click opens it instead; `rowClick: false` keeps rows from opening.
 
 ### Keep the card in its own file
 
@@ -492,7 +510,7 @@ resource(schema.orders, {
 })
 ```
 
-`rowClick: "drawer"` needs a `drawer`. Fields reuse the column labels and renderers. A related tab shows the first 20 rows; link to the filtered list for more. Widget tabs render static cards, and `custom()`, `timeline`, `heatmap`, `checklist` and `tracker` belong in a record page tab instead. Drawer `actions` sit in the footer.
+`rowClick: "drawer"` needs a `drawer`. Fields reuse the column labels and renderers. A related tab shows the first 20 rows; link to the filtered list for more. Widget tabs render static cards, and `custom()`, `timeline`, `heatmap`, `checklist` and `tracker` belong in a record page tab instead. Drawer `actions` join the row actions, Edit and Delete in the drawer's header menu.
 
 ### Test a card
 
@@ -655,11 +673,18 @@ resource(schema.users, {
   export: {
     formats: ["csv", "json"],
     fields: ["email", "name", "role", "createdAt"],
+    maxRows: 50_000,
   },
 })
 ```
 
-Export is off until you set `export`. It writes the rows on the current page, after access, scope and field rules have applied, in `fields` order. Each entry in `fields` must also be a column or in `detail.expose`. To export every matching row, raise the page size or use a background job.
+Export is off until you set `export`. The toolbar's Export asks the server for every row that matches the list's current filters, search and sort, not only the page on screen. The server reads them through the same path as the list: tenant scope, the resource's `read` rule, and only the fields the user may read, so a `sensitive` field or one `fieldAccess.read` hides is left out. Soft-deleted rows are included only when the list shows them, which needs the `update` rule.
+
+The file has the columns in table order, or `fields` in its order. Each entry in `fields` must be a column or in `expose`. CSV cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'` so a spreadsheet does not run them as formulas. Dates are ISO 8601.
+
+The file name says what it holds: `users-all-2026-10-09.csv`, or `users-filtered-2026-10-09.csv` when filters or search narrow the list. An export stops at `maxRows`, 10,000 by default; a capped file is named `users-filtered-first-10000-2026-10-09.csv`, carries the `X-Flowpanel-Export-Capped` header, and the admin tells the user to narrow the filters. Each export records one `<resource>.export` audit event when the download starts, and counts once against `rateLimit`. Rows are ordered by the list's sort with the primary key breaking ties, or by the primary key alone (every column of a composite key), so a file never repeats or skips a row between batches. When the adapter cannot see the key, the export is unordered.
+
+The route is `GET <paths.api>/export/<resource>?format=csv`, with the list page's own query string (`f_<field>`, `q`, `sort`, `deleted`). `export` is a reserved name, so no resource or queue can take it.
 
 ### Import
 
@@ -674,6 +699,8 @@ resource(schema.users, {
 ```
 
 Each row goes through the create path: validation, field access, scope, the adapter, audit and realtime. A read-only or role-restricted field in the file is rejected. CSV headers and JSON keys match field names.
+
+Picking a file asks first: "Import customers.csv? 48 rows will be imported." After the import, a file whose rows were all accepted gets a toast. When some rows were refused, a dialog lists each one by its row number with the reason, and **Download failed rows (CSV)** saves those rows with an `error` column to fix and import again. The words come from `labels.importer`.
 
 Import enforces request and row caps. Rejected rows are reported, and nothing is silently truncated. For a large one-off migration, use a background job instead.
 

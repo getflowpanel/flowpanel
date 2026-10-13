@@ -30,9 +30,23 @@ resource(schema.users, {
 
 ## Controls
 
-`type` picks the input: text, textarea, number, email, password, url, date, datetime, time, boolean, switch, checkbox, select, multiselect, radio, json, markdown, tags, reference, hidden or color. Add `label`, `help` or `placeholder` when the name is not enough.
+`type` picks the input: text, textarea, number, money, email, password, url, date, datetime, time, boolean, switch, checkbox, select, multiselect, radio, json, markdown, tags, reference, hidden or color. Add `label`, `help` or `placeholder` when the name is not enough.
 
 `options` takes strings, `{ label, value }` pairs, or a function resolved on the server per request. A `select`, `multiselect` or `radio` field whose column has an `enumOf` format lists the enum's labels without `options`.
+
+## Money fields
+
+A `money` field edits an amount stored in minor units, such as cents, the way the `money` column format shows it:
+
+```ts as="FieldDef<RowOf<'invoices'>>"
+{ name: "amountCents", label: "Amount", type: "money", currency: "EUR" }
+```
+
+The form shows `399.99` with the currency's sign beside it, in the admin's decimal separator, and the server stores `39999`. `currency` defaults to `formatting.currency`, and `minorUnits`, the digits after the decimal point (0 to 8), to the currency's own: 2 for USD, 0 for JPY, 3 for KWD.
+
+`storage` says what the column holds. `"minor"`, the default for an integer column, stores whole minor units. `"major"`, the default for a `numeric`, `decimal` or float column, stores the amount itself, `399.99`. Saving a form without touching a valid amount keeps the stored value exactly. A stored value the currency cannot hold, such as `1999.5` minor units, shows unrounded as `19.995`, and the form will not save until someone corrects it.
+
+A comma works as the decimal separator. Text that is not an amount is rejected with `invalidMoney`, and an amount with more decimals than `minorUnits` with `moneyTooPrecise`. The JSON API takes and returns the column's own value. Pair a minor-unit field with `format: { kind: "money", scale: 100 }` on the column, so the list and record show the same amount.
 
 ## Relation fields
 
@@ -59,7 +73,7 @@ A timestamp column gets a `datetime-local` control that shows the stored time on
 
 ### Rejection messages
 
-A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`, and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
 
 ## Restrict fields
 
@@ -67,4 +81,8 @@ A rejected write returns one message per field, from `labels.form`. A missing va
 
 ## Submission
 
-Forms post to FlowPanel's route handlers. A create returns to the list, an update to the row. For a multi-step transaction or several resources at once, build a custom page. Every option: [FieldDef](/docs/reference/resources#fielddef).
+Forms post to FlowPanel's route handlers. A create returns to the list with the new row highlighted for two seconds and a "Customer created" toast (`labels.saving.created`); an update returns to the row with "Changes saved" (`labels.saving.saved`). The form sends one request at a time: a double click or Enter during a save does nothing, and the form stays locked until the next page opens.
+
+A rejected submit keeps the button enabled; submitting again moves focus to the first field in error. Each error shows under its field, and the banner above the button appears only for an error no field on the form can show.
+
+While a form has unsaved changes, leaving it asks first: reloading or closing the tab shows the browser's prompt, and Cancel or any link in the admin opens a "Discard unsaved changes?" dialog (`labels.saving`). For a multi-step transaction or several resources at once, build a custom page. Every option: [FieldDef](/docs/reference/resources#fielddef).

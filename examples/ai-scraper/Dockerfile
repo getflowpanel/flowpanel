@@ -37,4 +37,5 @@ EXPOSE 3000
 # Public data is provisioned per browser on first use; container restarts never
 # rewrite live visitor sandboxes. `db:ensure` creates the target database when
 # it does not exist yet, so a fresh deployment needs only DATABASE_URL.
-CMD ["sh", "-c", "pnpm db:ensure && pnpm db:push && pnpm start"]
+# `db:migrate` creates the audit log table behind History and the Audit log page.
+CMD ["sh", "-c", "pnpm db:ensure && pnpm db:push && pnpm db:migrate && pnpm start"]

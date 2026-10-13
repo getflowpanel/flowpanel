@@ -37,9 +37,13 @@ export function labelInSentence(label: string): string {
   return /^\p{Lu}\p{Ll}/u.test(label) ? label.charAt(0).toLowerCase() + label.slice(1) : label;
 }
 
-/** A one-row heading such as "New {label}": "New user"; after punctuation or first, the label stays as written. */
-export function singularTitle(template: string, resource: ResourceConfig, name: string): string {
-  const label = singularLabel(resource, name);
+/** Fill `{label}`: after a word it reads mid-sentence, "No customers"; first or after punctuation it stays as written. */
+export function fillLabel(template: string, label: string): string {
   const midSentence = /\p{L} \{label\}/u.test(template);
   return formatLabel(template, { label: midSentence ? labelInSentence(label) : label });
+}
+
+/** A one-row heading such as "New {label}": "New user"; after punctuation or first, the label stays as written. */
+export function singularTitle(template: string, resource: ResourceConfig, name: string): string {
+  return fillLabel(template, singularLabel(resource, name));
 }

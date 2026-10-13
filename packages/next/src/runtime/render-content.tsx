@@ -1,7 +1,8 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { accessAllows } from "@flowpanel/core";
+import { accessAllows, mergeLabels } from "@flowpanel/core";
 import { notFound } from "next/navigation";
 import type * as React from "react";
+import { AuditLogPage } from "../pages/audit/audit-log-page";
 import { DashboardPage } from "../pages/dashboard";
 import { NotFound } from "../pages/not-found";
 import { QueuePage } from "../pages/queue-page";
@@ -11,6 +12,8 @@ import { ResourceEditPage } from "../pages/resource-edit";
 import { ResourceListPage } from "../pages/resource-list";
 import { UserPage } from "../pages/user-page";
 import { Welcome } from "../pages/welcome";
+import { AUDIT_LOG_SEGMENT } from "./audit-view";
+import { boardLink } from "./board-link";
 import { matchDashboard } from "./dashboard-routing";
 import { buildHref } from "./href";
 import { readableByCaller, resourceNavName } from "./nav";
@@ -88,7 +91,19 @@ export async function renderContent(
         active: key === queueKey,
       });
     }
-    return <QueuePage queue={queue} navigation={navigation} />;
+    const boardUrl = await boardLink(queue, queueKey);
+    return (
+      <QueuePage
+        queue={{ ...queue, options: { ...queue.options, boardUrl } }}
+        navigation={navigation}
+        labels={mergeLabels(config.labels).navigation}
+      />
+    );
+  }
+
+  if (slug[0] === AUDIT_LOG_SEGMENT && slug.length === 1 && config.auditLog) {
+    await requireAccessIfSet(config.audit?.access, requestContext);
+    return <AuditLogPage config={config} reqCtx={requestContext} searchParams={sp} />;
   }
 
   const resourceName = slug[0];

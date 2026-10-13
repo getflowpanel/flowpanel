@@ -7,5 +7,11 @@ export default defineConfig({
   dts: true,
   clean: true,
   target: "es2022",
-  external: ["@flowpanel/core", "@flowpanel/core/internal/migration-sql", "@prisma/client", "zod"],
+  external: [
+    "@flowpanel/core",
+    "@flowpanel/core/internal",
+    "@flowpanel/core/internal/migration-sql",
+    "@prisma/client",
+    "zod",
+  ],
 });

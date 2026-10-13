@@ -1,0 +1,13 @@
+"use client";
+import type * as React from "react";
+import { useComponent } from "../provider/ComponentsContext";
+import { DefaultEmptyState } from "./EmptyStateDefault";
+
+export { DefaultEmptyState, type EmptyStateProps } from "./EmptyStateDefault";
+
+export function EmptyState(
+  props: import("./EmptyStateDefault").EmptyStateProps,
+): React.JSX.Element {
+  const Slot = useComponent("EmptyState", DefaultEmptyState);
+  return <Slot {...props} />;
+}

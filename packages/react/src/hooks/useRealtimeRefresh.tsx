@@ -1,9 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { useApiBase } from "../_provider/ApiBaseContext";
+import { useLatest } from "../lib/use-latest";
 import { useRealtimeBus } from "../realtime/hooks";
-import { acquireLiveChannels } from "./useLiveChannel";
+import { useRealtimeConnection } from "./useLiveChannel";
 
 /** Widget-side realtime spec. */
 export type RealtimeChannels = string | string[] | undefined;
@@ -17,7 +17,7 @@ export interface UseRealtimeRefreshOptions {
   endpoint?: string;
 }
 
-/** Stable no-op for the bus-path subscription (provider owns the refresh). */
+/** Stable no-op for the provider path, where the provider runs the refresh. */
 const NOOP = (): void => undefined;
 
 function normalizeChannels(channels: RealtimeChannels): string[] {
@@ -26,24 +26,20 @@ function normalizeChannels(channels: RealtimeChannels): string[] {
   return Array.from(new Set(arr));
 }
 
+/** Refreshes the route when any of `channels` publishes. */
 export function useRealtimeRefresh(
   channels: RealtimeChannels,
   opts: UseRealtimeRefreshOptions = {},
 ): React.ReactNode {
   const router = useRouter();
   const debounceMs = opts.debounceMs ?? 200;
-  const apiBase = useApiBase();
-  const endpoint = opts.endpoint ?? `${apiBase}/stream`;
-  const bus = useRealtimeBus();
+  const provided = useRealtimeBus() !== null;
+  const connection = useRealtimeConnection(provided ? undefined : opts.endpoint);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleRef = React.useRef<() => void>(() => undefined);
-  handleRef.current = () => {
+  const refreshRef = useLatest(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      router.refresh();
-    }, debounceMs);
-  };
+    timerRef.current = setTimeout(() => router.refresh(), debounceMs);
+  });
 
   React.useEffect(
     () => () => {
@@ -52,19 +48,17 @@ export function useRealtimeRefresh(
     [],
   );
 
-  const list = normalizeChannels(channels);
-  const key = list.join("|");
+  const key = normalizeChannels(channels).join("|");
 
   React.useEffect(() => {
     if (key === "") return;
-    const chs = key.split("|");
-
-    if (bus) {
-      return bus.subscribe(chs, NOOP);
-    }
-
-    return acquireLiveChannels(endpoint, chs, () => handleRef.current());
-  }, [key, endpoint, bus]);
+    const { bus, leave } = connection.join();
+    const off = bus.subscribe(key.split("|"), provided ? NOOP : () => refreshRef.current());
+    return () => {
+      off();
+      leave();
+    };
+  }, [key, connection, provided, refreshRef]);
 
   return null;
 }

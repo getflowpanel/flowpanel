@@ -429,14 +429,6 @@ export const userVisit = resource(schema.userVisit, {
   ],
   filters: [{ field: "surface", type: "select" }],
   defaultSort: { field: "startedAt", dir: "desc" },
-  create: {
-    fields: [
-      { name: "userId", label: "User", reference: { resource: "user", labelField: "email" } },
-      { name: "surface", type: "select", options: Surface.options },
-      { name: "startedAt", type: "datetime" },
-      { name: "touches", type: "number" },
-    ],
-  },
 });
 ```
 
@@ -444,10 +436,9 @@ and adds it to `admin/config/resources/index.ts`. The first time, it also import
 that directory's `resources` into `flowpanel.config.ts` and spreads it into the
 array; when the config is shaped differently it prints the line to add. Columns are chosen by type; an
 enum gets an `enumOf` stub; a foreign key becomes a `reference` labelled by the
-target's `name`, `title` or `email` when the target already has a file, and a
-`reference` picker in `create.fields`, so scaffold referenced tables first. With
-`create.fields` written, a column you add to the table later reaches the form only
-when you add it there. JSON and long text are left out of the list columns, `name`,
+target's `name`, `title` or `email` when the target already has a file, which
+also makes it a searchable picker in the generated create and edit forms, so
+scaffold referenced tables first. JSON and long text are left out of the list columns, `name`,
 `title` and `email` become search fields, and the list sorts by `createdAt` or `startedAt`.
 `--hidden` keeps the resource out of the navigation.
 

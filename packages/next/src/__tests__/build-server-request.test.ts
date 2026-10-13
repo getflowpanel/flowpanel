@@ -6,6 +6,10 @@ const fakeHeaders = new Headers({
 });
 const fakeCookies: Array<{ name: string; value: string }> = [{ name: "session", value: "abc123" }];
 
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  connection: async () => {},
+}));
 vi.mock("next/headers", () => ({
   headers: async () => fakeHeaders,
   cookies: async () => ({ getAll: () => fakeCookies }),

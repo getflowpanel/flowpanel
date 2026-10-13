@@ -21,6 +21,7 @@ export type IconName =
   | "file-text"
   | "gauge"
   | "heart-pulse"
+  | "history"
   | "home"
   | "inbox"
   | "layout-dashboard"

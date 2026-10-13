@@ -33,15 +33,18 @@ const broken = makeAdapter(() => {
 const auth = { session: async () => null, role: () => "guest" };
 
 describe("defineAdmin — reserved route segments", () => {
-  it.each(["dashboards", "drawer", "queues"])("rejects a resource named %s", (name) => {
-    expect(() =>
-      defineAdmin({
-        adapter: withColumns(["id"]),
-        auth,
-        resources: [resource({ __name: name }, { columns: ["id"] })],
-      }),
-    ).toThrow(new RegExp(`resource "${name}": the name is one FlowPanel's routing reserves`));
-  });
+  it.each(["dashboards", "drawer", "export", "palette", "queues"])(
+    "rejects a resource named %s",
+    (name) => {
+      expect(() =>
+        defineAdmin({
+          adapter: withColumns(["id"]),
+          auth,
+          resources: [resource({ __name: name }, { columns: ["id"] })],
+        }),
+      ).toThrow(new RegExp(`resource "${name}": the name is one FlowPanel's routing reserves`));
+    },
+  );
 
   it("points the operator at options.name", () => {
     expect(() =>
@@ -490,5 +493,30 @@ describe("defineAdmin — page route paths", () => {
         pages: [{ path: "/customers", label: "Customer report" }],
       }),
     ).toThrow(/page "\/customers": its path "\/customers" collides with resource "Customers"/);
+  });
+});
+
+describe("money field options", () => {
+  const admin = (field: Record<string, unknown>) => () =>
+    defineAdmin({
+      adapter: makeAdapter(() => ({
+        name: "orders",
+        columns: [meta("id"), meta("total")],
+        primaryKey: "id",
+      })),
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource("orders", {
+          columns: ["id"],
+          create: { fields: [{ name: "total", type: "money", ...field }] },
+        }),
+      ],
+    });
+
+  it("stops startup on digits a safe integer cannot hold or a malformed currency", () => {
+    expect(admin({ minorUnits: 9 })).toThrow(/minorUnits is 9/);
+    expect(admin({ minorUnits: 1.5 })).toThrow(/whole number from 0 to 8/);
+    expect(admin({ currency: "dollars" })).toThrow(/ISO 4217/);
+    expect(admin({ minorUnits: 8, currency: "BTC" })).not.toThrow();
   });
 });

@@ -49,3 +49,55 @@ describe("chrome labels follow formatting.locale", () => {
     expect(labelsFor(undefined)).toEqual(DEFAULT_LABELS);
   });
 });
+
+type Tree = string | { [key: string]: Tree };
+
+function paths(tree: Tree, prefix = ""): Map<string, string> {
+  if (typeof tree === "string") return new Map([[prefix, tree]]);
+  return new Map(
+    Object.entries(tree).flatMap(([key, value]) => [
+      ...paths(value, prefix ? `${prefix}.${key}` : key),
+    ]),
+  );
+}
+
+/** Strings that read the same in both languages: codes, symbols, examples and a locale tag. */
+const SAME_IN_RUSSIAN = new Set([
+  "dateRange.locale",
+  "detail.tabCount",
+  "pagination.pageSize",
+  "timeline.folded",
+  "checklist.gap",
+  "audit.record",
+  "audit.actionOption",
+  "widget.points",
+  "heatmap.cell",
+]);
+
+describe("RU_LABELS", () => {
+  const { plurals: _en, ...english } = DEFAULT_LABELS;
+  const { plurals: _ru, ...russian } = RU_LABELS;
+  const en = paths(english as unknown as Tree);
+  const ru = paths(russian as unknown as Tree);
+
+  it("translates every key the English chrome has, and no more", () => {
+    const pluralForm = /\.(zero|two|few|many)$/;
+    expect([...en.keys()].filter((path) => !ru.has(path))).toEqual([]);
+    expect([...ru.keys()].filter((path) => !en.has(path) && !pluralForm.test(path))).toEqual([]);
+  });
+
+  it("leaves no English string untranslated", () => {
+    const same = [...en].filter(([path, text]) => ru.get(path) === text).map(([path]) => path);
+    expect(same.filter((path) => !SAME_IN_RUSSIAN.has(path))).toEqual([]);
+  });
+
+  it("keeps every placeholder the English string fills", () => {
+    const names = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+    const lost = [...en]
+      .filter(([path, text]) =>
+        names(text).some((name) => !names(ru.get(path) ?? "").includes(name)),
+      )
+      .map(([path]) => path);
+    expect(lost).toEqual([]);
+  });
+});

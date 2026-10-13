@@ -1,15 +1,18 @@
-import type { ResolvedAdminConfig } from "@flowpanel/core";
-import { FlowpanelValidationError, mergeLabels } from "@flowpanel/core";
+import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import {
+  FlowpanelOperationDisabledError,
+  FlowpanelValidationError,
+  mergeLabels,
+} from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
-import { revalidatePath } from "next/cache";
 import { actionFailure } from "../runtime/action-failure";
-import { notFoundResponse, safeErrorMessage } from "../runtime/action-helpers";
+import { safeErrorMessage } from "../runtime/action-helpers";
+import { applyActionResult } from "../runtime/apply-action-result";
 import { coerceRowByColumns } from "../runtime/coerce-values";
 import { buildHref } from "../runtime/href";
 import { resourceNavName } from "../runtime/nav";
 import { parseImport } from "../runtime/parse-import";
-import { publishResource } from "../runtime/publish";
-import { withGuards } from "../runtime/with-guards";
+import { guardedRoute, lookupResource } from "../runtime/write-pipeline";
 import { makeActions } from "./resource-actions";
 
 function pick(row: Record<string, unknown>, keys: string[]): Record<string, unknown> {
@@ -63,69 +66,66 @@ const MAX_IMPORT_ROWS = 1000;
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024; // 5 MB of decoded text
 const MAX_IMPORT_REQUEST_BYTES = MAX_IMPORT_BYTES * 2;
 
-/** POST /api/flowpanel/<resource>/import — bulk-create rows from an uploaded CSV / JSON file. */
+/** The posted `{ format, content }` parsed into rows, or the 4xx that answers it. */
+async function readImportRows(
+  req: Request,
+  formats: readonly ("csv" | "json")[],
+): Promise<Record<string, unknown>[] | Response> {
+  const declaredLength = req.headers.get("content-length");
+  if (declaredLength !== null && Number(declaredLength) > MAX_IMPORT_REQUEST_BYTES) {
+    return actionFailure("payload_too_large", "file too large");
+  }
+  let raw: string;
+  try {
+    raw = await readBodyCapped(req, MAX_IMPORT_REQUEST_BYTES);
+  } catch (e) {
+    if (e instanceof BodyTooLargeError) return actionFailure("payload_too_large", "file too large");
+    return actionFailure("bad_request", "bad request");
+  }
+  let body: { format?: unknown; content?: unknown };
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return actionFailure("bad_request", "bad request");
+  }
+  const format = body.format === "json" ? "json" : "csv";
+  if (!formats.includes(format)) {
+    return actionFailure("bad_request", `format "${format}" not allowed`);
+  }
+  if (typeof body.content !== "string") {
+    return actionFailure("bad_request", "missing file content");
+  }
+  if (body.content.length > MAX_IMPORT_BYTES) {
+    return actionFailure("payload_too_large", "file too large");
+  }
+  let rows: Record<string, unknown>[];
+  try {
+    rows = parseImport(format, body.content);
+  } catch (e) {
+    return actionFailure("bad_request", safeErrorMessage(e));
+  }
+  if (rows.length > MAX_IMPORT_ROWS) {
+    return actionFailure("validation_failed", `too many rows (max ${MAX_IMPORT_ROWS})`);
+  }
+  return rows;
+}
+
+/** POST /api/flowpanel/<resource>/import — each row goes through the create path; one publish at the end. */
 export function importRoute(config: ResolvedAdminConfig) {
-  return async function POST(
-    req: Request,
-    ctx: { params: Promise<{ resource: string }> },
-  ): Promise<Response> {
-    const { resource: resourceName } = await ctx.params;
-    const resource = config.resourcesByName.get(resourceName);
-    if (!resource) {
-      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
-    }
-    const importOpt = resource.options.import;
-    if (!importOpt) {
-      return actionFailure("not_found", "import not enabled");
-    }
-
-    if (resource.options.create?.disabled) {
-      return actionFailure("operation_disabled", "create is disabled");
-    }
-
-    return withGuards(config, req, { resource, operation: "create" }, async (reqCtx) => {
-      const declaredLength = req.headers.get("content-length");
-      if (declaredLength !== null && Number(declaredLength) > MAX_IMPORT_REQUEST_BYTES) {
-        return actionFailure("payload_too_large", "file too large");
+  return guardedRoute<{ resource: string }, ResourceConfig>(config, {
+    resolve: (params) => {
+      const resource = lookupResource(config, params.resource);
+      if (resource instanceof Response) return resource;
+      return { spec: { resource, operation: "create" }, target: resource };
+    },
+    handle: async ({ req, reqCtx, target: resource }) => {
+      const importOpt = resource.options.import;
+      if (!importOpt) return actionFailure("not_found", "import not enabled");
+      if (resource.options.create?.disabled) {
+        throw new FlowpanelOperationDisabledError("Create is disabled for this resource.");
       }
-
-      let raw: string;
-      try {
-        raw = await readBodyCapped(req, MAX_IMPORT_REQUEST_BYTES);
-      } catch (e) {
-        if (e instanceof BodyTooLargeError) {
-          return actionFailure("payload_too_large", "file too large");
-        }
-        return actionFailure("bad_request", "bad request");
-      }
-
-      let body: { format?: unknown; content?: unknown };
-      try {
-        body = JSON.parse(raw);
-      } catch {
-        return actionFailure("bad_request", "bad request");
-      }
-      const format = body.format === "json" ? "json" : "csv";
-      const formats = importOpt.formats ?? ["csv", "json"];
-      if (!formats.includes(format)) {
-        return actionFailure("bad_request", `format "${format}" not allowed`);
-      }
-      if (typeof body.content !== "string") {
-        return actionFailure("bad_request", "missing file content");
-      }
-      if (body.content.length > MAX_IMPORT_BYTES) {
-        return actionFailure("payload_too_large", "file too large");
-      }
-
-      let rows: Record<string, unknown>[];
-      try {
-        rows = parseImport(format, body.content);
-      } catch (e) {
-        return actionFailure("bad_request", safeErrorMessage(e));
-      }
-      if (rows.length > MAX_IMPORT_ROWS) {
-        return actionFailure("validation_failed", `too many rows (max ${MAX_IMPORT_ROWS})`);
-      }
+      const rows = await readImportRows(req, importOpt.formats ?? ["csv", "json"]);
+      if (rows instanceof Response) return rows;
 
       const allowed = importOpt.fields as string[] | undefined;
       const { columns } = config.adapter.introspect(writeTarget(resource));
@@ -133,10 +133,9 @@ export function importRoute(config: ResolvedAdminConfig) {
       const actions = makeActions(config, resource, { reqCtx, publish: false });
       let imported = 0;
       const failed: { row: number; error: string }[] = [];
-      for (let i = 0; i < rows.length; i++) {
-        const rawRow = rows[i];
+      for (const [index, rawRow] of rows.entries()) {
         if (!rawRow || typeof rawRow !== "object" || Array.isArray(rawRow)) {
-          failed.push({ row: i + 1, error: "row is not an object" });
+          failed.push({ row: index + 1, error: labels.importer.notObject });
           continue;
         }
         try {
@@ -146,18 +145,18 @@ export function importRoute(config: ResolvedAdminConfig) {
           await actions.create(values);
           imported++;
         } catch (e) {
-          failed.push({ row: i + 1, error: rowErrorMessage(e) });
+          failed.push({ row: index + 1, error: rowErrorMessage(e) });
         }
       }
       if (imported > 0) {
         // Rows are already committed, so a failed notify must never turn this into a retryable error.
-        try {
-          const name = resourceNavName(resource);
-          revalidatePath(buildHref(config, name));
-          await publishResource(name, { action: "create" });
-        } catch {}
+        const name = resourceNavName(resource);
+        await applyActionResult(
+          { ok: true },
+          { resourceName: name, change: { action: "create" }, pathname: buildHref(config, name) },
+        );
       }
       return Response.json({ ok: true, imported, failed });
-    });
-  };
+    },
+  });
 }

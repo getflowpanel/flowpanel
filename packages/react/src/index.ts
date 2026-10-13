@@ -1,45 +1,46 @@
 // LOC-OK: public package barrel mirrors the documented component surface in one entrypoint.
 export type { FlowpanelComponentSlots } from "@flowpanel/core";
-export { Avatar, type AvatarProps, DefaultAvatar } from "./_atoms/Avatar";
-export { Badge, type BadgeProps, type BadgeTone, DefaultBadge } from "./_atoms/Badge";
-export { FlowpanelIcon, type FlowpanelIconProps } from "./_atoms/FlowpanelIcon";
-export { LiveIndicator, type LiveIndicatorProps } from "./_atoms/LiveIndicator";
-export { LocalTime, type LocalTimeProps } from "./_atoms/LocalTime";
-export { Mono } from "./_atoms/Mono";
-export { Sparkline, type SparklineProps } from "./_atoms/Sparkline";
+export { Avatar, type AvatarProps, DefaultAvatar } from "./atoms/Avatar";
+export { Badge, type BadgeProps, type BadgeTone, DefaultBadge } from "./atoms/Badge";
+export { FlowpanelIcon, type FlowpanelIconProps } from "./atoms/FlowpanelIcon";
+export { LiveIndicator, type LiveIndicatorProps } from "./atoms/LiveIndicator";
+export { LocalTime, type LocalTimeProps } from "./atoms/LocalTime";
+export { Mono } from "./atoms/Mono";
+export { Sparkline, type SparklineProps } from "./atoms/Sparkline";
 export {
   DefaultStatusBadge,
   StatusBadge,
   type StatusBadgeProps,
   type StatusBadgeTone,
-} from "./_atoms/StatusBadge";
-export { StatusDot, type StatusTone } from "./_atoms/StatusDot";
-export { TimeAgo, type TimeAgoProps } from "./_atoms/TimeAgo";
-export { ArrayCell, type ArrayCellProps } from "./_data/ArrayCell";
-export { BulkBar, type BulkBarAction, type BulkBarProps } from "./_data/BulkBar";
+} from "./atoms/StatusBadge";
+export { StatusDot, type StatusTone } from "./atoms/StatusDot";
+export { TimeAgo, type TimeAgoProps } from "./atoms/TimeAgo";
+export { ArrayCell, type ArrayCellProps } from "./data/ArrayCell";
+export { BulkBar, type BulkBarAction, type BulkBarProps } from "./data/BulkBar";
 export {
   ColumnPinMenu,
   type ColumnPinMenuProps,
   type PinSide,
-} from "./_data/ColumnPinMenu";
+} from "./data/ColumnPinMenu";
 export {
   ColumnVisibilityMenu,
   type ColumnVisibilityMenuColumn,
   type ColumnVisibilityMenuProps,
-} from "./_data/ColumnVisibilityMenu";
+} from "./data/ColumnVisibilityMenu";
 export {
   DataTable,
   type DataTableColumn,
   type DataTableProps,
   type DataTableSort,
-} from "./_data/DataTable";
-export { DateRangePicker, type DateRangePickerProps } from "./_data/DateRangePicker";
+} from "./data/DataTable";
+export { DateRangePicker, type DateRangePickerProps } from "./data/DateRangePicker";
 export {
   type DataTableDensity,
   DensityToggle,
   type DensityToggleProps,
-} from "./_data/DensityToggle";
-export { FilterBar, type FilterBarProps, type FilterBarSpec } from "./_data/FilterBar";
+} from "./data/DensityToggle";
+export { FilterBar, type FilterBarProps, type FilterBarSpec } from "./data/FilterBar";
+export { FilterSheet, type FilterSheetProps } from "./data/FilterSheet";
 export {
   BooleanCell,
   type BooleanCellProps,
@@ -51,54 +52,55 @@ export {
   type ToneTextProps,
   UrlCell,
   type UrlCellProps,
-} from "./_data/FormatCells";
+} from "./data/FormatCells";
 export {
   BooleanFilter,
   type BooleanFilterProps,
-} from "./_data/filters/BooleanFilter";
+} from "./data/filters/BooleanFilter";
 export {
   DateRangeFilter,
   type DateRangeFilterProps,
-} from "./_data/filters/DateRangeFilter";
+} from "./data/filters/DateRangeFilter";
 export {
   MultiSelectFilter,
   type MultiSelectFilterOption,
   type MultiSelectFilterProps,
-} from "./_data/filters/MultiSelectFilter";
+} from "./data/filters/MultiSelectFilter";
 export {
   NumericRangeFilter,
   type NumericRangeFilterProps,
-} from "./_data/filters/NumericRangeFilter";
+} from "./data/filters/NumericRangeFilter";
 export {
   SelectFilter,
   type SelectFilterOption,
   type SelectFilterProps,
-} from "./_data/filters/SelectFilter";
-export { TagFilter, type TagFilterProps } from "./_data/filters/TagFilter";
-export { TextFilter, type TextFilterProps } from "./_data/filters/TextFilter";
-export { InlineEditCell, type InlineEditCellProps } from "./_data/InlineEditCell";
-export { JsonCell, type JsonCellProps } from "./_data/JsonCell";
-export { JsonEditor, type JsonEditorProps } from "./_data/JsonEditor";
-export { KV, KVRow } from "./_data/KV";
-export { MobileCardList, type MobileCardListProps } from "./_data/MobileCardList";
-export { DefaultPagination, Pagination, type PaginationProps } from "./_data/Pagination";
-export { ReferenceCell, type ReferenceCellProps } from "./_data/ReferenceCell";
+} from "./data/filters/SelectFilter";
+export { TagFilter, type TagFilterProps } from "./data/filters/TagFilter";
+export { TextFilter, type TextFilterProps } from "./data/filters/TextFilter";
+export { InlineEditCell, type InlineEditCellProps } from "./data/InlineEditCell";
+export { JsonCell, type JsonCellProps } from "./data/JsonCell";
+export { JsonEditor, type JsonEditorProps } from "./data/JsonEditor";
+export { KV, KVRow } from "./data/KV";
+export { MobileCardList, type MobileCardListProps } from "./data/MobileCardList";
+export { DefaultPagination, Pagination, type PaginationProps } from "./data/Pagination";
+export { ReferenceCell, type ReferenceCellProps } from "./data/ReferenceCell";
 export {
   type ReferenceItem,
   ReferencePicker,
   type ReferencePickerProps,
-} from "./_data/ReferencePicker";
-export { renderFormatCell } from "./_data/render-format";
+} from "./data/ReferencePicker";
+export { renderFormatCell } from "./data/render-format";
+export { DevToolsPanel, type DevToolsPanelProps } from "./devtools/DevToolsPanel";
 export {
   ConfirmDialog,
   type ConfirmDialogProps,
   DefaultConfirmDialog,
-} from "./_feedback/ConfirmDialog";
-export { EmptyState, type EmptyStateProps } from "./_feedback/EmptyState";
-export { DefaultEmptyState } from "./_feedback/EmptyStateDefault";
-export { ErrorCard } from "./_feedback/ErrorCard";
-export { ErrorState, type ErrorStateProps } from "./_feedback/ErrorState";
-export { HealthBanner, type HealthBannerProps } from "./_feedback/HealthBanner";
+} from "./feedback/ConfirmDialog";
+export { EmptyState, type EmptyStateProps } from "./feedback/EmptyState";
+export { DefaultEmptyState } from "./feedback/EmptyStateDefault";
+export { ErrorCard } from "./feedback/ErrorCard";
+export { ErrorState, type ErrorStateProps } from "./feedback/ErrorState";
+export { HealthBanner, type HealthBannerProps } from "./feedback/HealthBanner";
 export {
   DashboardSkeleton,
   type DashboardSkeletonProps,
@@ -106,140 +108,33 @@ export {
   type ResourceDetailSkeletonProps,
   ResourceListSkeleton,
   type ResourceListSkeletonProps,
-} from "./_feedback/PageSkeletons";
-export { SkeletonCard } from "./_feedback/SkeletonCard";
+} from "./feedback/PageSkeletons";
+export { SkeletonCard } from "./feedback/SkeletonCard";
 export {
   DefaultSkeletonTable,
   SkeletonTable,
   type SkeletonTableProps,
-} from "./_feedback/SkeletonTable";
-export { ToastProvider } from "./_feedback/Toast";
-export { type ToastApi, useToast } from "./_feedback/toast-api";
-export { Toast } from "./_feedback/toast-handle";
+} from "./feedback/SkeletonTable";
+export { ToastProvider } from "./feedback/Toast";
+export { type ToastApi, useToast } from "./feedback/toast-api";
+export { Toast } from "./feedback/toast-handle";
 export {
   AsyncSelect,
   type AsyncSelectOption,
   type AsyncSelectProps,
-} from "./_forms/AsyncSelect";
-export { AutoForm, type AutoFormProps } from "./_forms/AutoForm";
-export { Field as FormField, type FieldProps as FormFieldProps } from "./_forms/Field";
-export { Form, type FormActionResult, type FormProps, useFormContext } from "./_forms/Form";
-export { FormError } from "./_forms/FormError";
-export { FormSection, type FormSectionProps } from "./_forms/FormSection";
-export { FormSubmit } from "./_forms/FormSubmit";
-export type { ResolvedField } from "./_forms/field-types";
+} from "./forms/AsyncSelect";
+export { AutoForm, type AutoFormProps } from "./forms/AutoForm";
+export { Field as FormField, type FieldProps as FormFieldProps } from "./forms/Field";
+export { Form, type FormActionResult, type FormProps, useFormContext } from "./forms/Form";
+export { FormError } from "./forms/FormError";
+export { FormSection, type FormSectionProps } from "./forms/FormSection";
+export { FormSubmit } from "./forms/FormSubmit";
+export type { ResolvedField } from "./forms/field-types";
+export { confirmLeave } from "./forms/leave-guard";
 export {
   StandaloneFormFields,
   type StandaloneFormFieldsProps,
-} from "./_forms/StandaloneFormFields";
-export {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "./_layout/Card";
-export { MetricGrid, type MetricGridProps } from "./_layout/MetricGrid";
-export {
-  Divider,
-  type DividerProps,
-  Section,
-  SectionLabel,
-  type SectionLabelProps,
-  type SectionProps,
-  spanClass,
-} from "./_layout/Section";
-export { StatStrip, type StatStripProps } from "./_layout/StatStrip";
-export { ApiBaseProvider, useApiBase } from "./_provider/ApiBaseContext";
-export {
-  ComponentsProvider,
-  useComponent,
-  useComponentOverrides,
-} from "./_provider/ComponentsContext";
-export { FormattingProvider, useFormatting } from "./_provider/FormattingContext";
-export { LabelsProvider, useLabels } from "./_provider/LabelsContext";
-export { useComponents } from "./_provider/useComponents";
-export {
-  AccountMenu,
-  type AccountMenuItem,
-  type AccountMenuProps,
-  type AccountMenuUser,
-} from "./_shell/AccountMenu";
-export { AdminNav, type NavEntry, type NavGroup } from "./_shell/AdminNav";
-export {
-  AdminShell,
-  type AdminShellProps,
-  type AdminShellVariant,
-} from "./_shell/AdminShell";
-export { AdminTabs } from "./_shell/AdminTabs";
-export { Brand, type BrandProps, type ShellBrand } from "./_shell/Brand";
-export {
-  type BreadcrumbItem,
-  Breadcrumbs,
-  type BreadcrumbsProps,
-} from "./_shell/Breadcrumbs";
-export {
-  type CommandGroupUI,
-  CommandPalette,
-  type CommandPaletteProps,
-} from "./_shell/CommandPalette";
-export { DetailShell, type DetailShellProps } from "./_shell/DetailShell";
-export {
-  Drawer,
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  type DrawerProps,
-  type DrawerWidth,
-} from "./_shell/Drawer";
-export { FlowpanelGlobals, type FlowpanelGlobalsProps } from "./_shell/FlowpanelGlobals";
-export { DefaultPageHeader, PageHeader, type PageHeaderProps } from "./_shell/PageHeader";
-export {
-  DEFAULT_SHORTCUTS,
-  type ShortcutSpec,
-  ShortcutsCheatsheet,
-  type ShortcutsCheatsheetProps,
-} from "./_shell/ShortcutsCheatsheet";
-export { ThemeScript, type ThemeScriptProps } from "./_shell/ThemeScript";
-export { BarsCard, type BarsCardProps, type BarsCardRow } from "./_widgets/BarsCard";
-export { CaptionLine, type CaptionLineProps } from "./_widgets/CaptionLine";
-export { CardHeading, type CardHeadingProps } from "./_widgets/CardHeading";
-export {
-  ChecklistCard,
-  type ChecklistCardItem,
-  type ChecklistCardProps,
-} from "./_widgets/ChecklistCard";
-export { CustomWidget, type CustomWidgetProps } from "./_widgets/CustomWidget";
-export type { CardDate } from "./_widgets/card-date";
-export { DashboardRefresh, type DashboardRefreshProps } from "./_widgets/DashboardRefresh";
-export { ExpiredCard, type ExpiredCardProps } from "./_widgets/ExpiredCard";
-export {
-  FunnelCard,
-  type FunnelCardProps,
-  type FunnelCardStep,
-} from "./_widgets/FunnelCard";
-export { HeatmapCard, type HeatmapCardCell, type HeatmapCardProps } from "./_widgets/HeatmapCard";
-export { KvCard, type KvCardItem, type KvCardProps } from "./_widgets/KvCard";
-export { ListBanner, type ListBannerProps } from "./_widgets/ListBanner";
-export { ListCard, type ListCardProps, type ListCardRow } from "./_widgets/ListCard";
-export { MetricCard, type MetricCardProps } from "./_widgets/MetricCard";
-export { DefaultMetricCard } from "./_widgets/MetricCardDefault";
-export { StatCard, type StatCardProps } from "./_widgets/StatCard";
-export { StatGroupCard, type StatGroupCardProps } from "./_widgets/StatGroupCard";
-export { TableWidget, type TableWidgetProps } from "./_widgets/TableWidget";
-export {
-  TimelineCard,
-  type TimelineCardChip,
-  type TimelineCardGroup,
-  type TimelineCardLine,
-  type TimelineCardProps,
-} from "./_widgets/TimelineCard";
-export {
-  TrackerCard,
-  type TrackerCardCell,
-  type TrackerCardProps,
-  type TrackerCardRow,
-} from "./_widgets/TrackerCard";
-export { DevToolsPanel, type DevToolsPanelProps } from "./devtools/DevToolsPanel";
+} from "./forms/StandaloneFormFields";
 export { type AdminCommand, useAdminCommand } from "./hooks/useAdminCommand";
 export {
   type AdminDrawer,
@@ -271,7 +166,25 @@ export {
 export { useRowHrefClick, useRowNavigation } from "./hooks/useRowNavigation";
 export { type UseTheme, type UseThemeOptions, useTheme } from "./hooks/useTheme";
 export { type UrlState, useUrlState } from "./hooks/useUrlState";
+export {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "./layout/Card";
+export { MetricGrid, type MetricGridProps } from "./layout/MetricGrid";
+export {
+  Divider,
+  type DividerProps,
+  Section,
+  SectionLabel,
+  type SectionLabelProps,
+  type SectionProps,
+  spanClass,
+} from "./layout/Section";
+export { StatStrip, type StatStripProps } from "./layout/StatStrip";
 export { cn } from "./lib/cn";
+export { connectionMessage } from "./lib/connection-message";
 export { withDeploymentBasePath } from "./lib/deployment-base";
 export { formatNumber, type NumericFormat, type Tone } from "./lib/format";
 export { humanize, resolveFieldLabel } from "./lib/humanize";
@@ -288,6 +201,15 @@ export {
 } from "./lib/theme";
 export { toneFillClass, toneTextClass } from "./lib/tone-classes";
 export { type DownloadPayload, triggerDownload } from "./lib/trigger-download";
+export { ApiBaseProvider, useApiBase } from "./provider/ApiBaseContext";
+export {
+  ComponentsProvider,
+  useComponent,
+  useComponentOverrides,
+} from "./provider/ComponentsContext";
+export { FormattingProvider, useFormatting } from "./provider/FormattingContext";
+export { LabelsProvider, useLabels } from "./provider/LabelsContext";
+export { useComponents } from "./provider/useComponents";
 export type {
   RealtimeBus,
   RealtimeProviderProps,
@@ -300,6 +222,48 @@ export {
   useRealtimeStatus,
 } from "./realtime/hooks";
 export { RealtimeProvider } from "./realtime/RealtimeProvider";
+export {
+  AccountMenu,
+  type AccountMenuItem,
+  type AccountMenuProps,
+  type AccountMenuUser,
+} from "./shell/AccountMenu";
+export { AdminNav, type NavEntry, type NavGroup } from "./shell/AdminNav";
+export {
+  AdminShell,
+  type AdminShellProps,
+  type AdminShellVariant,
+} from "./shell/AdminShell";
+export { AdminTabs } from "./shell/AdminTabs";
+export { Brand, type BrandProps, type ShellBrand } from "./shell/Brand";
+export {
+  type BreadcrumbItem,
+  Breadcrumbs,
+  type BreadcrumbsProps,
+} from "./shell/Breadcrumbs";
+export {
+  type CommandGroupUI,
+  CommandPalette,
+  type CommandPaletteProps,
+} from "./shell/CommandPalette";
+export { DetailShell, type DetailShellProps } from "./shell/DetailShell";
+export {
+  Drawer,
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  type DrawerProps,
+  DrawerTitle,
+  type DrawerWidth,
+} from "./shell/Drawer";
+export { FlowpanelGlobals, type FlowpanelGlobalsProps } from "./shell/FlowpanelGlobals";
+export { DefaultPageHeader, PageHeader, type PageHeaderProps } from "./shell/PageHeader";
+export {
+  type ShortcutSpec,
+  ShortcutsCheatsheet,
+  type ShortcutsCheatsheetProps,
+} from "./shell/ShortcutsCheatsheet";
+export { ThemeScript, type ThemeScriptProps } from "./shell/ThemeScript";
 export { Button, type ButtonProps, buttonVariants, DefaultButton } from "./ui/button";
 export { Checkbox } from "./ui/checkbox";
 export {
@@ -344,3 +308,42 @@ export {
 export { Skeleton } from "./ui/skeleton";
 export { Switch } from "./ui/switch";
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+export { BarsCard, type BarsCardProps, type BarsCardRow } from "./widgets/BarsCard";
+export { CaptionLine, type CaptionLineProps } from "./widgets/CaptionLine";
+export { CardHeading, type CardHeadingProps } from "./widgets/CardHeading";
+export {
+  ChecklistCard,
+  type ChecklistCardItem,
+  type ChecklistCardProps,
+} from "./widgets/ChecklistCard";
+export { CustomWidget, type CustomWidgetProps } from "./widgets/CustomWidget";
+export type { CardDate } from "./widgets/card-date";
+export { DashboardRefresh, type DashboardRefreshProps } from "./widgets/DashboardRefresh";
+export { ExpiredCard, type ExpiredCardProps } from "./widgets/ExpiredCard";
+export {
+  FunnelCard,
+  type FunnelCardProps,
+  type FunnelCardStep,
+} from "./widgets/FunnelCard";
+export { HeatmapCard, type HeatmapCardCell, type HeatmapCardProps } from "./widgets/HeatmapCard";
+export { KvCard, type KvCardItem, type KvCardProps } from "./widgets/KvCard";
+export { ListBanner, type ListBannerProps } from "./widgets/ListBanner";
+export { ListCard, type ListCardProps, type ListCardRow } from "./widgets/ListCard";
+export { MetricCard, type MetricCardProps } from "./widgets/MetricCard";
+export { DefaultMetricCard } from "./widgets/MetricCardDefault";
+export { StatCard, type StatCardProps } from "./widgets/StatCard";
+export { StatGroupCard, type StatGroupCardProps } from "./widgets/StatGroupCard";
+export { TableWidget, type TableWidgetProps } from "./widgets/TableWidget";
+export {
+  TimelineCard,
+  type TimelineCardChip,
+  type TimelineCardGroup,
+  type TimelineCardLine,
+  type TimelineCardProps,
+} from "./widgets/TimelineCard";
+export {
+  TrackerCard,
+  type TrackerCardCell,
+  type TrackerCardProps,
+  type TrackerCardRow,
+} from "./widgets/TrackerCard";

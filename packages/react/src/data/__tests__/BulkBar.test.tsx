@@ -1,0 +1,86 @@
+// @vitest-environment happy-dom
+
+import { resolveFormatting } from "@flowpanel/core/format";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { FormattingProvider } from "../../provider/FormattingContext";
+import { LabelsProvider } from "../../provider/LabelsContext";
+import { BulkBar } from "../BulkBar";
+
+afterEach(cleanup);
+
+describe("BulkBar", () => {
+  it("renders nothing when selection is empty", () => {
+    const { container } = render(
+      <BulkBar
+        selection={[]}
+        actions={[{ key: "x", label: "X", onClick: vi.fn() }]}
+        onClear={vi.fn()}
+      />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it("picks the plural form of the selection count for the admin's locale", () => {
+    render(
+      <FormattingProvider value={resolveFormatting({ locale: "ru-RU" })}>
+        <LabelsProvider
+          value={{
+            plurals: {
+              selected: {
+                one: "Выбрана {n} запись",
+                few: "Выбраны {n} записи",
+                other: "Выбрано {n} записей",
+              },
+            },
+          }}
+        >
+          <BulkBar selection={["1", "2", "3"]} actions={[]} onClear={vi.fn()} />
+        </LabelsProvider>
+      </FormattingProvider>,
+    );
+    expect(screen.getByText("Выбраны 3 записи")).toBeTruthy();
+  });
+
+  it("renders selection count + action buttons + Clear", () => {
+    render(
+      <BulkBar
+        selection={["1", "2", "3"]}
+        actions={[{ key: "disable", label: "Disable", variant: "destructive", onClick: vi.fn() }]}
+        onClear={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/3 selected/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /disable/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /clear/i })).toBeTruthy();
+  });
+
+  it("invokes action onClick with the full selection", () => {
+    const onAction = vi.fn();
+    render(
+      <BulkBar
+        selection={["1", "2"]}
+        actions={[{ key: "x", label: "X", onClick: onAction }]}
+        onClear={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "X" }));
+    expect(onAction).toHaveBeenCalledWith(["1", "2"]);
+  });
+
+  it("clear button calls onClear", () => {
+    const onClear = vi.fn();
+    render(<BulkBar selection={["1"]} actions={[]} onClear={onClear} />);
+    fireEvent.click(screen.getByRole("button", { name: /clear/i }));
+    expect(onClear).toHaveBeenCalled();
+  });
+
+  it("renders localized selected count via LabelsProvider", () => {
+    render(
+      <LabelsProvider value={{ bulkBar: { selected: "{n} выбрано" } }}>
+        <BulkBar selection={["1", "2", "3"]} actions={[]} onClear={vi.fn()} />
+      </LabelsProvider>,
+    );
+    expect(screen.getByText("3 выбрано")).toBeTruthy();
+  });
+});

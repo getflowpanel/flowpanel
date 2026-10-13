@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import * as React from "react";
 import { cn } from "../lib/cn";
 import { named } from "../lib/named";
+import { useLabels } from "../provider/LabelsContext";
 
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -42,15 +43,24 @@ const DialogContent = /* @__PURE__ */ named(
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="fp-absolute fp-right-4 fp-top-4 fp-rounded-sm fp-p-1 fp-text-faint fp-transition-colors hover:fp-bg-fill/70 hover:fp-text-ink focus:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 disabled:fp-pointer-events-none">
-          <X className="fp-h-4 fp-w-4" />
-          <span className="fp-sr-only">Close</span>
-        </DialogPrimitive.Close>
+        <DialogCloseButton />
       </DialogPrimitive.Content>
     </DialogPortal>
   )),
   DialogPrimitive.Content,
 );
+
+function DialogCloseButton() {
+  const { drawer } = useLabels();
+  return (
+    <DialogPrimitive.Close
+      aria-label={drawer.close}
+      className="fp-absolute fp-right-2 fp-top-2 fp-inline-flex fp-h-11 fp-w-11 fp-items-center fp-justify-center fp-rounded-sm fp-text-faint fp-transition-colors hover:fp-bg-fill/70 hover:fp-text-ink focus:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 disabled:fp-pointer-events-none sm:fp-right-3 sm:fp-top-3 sm:fp-h-9 sm:fp-w-9"
+    >
+      <X aria-hidden className="fp-h-4 fp-w-4" />
+    </DialogPrimitive.Close>
+  );
+}
 
 function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (

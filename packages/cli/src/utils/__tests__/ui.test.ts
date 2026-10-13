@@ -22,6 +22,23 @@ describe("createUi in a pipe", () => {
     expect(written.join("")).toBe("2 migrations applied\n\nWould apply\n  0001_init.sql\n");
   });
 
+  it("keeps a blank line on both sides of a block", () => {
+    Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
+    const written: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      written.push(String(chunk));
+      return true;
+    });
+    const ui = createUi(false);
+    ui.ok("config found");
+    ui.note("0001_init.sql", "Would apply");
+    ui.note("0002_more.sql", "Then");
+    ui.info("nothing else");
+    expect(written.join("")).toBe(
+      "✓ config found\n\nWould apply\n  0001_init.sql\n\nThen\n  0002_more.sql\n\n· nothing else\n",
+    );
+  });
+
   it("stops with a marked line on stderr and exit code 1", () => {
     Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });
     const errors: string[] = [];

@@ -15,6 +15,17 @@ vi.mock("../runtime/publish", () => ({
 
 import { stream } from "../stream";
 
+const DECLARED = Object.fromEntries(
+  [
+    "custom",
+    "foo",
+    "x",
+    "other",
+    "ok-channel",
+    ...Array.from({ length: 40 }, (_, i) => `ch-${i}`),
+  ].map((name) => [name, {}]),
+);
+
 function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdminConfig {
   return {
     auth: {
@@ -22,6 +33,7 @@ function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdmin
       role: () => "admin",
     },
     resourcesByName: new Map([["users", { __kind: "resource", ref: {}, options: {} }]]),
+    realtime: { driver: "memory", channels: DECLARED },
     ...overrides,
   } as ResolvedAdminConfig;
 }

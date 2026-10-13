@@ -8,6 +8,7 @@ import type { NavGroupRef } from "./dashboard";
 import type { DetailOptions } from "./detail";
 import type { DrawerConfig } from "./drawer";
 import type { IconName } from "./icon";
+import type { PluralLabel } from "./labels";
 import type { FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec } from "./registry";
 import type { Scope } from "./session";
@@ -16,8 +17,6 @@ import type { ListFilters } from "./where";
 import type { Tone } from "./widget";
 
 export type {
-  DetailBadge,
-  DetailHeaderContext,
   DetailOptions,
   DetailTab,
   DetailTabContext,
@@ -173,7 +172,8 @@ export type FieldType =
   | "tags"
   | "reference"
   | "hidden"
-  | "color";
+  | "color"
+  | "money";
 
 export interface FieldDef<Row> {
   /** Row property this field writes. */
@@ -196,6 +196,21 @@ export interface FieldDef<Row> {
     | ((ctx: QueryContext) => Promise<SelectOption[]>);
   /** Turn the field into a searchable picker over another resource. */
   reference?: ReferenceSpec;
+  /**
+   * `money` only: ISO 4217 code shown beside the amount.
+   * @defaultValue `formatting.currency`
+   */
+  currency?: string;
+  /**
+   * `money` only: digits after the decimal point, 0 to 8. The form edits major units, `399.99`.
+   * @defaultValue the currency's own: 2 for USD, 0 for JPY, 3 for KWD
+   */
+  minorUnits?: number;
+  /**
+   * `money` only: whether the column holds whole minor units (`39999`) or a major-unit decimal (`399.99`).
+   * @defaultValue `"major"` for a decimal or float column, else `"minor"`
+   */
+  storage?: "minor" | "major";
   /** Require a value. The form marks it, and the server rejects a create that leaves it empty or an edit that clears it. */
   required?: boolean;
   /** Render non-editable. Enforced server-side, not just in the UI. */
@@ -317,7 +332,17 @@ export interface ResourceOptions<Row> {
     emphasis?: ActionEmphasis;
   };
   /** Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. */
-  delete?: { disabled?: boolean; softDelete?: keyof Row & string; confirm?: string };
+  delete?: {
+    disabled?: boolean;
+    softDelete?: keyof Row & string;
+    /**
+     * Text under the Delete confirmation. `{ one, other }` (any `PluralLabel` form) picks the wording
+     * by how many rows go, `{n}` the count: one record on its page, the selection in the bulk menu.
+     */
+    confirm?: string | PluralLabel;
+    /** Offer Delete in the bulk menu, after your own bulk actions. Default `true`. */
+    bulk?: boolean;
+  };
 
   /** Per-row actions, rendered inline or in the row's menu. */
   // biome-ignore lint/suspicious/noExplicitAny: a resource stores heterogeneous action payloads; each payload remains exact on the action returned by rowAction().
@@ -333,12 +358,22 @@ export interface ResourceOptions<Row> {
   /** Canonical read/write policy for declared fields. */
   fieldAccess?: FieldAccessMap<Row>;
 
-  /** Export button, off unless set. `formats` defaults to `["csv"]`; `fields` defaults to the visible columns. */
-  export?: { formats?: ("csv" | "json")[]; fields?: (keyof Row & string)[] } | false;
+  /**
+   * Export button, off unless set: every row matching the list's filters, search and sort, as
+   * the user may read them. `formats` defaults to `["csv"]`; `fields` defaults to the columns.
+   */
+  export?:
+    | {
+        formats?: ("csv" | "json")[];
+        fields?: (keyof Row & string)[];
+        /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */
+        maxRows?: number;
+      }
+    | false;
   /** Import button. Off unless set; rows are created through the normal write path. */
   import?: { formats?: ("csv" | "json")[]; fields?: (keyof Row & string)[] } | false;
 
-  /** Opt this resource out of the admin-wide audit sink. */
+  /** `false` records no audit events for this resource, and its records show no History tab. */
   audit?: boolean;
   /** Refresh the list when the channel fires. `true` uses `resource.<name>`. */
   realtime?: boolean | string;

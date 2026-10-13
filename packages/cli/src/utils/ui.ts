@@ -52,11 +52,17 @@ const framed: Ui = {
 /** Plain lines; a titled block and the closing line start after a blank line unless they come first. */
 function plainUi(): Ui {
   let printed = false;
+  let afterBlock = false;
   const out = (line: string) => {
-    process.stdout.write(`${bare(line)}\n`);
+    process.stdout.write(`${afterBlock ? "\n" : ""}${bare(line)}\n`);
     printed = true;
+    afterBlock = false;
   };
-  const apart = (text: string) => out(printed ? `\n${text}` : text);
+  const apart = (text: string) => {
+    const lead = printed && !afterBlock ? "\n" : "";
+    out(`${lead}${text}`);
+    afterBlock = true;
+  };
   return {
     intro: () => {},
     info: (message) => out(`· ${message}`),

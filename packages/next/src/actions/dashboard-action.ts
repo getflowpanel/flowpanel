@@ -1,27 +1,20 @@
 import type {
   ActionEmphasis,
-  ActionResult,
   DashboardAction,
   FieldDef,
   IconName,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
-import { validationFailure } from "../runtime/action-failure";
-import {
-  buildActionContext,
-  buildAuditEvent,
-  invalidJsonResponse,
-  maybeEmitAudit,
-  notFoundResponse,
-  readActionInput,
-} from "../runtime/action-helpers";
-import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
-import { applyActionResult } from "../runtime/apply-action-result";
+import { dashboardActionAudit } from "@flowpanel/core/internal";
+import { notFoundResponse } from "../runtime/action-helpers";
 import { buildHref } from "../runtime/href";
-import { bindPublisher } from "../runtime/publish";
 import { warnOnce } from "../runtime/widget-reads";
-import { withGuards } from "../runtime/with-guards";
+import {
+  guardedRoute,
+  lookupAction,
+  readActionBody,
+  runDeclaredAction,
+} from "../runtime/write-pipeline";
 import type { ActionFormField } from "./action-form-field";
 import { serializeActionFormField } from "./serialize-action-field";
 
@@ -90,79 +83,38 @@ export function decodeDashboardPath(encoded: string): string {
 }
 
 export function dashboardActionRoute(config: ResolvedAdminConfig) {
-  bindPublisher(config);
-
-  return async function POST(
-    req: Request,
-    ctx: { params: Promise<{ dashboard: string; action: string }> },
-  ): Promise<Response> {
-    const { dashboard: encodedPath, action: actionKey } = await ctx.params;
-    const dashboardPath = decodeDashboardPath(encodedPath);
-    const dashboard = config.dashboardsByPath.get(dashboardPath);
-    if (!dashboard) {
-      return notFoundResponse("dashboard", dashboardPath, [...config.dashboardsByPath.keys()]);
-    }
-    const action = dashboard.actions?.find((a) => a.key === actionKey);
-    if (!action) {
-      return notFoundResponse(
-        "action",
-        actionKey,
-        (dashboard.actions ?? []).map((a) => a.key),
+  return guardedRoute<
+    { dashboard: string; action: string },
+    { path: string; action: DashboardAction<Record<string, unknown>, unknown> }
+  >(config, {
+    resolve: (params) => {
+      const path = decodeDashboardPath(params.dashboard);
+      const dashboard = config.dashboardsByPath.get(path);
+      if (!dashboard) {
+        return notFoundResponse("dashboard", path, [...config.dashboardsByPath.keys()]);
+      }
+      const action = lookupAction(dashboard.actions, params.action);
+      if (action instanceof Response) return action;
+      return {
+        spec: { pageAccess: dashboard.access, actionAccess: action.access },
+        target: { path, action },
+      };
+    },
+    handle: async ({ req, reqCtx, target: { path, action } }) => {
+      const input = await readActionBody(req);
+      if (input instanceof Response) return input;
+      const segments = path === "/" ? [] : path.slice(1).split("/");
+      return runDeclaredAction(
+        config,
+        reqCtx,
+        action,
+        input,
+        (parsed, actionCtx) => action.run(parsed, actionCtx),
+        {
+          audit: { ...dashboardActionAudit(action.key), targetId: path },
+          publish: { pathname: buildHref(config, ...segments) },
+        },
       );
-    }
-
-    return withGuards(
-      config,
-      req,
-      {
-        pageAccess: dashboard.access,
-        actionAccess: action.access,
-      },
-      async (reqCtx) => {
-        const body = await readActionInput(req);
-        if (!body.ok) return invalidJsonResponse(body.reason);
-        const parsedInput = await parseActionInputSchema(
-          action.form as Parameters<typeof parseActionInputSchema>[0],
-          action.inputSchema,
-          body.input,
-        );
-        if (parsedInput.issues) {
-          return validationFailure(parsedInput.issues, reqCtx.requestId);
-        }
-
-        const actionCtx = buildActionContext(config, reqCtx, action);
-
-        const result = validateActionOutput(
-          action.outputSchema,
-          (await runWithRequestContext(reqCtx, () =>
-            action.run(parsedInput.data, actionCtx),
-          )) as ActionResult<unknown>,
-        );
-
-        await maybeEmitAudit(
-          result,
-          config.audit,
-          undefined, // dashboards have no per-resource audit opt-out
-          buildAuditEvent(
-            reqCtx,
-            {
-              action: `dashboard.action.${actionKey}`,
-              resource: "dashboard",
-              targetId: dashboardPath,
-            },
-            config.auth.userId,
-          ),
-        );
-
-        if (result.ok) {
-          const dashboardSegments = dashboardPath === "/" ? [] : dashboardPath.slice(1).split("/");
-          await applyActionResult(result, {
-            pathname: buildHref(config, ...dashboardSegments),
-          });
-        }
-
-        return Response.json(result);
-      },
-    );
-  };
+    },
+  });
 }

@@ -1,5 +1,4 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
-import { connection } from "next/server";
 import { cache } from "react";
 import { buildServerRequest } from "./build-server-request";
 import { buildHref } from "./href";
@@ -29,10 +28,7 @@ export function toSearchParams(raw: PageParams | undefined): URLSearchParams {
   return sp;
 }
 
-const requestFor = cache(async (href: string) => {
-  await connection();
-  return buildServerRequest(href);
-});
+const requestFor = cache((href: string) => buildServerRequest(href));
 
 /** The page's own path and Request, shared with its metadata in one render so the caller is authenticated and rate-limited once. */
 export async function pageRequest(

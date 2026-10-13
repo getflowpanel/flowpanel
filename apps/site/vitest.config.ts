@@ -1,10 +1,13 @@
 import { fileURLToPath, URL } from "node:url";
 import mdx from "fumadocs-mdx/vite";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import { sharedTestConfig } from "../../vitest.shared";
 
 export default defineConfig({
-  test: { ...sharedTestConfig },
+  test: {
+    ...sharedTestConfig,
+    exclude: [...configDefaults.exclude, "content/snippets/.generated/**"],
+  },
   plugins: [mdx(undefined, { index: false, updateViteConfig: false })],
   oxc: {
     jsx: { runtime: "automatic" },

@@ -55,6 +55,7 @@ What an adapter's `list` receives: everything needed to build one page of rows.
 | --- | --- | --- |
 | `filters` | `Record<string, unknown>` | Filter values keyed by declared field name. |
 | `sort` | `{ field: keyof Row & string; dir: "asc" \| "desc" } \| null` | Active sort, or null when the list is unsorted. |
+| `tiebreak?` | `readonly string[]` | Columns ordered by after `sort`, ascending, so pages never overlap: the primary key's. |
 | `page` | `number` | 1-based page number. |
 | `pageSize` | `number` |  |
 | `search` | `string` | Current search term. Empty string when the box is blank. |

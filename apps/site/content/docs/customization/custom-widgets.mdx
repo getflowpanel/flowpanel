@@ -28,7 +28,7 @@ export const pipelineWidget = custom(
 );
 ```
 
-The props function gets the same `ctx` as every widget: `ctx.link` builds an href under the admin's mount, `ctx.format` formats in the admin's locale and zone, `ctx.query` shares a query between widgets, and `ctx.dateRange` is the picked period. Pass the component plain data.
+`realtime: "pipeline"` needs `pipeline` declared in `realtime.channels`; see [Realtime](/docs/guides/realtime#declare-your-own-channels). The props function gets the same `ctx` as every widget: `ctx.link` builds an href under the admin's mount, `ctx.format` formats in the admin's locale and zone, `ctx.query` shares a query between widgets, and `ctx.dateRange` is the picked period. Pass the component plain data.
 
 ## Build it from kit atoms
 
@@ -84,7 +84,7 @@ export function Pipeline({ stages, runsHref, updated }: PipelineProps) {
 
 | Option | Effect |
 | --- | --- |
-| `label` | Card title, also used in error messages and the slow-widget log |
+| `label` | Card title, also used in error messages and the slow-widget log; with `frame: false` it still titles the error card |
 | `frame: false` | No card around the component |
 | `realtime` | Re-render on a channel, `{ resource }`, or a list of them |
 | `span` | Width in a 12-column section |

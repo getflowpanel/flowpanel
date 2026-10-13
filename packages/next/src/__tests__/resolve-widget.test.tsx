@@ -1,9 +1,14 @@
-import type { Adapter, WidgetConfig } from "@flowpanel/core";
+import type { Adapter, RequestContext, WidgetConfig } from "@flowpanel/core";
 import { custom, defineAdmin, metric, resource } from "@flowpanel/core";
 import { RealtimeRefresh } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
-import { adminWidgetContext, cardProps, resolveWidget } from "../runtime/resolve-widget";
+import {
+  cardProps,
+  type RequestWidgetContextOptions,
+  requestWidgetContext,
+  resolveWidget,
+} from "../runtime/resolve-widget";
 import { fakeWidgetContext } from "./widget-context-fixture";
 
 const adapter: Adapter = {
@@ -32,6 +37,19 @@ const admin = defineAdmin({
   ],
 });
 
+const reqCtx: RequestContext = {
+  req: new Request("http://localhost/ops"),
+  session: null,
+  role: "admin",
+  scope: null,
+  ip: null,
+  userAgent: null,
+};
+
+function adminWidgetContext(_config: typeof admin, options: RequestWidgetContextOptions = {}) {
+  return requestWidgetContext(admin, reqCtx, options);
+}
+
 function Conveyor(_props: { stages: number }) {
   return null;
 }
@@ -52,7 +70,7 @@ async function Prompts(_props: { id: number }): Promise<ReactNode> {
   throw new Error("a custom widget's own component is never run by resolveWidget");
 }
 
-describe("adminWidgetContext", () => {
+describe("requestWidgetContext", () => {
   it("counts through the admin, under its mount", async () => {
     const ctx = adminWidgetContext(admin);
     expect(await ctx.count("runs")).toBe(7);
@@ -109,7 +127,7 @@ describe("resolveWidget", () => {
         metric("Runs", async () => 1),
         fakeWidgetContext(),
       ),
-    ).rejects.toThrow("resolveWidget needs a context from adminWidgetContext()");
+    ).rejects.toThrow("resolveWidget needs a context from requestWidgetContext()");
   });
 });
 

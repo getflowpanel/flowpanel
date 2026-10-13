@@ -15,13 +15,4 @@ export const invoices = resource(schema.invoices, {
   ],
   filters: [{ field: "status", type: "select" }],
   defaultSort: { field: "createdAt", dir: "desc" },
-  create: {
-    fields: [
-      { name: "customerId", label: "Customer", reference: { resource: "customers", labelField: "email" } },
-      { name: "amountCents", type: "number" },
-      { name: "status", type: "select", options: Status.options },
-      { name: "paidAt", type: "datetime" },
-      { name: "createdAt", type: "datetime" },
-    ],
-  },
 });

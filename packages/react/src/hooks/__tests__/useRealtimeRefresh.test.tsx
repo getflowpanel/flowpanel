@@ -26,6 +26,11 @@ class MockEventSource {
   onerror: null | (() => void) = null;
   onopen: null | (() => void) = null;
   readyState: number = MockEventSource.CONNECTING;
+  /** The server\'s named events, such as the `ready` frame it sends once the stream answers. */
+  listeners = new Map<string, Array<() => void>>();
+  addEventListener(type: string, fn: () => void): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]);
+  }
   private _closeSpy = vi.fn();
   constructor(public url: string) {
     instances.push({
@@ -33,6 +38,7 @@ class MockEventSource {
       open: () => {
         this.readyState = MockEventSource.OPEN;
         this.onopen?.();
+        for (const fn of this.listeners.get("ready") ?? []) fn();
       },
       message: (d) => this.onmessage?.({ data: d }),
       error: () => this.onerror?.(),

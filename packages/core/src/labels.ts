@@ -1,4 +1,4 @@
-export { humanize, resolveFieldLabel } from "./humanize";
+export { humanize, humanizeReference, resolveFieldLabel } from "./humanize";
 export { RU_LABELS } from "./locales/ru";
 export {
   DEFAULT_LABELS,

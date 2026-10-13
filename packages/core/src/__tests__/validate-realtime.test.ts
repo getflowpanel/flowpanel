@@ -19,6 +19,7 @@ function admin(onDashboard: unknown, onCard?: unknown, onDrawer?: unknown): () =
     defineAdmin({
       adapter,
       auth: { session: async () => null, role: () => "admin" },
+      realtime: { driver: "memory", channels: { pipeline: {} } },
       resources: [
         resource(
           { __name: "orders" },
@@ -86,6 +87,12 @@ describe("realtime { resource } targets", () => {
   it("are checked on drawer widgets too", () => {
     expect(admin("pipeline", undefined, { resource: "ordr" })).toThrow(
       'the metric "Queued" on the "orders" drawer realtime: it subscribes to { resource: "ordr" }',
+    );
+  });
+
+  it("refuse a channel realtime.channels does not declare", () => {
+    expect(admin("pipline")).toThrow(
+      '[flowpanel] the metric "Orders" on dashboard "/" realtime: it subscribes to "pipline", which realtime.channels does not declare. Did you mean "pipeline"?',
     );
   });
 });

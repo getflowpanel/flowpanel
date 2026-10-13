@@ -74,8 +74,11 @@ export const monitors = resource(schema.monitors, {
   create: { fields: [...fields, sandboxField<Monitor>()] },
   update: { fields },
   delete: {
-    confirm:
-      "Permanently delete selected monitors and their runs, listings, matches, and AI usage? This cannot be undone.",
+    confirm: {
+      one: "The monitor goes with its runs, listings, matches and AI usage, for good. This cannot be undone.",
+      other:
+        "{n} monitors go with their runs, listings, matches and AI usage, for good. This cannot be undone.",
+    },
   },
   bulkActions: [
     bulkAction<Monitor>({

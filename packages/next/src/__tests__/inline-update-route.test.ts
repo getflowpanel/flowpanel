@@ -334,7 +334,7 @@ describe("inlineUpdateRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.ok).toBe(false);
-    expect(body.error).toBe("validation failed");
+    expect(body.error).toBe("Validation failed");
     expect(body.code).toBe("validation_failed");
     expect(Object.keys(body.fieldErrors)).toEqual(["email"]);
   });

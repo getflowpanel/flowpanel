@@ -36,10 +36,16 @@ either way. Set `labelOne` and `plural` when they differ: a resource with only
 `label: "Order"` titles its list "Order" too. Without any of the three, the
 resource name is humanized and made singular for one row.
 
-An empty list shows `empty.title`, `description`, `icon` and `action`. When search
-or filters leave no rows it shows `empty.filtered` (or `empty.searched` during a
-search; both fill `{query}`) and a button that clears them. On a phone the list
-shows 10 rows as cards with the rest behind "N more".
+An empty list shows `empty.title`, `description`, `icon` and `action`. Without
+them it says "No customers", "Customers you create show up here." and offers
+"Create customer" when the reader may create rows. When search or filters leave
+no rows it shows `empty.filtered` (or `empty.searched` during a search; both fill
+`{query}`) and a button that clears them. On a phone the list shows 10 rows as
+cards with the rest behind "N more".
+
+Search, filters, sort and pages load in place: the rows dim and a thin bar runs
+along the table while the next ones are on their way. A filter, sort or page
+change is a history entry, so Back undoes it; typing in the search box is not.
 
 ### Detail headings and editing
 
@@ -147,7 +153,10 @@ A `daterange` filter also takes a preset name (`today`, `yesterday`, `last7d`,
 `last30d`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
 fields the list declares in `columns`, `filters` or `search`, with values that
 match the filter type; `defineAdmin` rejects the rest. For "older than N days",
-compute the number in a view and use a `numeric-range` filter.
+compute the number in a view and use a `numeric-range` filter. The menu button
+names the view whose filters, sort and search match the list, counting the
+resource's `defaultSort` and filter defaults, so `?f_status=needs_review` reads
+"View: Needs review".
 
 ## ColumnDef
 
@@ -296,12 +305,36 @@ type FieldType =
   | "date" | "datetime" | "time"
   | "boolean" | "switch" | "checkbox"
   | "select" | "multiselect" | "radio"
-  | "json" | "markdown" | "tags" | "reference" | "hidden" | "color";
+  | "json" | "markdown" | "tags" | "reference" | "hidden" | "color" | "money";
 ```
 
 Without `type`, a field is `"text"`, or `"reference"` when it sets `reference`.
+A `"money"` field edits major units (`399.99`) beside the currency's sign. `storage`
+says whether the column holds minor units (`39999`) or the amount itself; `currency`
+and `minorUnits` (the currency's own digits) set the rest. See
+[money fields](/docs/build/forms#money-fields).
 Only a fully generated form (no `create.fields` or `update.fields`) reads the
 column type, and only for numbers, booleans, dates and JSON.
+
+## `hidden` and default values
+
+`hidden` means something different at each level, and none of them is an access
+rule; use `access` and `fieldAccess` for that.
+
+| Where | What `hidden` does |
+| --- | --- |
+| A resource or a queue | Leaves it out of the navigation and the palette. Its routes still work. |
+| A column | Keeps it out of the table. Export and the drawer still read it. |
+| A filter | Applies the filter, and its `defaultValue`, without a control. |
+| A form field, `hidden: true` or a function of the values | Leaves the control out of the form. The server still fills its `defaultValue`. |
+| A form field with `type: "hidden"` | Renders `<input type="hidden">`, which posts its value and which anyone can edit in the page. |
+
+Two options fill a create's values. `FieldDef.defaultValue` fills a key the
+submission left empty, on the server, and on a visible field pre-fills the
+control, so the browser sees it. `create.defaultValues` fills keys on the server
+only and wins when both name the same key; put trusted values such as the tenant
+there. A filter's `defaultValue` is unrelated: it applies the filter while the
+URL has no value for it.
 
 ## FilterDef
 
@@ -371,6 +404,9 @@ export const card = {
   [timeline](/docs/reference/widgets#timeline) pages through the whole history and a
   heatmap shows its last `days` days. Without `dateRange` the page has no picker and
   widgets see the record's whole history.
+- `history: false` drops the History tab the [audit log](/docs/guides/audit-log) adds to
+  every record. `audit: false` on the resource stops recording its events and drops the
+  tab too.
 
 The header, strip, aside and open tab share one widget context, so a repeated
 `ctx.count`, `ctx.read` or `ctx.query` runs once per page.

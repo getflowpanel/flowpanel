@@ -25,6 +25,8 @@ export interface PrismaDmmfEnum {
 export interface PrismaDmmfModel {
   name: string;
   fields: PrismaDmmfField[];
+  /** `@@id([...])`; `null` or absent for a single `@id`. */
+  primaryKey?: { fields: readonly string[] } | null;
 }
 
 export interface PrismaDmmf {
@@ -72,6 +74,8 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
       hasDefault: fillsItself(field),
     };
 
+    if (meta.type === "number") meta.integer = field.type === "Int" || field.type === "BigInt";
+
     if (field.kind === "enum") {
       const enumDef = dmmf.datamodel.enums.find((e) => e.name === field.type);
       if (enumDef) {
@@ -84,7 +88,13 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
     columns.push(meta);
   }
 
-  const result = freeze({ name: model.name, columns, primaryKey });
+  const keyColumns = model.primaryKey?.fields;
+  const result = freeze({
+    name: model.name,
+    columns,
+    primaryKey,
+    ...(keyColumns && keyColumns.length > 0 ? { keyColumns: [...keyColumns] } : {}),
+  });
   byModel.set(modelName, result);
   return result;
 }

@@ -1,528 +1,175 @@
 "use client";
-// LOC-OK: drawer shell — fields/resource/widgets/statgroup tab views plus the action bar in one client component.
-import type { ColumnFormat } from "@flowpanel/core";
-import { formatLabel } from "@flowpanel/core/labels";
 import {
   Button,
-  ConfirmDialog,
   Drawer,
   DrawerContent,
-  DrawerFooter,
   DrawerHeader,
+  DrawerTitle,
+  HealthBanner,
   humanize,
-  KV,
-  KVRow,
-  MetricCard,
-  type NumericFormat,
-  RealtimeRefresh,
-  renderFormatCell,
   Skeleton,
-  StatGroupCard,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  type Tone,
   useAdminDrawer,
   useApiBase,
-  useFormatting,
   useLabels,
 } from "@flowpanel/react";
-import { Fragment, type ReactNode, useEffect, useState } from "react";
-import { ActionFormDialog } from "../actions/ActionFormDialog";
-import type { ActionFormField, ActionFormFieldErrors } from "../actions/action-form-field";
+import { useEffect, useRef, useState } from "react";
+import { RecordActionsBar } from "../actions/RecordActionsBar";
+import { RestoreButton } from "../actions/RestoreButton";
 import { readActionFailure } from "../actions/read-action-failure";
-import { useActionRunner } from "../actions/use-action-runner";
-import { formatFieldValue } from "../runtime/format-field-value";
-import { toWireOptions } from "../runtime/select-options";
-import { DrawerCard, isCardWidget } from "./DrawerCard";
-import type { DrawerPayload, SerializedDrawerAction, SerializedDrawerTab } from "./drawer-route";
-import type { SerializedField, SerializedFieldList } from "./serialize-fields";
-import { rememberedCell } from "./table-cells";
+import { DrawerBody } from "./DrawerBody";
+import type { DrawerPayload } from "./drawer-route";
 
-function toActionFormFields(form: SerializedDrawerAction["form"]): ActionFormField[] {
-  if (!form) return [];
-  return form.map((f) => ({
-    name: f.name,
-    ...(f.type ? { type: f.type } : {}),
-    ...(f.options ? { options: toWireOptions(f.options) } : {}),
-  }));
+/** What was fetched, and for which record: a payload never shows under another record's URL. */
+type Loaded =
+  | { key: string; resource: string; payload: DrawerPayload }
+  | { key: string; resource: string; error: string };
+
+function recordKey(resource: string | null, id: string | null): string | null {
+  return resource && id ? JSON.stringify([resource, id]) : null;
 }
 
-function resolveFieldEntries(
-  row: Record<string, unknown>,
-  fields: SerializedFieldList,
-): SerializedField[] {
-  if (fields === "*") return Object.keys(row).map((name) => ({ name }));
-  return fields;
-}
-
-function FieldsView({
-  row,
-  fields,
-  prerendered,
-  labels,
-  formats,
-  listCell,
-}: {
-  row: Record<string, unknown>;
-  fields: SerializedFieldList;
-  prerendered: Record<string, string>;
-  labels: Record<string, string>;
-  formats: Record<string, ColumnFormat>;
-  listCell: (field: string) => ReactNode | undefined;
-}) {
-  const formatting = useFormatting();
-  const entries = resolveFieldEntries(row, fields);
+function LoadingBody({ label }: { label: string }) {
   return (
-    <KV>
-      {entries.map(({ name: k, label }) => (
-        <KVRow
-          key={k}
-          label={label ?? labels[k] ?? humanize(k)}
-          value={
-            prerendered[k] !== undefined ? (
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: server-prerendered from the resource's own column render
-              <span dangerouslySetInnerHTML={{ __html: prerendered[k] }} />
-            ) : listCell(k) !== undefined ? (
-              listCell(k)
-            ) : formats[k] !== undefined ? (
-              renderFormatCell(formats[k], row[k], formatting)
-            ) : (
-              formatFieldValue(row[k])
-            )
-          }
-        />
+    <div role="status" className="fp-space-y-3">
+      <span className="fp-sr-only">{label}</span>
+      {[0, 1, 2, 3].map((line) => (
+        <div key={line} className="fp-flex fp-items-center fp-gap-4" aria-hidden>
+          <Skeleton className="fp-h-4 fp-w-24" />
+          <Skeleton className="fp-h-4 fp-flex-1" />
+        </div>
       ))}
-    </KV>
-  );
-}
-
-function ResourceTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "resource" }> }) {
-  const words = useLabels().drawer;
-  if (tab.rows.length === 0) {
-    return (
-      <div className="fp-py-6 fp-text-sm fp-text-faint">
-        {formatLabel(words.noRows, { resource: tab.label })}
-      </div>
-    );
-  }
-  const cols = tab.columns.length > 0 ? tab.columns : Object.keys(tab.rows[0] ?? {});
-  return (
-    <div className="fp-overflow-hidden fp-rounded fp-border fp-border-line fp-bg-surface">
-      <table className="fp-w-full fp-text-sm">
-        <thead className="fp-bg-canvas fp-text-xs fp-text-faint">
-          <tr>
-            {cols.map((c) => (
-              <th key={c} scope="col" className="fp-px-4 fp-py-2 fp-text-left fp-font-normal">
-                {humanize(c)}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {tab.rows.map((r, idx) => (
-            <tr
-              // biome-ignore lint/suspicious/noArrayIndexKey: drawer list has no stable row key at this layer and reorders only on refresh.
-              key={idx}
-              className="fp-border-t fp-border-line fp-text-ink"
-            >
-              {cols.map((c) => (
-                <td key={c} className="fp-px-4 fp-py-2">
-                  {formatFieldValue(r[c])}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
 
-function WidgetTabView({ tab }: { tab: Extract<SerializedDrawerTab, { kind: "widgets" }> }) {
-  const formatting = useFormatting();
-  const labels = useLabels();
-  if (tab.widgets.length === 0) {
-    return <div className="fp-py-6 fp-text-sm fp-text-faint">{labels.drawer.noWidgets}</div>;
-  }
-  return (
-    <div className="fp-grid fp-grid-cols-1 fp-gap-3 md:fp-grid-cols-2">
-      {tab.widgets.map((w, i) => {
-        const key = i;
-        if (w.kind === "metric") {
-          return (
-            <Fragment key={key}>
-              <MetricCard
-                label={w.label}
-                value={w.value}
-                {...(w.format ? { format: w.format as NumericFormat } : {})}
-                {...(w.sublabel ? { sublabel: w.sublabel } : {})}
-                {...(w.tone ? { tone: w.tone as Tone } : {})}
-              />
-              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
-            </Fragment>
-          );
-        }
-        if (w.kind === "table") {
-          if (w.rows.length === 0) {
-            return (
-              <Fragment key={key}>
-                <div className="fp-py-6 fp-text-sm fp-text-faint md:fp-col-span-2">
-                  {labels.widget.empty}
-                </div>
-                {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
-              </Fragment>
-            );
-          }
-          const cols: { field: string; label?: string; format?: ColumnFormat }[] =
-            w.columns.length > 0
-              ? w.columns
-              : Object.keys(w.rows[0] ?? {}).map((f) => ({ field: f }));
-          return (
-            <Fragment key={key}>
-              <div className="fp-overflow-hidden fp-rounded fp-border fp-border-line fp-bg-surface md:fp-col-span-2">
-                {w.label ? (
-                  <div className="fp-border-b fp-border-line fp-bg-canvas fp-px-4 fp-py-2 fp-text-xs fp-font-medium fp-text-soft">
-                    {w.label}
-                  </div>
-                ) : null}
-                <table className="fp-w-full fp-text-sm">
-                  <thead className="fp-bg-canvas fp-text-xs fp-text-faint">
-                    <tr>
-                      {cols.map((c) => (
-                        <th
-                          key={c.field}
-                          scope="col"
-                          className="fp-px-4 fp-py-2 fp-text-left fp-font-normal"
-                        >
-                          {c.label ?? humanize(c.field)}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {w.rows.map((r, idx) => (
-                      <tr
-                        // biome-ignore lint/suspicious/noArrayIndexKey: server-resolved list without stable id
-                        key={idx}
-                        className="fp-border-t fp-border-line fp-text-ink"
-                      >
-                        {cols.map((c) => (
-                          <td key={c.field} className="fp-px-4 fp-py-2">
-                            {c.format
-                              ? renderFormatCell(c.format, r[c.field], formatting)
-                              : formatFieldValue(r[c.field])}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
-            </Fragment>
-          );
-        }
-        if (w.kind === "statGroup") {
-          return (
-            <Fragment key={key}>
-              <div className="md:fp-col-span-2">
-                <StatGroupCard
-                  {...(w.label ? { label: w.label } : {})}
-                  stats={w.stats.map(({ format, tone, ...stat }) => ({
-                    ...stat,
-                    ...(format ? { format: format as NumericFormat } : {}),
-                    ...(tone ? { tone: tone as Tone } : {}),
-                  }))}
-                />
-              </div>
-              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
-            </Fragment>
-          );
-        }
-        if (isCardWidget(w)) {
-          return (
-            <Fragment key={key}>
-              <DrawerCard widget={w} />
-              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
-            </Fragment>
-          );
-        }
-        if (w.kind === "chart") {
-          return (
-            <Fragment key={key}>
-              <div className="fp-rounded fp-border fp-border-line fp-bg-canvas fp-p-4 fp-text-sm fp-text-faint md:fp-col-span-2">
-                <div className="fp-font-medium fp-text-soft">{w.label}</div>
-                <div className="fp-mt-1 fp-text-xs">
-                  {formatLabel(labels.drawer.chartElsewhere, { n: w.dataPoints })}
-                </div>
-              </div>
-              {w.realtime ? <RealtimeRefresh channels={w.realtime} /> : null}
-            </Fragment>
-          );
-        }
-        return (
-          <div
-            key={key}
-            {...(w.failed ? { "data-fp-error": "" } : {})}
-            className="fp-rounded fp-border fp-border-line fp-bg-canvas fp-p-4 fp-text-sm fp-text-faint md:fp-col-span-2"
-          >
-            {w.label ? <div className="fp-font-medium fp-text-soft">{w.label}</div> : null}
-            <div className={w.label ? "fp-mt-1 fp-text-xs" : undefined}>{w.reason}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function DrawerBody({ payload }: { payload: DrawerPayload }) {
-  const { state, open } = useAdminDrawer();
-  const listCell = (field: string) =>
-    state.resource && state.id ? rememberedCell(state.resource, state.id, field) : undefined;
-  const tabs = payload.tabs;
-  if (!tabs || tabs.length === 0) {
-    return (
-      <FieldsView
-        row={payload.row}
-        fields={payload.fields}
-        prerendered={payload.prerendered}
-        labels={payload.labels}
-        formats={payload.formats}
-        listCell={listCell}
-      />
-    );
-  }
-  const firstKey = tabs[0]?.key ?? "";
-  const activeTab = tabs.some((t) => t.key === state.tab) ? (state.tab as string) : firstKey;
-  return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(v) => {
-        if (state.resource && state.id) {
-          open({ resource: state.resource, id: state.id, tab: v });
-        }
-      }}
-    >
-      <TabsList>
-        {tabs.map((t) => (
-          <TabsTrigger key={t.key} value={t.key}>
-            {t.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-      {tabs.map((t) => (
-        <TabsContent key={t.key} value={t.key} className="fp-mt-4">
-          {t.kind === "fields" ? (
-            <FieldsView
-              row={payload.row}
-              fields={t.fields}
-              prerendered={payload.prerendered}
-              labels={payload.labels}
-              formats={payload.formats}
-              listCell={listCell}
-            />
-          ) : t.kind === "resource" ? (
-            <ResourceTabView tab={t} />
-          ) : t.kind === "widgets" ? (
-            <WidgetTabView tab={t} />
-          ) : (
-            <div className="fp-rounded-sm fp-border fp-border-line fp-bg-canvas fp-p-3 fp-text-sm fp-text-faint">
-              Unsupported tab kind.
-            </div>
-          )}
-        </TabsContent>
-      ))}
-    </Tabs>
-  );
-}
-
-function ActionButton({
-  action,
-  resource,
-  id,
-  onActionSuccess,
-}: {
-  action: SerializedDrawerAction;
-  resource: string;
-  id: string;
-  onActionSuccess: () => void;
-}) {
-  const apiBase = useApiBase();
-  const runAction = useActionRunner();
-  const [pending, setPending] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [formOpen, setFormOpen] = useState(false);
-  const hasForm = Boolean(action.form && action.form.length > 0);
-
-  async function runDrawerAction(
-    input: Record<string, unknown> = {},
-  ): Promise<ActionFormFieldErrors | null> {
-    setPending(true);
-    try {
-      return await runAction(
-        `${apiBase}/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(id)}/actions/${encodeURIComponent(action.key)}`,
-        input,
-        { failureMessage: `${action.label} failed`, onRefreshed: onActionSuccess },
-      );
-    } finally {
-      setPending(false);
-    }
-  }
-
-  function onClick() {
-    if (hasForm) {
-      setFormOpen(true);
-    } else if (action.confirm) {
-      setConfirmOpen(true);
-    } else {
-      void runDrawerAction();
-    }
-  }
-
-  return (
-    <>
-      <Button
-        variant="outline"
-        onClick={onClick}
-        disabled={pending}
-        {...(action.variant === "destructive" ? { className: "fp-text-err-ink" } : {})}
-      >
-        {pending ? "…" : action.label}
-      </Button>
-      {formOpen ? (
-        <ActionFormDialog
-          title={action.confirm ?? action.label}
-          submitLabel={action.label}
-          {...(action.variant === "destructive" ? { variant: "destructive" as const } : {})}
-          fields={toActionFormFields(action.form)}
-          onCancel={() => setFormOpen(false)}
-          onSubmit={async (input) => {
-            const fieldErrors = await runDrawerAction(input);
-            if (!fieldErrors) setFormOpen(false);
-            return fieldErrors;
-          }}
-        />
-      ) : null}
-      {!hasForm && action.confirm ? (
-        <ConfirmDialog
-          open={confirmOpen}
-          onOpenChange={setConfirmOpen}
-          title={action.confirm}
-          confirmLabel={action.label}
-          {...(action.variant === "destructive" ? { variant: "destructive" as const } : {})}
-          onConfirm={() => {
-            void runDrawerAction();
-          }}
-        />
-      ) : null}
-    </>
-  );
-}
-
+/** The URL-driven record drawer: loads the record the URL names and owns its header, actions and body. */
 export function DrawerHost() {
   const { state, close } = useAdminDrawer();
   const apiBase = useApiBase();
   const labels = useLabels();
-  const [payload, setPayload] = useState<DrawerPayload | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   const { resource, id } = state;
-  const open = Boolean(resource && id);
+  const key = recordKey(resource, id);
+  const current = loaded && loaded.key === key ? loaded : null;
+  const payload = current && "payload" in current ? current.payload : null;
+  const error = current && "error" in current ? current.error : null;
+  // The URL no longer names the row by the time the drawer gives focus back.
+  const lastRow = useRef<{ resource: string; id: string } | null>(null);
+  if (resource && id) lastRow.current = { resource, id };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey intentionally forces re-fetch on reload
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadKey re-fetches the same record after an action.
   useEffect(() => {
-    if (!resource || !id) {
-      setPayload(null);
-      setError(null);
-      return;
-    }
+    if (!resource || !id || key === null) return;
     const ctrl = new AbortController();
-    setLoading(true);
-    setError(null);
-    fetch(`${apiBase}/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(id)}`, {
-      signal: ctrl.signal,
-      cache: "no-store",
-    })
+    const url = `${apiBase}/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(id)}`;
+    fetch(url, { signal: ctrl.signal, cache: "no-store" })
       .then(async (res) => {
+        if (res.status === 404) throw new Error(labels.drawer.missing);
         if (!res.ok) {
           const body: unknown = await res.json().catch(() => ({ error: res.statusText }));
           throw new Error(readActionFailure(body).message ?? labels.drawer.loadFailed);
         }
         return (await res.json()) as DrawerPayload;
       })
-      .then((data) => {
-        setPayload(data);
-        setLoading(false);
-      })
+      .then((data) => setLoaded({ key, resource, payload: data }))
       .catch((e: unknown) => {
         if ((e as { name?: string })?.name === "AbortError") return;
-        setError(e instanceof Error ? e.message : labels.drawer.loadFailed);
-        setLoading(false);
+        setLoaded({
+          key,
+          resource,
+          error: e instanceof Error ? e.message : labels.drawer.loadFailed,
+        });
       });
     return () => ctrl.abort();
-  }, [resource, id, reloadKey]);
+  }, [key, reloadKey]);
 
-  const width = payload?.width ?? "lg";
-  const title = payload?.title ?? "";
+  const previous =
+    loaded && "payload" in loaded && loaded.resource === resource ? loaded.payload : null;
+  const width = payload?.width ?? previous?.width ?? "lg";
+  const reload = () => setReloadKey((k) => k + 1);
 
   return (
     <Drawer
-      open={open}
+      open={key !== null}
       onOpenChange={(v) => {
         if (!v) close();
       }}
       width={width}
-      title={title || labels.drawer.title}
+      returnFocus={() => {
+        const row = lastRow.current;
+        if (row === null) return null;
+        return document.querySelector<HTMLElement>(
+          `[data-fp-resource="${CSS.escape(row.resource)}"] [data-fp-row-key="${CSS.escape(row.id)}"]`,
+        );
+      }}
     >
-      <DrawerHeader className="fp-flex-col fp-pr-14 sm:fp-flex-row">
+      <DrawerHeader className="fp-flex-col fp-gap-3 fp-pr-14 sm:fp-flex-row sm:fp-items-start">
         <div className="fp-min-w-0 fp-max-w-full sm:fp-flex-1">
-          <h2 className="fp-truncate fp-text-lg fp-font-semibold fp-text-ink">
+          <DrawerTitle>
             {payload ? (
-              title
+              payload.title || labels.drawer.title
             ) : error ? (
               humanize(resource ?? "")
             ) : (
-              <Skeleton className="fp-my-1 fp-h-5 fp-w-48" aria-hidden />
+              <>
+                <span className="fp-sr-only">{labels.drawer.title}</span>
+                <Skeleton className="fp-my-1 fp-h-5 fp-w-48" aria-hidden />
+              </>
             )}
-          </h2>
-          {resource && (payload || !error) ? (
+          </DrawerTitle>
+          {resource && !error ? (
             <p className="fp-text-xs fp-text-faint">
-              {payload?.subtitle ?? payload?.resourceLabel ?? humanize(resource)}
+              {payload ? (payload.subtitle ?? payload.resourceLabel) : humanize(resource)}
             </p>
           ) : null}
         </div>
-        {payload?.detailHref ? (
-          <Button asChild variant="outline" size="sm" className="fp-shrink-0">
-            <a href={payload.detailHref}>{labels.drawer.viewDetails}</a>
-          </Button>
+        {payload && resource && id ? (
+          <div className="fp-flex fp-shrink-0 fp-flex-wrap fp-items-center fp-gap-2 sm:-fp-mt-0.5">
+            {payload.detailHref ? (
+              <Button asChild variant="outline" size="sm">
+                <a href={payload.detailHref}>{labels.drawer.viewDetails}</a>
+              </Button>
+            ) : null}
+            <RecordActionsBar
+              key={key}
+              resource={resource}
+              id={id}
+              rowActions={payload.rowActions}
+              drawerActions={payload.actions}
+              editHref={payload.editHref}
+              delete={payload.delete}
+              afterDelete={close}
+              onDone={reload}
+              dense
+            />
+          </div>
         ) : null}
       </DrawerHeader>
       <DrawerContent>
-        {loading ? <div className="fp-text-sm fp-text-faint">{labels.drawer.loading}</div> : null}
-        {error ? (
-          <div data-fp-error="" className="fp-text-sm fp-text-err-ink">
+        {payload && resource && id ? (
+          <div key={key} className="fp-space-y-4">
+            {payload.deletedTitle ? (
+              <HealthBanner
+                tone="warn"
+                title={payload.deletedTitle}
+                description={labels.detail.deletedDescription}
+                {...(payload.restorable
+                  ? { action: <RestoreButton resource={resource} id={id} onRestored={reload} /> }
+                  : {})}
+              />
+            ) : null}
+            <DrawerBody payload={payload} resource={resource} id={id} />
+          </div>
+        ) : error ? (
+          <div role="alert" data-fp-error="" className="fp-text-sm fp-text-err-ink">
             {error}
           </div>
-        ) : null}
-        {payload ? <DrawerBody payload={payload} /> : null}
+        ) : (
+          <LoadingBody label={labels.drawer.loading} />
+        )}
       </DrawerContent>
-      {payload && payload.actions.length > 0 && resource && id ? (
-        <DrawerFooter>
-          {payload.actions.map((a) => (
-            <ActionButton
-              key={a.key}
-              action={a}
-              resource={resource}
-              id={id}
-              onActionSuccess={() => setReloadKey((k) => k + 1)}
-            />
-          ))}
-        </DrawerFooter>
-      ) : null}
     </Drawer>
   );
 }

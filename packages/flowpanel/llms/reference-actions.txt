@@ -13,6 +13,12 @@ order: the admin role gate, the resource gate, then the action's own
 `access`, all before `run`. Each is a POST route under `/api/flowpanel/…`.
 Guide: [Add actions](/docs/build/actions).
 
+An action's own `access` replaces the resource's rule rather than narrowing it: a
+row or drawer action with `access` runs for whoever it admits, even a role the
+resource's `read` or `update` rule refuses, and its `run` receives the full row,
+fields that role cannot read included. Without `access`, the action needs the
+resource's `update` rule.
+
 ### RowAction
 
 Offered on a single row, inline or in the row menu. `rowAction<Row, Input>()` types
@@ -86,8 +92,8 @@ default and at most 10000; over it the route answers `422 too many ids (max N)` 
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
 | `run` | `(ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler, given every selected id, never more than `max`. |
 
-`bulkAction<Row, Input>()` types the form input. With delete enabled and no
-`bulkActions`, a default bulk delete is added; `bulkActions: []` removes it.
+`bulkAction<Row, Input>()` types the form input. With delete enabled, a default bulk
+delete follows your own bulk actions; `delete: { bulk: false }` removes it.
 
 ### DashboardAction
 
@@ -131,6 +137,7 @@ Rendered in the drawer footer. Its `form` uses `DrawerFieldFormSpec`.
 | `key` | `string` | Stable identifier, used in the action's URL. |
 | `label` | `string` |  |
 | `variant?` | `"default" \| "destructive"` | `"destructive"` styles the button as dangerous. |
+| `placement?` | `"inline" \| "menu"` | `"inline"`: a button beside Edit instead of an entry in the record's menu. Default: `"menu"`. |
 | `confirm?` | `string` | Ask for confirmation with this message before running. |
 | `form?` | `DrawerFieldFormSpec[]` | Inputs collected before `run`, passed to it as `formData`. |
 | `palette?` | `boolean` | Also offer the action in the command palette. |

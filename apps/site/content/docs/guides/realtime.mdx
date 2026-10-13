@@ -16,7 +16,30 @@ metric("Open orders", openOrders, { realtime: { resource: "orders" } });
 custom(Pipeline, pipelineProps, { realtime: "pipeline" });
 ```
 
+A channel name other than `resource.<name>` is your own; declare it in `realtime.channels` (below).
+
 Generated creates, updates and deletes publish on their resource automatically. An action publishes when it returns `refresh: true` (its resource) or channels (`refresh: "pipeline"` or a list). In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/next`.
+
+## Declare your own channels
+
+The stream serves `resource.<name>` channels to whoever may read that resource. Every other channel must be declared, with who may subscribe:
+
+```ts excerpt
+import type { RealtimeConfig } from "@flowpanel/kit";
+
+export const realtime = {
+  driver: "redis",
+  url: process.env.REDIS_URL,
+  channels: {
+    pipeline: { access: ["admin", "ops"] },
+    deploys: { tenantSafe: true },
+  },
+} satisfies RealtimeConfig;
+```
+
+Pass it to `defineAdmin` as `realtime`. `access` takes the same rule as a resource. Without it, everyone `auth.access` admits may subscribe. The stream refuses an undeclared channel, and `defineAdmin` refuses a widget, dashboard or list that subscribes to one, naming it.
+
+With an admin-wide `scope`, an event on your own channel reaches the browser as `{}`: the subscribed widget still refetches through its scoped query, but no payload crosses tenants. Set `tenantSafe: true` only when the payload names nothing tenant-specific, such as a deploy finishing. A tenant-scoped resource's own events keep only their `action`.
 
 ## Choose the driver
 
@@ -46,10 +69,10 @@ Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel 
 
 ## Publish from a worker
 
-A worker, cron job or script imports only `@flowpanel/kit/publish`: no admin config, adapter or Next.js. Share the admin's `realtime` options so both sides use the same URL and prefix:
+A worker, cron job or script imports only `@flowpanel/kit/publish`: no admin config, adapter or Next.js. Share the admin's `realtime` options in one module that the admin config and the worker both import, so both sides use the same URL and prefix:
 
 ```ts
-// src/shared/realtime.ts, imported by the admin config and the worker
+// src/shared/realtime.ts
 import type { PublisherOptions } from "@flowpanel/kit";
 
 export const realtime = {
@@ -84,7 +107,8 @@ A Redis error never fails the job: the call resolves and the error goes to `onEr
 - The stream route checks `auth.access` itself. If middleware protects the admin (Clerk, a proxy), include the stream path.
 - Turn off reverse-proxy buffering for the stream path.
 - Set proxy and load-balancer idle timeouts above 15 s, the stream heartbeat.
-- Allow enough long-lived connections for your operators.
+- Allow enough long-lived connections for your operators. One user may hold 10 streams at once; the next answers `429`.
+- A stream ends after 15 minutes and the browser reconnects through `auth.access`, so a user whose access is revoked stops receiving events within that time. `stream(config, { maxPerActor, maxAgeMs })` changes both.
 - Monitor reconnects, stream errors and publish failures.
 
 ## Verify end to end

@@ -6,7 +6,7 @@ kind: how-to
 
 A record page shows one row at `/admin/<resource>/<id>`: a header, a strip of numbers, facts beside the tabs, related rows and activity. A drawer shows a row over the list without leaving it. Every piece is optional.
 
-A row click opens the record page, even before you add `detail`: without it the page lists the row's readable fields with an Edit button. Declare a `drawer` and the click opens it instead; `rowClick: false` keeps rows from opening.
+A row click opens the record page, even before you add `detail`: without it the page lists the row's readable fields. Its header carries Edit and one menu with the resource's row actions and Delete, each shown only to a role that may run it; Delete asks first, with `delete.confirm` when you set it. Declare a `drawer` and the click opens it instead; `rowClick: false` keeps rows from opening.
 
 ## Keep the card in its own file
 
@@ -133,7 +133,7 @@ resource(schema.orders, {
 })
 ```
 
-`rowClick: "drawer"` needs a `drawer`. Fields reuse the column labels and renderers. A related tab shows the first 20 rows; link to the filtered list for more. Widget tabs render static cards, and `custom()`, `timeline`, `heatmap`, `checklist` and `tracker` belong in a record page tab instead. Drawer `actions` sit in the footer.
+`rowClick: "drawer"` needs a `drawer`. Fields reuse the column labels and renderers. A related tab shows the first 20 rows; link to the filtered list for more. Widget tabs render static cards, and `custom()`, `timeline`, `heatmap`, `checklist` and `tracker` belong in a record page tab instead. Drawer `actions` join the row actions, Edit and Delete in the drawer's header menu.
 
 ## Test a card
 

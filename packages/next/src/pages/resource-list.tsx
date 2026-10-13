@@ -1,47 +1,35 @@
-import type {
-  FilterDef,
-  ListQueryContext,
-  RequestContext,
-  ResolvedAdminConfig,
-  ResourceConfig,
-} from "@flowpanel/core";
+import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import {
   assertResourceScope,
   DEFAULT_LABELS,
   formatLabel,
+  mergeLabels,
   resolveFormatting,
   resolveOperationAccess,
-  runWithRequestContext,
 } from "@flowpanel/core";
 import {
   DataTableWithDrawerRows,
+  ListNavigationProvider,
   ResourceListDeletedToggle,
   ResourceListFilters,
   ResourceListSearch,
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
-import { PageHeader } from "@flowpanel/react";
+import { FilterSheet, PageHeader } from "@flowpanel/react";
 import { DEFAULT_RESOURCE_PAGE_SIZE } from "../runtime/defaults";
+import { listRequestFromParams } from "../runtime/list-request";
+import { listRows } from "../runtime/list-rows";
 import { resourceNavName } from "../runtime/nav";
-import {
-  parseListParams,
-  resolveFilterSpecs,
-  sanitizeFilterValues,
-  withFilterDefaults,
-} from "../runtime/parse-list-params";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
-import { projectRowFields, selectKnownFields } from "../runtime/project-row";
 import { readOrCard } from "../runtime/query-error";
-import { resolveReadableListSurface } from "../runtime/readable-list";
 import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAccessIfSet } from "../runtime/require-access";
 import { resolveReferences } from "../runtime/resolve-references";
-import { labelInSentence, pluralLabel } from "../runtime/resource-title";
+import { labelInSentence, pluralLabel, singularLabel } from "../runtime/resource-title";
 import { detailRowHrefs, resolveRowClick } from "../runtime/row-click";
 import { rowIdentity, rowKeyOf } from "../runtime/row-identity";
 import { wireViews } from "../runtime/saved-views";
-import { scopeBinding } from "../runtime/scope-binding";
 import { resolveResourceListActions } from "./resource-list-actions";
 import { buildResourceListCreateAction } from "./resource-list-create-action";
 import { listEmptyProps } from "./resource-list-empty";
@@ -55,6 +43,19 @@ export interface ResourceListPageProps {
 }
 
 type Row = Record<string, unknown>;
+
+/** What the list shows with nothing in its URL: each filter's default and the resource's sort. */
+function listDefaults(
+  specs: ReadonlyArray<{ field: string; defaultValue?: string; hidden?: boolean }>,
+  resource: ResourceConfig,
+): { filters: Record<string, string>; sort?: { field: string; dir: "asc" | "desc" } } {
+  const filters: Record<string, string> = {};
+  for (const spec of specs) {
+    if (spec.defaultValue !== undefined && !spec.hidden) filters[spec.field] = spec.defaultValue;
+  }
+  const sort = resource.options.defaultSort;
+  return { filters, ...(sort ? { sort: { field: String(sort.field), dir: sort.dir } } : {}) };
+}
 
 /** The sizes the pager may offer, with the resource's own always among them. */
 function pageSizeChoices(configured: number): number[] {
@@ -77,72 +78,71 @@ export async function ResourceListPage({
 
   const name = resourceNavName(resource);
   const configuredPageSize = resource.options.pageSize ?? DEFAULT_RESOURCE_PAGE_SIZE;
-  // Match attacker-controlled `?perPage=` to the offered bounded options.
+  // Match attacker-controlled `?pageSize=` to the offered bounded options.
   const pageSizeOptions = pageSizeChoices(configuredPageSize);
-  const requestedPageSize = Number(searchParams.get("perPage"));
+  const requestedPageSize = Number(searchParams.get("pageSize"));
   const pageSize = pageSizeOptions.includes(requestedPageSize)
     ? requestedPageSize
     : configuredPageSize;
   const softDelete = resource.options.delete?.softDelete;
-  const readable = await resolveReadableListSurface(
-    resource,
-    reqCtx,
-    searchParams,
-    softDelete ? [String(softDelete)] : [],
-  );
-  const {
-    page,
-    search,
-    sort,
-    filters: rawFilters,
-  } = parseListParams(searchParams, readable.defaultSort, readable.fields);
-
+  const listing = await listRequestFromParams(config, resource, reqCtx, searchParams);
+  const { surface: readable, filterSpecs, filters, sort } = listing;
+  const effectiveSearch = listing.search;
   const timeZone = resolveFormatting(config.formatting).timeZone;
-  const filterSpecs = await resolveFilterSpecs(
-    readable.filters as Array<keyof Row | FilterDef<Row>>,
-    reqCtx,
-    timeZone,
-    searchParams,
-  );
-  const filters = sanitizeFilterValues(
-    withFilterDefaults(rawFilters, filterSpecs),
-    filterSpecs,
-    timeZone,
-  );
-  const effectiveSearch = readable.searchFields.length > 0 ? search : "";
 
-  const includeDeleted = !!softDelete && searchParams.get("deleted") === "1";
-  const ctx: ListQueryContext<unknown> = {
-    ...reqCtx,
-    dateRange: { from: new Date(0), to: new Date() },
-    searchParams: readable.searchParams,
-    signal: new AbortController().signal,
-    filters,
-    sort: sort as ListQueryContext<unknown>["sort"],
-    page,
-    pageSize,
-    search: effectiveSearch,
-    select: selectKnownFields(
-      [...readable.rowFields, ...readable.operationalFields],
-      config.adapter.introspect(resource.ref).columns,
-    ),
-    ...(readable.searchFields.length > 0 ? { searchFields: readable.searchFields } : {}),
-    ...(softDelete ? { softDelete: { column: String(softDelete) }, includeDeleted } : {}),
-    ...scopeBinding(resource, reqCtx),
-  };
+  const displayPlural = pluralLabel(resource, name);
+  const createAction = await buildResourceListCreateAction({ config, resource, name, reqCtx });
+  const header = (
+    <>
+      <PageHeader title={displayPlural} {...(createAction ? { actions: createAction } : {})} />
+      {/* Search sits in the filter row, not above it — one band of chrome. */}
+      <div className="fp-mb-4 fp-flex fp-flex-wrap fp-items-center fp-gap-2">
+        {readable.searchFields.length > 0 ? (
+          <ResourceListSearch
+            placeholder={
+              config.labels?.searchPlaceholder === undefined
+                ? formatLabel(DEFAULT_LABELS.searchPlaceholder, {
+                    label: labelInSentence(displayPlural),
+                  })
+                : formatLabel(config.labels.searchPlaceholder, { label: displayPlural })
+            }
+          />
+        ) : null}
+        <FilterSheet active={Object.keys(filters).length + (listing.query.includeDeleted ? 1 : 0)}>
+          <div className="fp-flex-1">
+            <ResourceListFilters filters={filterSpecs} />
+          </div>
+          {listing.deletedToggle ? <ResourceListDeletedToggle /> : null}
+          <SavedViewsDropdown
+            resource={name}
+            staticViews={wireViews(resource, timeZone)}
+            defaults={listDefaults(filterSpecs, resource)}
+          />
+        </FilterSheet>
+      </div>
+    </>
+  );
 
   const listed = await readOrCard(
     {
       config,
       resource: name,
       operation: "list",
+      label: displayPlural,
       ...(reqCtx.requestId ? { requestId: reqCtx.requestId } : {}),
     },
-    async () => runWithRequestContext(reqCtx, () => config.adapter.list(resource.ref, ctx)),
+    () => listRows(config, resource, reqCtx, { ...listing.query, pageSize }),
   );
-  if (listed.failed) return listed.card;
+  if (listed.failed) {
+    return (
+      <ListNavigationProvider>
+        {header}
+        {listed.card}
+      </ListNavigationProvider>
+    );
+  }
   const result = listed.value;
-  const clientRows = (result.rows as Row[]).map((row) => projectRowFields(row, readable.rowFields));
+  const clientRows = result.rows;
 
   const intro = config.adapter.introspect(resource.ref);
   const metaByField = new Map(intro.columns.map((c) => [c.name, c]));
@@ -174,12 +174,10 @@ export async function ResourceListPage({
 
   const deletedRowKeys: string[] | undefined =
     softDelete && readable.operationalFields.includes(String(softDelete))
-      ? (result.rows as Row[])
-          .filter((row) => row[String(softDelete)] != null)
-          .flatMap((row) => {
-            const id = rowIdentity(row, rowKey);
-            return id === null ? [] : [id];
-          })
+      ? clientRows.flatMap((row, index) => {
+          const id = rowIdentity(row, rowKey);
+          return id !== null && result.operational[index]?.[String(softDelete)] != null ? [id] : [];
+        })
       : undefined;
 
   const { rowActions, rowActionsById, bulkActions } = await resolveResourceListActions<Row>(
@@ -187,36 +185,15 @@ export async function ResourceListPage({
     clientRows,
     rowKey,
     reqCtx,
+    mergeLabels(config.labels),
   );
-  const displayPlural = pluralLabel(resource, name);
   const createdRowKeyParam = searchParams.get("fp_created");
   const createdRowKey =
     createdRowKeyParam && createdRowKeyParam.length <= 512 ? createdRowKeyParam : undefined;
 
-  const createAction = await buildResourceListCreateAction({ config, resource, name, reqCtx });
-
   return (
-    <>
-      <PageHeader title={displayPlural} {...(createAction ? { actions: createAction } : {})} />
-      {/* Search sits in the filter row, not above it — one band of chrome. */}
-      <div className="fp-mb-4 fp-flex fp-flex-wrap fp-items-center fp-gap-2">
-        {readable.searchFields.length > 0 ? (
-          <ResourceListSearch
-            placeholder={
-              config.labels?.searchPlaceholder === undefined
-                ? formatLabel(DEFAULT_LABELS.searchPlaceholder, {
-                    label: labelInSentence(displayPlural),
-                  })
-                : formatLabel(config.labels.searchPlaceholder, { label: displayPlural })
-            }
-          />
-        ) : null}
-        <div className="fp-flex-1">
-          <ResourceListFilters filters={filterSpecs} />
-        </div>
-        {softDelete ? <ResourceListDeletedToggle /> : null}
-        <SavedViewsDropdown resource={name} staticViews={wireViews(resource, timeZone)} />
-      </div>
+    <ListNavigationProvider>
+      {header}
       <DataTableWithDrawerRows
         resource={name}
         columns={columns}
@@ -226,6 +203,7 @@ export async function ResourceListPage({
         pageSize={result.pageSize}
         pageSizeOptions={pageSizeOptions}
         rowKey={rowKey as keyof Row & string}
+        rowLabel={labelInSentence(singularLabel(resource, name))}
         {...(createdRowKey ? { enteringRowKeys: [createdRowKey], createdRowKey } : {})}
         {...(resource.options.density ? { density: resource.options.density } : {})}
         {...(resource.options.export ? { exportable: resource.options.export } : {})}
@@ -256,8 +234,9 @@ export async function ResourceListPage({
           params: searchParams,
           search: effectiveSearch,
           defaulted: filterSpecs.filter((f) => f.defaultValue !== undefined && !f.hidden),
+          creatable: createAction !== undefined,
         })}
       />
-    </>
+    </ListNavigationProvider>
   );
 }

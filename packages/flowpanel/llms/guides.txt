@@ -26,9 +26,10 @@ Do this review before an admin takes production traffic. FlowPanel runs inside y
 ### Writes and their effects
 
 - Declare explicit create and update fields.
-- Configure `audit.sink`: FlowPanel emits audit events but stores nothing.
+- Turn on the [audit log](/docs/guides/audit-log) and run `flowpanel migrate`, or pass `audit.sink` to keep events in your own store.
 - Use the Redis rate-limit driver with more than one instance; the memory driver counts per process.
-- Audit, realtime and revalidation run after commit. A failure there returns a warning and leaves the write committed; alert on these warnings ([codes](/docs/reference/runtime-contracts#post-commit-effects)).
+- `rateLimit` counts each admin page view once, page and metadata together, and a router prefetch counts like a view. The admin's own links do not prefetch; give your own links into the admin `prefetch={false}`, or set the limit with room for their prefetches.
+- Audit, realtime and revalidation run after commit. A failure there is logged on the server and leaves the write committed; alert on those log lines ([details](/docs/reference/runtime-contracts#post-commit-effects)).
 
 ### Migrations
 
@@ -53,7 +54,7 @@ Run `smokeAdmin` from `@flowpanel/kit/test` in CI. It opens every dashboard, lis
 - [ ] Every tenant-owned resource is scoped; cross-tenant reads and writes fail.
 - [ ] Trusted origins are set only where needed.
 - [ ] Forms, imports, exports, actions and hidden resources expose nothing unintended.
-- [ ] Audit sink, rate limiting, logs, request IDs and alerts are configured.
+- [ ] Audit log, rate limiting, logs, request IDs and alerts are configured.
 - [ ] Pending migrations were reviewed with `--dry-run`; backup and recovery are documented.
 - [ ] Realtime and queues use production drivers and protected origins.
 - [ ] Typecheck, lint, build and `smokeAdmin` pass.
@@ -316,6 +317,83 @@ With fixtures for two tenants, check that:
 
 Every option: [Scope reference](/docs/reference/scope-realtime#scope).
 
+## Audit log
+
+Record who changed what through the admin, and read it back on each record and in one log.
+
+Docs: https://flowpanel.tech/docs/guides/audit-log
+
+With the audit log on, every write through the admin records one event: who acted, what ran, which record, the fields that changed with their old and new values, and when. Each record page gets a **History** tab, and the admin gets an **Audit log** page.
+
+### Turn it on
+
+Create the table once with the migration `init` wrote, then turn auditing on:
+
+```bash
+pnpm flowpanel migrate
+```
+
+```ts
+audit: { enabled: true },
+```
+
+`flowpanel migrate` creates `flowpanel_audit_log` through the database client in `flowpanel.config.ts`, with SQL for PostgreSQL, MySQL or SQLite. Both shipped adapters write to it through the same client. With a custom adapter that has no `auditLog`, `defineAdmin` refuses to start until you pass a `sink`.
+
+### What is recorded
+
+Creates, updates (form and inline), deletes, restores, exports, and row, bulk, drawer and dashboard actions each record one event after the write commits. A bulk action records one row per selected record, so each record's History shows it.
+
+The diff holds the changed fields only: every readable field of a new or deleted record, and the fields an update or action changed. A `sensitive` field, and a column the adapter reports as sensitive, never reaches the table. When the admin cannot read the row back after an action, the event is still recorded, without a diff.
+
+If the table cannot be written, the error is logged and the user's change stands.
+
+The actor is `auth.userId` of the session, and their name or email comes from `theme.user`, so the log reads "Ann Lee" rather than an ID. The request's IP and user agent are kept too.
+
+### History on a record
+
+Each record of an audited resource gets a History tab beside its other tabs, newest event first, twenty to a page. Each event shows the action, who and when, and each changed field as `old → new`, formatted the way the list formats that column.
+
+A reader sees only the fields their `fieldAccess` lets them read. Hide the tab for one resource with `detail.history`, or stop auditing it with `audit: false`:
+
+```ts
+resource(userVisit, {
+  audit: false,
+});
+
+resource(orders, {
+  detail: { history: false },
+});
+```
+
+### The Audit log page
+
+The admin's navigation gets an **Audit log** entry at `/admin/audit-log`. It lists events fifty to a page, filtered by who, resource, action and date, and each event links to its record. A reader sees the events of resources their `access.read` admits and the runs of dashboard actions they may run (recorded with `resource: "dashboard"`), on the page and in every History tab; the Resource filter offers only those resources. An event your own route records without a `resource` shows to every reader of the page; one whose `resource` the admin does not declare shows to no one. The count stops at 10,000, and the who and action filters offer what happened in the last 90 days.
+
+`audit.access` decides who sees the page and the History tabs. Without it, everyone `auth.access` lets in sees them. A field rule still applies to every diff.
+
+```ts
+audit: { enabled: true, access: ["admin"] },
+```
+
+### Tenants
+
+With a global [`scope`](/docs/guides/multi-tenant-scope), each event stores the tenant the request was scoped to, and a reader sees only the events of their own tenant, on the page and in every History tab. The tenant is the whole scope object the request carried, so two scopes that differ in any key are two tenants (a `userId` in the scope splits a record's History by author), and a request with no scope reads only the events written without one.
+
+### Your own store
+
+A `sink` sends events to your own table or log pipeline instead. FlowPanel cannot read them back, so the admin shows no History tab and no Audit log page:
+
+```ts
+audit: {
+  enabled: true,
+  sink: async (event) => {
+    console.log(JSON.stringify(event));
+  },
+},
+```
+
+To record an event from your own route handler, call `emitAudit(config, event)` from `@flowpanel/kit/next`; it writes wherever the admin writes. Every field: [`AuditConfig`](/docs/reference/define-config#auditconfig).
+
 ## Realtime
 
 Refresh lists and widgets live over SSE, share events across instances with Redis, and publish from workers.
@@ -333,7 +411,30 @@ metric("Open orders", openOrders, { realtime: { resource: "orders" } });
 custom(Pipeline, pipelineProps, { realtime: "pipeline" });
 ```
 
+A channel name other than `resource.<name>` is your own; declare it in `realtime.channels` (below).
+
 Generated creates, updates and deletes publish on their resource automatically. An action publishes when it returns `refresh: true` (its resource) or channels (`refresh: "pipeline"` or a list). In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/next`.
+
+### Declare your own channels
+
+The stream serves `resource.<name>` channels to whoever may read that resource. Every other channel must be declared, with who may subscribe:
+
+```ts excerpt
+import type { RealtimeConfig } from "@flowpanel/kit";
+
+export const realtime = {
+  driver: "redis",
+  url: process.env.REDIS_URL,
+  channels: {
+    pipeline: { access: ["admin", "ops"] },
+    deploys: { tenantSafe: true },
+  },
+} satisfies RealtimeConfig;
+```
+
+Pass it to `defineAdmin` as `realtime`. `access` takes the same rule as a resource. Without it, everyone `auth.access` admits may subscribe. The stream refuses an undeclared channel, and `defineAdmin` refuses a widget, dashboard or list that subscribes to one, naming it.
+
+With an admin-wide `scope`, an event on your own channel reaches the browser as `{}`: the subscribed widget still refetches through its scoped query, but no payload crosses tenants. Set `tenantSafe: true` only when the payload names nothing tenant-specific, such as a deploy finishing. A tenant-scoped resource's own events keep only their `action`.
 
 ### Choose the driver
 
@@ -363,10 +464,10 @@ Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel 
 
 ### Publish from a worker
 
-A worker, cron job or script imports only `@flowpanel/kit/publish`: no admin config, adapter or Next.js. Share the admin's `realtime` options so both sides use the same URL and prefix:
+A worker, cron job or script imports only `@flowpanel/kit/publish`: no admin config, adapter or Next.js. Share the admin's `realtime` options in one module that the admin config and the worker both import, so both sides use the same URL and prefix:
 
 ```ts
-// src/shared/realtime.ts, imported by the admin config and the worker
+// src/shared/realtime.ts
 import type { PublisherOptions } from "@flowpanel/kit";
 
 export const realtime = {
@@ -401,7 +502,8 @@ A Redis error never fails the job: the call resolves and the error goes to `onEr
 - The stream route checks `auth.access` itself. If middleware protects the admin (Clerk, a proxy), include the stream path.
 - Turn off reverse-proxy buffering for the stream path.
 - Set proxy and load-balancer idle timeouts above 15 s, the stream heartbeat.
-- Allow enough long-lived connections for your operators.
+- Allow enough long-lived connections for your operators. One user may hold 10 streams at once; the next answers `429`.
+- A stream ends after 15 minutes and the browser reconnects through `auth.access`, so a user whose access is revoked stops receiving events within that time. `stream(config, { maxPerActor, maxAgeMs })` changes both.
 - Monitor reconnects, stream errors and publish failures.
 
 ### Verify end to end
@@ -416,7 +518,7 @@ Register BullMQ queues and show their jobs in the admin, behind the same authent
 
 Docs: https://flowpanel.tech/docs/guides/queues
 
-A queue adds a navigation entry whose page embeds a bull-board server in an iframe. The board is a separate HTTP process with its own token, so protect it on the network as well.
+A queue adds a navigation entry whose page embeds a bull-board server in an iframe. The board is a separate HTTP process with its own secret, so protect it on the network as well.
 
 ```bash
 pnpm add bullmq ioredis @bull-board/api @bull-board/express express
@@ -430,14 +532,15 @@ import { emailQueue } from "@/server/queues";
 
 export const emailQueuePage = queue(emailQueue, {
   label: "Email",
-  boardUrl: "https://internal.example.com/queues/email",
+  boardUrl: "https://internal.example.com/queue/email",
+  boardSecret: process.env.BOARD_SECRET,
   access: "admin",
 });
 ```
 
 Add it to `queues` in the config. The queue's `.name` is its key unless you set `key`. `access` protects the admin page, not the board server.
 
-The page embeds `boardUrl` in an iframe, and the board accepts a `?token=` query, an `Authorization: Bearer` header or its session cookie. Locally, append `?token=<BOARD_TOKEN>` to `boardUrl`. Elsewhere, put the board behind a reverse proxy that adds `Authorization: Bearer <token>`, and point `boardUrl` at the proxy; without either, the iframe shows a 401.
+The page embeds `boardUrl` in an iframe. With `boardSecret`, every render adds a link signed for this queue that expires in a minute; the board checks it and adds the queue to its own session cookie, and the secret never reaches the browser. The session reaches only the queues the user opened from the admin, each for an hour after its latest link, so a user who loses access to a queue page loses that queue on the board within the hour. Without `boardSecret`, put the board behind a reverse proxy that adds `Authorization: Bearer <secret>`, and point `boardUrl` at the proxy; without either, the iframe shows a 401.
 
 ### Start the board
 
@@ -447,22 +550,22 @@ The page embeds `boardUrl` in an iframe, and the board accepts a `?token=` query
 import { startBoardServer } from "@flowpanel/kit/bullmq/board";
 import { queuesByName } from "@/server/queues";
 
-const token = process.env.BOARD_TOKEN;
-if (!token) throw new Error("BOARD_TOKEN is required");
+const secret = process.env.BOARD_SECRET;
+if (!secret) throw new Error("BOARD_SECRET is required");
 
 startBoardServer({
   queues: queuesByName,
   port: 3001,
   bindHost: "127.0.0.1",
-  auth: { token },
+  auth: { secret },
 });
 ```
 
-The token is required. A valid token sets an HttpOnly session cookie for the board's assets and polling.
+The secret is required, and is the same value as each queue's `boardSecret`. A valid link sets an HttpOnly, signed session cookie for the board's assets and polling of that queue, valid for an hour after the queue's latest link. To rotate the secret, pass `auth: { secret: [newSecret, oldSecret] }` until sessions signed with the old one have expired. Behind a TLS-terminating proxy, pass `trustedProxies: 1` so the cookie is `Secure`.
 
 ### Deploy
 
-Anyone who reaches the board port reaches its destructive job controls. Keep it on loopback or behind an authenticated reverse proxy, and run it as its own supervised process. A `?token=` in the URL is fine locally but leaks into logs in shared environments.
+Anyone who reaches the board port with a valid link or cookie reaches its destructive job controls. Keep it on loopback or behind an authenticated reverse proxy, and run it as its own supervised process. A signed link in a log or browser history expires a minute after the page rendered.
 
 ### Count jobs in a dashboard
 
@@ -470,7 +573,7 @@ Wrap the same queue instances with `bullmqAdapter` and call BullMQ methods from 
 
 ### Verify and troubleshoot
 
-Test the admin role gate and the board URL separately: a missing or wrong token returns 401. An unreachable `boardUrl` leaves the iframe empty and the rest of the admin working.
+Test the admin role gate and the board URL separately: a missing, expired or wrongly signed link returns 401. An unreachable `boardUrl` leaves the iframe empty and the rest of the admin working.
 
 ## Upgrade from 0.3
 
@@ -519,6 +622,7 @@ These names are gone in 0.4. Most were deprecated in 0.3; `requireRole` goes eve
 | `createPublisher` from `@flowpanel/kit` (the realtime transport) | `createRealtimeTransport`. The worker `createPublisher` in `@flowpanel/kit/publish` keeps its name but no longer rejects when Redis fails; see below. |
 | `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
 | `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration` |
+| `DEFAULT_SHORTCUTS` from `@flowpanel/kit/react` | `<ShortcutsCheatsheet>` without `shortcuts`, which lists the admin's keys in its labels' language |
 
 A field gated by `fieldAccess` shows read-only to a caller its `write` rule denies, and leaves the form only when its `read` rule denies them too. 0.3 left a `requireRole` field out of the form entirely.
 
@@ -528,6 +632,8 @@ A field gated by `fieldAccess` shows read-only to a caller its `write` rule deni
 - A resource `scope` function that returns the query unchanged now throws instead of running it unscoped.
 - A list row opens its record page when the resource has no drawer, even without `detail`. Set `rowClick: false` to keep rows from opening.
 - The drawer keeps its open tab in `?drawerTab=` instead of `?tab=`. Update saved links that open a drawer on a tab.
+- A list keeps its page size in `?pageSize=` instead of `?perPage=`, the name the JSON API uses. A saved link with `?perPage=` opens at the default size.
+- `useLiveChannel` reports `live` on the server's first frame, not when the connection opens, and `reconnecting` from the first error. Under `RealtimeProvider`, which every admin page mounts, it joins the admin's stream instead of opening a second one.
 - Date presets and `daterange` filters start at midnight in `formatting.timeZone`.
 - With a Russian `formatting.locale`, the built-in text is Russian. Your `labels` still win, so set them to keep English text.
 - `fillDays` buckets days in `range.timeZone` when its options name no zone, and a zoneless timestamp string without seconds, such as `"2026-10-07T10:00"`, stays text instead of reading as a date.
@@ -551,6 +657,6 @@ A field gated by `fieldAccess` shows read-only to a caller its `write` rule deni
 - A resource without `labelOne` or `label` names one record by its singular name, "User" for `users`, and the "New …" and "Edit …" titles put the label mid-sentence: "New customer".
 - A field's `readOnly` now applies to writes, and a `readOnly` function receives the stored row on edit. `readOnly` also wins over the resource's `fieldAccess.write`.
 - A form field that `fieldAccess.write` denies to the signed-in role shows read-only, and saving the form no longer fails with "cannot be changed".
-- An unknown admin path and a missing record render your `not-found.tsx` through `notFound()`, with a 404 status. Under `cacheComponents` Next has already streamed the static shell, so the status stays 200 and the page carries `noindex`. Add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix`.
+- An unknown admin path and a missing record render your `not-found.tsx` through `notFound()`, with a 404 status, inside the admin's navigation. Under `cacheComponents` Next has already streamed the static shell, so the status stays 200 and the page carries `noindex`. Add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix`.
 
 The [changelog](/changelog) lists every other change, per package.

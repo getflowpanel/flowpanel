@@ -41,8 +41,8 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 | Member | Purpose |
 | --- | --- |
 | `page` | Generated catch-all page component. |
-| `metadata` | The page's `generateMetadata`: a `title` per dashboard, list, record and form ("New user", "Edit user"), or the sign-in or access-denied wall's, and `noindex`. |
-| `notFound` | The admin's not-found screen, titled "Page not found": `export default flowpanel.notFound;` in `not-found.tsx`. It answers 404, or 200 under `cacheComponents`, where Next has already streamed the static shell. |
+| `metadata` | The page's `generateMetadata`: a `title` per dashboard, list, record (named by the record itself) and form ("New user", "Edit user"), or the sign-in or access-denied wall's, and `noindex`. |
+| `notFound` | The admin's not-found page, titled "Page not found": `export default flowpanel.notFound;` in `not-found.tsx`. It keeps the admin's navigation; a missing record says "This customer doesn't exist or was deleted" and links back to its list. It answers 404, or 200 under `cacheComponents`, where Next has already streamed the static shell. |
 | `notFoundMetadata` | The not-found page's metadata, "Page not found" and `noindex`: `export const metadata = flowpanel.notFoundMetadata;` in `not-found.tsx` titles the server's HTML, not only the page after it loads. |
 | `handlers` | `FlowpanelHandlers` for REST and generated-UI routes. |
 | `request()` | Current request's protected `FlowpanelRequest`. |
@@ -59,7 +59,11 @@ export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
 with a typed `ResourceController<Row>` per resource (`resource(name)` for a
 dynamic name), `dashboard(path).action(key, input?)` for a dashboard action, and
 the `requestId`. `ResourceListOptions<Row>` takes page, page size, search, filters,
-sort, projection and soft-delete visibility.
+sort, projection and soft-delete visibility. `includeDeleted` shows deleted rows
+only to a user the resource's `update` rule admits, as the list's toggle does. A
+deleted row read by its id (`get`, the record page, the drawer) follows the same
+rule: that user sees it marked deleted, with Restore, and anyone else gets not
+found.
 
 ```ts
 import { flowpanel } from "@/flowpanel";
@@ -143,6 +147,7 @@ All paths are relative to `/api/flowpanel`.
 | `DELETE` | `/<resource>/<id>` | Delete (JSON API) |
 | `GET` | `/drawer/<resource>/<id>` | Drawer payload for one row |
 | `GET` | `/<resource>/reference/<field>` | Options for a reference picker |
+| `GET` | `/export/<resource>?format=csv` | Every row the list would show for its query string, as CSV or JSON ([Import and export](/docs/build/import-export#export)) |
 | `POST` | `/<resource>/create` | Create form submit |
 | `POST` | `/<resource>/<id>/edit` | Edit form submit |
 | `POST` | `/<resource>/<id>/update` | Inline cell edit |
@@ -154,8 +159,12 @@ All paths are relative to `/api/flowpanel`.
 | `POST` | `/dashboards/<path>/actions/<action>` | Dashboard action |
 
 Each runs, in order: the same-origin check for writes, the admin role gate and
-rate limit, read-only mode for writes, the resource gate and its `access`, a
-dashboard's `access`, and the action's `access`.
+rate limit, read-only mode for writes, the lookup of what the URL names, the
+resource gate and its `access`, a dashboard's `access`, and the action's `access`.
+Nothing is looked up before the caller is identified, so a refused caller gets
+the same answer for a name that exists and one that does not. Every write then
+takes the same path: the row read through the tenant scope, the field rules,
+the write, one audit event and the realtime publish.
 
 ## stream
 
@@ -171,6 +180,9 @@ export function stream(
 ```
 
 `StreamOptions.heartbeatMs` sets the keep-alive interval, 15 s by default.
+`maxPerActor` caps the streams one user holds at once, 10 by default, and
+`maxAgeMs` ends a stream after 15 minutes so the browser reconnects through
+`auth.access` again.
 
 ```ts
 // src/app/api/flowpanel/stream/route.ts
@@ -193,11 +205,17 @@ answers `403`. Per connection:
 | Channels per connection | 25 | Extra `?channel=` values are dropped, not rejected |
 | Channel name charset | `/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/` | Non-matching names are silently ignored |
 | Per-resource role gate | `resource.<name>` channels | Dropped when the resource is not registered or its `access.read` rejects the caller |
+| Your own channels | any other name | Dropped unless `realtime.channels` declares it and its `access` admits the caller; development logs the name |
+| Access rule that throws | any channel | That channel is dropped, the error goes to `hooks.onError`, and the stream stays open for the rest |
 | Tenant scope | `resource.<name>` of a resource with `scope` | Each event carries only its `action`, never a row id or row data |
+| Tenant scope | your own channel, under an admin-wide `scope` | Each event carries `{}` unless the channel is `tenantSafe` |
+| Streams per user | 10 (`maxPerActor`) | The next one answers `429`; keyed by user id, else IP |
+| Stream age | 15 min (`maxAgeMs`) | The response ends and the browser reconnects through auth |
 | Heartbeat | 15s (`heartbeatMs`) | A `: keep-alive` comment keeps proxies from closing the response |
 
 A channel that never receives events was probably dropped by one of the first
-three rows.
+five rows. Right after `ready`, the stream sends `event: refused` with
+`{ "channels": [...] }`, naming every channel it dropped.
 
 ## Realtime helpers
 
@@ -229,7 +247,8 @@ In an action, use `ctx.publish`. `handlers`, `Flowpanel` and `stream` call
 `publish`, `publishResource`, `bindPublisher` and `emitAudit` come from
 `@flowpanel/kit/next`; `requireAccess` and the request-context accessors from
 `@flowpanel/kit`. Publishing before `bindPublisher` runs uses an in-memory
-publisher and warns once.
+publisher and warns once. `emitAudit(config, event)` records an event wherever
+the admin's audit log writes.
 
 `requireAccess(rule, ctx)` throws `FlowpanelAccessError` when an `AccessRule`
 rejects the context, and a missing rule denies, so a server action can reuse the
@@ -337,18 +356,24 @@ export async function GET(req: Request): Promise<Response> {
 }
 ```
 
-## Widget contexts in tests
+## Widget contexts
 
-<ApiSignature path="../../packages/next/src/runtime/resolve-widget.ts" name="adminWidgetContext" />
+<ApiSignature path="../../packages/next/src/runtime/resolve-widget.ts" name="requestWidgetContext" />
 
-<AutoTypeTable path="../../packages/next/src/runtime/resolve-widget.ts" name="AdminWidgetContextOptions" />
+<AutoTypeTable path="../../packages/next/src/runtime/resolve-widget.ts" name="RequestWidgetContextOptions" />
 
-A widget context for this admin, without a request or tenant scope, for tests.
+The context a widget receives for one request, under that request's session, role
+and scope, for running a widget outside a page.
 
 <ApiSignature path="../../packages/next/src/runtime/resolve-widget.ts" name="resolveWidget" />
 
-Runs a widget as a dashboard does and returns its `kind` and props. Most tests use
-these through `@flowpanel/kit/test/widgets`; see [Testing](/docs/reference/testing#unit-test-a-widget).
+Runs a widget as a dashboard does and returns its `kind` and props.
+
+For tests, `adminWidgetContext(config, options)` and `widgetContext()` from
+`@flowpanel/kit/test/widgets` build a context with no request and no tenant scope,
+with the role `"admin"` unless you pass another. They are not exported from
+`@flowpanel/kit/next`, so a page cannot use them by mistake; see
+[Testing](/docs/reference/testing#unit-test-a-widget).
 
 ## Navigation
 

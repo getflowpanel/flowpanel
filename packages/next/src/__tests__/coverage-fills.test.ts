@@ -2,7 +2,7 @@ import type { Adapter, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/co
 import { defineAdmin, queue, resource } from "@flowpanel/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { drawerActionRoute } from "../drawer/drawer-route";
+import { drawerActionRoute } from "../drawer/drawer-action-route";
 import { handlers } from "../handlers";
 import { buildNav, resourceNavName } from "../runtime/nav";
 

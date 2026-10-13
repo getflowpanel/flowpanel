@@ -36,7 +36,6 @@
     "@flowpanel/eslint-plugin": "workspace:*",
     "@flowpanel/kit": "workspace:*",
     "@playwright/test": "catalog:",
-    "@shikijs/twoslash": "^4.5.0",
     "@tailwindcss/postcss": "catalog:",
     "@types/mdx": "^2.0.14",
     "@types/node": "catalog:",

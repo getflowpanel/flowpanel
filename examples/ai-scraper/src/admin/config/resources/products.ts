@@ -35,8 +35,7 @@ const fields: FieldDef<RowOf<"products">>[] = [
   {
     name: "ourPriceCents",
     label: "Our price",
-    type: "number",
-    help: "In cents: 39999 is $399.99.",
+    type: "money",
     span: 6,
     group: "Pricing & ownership",
   },
@@ -93,7 +92,10 @@ export const products = resource(schema.products, {
   create: { fields: [...fields, sandboxField<RowOf<"products">>()] },
   update: { fields },
   delete: {
-    confirm: "Permanently delete selected products and their matches? This cannot be undone.",
+    confirm: {
+      one: "The product and its matches are deleted for good. This cannot be undone.",
+      other: "{n} products and their matches are deleted for good. This cannot be undone.",
+    },
   },
   rowClick: "drawer",
   export: {

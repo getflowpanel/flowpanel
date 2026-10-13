@@ -8,7 +8,7 @@ export interface ThemeSlotDoc {
 }
 
 export function readThemeSlots(siteRoot = process.cwd()): ThemeSlotDoc[] {
-  const file = resolve(siteRoot, "../../packages/react/src/_provider/ComponentsContext.tsx");
+  const file = resolve(siteRoot, "../../packages/react/src/provider/ComponentsContext.tsx");
   const project = getTypeProject();
   const source = project.getSourceFile(file) ?? project.addSourceFileAtPath(file);
   const declarations = source

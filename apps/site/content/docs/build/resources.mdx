@@ -62,7 +62,7 @@ A filter's `defaultValue` applies until the operator changes it; `hidden: true` 
 
 ## Operations
 
-`actions` run on one row and `bulkActions` on a selection; see [Actions](/docs/build/actions). With delete enabled and no `bulkActions`, a bulk delete is added; `bulkActions: []` removes it. Forms are generated from the table until you declare [form fields](/docs/build/forms). [Import and export](/docs/build/import-export) are opt-in.
+`actions` run on one row and `bulkActions` on a selection; see [Actions](/docs/build/actions). With delete enabled, a bulk delete follows your own `bulkActions`; `delete: { bulk: false }` removes it. Forms are generated from the table until you declare [form fields](/docs/build/forms). [Import and export](/docs/build/import-export) are opt-in.
 
 ## Access
 

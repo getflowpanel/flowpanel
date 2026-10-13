@@ -17,6 +17,7 @@ import { DataTableWithDrawerRows } from "../DataTableWithDrawerRows";
 import { DrawerHost } from "../DrawerHost";
 import { columnRenders, prerenderEach } from "../prerender";
 import { rememberedCell, rememberRowCells } from "../table-cells";
+import { RECORD_DEFAULTS } from "./payload-fixture";
 
 const StatusBadge = Object.assign(
   () => {
@@ -74,6 +75,7 @@ describe("a render that returns a client component", () => {
               actions: [],
               prerendered: {},
               labels: {},
+              ...RECORD_DEFAULTS,
               formats: {},
               tabs: [],
               row: { id: "27", model: "gpt" },

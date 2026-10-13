@@ -174,7 +174,6 @@
     }
   },
   "devDependencies": {
-    "@axe-core/playwright": "catalog:",
     "@bull-board/api": "^9.10.4",
     "@bull-board/express": "^9.10.4",
     "@flowpanel/adapter-bullmq": "workspace:*",

@@ -1,5 +1,6 @@
 import type { RateLimitOptions } from "../runtime/rate-limit";
 import type { Adapter } from "./adapter";
+import type { AuditConfig, AuditLogStore } from "./audit";
 import type { CommandPaletteConfig } from "./command";
 import type { ErrorContext } from "./context";
 import type { DashboardConfig, PageConfig } from "./dashboard";
@@ -119,37 +120,14 @@ export interface ThemeConfig {
    */
   user?: (s: Session | null) =>
     | {
-        name?: string;
-        email?: string;
-        avatar?: string;
+        /** `null` or `undefined` shows nothing, so an auth library's nullable fields pass straight through. */
+        name?: string | null | undefined;
+        email?: string | null | undefined;
+        avatar?: string | null | undefined;
         items?: Array<{ label: string; href?: string; variant?: "default" | "destructive" }>;
         signOut?: string;
       }
     | undefined;
-}
-
-/** One record handed to `AuditConfig.sink`. */
-export interface AuditEvent {
-  /** Who acted, from `AuthConfig.userId`. Null when unresolvable. */
-  actorId: string | null;
-  /** What ran, e.g. `"orders.action.refund"` or `"orders.inline-update"`. */
-  action: string;
-  /** Resource name the action targeted. */
-  resource?: string;
-  /** Id of the affected row. Bulk actions carry the first ten, comma-joined. */
-  targetId?: string;
-  /** Before/after values, for mutations that can compute them. */
-  diff?: { before: unknown; after: unknown };
-  ip?: string;
-  userAgent?: string;
-  at: Date;
-}
-
-export interface AuditConfig {
-  /** Turn auditing on. Individual resources can opt out with `audit: false`. */
-  enabled?: boolean;
-  /** Where events go — your table, your log pipeline, anywhere. */
-  sink?: (event: AuditEvent) => Promise<void>;
 }
 
 /** How FlowPanel renders surrounding chrome around the content area. */
@@ -240,6 +218,8 @@ export interface ResolvedAdminConfig<
   readonly queuesByKey: Map<string, QueueConfig>;
   /** Normalized mount points with leading slashes and no trailing slash. */
   readonly paths: AdminPaths;
+  /** The table History tabs and the Audit log page read; null when audit is off or a `sink` replaces it. */
+  readonly auditLog: AuditLogStore | null;
   /** Config problems that do not stop the admin from booting. `flowpanel doctor` prints them; development prints each once. */
   readonly warnings: readonly string[];
 }

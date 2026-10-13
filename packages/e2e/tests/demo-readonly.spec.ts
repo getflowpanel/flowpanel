@@ -14,7 +14,7 @@ test("emergency read-only mode hides writes and rejects direct mutations", async
       sku: "READ-ONLY-MUST-NOT-WRITE",
       title: "Blocked mutation",
       category: "Headphones",
-      ourPriceCents: "1999",
+      ourPriceCents: "19.99",
       customerId: "1",
     },
   });

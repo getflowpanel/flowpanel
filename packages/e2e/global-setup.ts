@@ -25,6 +25,11 @@ export default async function globalSetup(): Promise<void> {
     env,
     stdio: "inherit",
   });
+  execFileSync("pnpm", ["--filter", "ai-scraper", "db:migrate"], {
+    cwd: repoRoot,
+    env,
+    stdio: "inherit",
+  });
   execFileSync("pnpm", ["--filter", "ai-scraper", "db:seed"], {
     cwd: repoRoot,
     env,

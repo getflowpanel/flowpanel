@@ -172,7 +172,7 @@ describe("ResourceListFilters with a default", () => {
     nav.search = "page=3";
     render(<FilterRow filters={specs} />);
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(nav.router.replace).toHaveBeenCalledWith("/admin/users?f_isTest=", { scroll: false });
+    expect(nav.router.push).toHaveBeenCalledWith("/admin/users?f_isTest=", { scroll: false });
   });
 
   it("offers no clear action once the operator has cleared every default", () => {

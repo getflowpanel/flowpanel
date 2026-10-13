@@ -6,6 +6,7 @@
   "scripts": {
     "build": "next build --webpack",
     "db:ensure": "tsx scripts/ensure-database.ts",
+    "db:migrate": "flowpanel migrate",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx scripts/seed.ts",
     "demo:cleanup": "tsx scripts/cleanup-demo.ts",
@@ -31,6 +32,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@flowpanel/cli": "workspace:*",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/pg": "catalog:",

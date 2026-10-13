@@ -37,7 +37,7 @@ describe("the page title", () => {
   it("names a dashboard, a list and a record by their labels", async () => {
     expect(await titleOf([])).toBe("Overview");
     expect(await titleOf(["users"])).toBe("Users");
-    expect(await titleOf(["users", "u1"])).toBe("User");
+    expect(await titleOf(["users", "u1"])).toBe("User · u1");
     expect(await titleOf(["users", "new"])).toBe("New user");
   });
 
@@ -48,8 +48,27 @@ describe("the page title", () => {
       resources: [resource({ __name: "order_items" }, { columns: ["id"] })],
     });
     expect(await titleOf(["order_items"], bare)).toBe("Order items");
-    expect(await titleOf(["order_items", "1"], bare)).toBe("Order item");
+    expect(await titleOf(["order_items", "1"], bare)).toBe("Page not found");
     expect(await titleOf(["order_items", "new"], bare)).toBe("New order item");
+  });
+
+  it("names a record page by the record, so tabs and history tell records apart", async () => {
+    const named = (detail?: { title: (row: Record<string, unknown>) => string }) =>
+      defineAdmin({
+        adapter,
+        auth: { session: async () => ({ id: "u1" }) as never, role: () => "admin" },
+        resources: [
+          resource(
+            { __name: "users" },
+            { labelOne: "User", columns: ["id", "email"], ...(detail ? { detail } : {}) },
+          ),
+        ],
+      });
+    expect(await titleOf(["users", "u1"], named())).toBe("ada@example.com");
+    expect(
+      await titleOf(["users", "u1"], named({ title: (row) => `Customer ${String(row.id)}` })),
+    ).toBe("Customer u1");
+    expect(await titleOf(["users", "missing"], named())).toBe("Page not found");
   });
 
   it("says not found for a page that does not exist", async () => {
@@ -80,7 +99,24 @@ describe("the page title", () => {
         resources: [resource({ __name: "users" }, { label: "Users", columns: ["id"] })],
       });
     expect(await titleOf(["users"], gated(null, "guest"))).toBe("Sign in required");
-    expect(await titleOf(["users"], gated({ id: "u1" }, "viewer"))).toBe("Access denied");
+    expect(await titleOf(["users"], gated({ id: "u1" }, "viewer"))).toBe(
+      "You don't have access to this admin",
+    );
+  });
+
+  it("names the wall a rate-limited page shows", async () => {
+    const limited = defineAdmin({
+      adapter,
+      auth: {
+        session: async () => ({ id: "u1" }) as never,
+        role: () => "admin",
+        userId: () => "u1",
+      },
+      rateLimit: { driver: "memory", limit: 1, windowMs: 60_000 },
+      resources: [resource({ __name: "users" }, { label: "Users", columns: ["id"] })],
+    });
+    expect(await titleOf(["users"], limited)).toBe("Users");
+    expect(await titleOf(["users", "2"], limited)).toBe("Too many requests");
   });
 
   it("names only the sign-in wall for a visitor who is not signed in", async () => {
@@ -129,7 +165,7 @@ describe("the page title", () => {
     });
     expect(await titleOf(["users", "new"], config)).toBeUndefined();
     expect(await titleOf(["users", "u1", "edit"], config)).toBeUndefined();
-    expect(await titleOf(["users", "u1"], config)).toBe("User");
+    expect(await titleOf(["users", "u1"], config)).toBe("User · u1");
   });
 
   it("names a queue only for a role that may open it, and says not found for an unknown one", async () => {

@@ -357,7 +357,7 @@ describe("bulkActionRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toBe("validation failed");
-    expect(body.fieldErrors).toEqual({ id: "id is required" });
+    expect(body.fieldErrors).toEqual({ id: "ID is required" });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -406,6 +406,43 @@ describe("serializeBulkAction", () => {
       hasForm: false,
     });
     expect("run" in wire).toBe(false);
+  });
+
+  it("words the built-in delete from the labels and the resource's plural delete.confirm", async () => {
+    const { defineAdmin, resource, RU_LABELS } = await import("@flowpanel/core");
+    const config = defineAdmin({
+      adapter: {
+        kind: "drizzle",
+        db: {},
+        introspect: () => ({ name: "orders", columns: [], primaryKey: "id" }),
+        inferSchema: () => ({}) as never,
+        list: async () => ({ rows: [], total: 0, page: 1, pageSize: 20 }),
+        get: async () => null,
+        create: async () => ({}),
+        update: async () => ({}),
+        delete: async () => undefined,
+      },
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource("orders", {
+          columns: [],
+          delete: { confirm: { one: "The order goes.", other: "{n} orders go." } },
+        }),
+      ],
+    });
+    const orders = config.resourcesByName.get("orders");
+    const builtin = orders?.options.bulkActions?.at(-1);
+    if (!orders || !builtin) throw new Error("no built-in delete");
+    expect(serializeBulkAction(builtin as never, RU_LABELS, orders)).toEqual({
+      key: "delete",
+      label: "Удалить",
+      variant: "destructive",
+      hasForm: false,
+      confirm: {
+        title: RU_LABELS.confirm.deleteSelectedTitle,
+        description: { one: "The order goes.", other: "{n} orders go." },
+      },
+    });
   });
 
   it("normalizes confirm string to the object form", () => {
