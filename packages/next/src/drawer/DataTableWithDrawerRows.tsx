@@ -135,7 +135,9 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
       {hasBulkActions ? (
         <BulkActionsBar
           resource={resource}
-          selection={selection}
+          selection={
+            deletedRowKeySet ? selection.filter((id) => !deletedRowKeySet.includes(id)) : selection
+          }
           onClear={() => setSelection([])}
           actions={bulkActions as SerializedBulkAction[]}
         />

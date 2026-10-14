@@ -1,3 +1,4 @@
+import type { AccessRule } from "./policy";
 import type { Tone } from "./widget";
 import type { WidgetContext } from "./widget-context";
 
@@ -9,8 +10,10 @@ export interface Freshness {
   warnAfter?: `${number}m` | `${number}h` | `${number}d`;
 }
 
-/** The caption options every widget takes beside `maxRange`. */
+/** The options every widget takes beside `maxRange`: who sees it, and its caption. */
 export interface CaptionOptions {
+  /** Who sees the widget. A refused widget is left out of the page and its queries never run. */
+  access?: AccessRule;
   /** Say under the title how old the data is. */
   freshness?: Freshness;
   /** Say under the title that the data is a sample, e.g. "users who accepted analytics". */

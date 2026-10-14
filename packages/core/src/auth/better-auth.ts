@@ -1,4 +1,5 @@
 import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
+import { fromProvider } from "../auth-provider";
 import { assertNoAuthRequireRole } from "../compiler/validate/removed-keys";
 
 /** The part of a better-auth instance FlowPanel calls. */
@@ -25,7 +26,7 @@ export interface BetterAuthOptions {
 /** First-class better-auth integration. */
 export function withBetterAuth(opts: BetterAuthOptions): AuthConfig {
   assertNoAuthRequireRole("withBetterAuth", opts);
-  return {
+  return fromProvider("better-auth", {
     async session(req: Request): Promise<Session | null> {
       // A provider that cannot answer means "not signed in", never "signed in as something unreadable".
       const s = await opts.auth.api.getSession({ headers: req.headers }).catch(() => null);
@@ -48,5 +49,5 @@ export function withBetterAuth(opts: BetterAuthOptions): AuthConfig {
     ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),
     ...(opts.forbiddenUrl ? { forbiddenUrl: opts.forbiddenUrl } : {}),
-  };
+  });
 }

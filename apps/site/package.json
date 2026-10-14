@@ -41,6 +41,7 @@
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "drizzle-kit": "catalog:",
     "drizzle-orm": "catalog:",
     "fumadocs-twoslash": "^3.3.1",
     "fumadocs-typescript": "^4.0.14",

@@ -560,6 +560,12 @@ tr.fp-row-enter > td {
   display: none;
 }
 
+/* A table frame whose column widths are measured against its own width with `cqw`; the gutter keeps that width steady. */
+.fp-width-container {
+  container-type: inline-size;
+  scrollbar-gutter: stable;
+}
+
 /* Fades the clipped edges of a horizontal scroller so cut-off tabs read as "there is more", not a rendering glitch. */
 .fp-scroll-fade-x {
   --fp-scroll-fade: 1.5rem;

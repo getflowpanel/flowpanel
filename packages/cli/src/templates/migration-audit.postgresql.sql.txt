@@ -1,0 +1,6 @@
+-- The audit log columns and indexes FlowPanel 0.4 reads, for a table that 0.3's 0001_init.sql created.
+
+ALTER TABLE flowpanel_audit_log ADD COLUMN IF NOT EXISTS actor_name text;
+ALTER TABLE flowpanel_audit_log ADD COLUMN IF NOT EXISTS scope_key text;
+CREATE INDEX IF NOT EXISTS flowpanel_audit_log_target_idx ON flowpanel_audit_log (resource, target_id, at DESC);
+CREATE INDEX IF NOT EXISTS flowpanel_audit_log_scope_idx ON flowpanel_audit_log (scope_key, at DESC);

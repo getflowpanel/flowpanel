@@ -20,6 +20,8 @@ export interface UseLiveChannelOptions {
   reconnectMaxMs?: number;
   /** Set to false to pause the subscription. Default: true. */
   enabled?: boolean;
+  /** Under `RealtimeProvider`, also refresh the route on each event, coalesced and held while the tab is hidden. */
+  refresh?: boolean;
 }
 
 /**
@@ -52,6 +54,7 @@ export function useLiveChannel(
 ): RealtimeStatus {
   const cbRef = useLatest(onMessage);
   const enabled = opts.enabled !== false && channel !== "";
+  const refresh = opts.refresh === true;
   const connection = useRealtimeConnection(opts.endpoint, opts.reconnectMaxMs);
   const [status, setStatus] = React.useState<RealtimeStatus>(() =>
     enabled ? connection.initialStatus() : "idle",
@@ -64,7 +67,7 @@ export function useLiveChannel(
     }
     const { bus, leave } = connection.join();
     const offMessages = bus.subscribe([channel], (payload) => cbRef.current(payload), {
-      refresh: false,
+      refresh,
     });
     setStatus(bus.getStatus());
     const offStatus = bus.subscribeStatus(setStatus);
@@ -74,7 +77,7 @@ export function useLiveChannel(
       leave();
       setStatus("idle");
     };
-  }, [channel, enabled, connection, cbRef]);
+  }, [channel, enabled, refresh, connection, cbRef]);
 
   return status;
 }

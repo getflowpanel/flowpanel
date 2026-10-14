@@ -1,4 +1,5 @@
 import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
+import { fromProvider } from "../auth-provider";
 import { assertNoAuthRequireRole } from "../compiler/validate/removed-keys";
 
 export interface ClerkAuthOptions {
@@ -26,7 +27,7 @@ export function clerkSession(
 /** First-class Clerk integration. */
 export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
   assertNoAuthRequireRole("withClerk", opts);
-  return {
+  return fromProvider("Clerk", {
     async session(): Promise<Session | null> {
       const specifier = "@clerk/nextjs/server";
       const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as {
@@ -54,5 +55,5 @@ export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
     ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),
     ...(opts.forbiddenUrl ? { forbiddenUrl: opts.forbiddenUrl } : {}),
-  };
+  });
 }

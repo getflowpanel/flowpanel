@@ -5,7 +5,6 @@ import { Button, useApiBase, useLabels } from "@flowpanel/react";
 import Link from "next/link";
 import type { SerializedDrawerAction } from "../drawer/drawer-action";
 import type { RecordActions } from "../runtime/record-actions";
-import { toWireOptions } from "../runtime/select-options";
 import { ActionMenu, type RunnableAction } from "./ActionMenu";
 import { runnableRowAction } from "./RowActionsMenu";
 
@@ -27,24 +26,12 @@ function runnableDrawerAction(
   id: string,
   action: SerializedDrawerAction,
   failed: string,
+  ran: string,
 ): RunnableAction {
   return {
+    ...runnableRowAction(apiBase, resource, id, action, failed, ran),
     key: `drawer:${action.key}`,
-    label: action.label,
-    ...(action.variant ? { variant: action.variant } : {}),
-    ...(action.placement ? { placement: action.placement } : {}),
-    ...(action.confirm ? { confirm: { title: action.confirm } } : {}),
-    ...(action.form
-      ? {
-          form: action.form.map((f) => ({
-            name: f.name,
-            ...(f.type ? { type: f.type } : {}),
-            ...(f.options ? { options: toWireOptions(f.options) } : {}),
-          })),
-        }
-      : {}),
     url: `${apiBase}/drawer/${encodeURIComponent(resource)}/${encodeURIComponent(id)}/actions/${encodeURIComponent(action.key)}`,
-    failureMessage: formatLabel(failed, { label: action.label }),
   };
 }
 
@@ -75,7 +62,14 @@ export function RecordActionsBar({
       ),
     ),
     ...drawerActions.map((action) =>
-      runnableDrawerAction(apiBase, resource, id, action, labels.errors.actionFailed),
+      runnableDrawerAction(
+        apiBase,
+        resource,
+        id,
+        action,
+        labels.errors.actionFailed,
+        labels.actions.ran,
+      ),
     ),
   ];
   if (deletion) {

@@ -14,6 +14,8 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
+    // A missing element fails with its own locator message, not the test timeout.
+    actionTimeout: 15_000,
   },
   projects: [
     {

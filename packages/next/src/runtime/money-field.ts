@@ -1,10 +1,24 @@
-import type { ColumnMeta, FieldDef, ResolvedFormatting } from "@flowpanel/core";
+import type {
+  ColumnMeta,
+  FieldDef,
+  ResolvedAdminConfig,
+  ResolvedFormatting,
+  ResolvedLabels,
+  ResourceConfig,
+} from "@flowpanel/core";
+import { formatLabel, resolveFormatting } from "@flowpanel/core";
 import {
   type MoneyStorage,
   majorUnitsInput,
+  moneyColumnFactor,
+  moneyDecimals,
   moneyMinorUnits,
   moneyStorage,
+  parseMajorUnits,
 } from "@flowpanel/core/format";
+import { writeTarget } from "@flowpanel/core/internal";
+import { columnDefs } from "./column-defs";
+import { formFieldsOf } from "./form-fields-of";
 
 type MoneyOptions = Pick<FieldDef<Record<string, unknown>>, "currency" | "minorUnits" | "storage">;
 
@@ -81,4 +95,74 @@ export function moneyShapes(
     );
   }
   return shapes;
+}
+
+/** How many stored units make one shown unit, per money column from its format: `100` for cents. */
+export function columnMoneyFactors(resource: ResourceConfig): Map<string, number> {
+  const factors = new Map<string, number>();
+  for (const column of columnDefs(resource)) {
+    if (!column.field || typeof column.format !== "object" || column.format.kind !== "money") {
+      continue;
+    }
+    const factor = moneyColumnFactor(column.format);
+    if (factor !== 1) factors.set(column.field, factor);
+  }
+  return factors;
+}
+
+/** Digits a money field or column stores past the amount it shows, by field: `2` for cents. */
+export function moneyDigits(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+): Map<string, number> {
+  const factors = new Map<string, number>();
+  const { columns } = config.adapter.introspect(writeTarget(resource));
+  const shapes = moneyShapes(formFieldsOf(resource), columns, resolveFormatting(config.formatting));
+  for (const [name, shape] of shapes) {
+    if (shape.storage === "minor") factors.set(name, 10 ** shape.minorUnits);
+  }
+  for (const [field, factor] of columnMoneyFactors(resource)) factors.set(field, factor);
+  const digits = new Map<string, number>();
+  for (const [field, factor] of factors) {
+    const places = Math.log10(factor);
+    if (Number.isInteger(places) && places > 0) digits.set(field, places);
+  }
+  return digits;
+}
+
+/** A stored amount as plain major-unit text, `59.00`, with no currency sign. */
+export function majorAmount(value: unknown, digits: number): unknown {
+  if (value === null || value === undefined) return value;
+  return majorUnitsInput(value, { minorUnits: digits, storage: "minor" });
+}
+
+/** A file row's major-unit amounts as stored units, with the form's message for a cell that is not one. */
+export function decodeMoneyCells(
+  row: Record<string, unknown>,
+  digits: ReadonlyMap<string, number>,
+  labelOf: (name: string) => string,
+  labels: ResolvedLabels,
+): { values: Record<string, unknown>; fieldErrors: Record<string, string> } {
+  const values = { ...row };
+  const fieldErrors: Record<string, string> = {};
+  for (const [name, places] of digits) {
+    const raw = values[name];
+    if (typeof raw !== "string" && typeof raw !== "number") continue;
+    const text = String(raw).trim();
+    if (text === "") continue;
+    const minor = parseMajorUnits(text, places);
+    if (minor !== null) {
+      values[name] = minor;
+      continue;
+    }
+    const decimals = moneyDecimals(text);
+    const message =
+      decimals !== null && decimals > places
+        ? labels.form.moneyTooPrecise
+        : labels.form.invalidMoney;
+    const example = majorUnitsInput("12.5", { minorUnits: places, storage: "major" });
+    fieldErrors[name] = formatLabel(message, { label: labelOf(name), example });
+    delete values[name];
+  }
+  return { values, fieldErrors };
 }

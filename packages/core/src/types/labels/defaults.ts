@@ -4,8 +4,6 @@ import type { LabelsConfig } from "./config";
 
 /** Singleton defaults. Plain strings only — RSC-serializable. */
 export const DEFAULT_LABELS: {
-  noResults: string;
-  allOption: string;
   navigation: Required<NonNullable<LabelsConfig["navigation"]>>;
   table: Required<NonNullable<LabelsConfig["table"]>>;
   dateRange: Required<NonNullable<LabelsConfig["dateRange"]>>;
@@ -14,7 +12,6 @@ export const DEFAULT_LABELS: {
   filters: Required<NonNullable<LabelsConfig["filters"]>>;
   bulkBar: Required<NonNullable<LabelsConfig["bulkBar"]>>;
   plurals?: NonNullable<LabelsConfig["plurals"]>;
-  searchPlaceholder: string;
   actions: Required<NonNullable<LabelsConfig["actions"]>>;
   form: Required<NonNullable<LabelsConfig["form"]>>;
   notFound: Required<NonNullable<LabelsConfig["notFound"]>>;
@@ -22,7 +19,6 @@ export const DEFAULT_LABELS: {
   drawer: Required<NonNullable<LabelsConfig["drawer"]>>;
   detail: Required<NonNullable<LabelsConfig["detail"]>>;
   related: Required<NonNullable<LabelsConfig["related"]>>;
-  formError: string;
   confirm: Required<NonNullable<LabelsConfig["confirm"]>>;
   widget: Required<Omit<NonNullable<LabelsConfig["widget"]>, "tones">> & {
     tones: Required<NonNullable<NonNullable<LabelsConfig["widget"]>["tones"]>>;
@@ -38,8 +34,6 @@ export const DEFAULT_LABELS: {
   realtime: Required<NonNullable<LabelsConfig["realtime"]>>;
   audit: Required<NonNullable<LabelsConfig["audit"]>>;
 } = {
-  noResults: "No results",
-  allOption: "All",
   navigation: {
     breadcrumb: "Breadcrumb",
     queueBoards: "Queue boards",
@@ -63,6 +57,8 @@ export const DEFAULT_LABELS: {
     more: "More",
   },
   table: {
+    noResults: "No results",
+    searchPlaceholder: "Search {label}…",
     resizeColumn: "Resize column",
     columns: "Columns",
     columnOptions: "Column options for {label}",
@@ -117,6 +113,7 @@ export const DEFAULT_LABELS: {
     yesterday: "Yesterday",
     last7d: "Last 7 days",
     last30d: "Last 30 days",
+    last12m: "Last 12 months",
     thisMonth: "This month",
     lastMonth: "Last month",
     MTD: "Month to date",
@@ -146,6 +143,7 @@ export const DEFAULT_LABELS: {
     pageSize: "{n} / page",
   },
   filters: {
+    allOption: "All",
     tagsPlaceholder: "tag1, tag2",
     min: "Min",
     max: "Max",
@@ -166,7 +164,6 @@ export const DEFAULT_LABELS: {
     choose: "Action…",
     clearSelection: "Clear selection",
   },
-  searchPlaceholder: "Search {label}…",
   actions: {
     runConfirm: "Run {label}?",
     ranOn: "{label}: done for {n}",
@@ -205,6 +202,7 @@ export const DEFAULT_LABELS: {
   },
   related: { openList: "Open list" },
   form: {
+    error: "Something went wrong — please try again.",
     referencePlaceholder: "Search…",
     tagPlaceholder: "Add…",
     removeTag: "Remove {tag}",
@@ -253,7 +251,6 @@ export const DEFAULT_LABELS: {
     rateLimitedDescription:
       "Pages were opened faster than this admin allows. Wait a moment, then try again.",
   },
-  formError: "Something went wrong — please try again.",
   confirm: {
     deleteSelectedTitle: "Delete the selected records?",
     title: "Are you sure?",
@@ -274,6 +271,7 @@ export const DEFAULT_LABELS: {
     minutesAgo: "{n}m ago",
     previous: "was {value}",
     points: "{value} pp",
+    fresh: "new",
     noChange: "No change",
     vsPrevious: "vs previous period",
     vsWeekAgo: "vs a week earlier",
@@ -330,6 +328,14 @@ export const DEFAULT_LABELS: {
     details: "Details",
     offline: "You're offline. Check your connection and try again.",
     network: "Couldn't reach the server. Try again in a moment.",
+    notFound: "This record is gone, or the action no longer applies to it. Reload the page.",
+    forbidden: "You don't have permission to do that.",
+    signedOut: "Your session has ended. Sign in again.",
+    readOnly: "This change is turned off here.",
+    rateLimited: "Too many requests. Wait a moment and try again.",
+    tooLarge: "That is too much to send at once.",
+    tooManySelected: "Select at most {max} rows.",
+    notApplicable: "This action doesn't apply to this row.",
   },
   palette: {
     suggestions: "Suggestions",

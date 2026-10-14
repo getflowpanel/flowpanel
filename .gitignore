@@ -61,4 +61,5 @@ pnpm-debug.log*
 
 # Docs code blocks extracted for typechecking
 /apps/site/content/snippets/.generated/
+/apps/site/content/snippets/.boot-test/
 .vitest/

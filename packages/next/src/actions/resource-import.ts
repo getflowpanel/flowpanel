@@ -9,9 +9,12 @@ import { actionFailure } from "../runtime/action-failure";
 import { safeErrorMessage } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { coerceRowByColumns } from "../runtime/coerce-values";
+import { fieldLabels } from "../runtime/field-labels";
 import { buildHref } from "../runtime/href";
+import { decodeMoneyCells, moneyDigits } from "../runtime/money-field";
 import { resourceNavName } from "../runtime/nav";
 import { parseImport } from "../runtime/parse-import";
+import { declaredFormFields } from "../runtime/resolve-form-fields";
 import { guardedRoute, lookupResource } from "../runtime/write-pipeline";
 import { makeActions } from "./resource-actions";
 
@@ -50,11 +53,14 @@ async function readBodyCapped(req: Request, maxBytes: number): Promise<string> {
   return new TextDecoder().decode(out);
 }
 
-/** Per-row failure message. */
-function rowErrorMessage(err: unknown): string {
+/** Per-row failure message: each field's, in the form's words, named by the field's label. */
+function rowErrorMessage(err: unknown, labelOf: (name: string) => string): string {
   if (err instanceof FlowpanelValidationError) {
     const details = Object.entries(err.fieldErrors)
-      .map(([field, msg]) => `${field}: ${msg}`)
+      .map(([field, msg]) => {
+        const label = labelOf(field);
+        return msg.includes(label) ? msg : `${label}: ${msg}`;
+      })
       .join("; ");
     if (details) return details;
   }
@@ -130,6 +136,8 @@ export function importRoute(config: ResolvedAdminConfig) {
       const allowed = importOpt.fields as string[] | undefined;
       const { columns } = config.adapter.introspect(writeTarget(resource));
       const labels = mergeLabels(config.labels);
+      const labelOf = fieldLabels(resource, declaredFormFields(resource, "create"));
+      const digits = moneyDigits(config, resource);
       const actions = makeActions(config, resource, { reqCtx, publish: false });
       let imported = 0;
       const failed: { row: number; error: string }[] = [];
@@ -140,12 +148,14 @@ export function importRoute(config: ResolvedAdminConfig) {
         }
         try {
           const picked = allowed ? pick(rawRow, allowed) : rawRow;
-          const { values, fieldErrors } = coerceRowByColumns(columns, picked, labels);
-          if (Object.keys(fieldErrors).length > 0) throw new FlowpanelValidationError(fieldErrors);
-          await actions.create(values);
+          const money = decodeMoneyCells(picked, digits, labelOf, labels);
+          const coerced = coerceRowByColumns(columns, money.values, labels, undefined, labelOf);
+          await actions.create(coerced.values, {
+            decodeErrors: { ...coerced.fieldErrors, ...money.fieldErrors },
+          });
           imported++;
         } catch (e) {
-          failed.push({ row: index + 1, error: rowErrorMessage(e) });
+          failed.push({ row: index + 1, error: rowErrorMessage(e, labelOf) });
         }
       }
       if (imported > 0) {

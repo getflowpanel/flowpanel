@@ -70,7 +70,6 @@ export type { DetailBadge, DetailHeaderContext, DetailOptions } from "./detail";
 export type {
   DrawerAction,
   DrawerConfig,
-  DrawerFieldFormSpec,
   DrawerFieldList,
   DrawerTab,
   DrawerTabFields,

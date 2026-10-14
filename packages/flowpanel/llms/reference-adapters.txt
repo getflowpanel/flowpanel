@@ -6,7 +6,7 @@ What FlowPanel needs from a database layer, method by method.
 
 Docs: https://flowpanel.tech/docs/reference/adapters
 
-Documented types: Adapter, AuditLogStore, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions, toCsv, toJson
+Documented types: Adapter, AuditLogStore, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions
 
 The adapter is the only part of FlowPanel that queries your database. Implement
 this interface for a data layer without a shipped adapter. Overview:
@@ -210,18 +210,10 @@ The parts each adapter is built from:
 
 | Package | Also exports |
 | --- | --- |
-| `@flowpanel/kit/drizzle` | `introspect`, `inferSchema`, `toCsv`, `toJson` |
+| `@flowpanel/kit/drizzle` | `introspect`, `inferSchema` |
 | `@flowpanel/kit/prisma` | `introspect`, `inferSchema`, `PrismaDmmf` (type) |
 | `@flowpanel/kit/bullmq` | `BullMQAdapter` (type) |
 
 `introspect(ref)` returns a `ResourceIntrospection`; `inferSchema(ref)` returns the
 `{ create, update, select }` Zod schemas. `PrismaDmmf` is the type of the optional
 `dmmf` option.
-
-### Export helpers
-
-Standalone row serializers from `@flowpanel/kit/drizzle`.
-
-Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines,
-writes `Date`s as ISO, and prefixes a value starting with `=`, `+`, `-`, `@`, a tab
-or a carriage return with `'`, so a spreadsheet does not run it as a formula.

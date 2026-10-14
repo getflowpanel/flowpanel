@@ -96,6 +96,22 @@ describe("migrate --dry-run", () => {
   });
 });
 
+describe("migrate — a 0.3 audit table", () => {
+  it("lists the 0002 it would write beside a 0.3 0001 on a dry run", async () => {
+    const run = await runCommand(migrateCommand, ["migrate", "--dry-run", "--json"], {
+      "package.json": JSON.stringify({ dependencies: { next: "16.3.4" } }),
+      "flowpanel.config.ts": "export default {};\n",
+      "flowpanel/migrations/0001_init.sql":
+        "CREATE TABLE IF NOT EXISTS flowpanel_audit_log (\n  id uuid PRIMARY KEY DEFAULT gen_random_uuid()\n);\n",
+    });
+    expect(run.exit).toBeNull();
+    expect(JSON.parse(run.stdout)).toMatchObject({
+      dryRun: true,
+      pending: ["0001_init", "0002_audit_log_0_4"],
+    });
+  });
+});
+
 describe("migrate — adapter contract", () => {
   it("uses the adapter's atomic migration operation", async () => {
     const calls: string[] = [];

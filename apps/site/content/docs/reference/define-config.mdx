@@ -166,8 +166,12 @@ leaves signed-out visitors unlimited and gets a warning saying so.
 
 ## RealtimeConfig
 
-An alias of `PublisherOptions`. Without it, events reach only the process that
-published them. See [Realtime](/docs/guides/realtime).
+`PublisherOptions` plus `channels`: the channels of your own the stream may
+serve, each with an optional `access` rule and `tenantSafe` flag. The stream
+refuses an undeclared channel, and `defineAdmin` refuses a widget, dashboard or
+list that subscribes to one. Without `realtime`, events reach only the process
+that published them. See [Declare your own channels](/docs/guides/realtime#declare-your-own-channels)
+and [Publisher](/docs/reference/scope-realtime#publisher).
 
 ## LabelsConfig
 
@@ -211,6 +215,9 @@ keeps English under a Russian locale.
 <AutoTypeTable path="../../packages/core/src/types/labels/config.ts" name="LabelsConfig" />
 
 ## CommandPaletteConfig
+
+Your own commands. The palette also searches records through each resource's
+`search` fields; see [Search, filters and sorting](/docs/build/resources#search-filters-and-sorting).
 
 <AutoTypeTable path="../../packages/core/src/types/command.ts" name="CommandPaletteConfig" />
 

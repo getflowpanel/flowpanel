@@ -7,7 +7,7 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { OTHER_KEY, resolveFormatting } from "@flowpanel/core";
+import { accessAllows, OTHER_KEY, resolveFormatting } from "@flowpanel/core";
 import {
   BarsCard,
   ExpiredCard,
@@ -66,6 +66,7 @@ export async function renderWidget(
   reqCtx: RequestContext,
   frame: WidgetFrame = {},
 ): Promise<ReactNode> {
+  if (!(await accessAllows(widget.options.access, reqCtx))) return null;
   const kept = retainedRange(widget, pickedCtx);
   if (kept.expired) {
     const title = widgetLabel(widget);

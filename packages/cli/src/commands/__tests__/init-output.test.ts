@@ -73,6 +73,18 @@ describe("missingModuleMessage", () => {
     expect(message).toContain("--db <module> and --schema <module>");
     expect(message).toContain("  src/server/lib/db.ts\n    import { drizzle }");
     expect(message).toContain("https://flowpanel.tech/docs/introduction/getting-started");
+    expect(message).toContain("Then create its table in your database, for example with psql:");
+    expect(message).toContain("CREATE TABLE users (id text PRIMARY KEY");
+  });
+
+  it("asks for the pg driver only when it is not installed", () => {
+    const missing = [{ kind: "db" as const, file: "src/server/lib/db.ts", flag: "--db" }];
+    expect(missingModuleMessage(missing, pmCommands("pnpm"), { pg: true })).not.toContain(
+      "pg driver",
+    );
+    expect(missingModuleMessage(missing, pmCommands("pnpm"), { pg: false })).toContain(
+      "It needs the pg driver: pnpm add pg",
+    );
   });
 });
 

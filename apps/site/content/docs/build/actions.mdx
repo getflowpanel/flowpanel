@@ -47,7 +47,7 @@ Actions render as secondary buttons. A dashboard action takes `emphasis: "primar
 
 ## Authorization
 
-The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `hidden` removes an action for a row, and its route rejects that row; `disabled` shows the action with a reason. An action without its own `access` runs under the resource's `update` rule.
+The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `when` offers an action only on the rows it accepts, and its route rejects the others; `disabled` shows the action with a reason. `hidden` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`, so a `when` that reads the posted input decides only on the route. An action without its own `access` runs under the resource's `update` rule.
 
 ## Results
 

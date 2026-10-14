@@ -45,7 +45,7 @@ auth: withBetterAuth({
   auth,
   access: "admin",
   role: async (session) => {
-    const id = (session?.user as { id?: string } | undefined)?.id;
+    const id = session?.user.id;
     if (!id) return "guest";
     const member = await db.query.members.findFirst({
       where: (m, { eq }) => eq(m.userId, id),
@@ -56,7 +56,7 @@ auth: withBetterAuth({
 }),
 ```
 
-It runs on every request, so keep it to one indexed read. FlowPanel does not cache it. A resolver that throws fails the request closed.
+`session` has the type `init` registered for your session, so `session?.user.id` needs no cast. It runs on every request, so keep it to one indexed read. FlowPanel does not cache it. A resolver that throws fails the request closed.
 
 ## Clerk
 

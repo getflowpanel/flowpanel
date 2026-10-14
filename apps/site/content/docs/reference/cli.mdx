@@ -236,10 +236,12 @@ Runs these checks:
 - `flowpanel.config.ts` evaluates; an error there is a failure with the error as
   its hint. With a `.tsx` config, this check and the one above name that file
 
-Three more checks warn without failing the run: a session module that is still the
+More checks warn without failing the run: a session module that is still the
 closed stub (`getSession` returns `null`) or the open development identity from
-`init --dev-auth`, an empty `resources` array, and a missing `DATABASE_URL` while
-`flowpanel/migrations/` holds SQL files. A warning prints as a yellow `!` line and
+`init --dev-auth`, an empty `resources` array, a missing `DATABASE_URL` while
+`flowpanel/migrations/` holds SQL files, an audit table from 0.3 that lacks the 0.4
+columns (`--fix` writes the `0002` migration), and, with `DATABASE_URL` set, a
+resource whose table the database does not have, counted through the config's adapter. A warning prints as a yellow `!` line and
 carries `"warn": true` in `--json`. A check that crashes is a warning too, with
 `Could not check:` and the first line of the error as its hint.
 
@@ -347,7 +349,8 @@ $ pnpm flowpanel new user_visit --dir admin/config/resources --hidden
 and adds it to `admin/config/resources/index.ts`. The first time, it also imports
 that directory's `resources` into `flowpanel.config.ts` and spreads it into the
 array; when the config is shaped differently it prints the line to add. Columns are chosen by type; an
-enum gets an `enumOf` stub; a foreign key becomes a `reference` labelled by the
+enum gets an `enumOf` stub; an integer column whose name ends in `Cents` or `_cents`
+shows as money, `format: { kind: "money", minorUnits: 2 }`; a foreign key becomes a `reference` labelled by the
 target's `name`, `title` or `email` when the target already has a file, which
 also makes it a searchable picker in the generated create and edit forms, so
 scaffold referenced tables first. JSON and long text are left out of the list columns, `name`,

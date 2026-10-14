@@ -92,6 +92,7 @@ export function BarsCard({
                   goodWhen={goodWhen}
                   formatting={formatting}
                   pointsLabel={widget.points}
+                  freshLabel={widget.fresh}
                 />
               </div>
               <div className="fp-h-1.5 fp-w-full fp-overflow-hidden fp-rounded-full fp-bg-fill">

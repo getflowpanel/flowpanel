@@ -7,6 +7,7 @@ import type {
 import { mergeLabels } from "@flowpanel/core";
 import { Section } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { visibleWidgets } from "../../runtime/widget-access";
 import { buildWidgetContext, detailTabDateRange } from "../../runtime/widget-context";
 import { renderSlots, slotElements } from "../detail-page/widget-slots";
 import { sectionColumns } from "../widget-slot";
@@ -22,8 +23,8 @@ export async function renderWidgetsTab<Row extends Record<string, unknown>>(
   resource: string,
   shared?: WidgetContext,
 ): Promise<ReactNode> {
-  const widgets = tab.widgets ?? [];
-  const columns = sectionColumns(tab.columns, widgets, 2);
+  const widgets = await visibleWidgets(tab.widgets ?? [], reqCtx);
+  const columns = sectionColumns(tab.columns, widgets, widgets.length === 1 ? 1 : 2);
   if (widgets.length === 0) {
     return (
       <Section columns={columns}>

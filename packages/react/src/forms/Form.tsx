@@ -9,7 +9,7 @@ import {
 } from "@conform-to/react";
 import { parseWithZod } from "@conform-to/zod/v4";
 import type { ResolvedLabels } from "@flowpanel/core/labels";
-import { DEFAULT_LABELS } from "@flowpanel/core/labels";
+import { DEFAULT_LABELS, failureMessage } from "@flowpanel/core/labels";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import type { $ZodType, output as zOutput } from "zod/v4/core";
@@ -118,7 +118,7 @@ export function Form<S extends $ZodType>({
       const res = await postForm(action, formData, labels);
       if (!res.ok) {
         unlock();
-        return buildSubmissionReply(submission, res, labels.formError, renderedFieldsRef.current);
+        return buildSubmissionReply(submission, res, labels.form.error, renderedFieldsRef.current);
       }
       if (successMessage) toast.success(successMessage);
       setSaved(submittedRef.current);
@@ -222,8 +222,9 @@ async function postForm(
     return { ok: false, error: connectionMessage(labels.errors) };
   }
   const body = (await response.json().catch(() => ({}))) as Partial<FormActionResult>;
+  const error = failureMessage(labels.errors, body.code, body.error);
   // A non-2xx response is always a failure; `ok` must be assigned after the spread to win over the body.
-  return { ...body, ok: response.ok ? (body.ok ?? true) : false };
+  return { ...body, ...(error ? { error } : {}), ok: response.ok ? (body.ok ?? true) : false };
 }
 
 /**
@@ -241,7 +242,7 @@ function keepAfterAction(event: React.FormEvent<HTMLFormElement>) {
 export function buildSubmissionReply(
   submission: { reply: (options?: ReplyShapeOptions) => SubmissionResult<string[]> },
   res: FormActionResult,
-  genericMessage: string = DEFAULT_LABELS.formError,
+  genericMessage: string = DEFAULT_LABELS.form.error,
   renderedFields?: ReadonlySet<string>,
 ): SubmissionResult<string[]> {
   if (res.ok) return submission.reply();

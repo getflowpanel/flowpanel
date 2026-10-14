@@ -62,3 +62,28 @@ describe("encodeFilters", () => {
     });
   });
 });
+
+describe("a money column's bounds", () => {
+  const cents = new Map([["amount", 100]]);
+  const fils = new Map([["amount", 1000]]);
+
+  it("divide into the amount the list shows, negatives and every numeric type included", () => {
+    expect(encodeFilters({ amount: { gte: -12345, lte: 5 } }, "UTC", cents)).toEqual({
+      amount: "-123.45:0.05",
+    });
+    expect(encodeFilters({ amount: { gte: 100000n } }, "UTC", cents)).toEqual({
+      amount: "1000:",
+    });
+    expect(encodeFilters({ amount: { lte: "250" } }, "UTC", cents)).toEqual({ amount: ":2.5" });
+    expect(encodeFilters({ amount: { gte: 1005, lte: -1 } }, "UTC", fils)).toEqual({
+      amount: "1.005:-0.001",
+    });
+  });
+
+  it("stay as they are with no factor, minorUnits 0, or a value that is not a number", () => {
+    expect(encodeFilters({ amount: { gte: 1500 } }, "UTC", new Map([["amount", 1]]))).toEqual({
+      amount: "1500:",
+    });
+    expect(encodeFilters({ amount: { gte: "abc" } }, "UTC", cents)).toEqual({ amount: "abc:" });
+  });
+});

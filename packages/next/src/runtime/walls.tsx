@@ -6,6 +6,7 @@ import {
   formatLabel,
   mergeLabels,
 } from "@flowpanel/core";
+import { authProvider } from "@flowpanel/core/internal";
 import { RefreshButton } from "@flowpanel/next/client";
 import { Button, type NavGroup } from "@flowpanel/react";
 import Link from "next/link";
@@ -85,14 +86,15 @@ export async function handleRenderError(
 
   if (isAuthError) {
     const developing = process.env.NODE_ENV !== "production";
-    if (developing) warnNoSession();
+    const provider = authProvider(config.auth);
+    if (developing) warnNoSession(provider);
     return (
       <Wall
         title={access.signInTitle}
         description={access.signInDescription}
         actions={<RefreshButton label={access.reload} variant="outline" />}
       >
-        {developing ? <DevAuthNote /> : null}
+        {developing ? <DevAuthNote provider={provider} /> : null}
       </Wall>
     );
   }

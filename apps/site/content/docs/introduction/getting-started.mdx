@@ -23,6 +23,28 @@ Everything the admin runs comes from `@flowpanel/kit` and its subpaths. The only
 
 With npm, run `npx @flowpanel/cli init` and then `npx flowpanel <command>`. Yarn and bun work the same way.
 
+### Without an ORM yet
+
+FlowPanel reads your tables through Drizzle or Prisma. In a project with neither, `init` writes nothing and prints what to add: `pnpm add drizzle-orm pg` and `pnpm add -D @types/pg`, or Prisma 6. Run `init` again. When it finds no database client or schema, it prints a starter `server/lib/db.ts` and `server/lib/db/schema.ts` (under `src/` in a `src/app` project) with a `users` table; create them, or point `init` at your own modules with `--db` and `--schema`. Create the table before you open the admin, for example with drizzle-kit, which reads `DATABASE_URL` from `.env` through its config:
+
+```ts
+// drizzle.config.ts
+import { defineConfig } from "drizzle-kit";
+
+export default defineConfig({
+  dialect: "postgresql",
+  schema: "./src/server/lib/db/schema.ts",
+  dbCredentials: { url: process.env.DATABASE_URL! },
+});
+```
+
+```bash
+pnpm add -D drizzle-kit
+pnpm drizzle-kit push
+```
+
+Then run `init` once more, and `pnpm flowpanel new users` for the first resource. [Build a complete admin](/docs/introduction/founder-admin) starts from an empty app the same way, with a full schema.
+
 ## Open the config
 
 `init` wrote `flowpanel.config.ts` at the project root. When it found no auth provider and no `getSession`, it looks like this, with your own import paths:
@@ -109,7 +131,7 @@ Paths start with `src/` in a `src/app` project.
 | `app/api/flowpanel/[...route]/route.ts` | Resource and action handlers |
 | `app/api/flowpanel/stream/route.ts` | Authenticated SSE endpoint |
 | `styles/admin.css` | One import of the precompiled, isolated stylesheet |
-| `flowpanel/migrations/0001_init.sql` | SQL for `_flowpanel_migrations` and `flowpanel_audit_log` |
+| `flowpanel/migrations/0001_init.sql` | SQL for `flowpanel_audit_log` |
 
 `init` also adds `suppressHydrationWarning` to the root layout's `<html>` tag, because `ThemeScript` sets an attribute on it before hydration. If it cannot patch the file safely, it prints the edit. `flowpanel doctor --fix` restores a missing route file.
 

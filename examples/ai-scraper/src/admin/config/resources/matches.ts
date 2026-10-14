@@ -63,7 +63,7 @@ export const matches = resource(schema.matches, {
       key: "confirm",
       label: "Confirm match",
       icon: "check",
-      hidden: (row) => row.status !== "needs_review",
+      when: ({ current }) => current?.status === "needs_review",
       run: confirmMatch,
     },
     {
@@ -75,7 +75,7 @@ export const matches = resource(schema.matches, {
         title: "Reject this match?",
         description: "This listing will no longer be tracked against the catalog product.",
       },
-      hidden: (row) => row.status !== "needs_review",
+      when: ({ current }) => current?.status === "needs_review",
       run: rejectMatch,
     },
   ],

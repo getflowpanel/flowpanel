@@ -2,7 +2,7 @@ import type { ColumnMeta, FieldDef } from "@flowpanel/core";
 import { DEFAULT_LABELS, mergeLabels, RU_LABELS } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { friendlyFieldErrors } from "../actions/field-pipeline";
+import { friendlyFieldErrors } from "../actions/field-validation";
 import { coerceRowByColumns } from "../runtime/coerce-values";
 
 const SCHEMA = z.object({
@@ -117,5 +117,23 @@ describe("what an uncoercible value says", () => {
     const labels = mergeLabels({ form: { invalidNumber: "{label}: give me digits" } });
     const { fieldErrors } = coerceRowByColumns(columns, { age: "eleven" }, labels);
     expect(fieldErrors.age).toBe("Age: give me digits");
+  });
+});
+
+describe("a value outside an enum", () => {
+  const PLAN = z.object({ plan: z.enum(["free", "pro"]) });
+  const fields = [{ name: "plan", label: "Plan" }];
+
+  it("reads the label's words in any Zod locale, and over an authored message", () => {
+    const localized = PLAN.safeParse({ plan: "gold" }, { error: () => "Недопустимое значение" });
+    const authored = z
+      .object({ plan: z.enum(["free", "pro"], "Pick a plan") })
+      .safeParse({ plan: "gold" });
+    for (const parsed of [localized, authored]) {
+      if (parsed.success) throw new Error("fixture: expected the schema to reject");
+      expect(friendlyFieldErrors(fields, { plan: "gold" }, parsed.error, RU_LABELS)).toEqual({
+        plan: "«Plan»: выберите один из предложенных вариантов",
+      });
+    }
   });
 });

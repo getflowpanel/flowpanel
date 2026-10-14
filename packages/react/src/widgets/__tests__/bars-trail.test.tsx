@@ -69,11 +69,18 @@ describe("BarsCard shares and changes", () => {
     expect(container.querySelector("[data-delta]")).toBeNull();
   });
 
-  it("shows the amount, not +100%, for a currency row that rises from zero", () => {
+  it("reads a row that rises from zero as new, not +100%, and zero to zero as nothing", () => {
     const { container } = render(
-      <BarsCard format="currency" rows={[{ label: "kwork", value: 500, previous: 0 }]} />,
+      <BarsCard
+        format="currency"
+        rows={[
+          { label: "kwork", value: 500, previous: 0 },
+          { label: "fl", value: 0, previous: 0 },
+        ]}
+      />,
     );
-    expect(container.textContent).toContain("+$500");
+    expect(container.textContent).toContain("kwork$500new");
     expect(container.textContent).not.toContain("100%");
+    expect(container.querySelectorAll("[data-delta]")).toHaveLength(1);
   });
 });

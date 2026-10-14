@@ -16,6 +16,7 @@ import {
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
 import { FilterSheet, PageHeader } from "@flowpanel/react";
+import { exportTarget, targetAllows } from "../runtime/action-gate";
 import { DEFAULT_RESOURCE_PAGE_SIZE } from "../runtime/defaults";
 import { listRequestFromParams } from "../runtime/list-request";
 import { listRows } from "../runtime/list-rows";
@@ -100,11 +101,11 @@ export async function ResourceListPage({
         {readable.searchFields.length > 0 ? (
           <ResourceListSearch
             placeholder={
-              config.labels?.searchPlaceholder === undefined
-                ? formatLabel(DEFAULT_LABELS.searchPlaceholder, {
+              config.labels?.table?.searchPlaceholder === undefined
+                ? formatLabel(DEFAULT_LABELS.table.searchPlaceholder, {
                     label: labelInSentence(displayPlural),
                   })
-                : formatLabel(config.labels.searchPlaceholder, { label: displayPlural })
+                : formatLabel(config.labels.table.searchPlaceholder, { label: displayPlural })
             }
           />
         ) : null}
@@ -180,12 +181,21 @@ export async function ResourceListPage({
         })
       : undefined;
 
+  const exportOptions = resource.options.export;
+  const exportable =
+    exportOptions && (await targetAllows(exportTarget(resource), reqCtx))
+      ? {
+          ...(exportOptions.formats ? { formats: exportOptions.formats } : {}),
+          ...(exportOptions.fields ? { fields: exportOptions.fields.map(String) } : {}),
+        }
+      : undefined;
   const { rowActions, rowActionsById, bulkActions } = await resolveResourceListActions<Row>(
     resource,
     clientRows,
     rowKey,
     reqCtx,
     mergeLabels(config.labels),
+    new Set(deletedRowKeys),
   );
   const createdRowKeyParam = searchParams.get("fp_created");
   const createdRowKey =
@@ -206,7 +216,7 @@ export async function ResourceListPage({
         rowLabel={labelInSentence(singularLabel(resource, name))}
         {...(createdRowKey ? { enteringRowKeys: [createdRowKey], createdRowKey } : {})}
         {...(resource.options.density ? { density: resource.options.density } : {})}
-        {...(resource.options.export ? { exportable: resource.options.export } : {})}
+        {...(exportable ? { exportable } : {})}
         {...(resource.options.import
           ? {
               importable: {

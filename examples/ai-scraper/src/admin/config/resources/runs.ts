@@ -41,7 +41,7 @@ export const runs = resource(schema.runs, {
         title: "Retry this run?",
         description: "Re-enqueues the scrape job. The run resets to queued.",
       },
-      hidden: (row) => row.status !== "failed",
+      when: ({ current }) => current?.status === "failed",
       run: retryFailedRun,
     },
   ],

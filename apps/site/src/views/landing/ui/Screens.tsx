@@ -3,16 +3,16 @@ import { MediaFrame } from "@/shared/ui/media-frame";
 const SHOTS = [
   {
     name: "admin-list",
-    url: "localhost:3000/admin/customers?f_plan=pro",
-    caption: "The customers list, filtered to the Pro plan.",
-    alt: "FlowPanel list of customers filtered to the Pro plan, with company, contact, email, plan and status columns and the filter bar above",
+    url: "localhost:3000/admin/customers",
+    caption: "The customers list, with plan and status badges.",
+    alt: "FlowPanel list of customers with company, contact, email, plan, status and joined columns, and the search box and filters above",
   },
   {
     name: "admin-record",
-    url: "localhost:3000/admin/customers/1",
+    url: "localhost:3000/admin/customers/3?tab=products",
     caption:
       "A customer's record page: counts that link to their rows, account facts and related tabs.",
-    alt: "FlowPanel record page for one customer: status and plan badges, counts of monitors, products and open invoices, an account panel and tabs for monitors, products and invoices",
+    alt: "FlowPanel record page for one customer: status and plan badges, counts of monitors, products and open invoices and the amount paid, an account panel, and the products tab open with seven products, beside tabs for monitors, invoices and the record's history",
   },
 ] as const;
 

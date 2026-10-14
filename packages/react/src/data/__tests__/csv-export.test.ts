@@ -13,10 +13,11 @@ describe("rowsToCsv formula-injection protection", () => {
     expect(body).toBe("'=1+1");
   });
 
-  it("neutralizes other formula triggers (+ - @)", () => {
+  it("neutralizes other formula triggers (+ - @), but not a negative number", () => {
     const columns: DataTableColumn<Row>[] = [{ field: "v", label: "V" }];
     expect(rowsToCsv(columns, [{ v: "+2" }]).split("\r\n")[1]).toBe("'+2");
-    expect(rowsToCsv(columns, [{ v: "-3" }]).split("\r\n")[1]).toBe("'-3");
+    expect(rowsToCsv(columns, [{ v: "-3" }]).split("\r\n")[1]).toBe("-3");
+    expect(rowsToCsv(columns, [{ v: "-3+A1" }]).split("\r\n")[1]).toBe("'-3+A1");
     expect(rowsToCsv(columns, [{ v: "@cmd" }]).split("\r\n")[1]).toBe("'@cmd");
   });
 

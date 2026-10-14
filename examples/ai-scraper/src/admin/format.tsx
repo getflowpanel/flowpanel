@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { modelLabel } from "@/src/lib/ai-models";
 
 /** `format: money` on any integer-cents column — renders "$12.34". */
-export const money: ColumnFormat = { kind: "money", scale: 100 };
+export const money: ColumnFormat = { kind: "money", minorUnits: 2 };
 
 // Cell renderers for the app-specific shapes the framework doesn't cover --
 const monthYear = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
@@ -22,7 +22,7 @@ export const urlCell = (url: string | null | undefined) => {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="truncate text-fp-text-1 underline decoration-fp-border-2 underline-offset-2 hover:decoration-fp-text-3"
+      className="text-fp-text-1 underline decoration-fp-border-2 underline-offset-2 hover:decoration-fp-text-3"
     >
       {url}
     </a>

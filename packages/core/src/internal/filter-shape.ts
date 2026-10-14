@@ -15,7 +15,7 @@ function needs(value: unknown): Needed | null {
   return shaped.gte instanceof Date || shaped.lte instanceof Date ? "daterange" : "numeric-range";
 }
 
-const DATE_PRESETS: ReadonlySet<string> = new Set(DATE_RANGE_PRESETS);
+const DATE_PRESETS: ReadonlySet<string> = /* @__PURE__ */ new Set(DATE_RANGE_PRESETS);
 
 function declaredFilter(
   resource: ResourceConfig,

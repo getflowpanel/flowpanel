@@ -16,6 +16,20 @@ const rows: User[] = [
 ];
 
 describe("MobileCardList", () => {
+  it("wraps a long value and gives the title two lines, so a phone reader sees all of it", () => {
+    const { container } = render(
+      <MobileCardList
+        columns={[{ field: "name" }, { field: "email" }]}
+        rows={[{ id: "1", name: "Alice", email: "procurement.department@northwind-audio.example" }]}
+        rowKey="id"
+      />,
+    );
+    const value = container.querySelector("dd");
+    expect(value?.className).toContain("fp-break-words");
+    expect(value?.className).not.toMatch(/(^| )fp-truncate( |$)/);
+    expect(screen.getByText("Alice").closest(".fp-line-clamp-2")).not.toBeNull();
+  });
+
   it("animates only the explicitly created mobile card", () => {
     const { container } = render(
       <MobileCardList
@@ -186,7 +200,7 @@ describe("MobileCardList", () => {
 
   it("renders localized empty title via LabelsProvider when emptyTitle prop omitted", () => {
     render(
-      <LabelsProvider value={{ noResults: "Ничего не найдено" }}>
+      <LabelsProvider value={{ table: { noResults: "Ничего не найдено" } }}>
         <MobileCardList columns={[{ field: "name" }]} rows={[]} rowKey="id" />
       </LabelsProvider>,
     );

@@ -139,7 +139,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   if (!result) {
     return (
       <div className="fp-px-2 fp-py-6 fp-text-sm fp-text-faint">
-        {tab.emptyState ?? labels.noResults}
+        {tab.emptyState ?? labels.table.noResults}
       </div>
     );
   }

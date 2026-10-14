@@ -39,8 +39,8 @@ export const DEFAULT_DOC_CONTRACTS = [
     typeName: "BulkAction",
     member: "max",
     value: "1000",
-    consumerFile: "packages/next/src/actions/bulk-action.ts",
-    consumerExpression: "const MAX_BULK = 1000;",
+    consumerFile: "packages/next/src/actions/bulk-selection.ts",
+    consumerExpression: "export const MAX_BULK = 1000;",
   },
   {
     typeName: "SectionConfig",

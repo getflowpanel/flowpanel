@@ -50,8 +50,12 @@ export interface RedisPublisherOptions {
   keyPrefix?: string;
 }
 
-type Connection = RedisLike & RedisSubscriber & { quit?(): Promise<unknown> };
-type RedisCtor = new (url: string) => Connection;
+type Connection = RedisLike &
+  RedisSubscriber & { quit?(): Promise<unknown>; disconnect?(): void; status?: string };
+type RedisCtor = new (url: string, options: Record<string, unknown>) => Connection;
+
+/** A command gives up after one failed reconnect, so a publish with Redis down fails in seconds, not minutes. */
+const FAIL_FAST = { maxRetriesPerRequest: 1, connectTimeout: 2_000 };
 
 export const CLOSED_MESSAGE = "[flowpanel] this realtime publisher is closed.";
 const URL_PATTERN = /rediss?:\/\/\S+/g;
@@ -115,11 +119,16 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
     );
   }
   const keyPrefix = opts.keyPrefix ?? "flowpanel";
+  if (keyPrefix.includes("undefined")) {
+    console.warn(
+      `[flowpanel] realtime keyPrefix "${keyPrefix}" contains "undefined", so this process publishes and listens where a process with the variable set does not. Use a fixed prefix, or set the variable in every process.`,
+    );
+  }
   const seen = new Set<string>();
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
   const unwatch: Array<() => void> = [];
   let ctor: RedisCtor | null = null;
-  let owned: Array<{ quit?(): Promise<unknown> }> = [];
+  let owned: Array<Pick<Connection, "quit" | "disconnect" | "status">> = [];
   let pub: Promise<RedisLike> | null = null;
   let sub: Promise<RedisLike & RedisSubscriber> | null = null;
   let closed = false;
@@ -154,7 +163,7 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
       );
     }
     const Redis = await load();
-    const connection = new Redis(opts.url);
+    const connection = new Redis(opts.url, FAIL_FAST);
     unwatch.push(watchErrors(connection, seen));
     owned.push(connection);
     return connection;
@@ -263,8 +272,12 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
       await Promise.all(
         connections.map(async (connection) => {
           try {
-            await connection.quit?.();
+            // QUIT waits for a connection that may never come back.
+            if (connection.status === undefined || connection.status === "ready") {
+              await connection.quit?.();
+            }
           } catch {}
+          connection.disconnect?.();
         }),
       );
     },

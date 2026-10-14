@@ -1,7 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { findAdminConfig } from "../scaffold/config-target";
+import { auditColumnsUpgrade, auditUpgrade } from "../utils/audit-upgrade";
 import { fileExists, type PmCommands } from "../utils/detect";
+import { configDialect } from "../utils/sql-dialect";
 import type { Check } from "./check";
 import type { ConfigWarnings } from "./config-warnings";
 import { findSessionStub, type SessionStub } from "./session-module";
@@ -62,6 +64,40 @@ export async function warningChecks(
         `resources is empty. Run \`${pmc.exec} flowpanel new <table>\` to add one.`,
       ),
     );
+  }
+
+  const missing = "missingTables" in config ? (config.missingTables ?? []) : [];
+  if (missing.length > 0) {
+    const one = missing.length === 1;
+    checks.push(
+      warning(
+        "Resource tables",
+        true,
+        `${missing.join(", ")} ${one ? "has" : "have"} no table in the database DATABASE_URL points at, so ${one ? "its list shows" : "their lists show"} "Couldn't load". Create ${one ? "it" : "them"} with your migrations, such as \`${pmc.exec} drizzle-kit push\` or \`${pmc.exec} prisma db push\`.`,
+      ),
+    );
+  }
+
+  const dialect = await configDialect(cwd);
+  const upgrade = await auditUpgrade(cwd, dialect);
+  const auditTable = "auditTable" in config ? config.auditTable : undefined;
+  const columns =
+    !upgrade && auditTable === "columns" ? await auditColumnsUpgrade(cwd, dialect) : null;
+  if (upgrade || auditTable) {
+    const intent = upgrade?.intent ?? columns;
+    const lacks =
+      "lacks the actor_name and scope_key columns 0.4 writes, so audit events fail to save";
+    checks.push({
+      name: "Audit log table",
+      ok: true,
+      warn: true,
+      hint: upgrade
+        ? `${upgrade.reason}. Run \`${pmc.exec} flowpanel migrate\`, which writes ${upgrade.intent.path} and applies it.`
+        : columns
+          ? `flowpanel_audit_log ${lacks}. Run \`${pmc.exec} flowpanel doctor --fix\`, which writes ${columns.path}, then \`${pmc.exec} flowpanel migrate\`.`
+          : `flowpanel_audit_log ${auditTable === "table" ? "does not exist, so audit events fail to save" : lacks}. Run \`${pmc.exec} flowpanel migrate\`.`,
+      ...(intent ? { fix: async () => intent } : {}),
+    });
   }
 
   const migrations = await fs

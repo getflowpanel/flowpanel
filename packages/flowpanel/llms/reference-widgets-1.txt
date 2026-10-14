@@ -51,6 +51,7 @@ What every widget `query` receives.
 | --- | --- | --- |
 | `db` | `DB` | Your database client, exactly as handed to the adapter. |
 | `session` | `Session \| null` |  |
+| `role` | `string` | The signed-in role, as `auth.role` returns it. |
 | `dateRange` | `WidgetDateRange` | The picked range, the period before it and the admin's zone, resolved to dates. |
 | `filters` | `Readonly<Record<string, string>>` | The dashboard's active filters by key; `{}` on a record page or with none set. Bind them as parameters. |
 | `req` | `Request` |  |
@@ -110,7 +111,7 @@ metric("Paid orders", async (ctx) => ({
 | `dateTime` | `(value: MomentInput) => string` | Day and clock, as a table cell shows a timestamp. |
 | `relative` | `(value: MomentInput, now?: Date) => string` | How long ago — `5 minutes ago`, `yesterday`. `now` defaults to the current time. |
 | `number` | `(value: NumberInput, digits?: number) => string` | A number with the locale's grouping and at most `digits` decimals. |
-| `money` | `(value: NumberInput, options?: { currency?: string; digits?: number; scale?: number }) => string` | An amount divided by `scale`, in `currency` (default `formatting.currency`), `digits` decimals (0). |
+| `money` | `(value: NumberInput, options?: { currency?: string; digits?: number; minorUnits?: number }) => string` | An amount, in minor units when `minorUnits` is set, in `currency` (default `formatting.currency`), `digits` decimals (0). |
 | `percent` | `(value: NumberInput, digits?: number) => string` | A fraction as a percentage — `0.42` is `42%`. |
 | `duration` | `(ms: NumberInput) => string` | Milliseconds as the largest units that fit — `2 hr 5 min`. |
 | `plural` | `(count: number, label: string \| PluralLabel) => string` | A count in the plural form the locale picks; `{n}` is the formatted count. |
@@ -140,6 +141,15 @@ columns once a widget sets `span`. On a phone every widget takes the full row.
 Every widget and dashboard accepts `realtime`: a channel name, `{ resource: "orders" }`,
 or a list of them. When one fires, only that widget re-runs.
 
+Every widget accepts `access`, the same rule a dashboard or action takes: a role, a
+list of roles, or a function. A widget the caller's role is refused is left out of
+the dashboard, record page or drawer, and its queries never run. A section left
+with no widget is left out too. `ctx.role` gives a query the caller's role.
+
+```ts
+metric("MRR", (ctx) => mrr(ctx.db, ctx.dateRange), { format: "currency", access: "admin" });
+```
+
 `maxRange`, such as `"30d"`, is for rows your app deletes after that long. The
 widget queries from `max(from, to − N, now − N)` and says so in its caption; a
 range that ended before `now − N` runs no query and shows `—`. `heatmap` and
@@ -160,6 +170,7 @@ A failing `freshness.at` is logged and skipped.
 
 | Property | Type | Notes |
 | --- | --- | --- |
+| `access?` | `AccessRule` | Who sees the widget. A refused widget is left out of the page and its queries never run. |
 | `freshness?` | `Freshness` | Say under the title how old the data is. |
 | `coverage?` | `string` | Say under the title that the data is a sample, e.g. "users who accepted analytics". |
 
@@ -313,6 +324,8 @@ both. `drilldown: () => null` removes the link.
 `compare: true` runs the query again with `ctx.dateRange.previous` and shows the
 change; `compare: { against: "weekAgo" }` compares with the same range seven days
 earlier. Set `goodWhen: "down"` for costs and errors. A `delta` from the query wins.
+A value that was 0 in the earlier period reads "new" beside "was 0", since a
+percentage of nothing means nothing; 0 both times reads "No change".
 
 ```ts
 metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
@@ -604,9 +617,12 @@ row's `share` itself. A row's `previous` shows its change with the `MetricDelta`
 rules.
 
 `compare: true` (or `{ against: "weekAgo" }`) runs the query for the earlier period
-and fills each row's `previous`, joining by `key`, else `label`. A row missing from
-the earlier period shows no change; `breakdown({ keys })` keeps it at zero. With
-`top`, pass the earlier rows to `breakdown({ previous })` instead.
+and fills each row's `previous`, joining by `key`, else `label`. A row the earlier
+period lacks counts as 0 there, unless those rows fold the rest into "Other", where
+it shows no change. A row that grew from 0 reads "new" instead of a percentage, and
+a row at 0 both times shows no change. A query with a `LIMIT` of its own should fold
+the rest with `breakdown({ top })`, or a row that was just outside it reads "new". With `top`, pass the earlier
+rows to `breakdown({ previous })` instead.
 
 ```ts
 bars({

@@ -8,7 +8,7 @@ export const invoices = resource(schema.invoices, {
   columns: [
     "id",
     { field: "customerId", label: "Customer", reference: { resource: "customers", labelField: "email" } },
-    "amountCents",
+    { field: "amountCents", format: { kind: "money", minorUnits: 2 } },
     { field: "status", format: Status.format },
     { field: "paidAt", format: { kind: "date", time: true } },
     { field: "createdAt", format: { kind: "date", time: true } },

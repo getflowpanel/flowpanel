@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { columnWidth } from "./column-sizing";
+import { pinnedPx } from "./column-sizing";
 import type { DataTableColumn } from "./data-table-types";
 
 export interface PinMeta {
@@ -31,15 +31,6 @@ function shallowEqualWidths(a: Record<string, number>, b: Record<string, number>
     if (a[k] !== b[k]) return false;
   }
   return true;
-}
-
-const REM_PX = 16;
-
-/** A pinned column's width in pixels, for the offset of the pinned column after it. */
-function pinnedWidthPx<Row>(column: DataTableColumn<Row>, live: number | undefined): number {
-  const css = columnWidth(column, live) ?? "12rem";
-  const value = Number.parseFloat(css);
-  return css.endsWith("rem") ? value * REM_PX : Number.isNaN(value) ? 12 * REM_PX : value;
 }
 
 export function useColumnLayout<Row>(params: {
@@ -111,14 +102,14 @@ export function useColumnLayout<Row>(params: {
     for (const c of orderedVisible) {
       if (leftPins.includes(c.field)) {
         map.set(c.field, { side: "left", offset: leftOffset });
-        leftOffset += pinnedWidthPx(c, liveWidths[c.field]);
+        leftOffset += pinnedPx(c, liveWidths[c.field]);
       }
     }
     let rightOffset = 0;
     for (const c of [...orderedVisible].reverse()) {
       if (rightPins.includes(c.field)) {
         map.set(c.field, { side: "right", offset: rightOffset });
-        rightOffset += pinnedWidthPx(c, liveWidths[c.field]);
+        rightOffset += pinnedPx(c, liveWidths[c.field]);
       }
     }
     for (const c of orderedVisible) {

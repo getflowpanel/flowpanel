@@ -20,6 +20,7 @@ export const DATE_RANGE_PRESETS: readonly DateRangePreset[] = [
   "yesterday",
   "last7d",
   "last30d",
+  "last12m",
   "MTD",
   "QTD",
   "YTD",
@@ -140,6 +141,8 @@ export function resolvePreset(
       return { from: new Date(now.getTime() - 7 * MS_DAY), to: now };
     case "last30d":
       return { from: new Date(now.getTime() - 30 * MS_DAY), to: now };
+    case "last12m":
+      return { from: midnight(shiftCalendarMonths({ ...today, day: 1 }, -11)), to: now };
     case "MTD":
       return { from: midnight({ ...today, day: 1 }), to: now };
     case "QTD":

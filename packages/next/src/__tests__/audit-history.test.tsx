@@ -5,18 +5,18 @@ import type {
   AuditLogStore,
   ResourceOptions,
 } from "@flowpanel/core";
-import { DEFAULT_LABELS, defineAdmin, resource } from "@flowpanel/core";
+import { DEFAULT_LABELS, dashboard, defineAdmin, resource } from "@flowpanel/core";
 import {
+  DASHBOARD_ACTION_PREFIX,
   DASHBOARD_AUDIT_RESOURCE,
   dashboardActionAudit,
-  dashboardActionKey,
 } from "@flowpanel/core/internal";
 import { AuditLogFilters, DetailTabsClient } from "@flowpanel/next/client";
 import { describe, expect, it } from "vitest";
 import { AuditFeed, type AuditFeedItem } from "../pages/audit/audit-feed";
 import { AuditLogPage } from "../pages/audit/audit-log-page";
 import { ResourceDetailPage } from "../pages/resource-detail";
-import { describeAuditAction, projectAuditDiff } from "../runtime/audit-view";
+import { auditVisibility, describeAuditAction, projectAuditDiff } from "../runtime/audit-view";
 import { buildNav } from "../runtime/nav";
 import { adapter, findAll } from "./detail-fixture";
 
@@ -46,7 +46,7 @@ function store(entries: AuditLogEntry[] = [entry()]) {
         (query.resource === undefined || e.resource === query.resource) &&
         (!query.visible ||
           (e.resource !== null && query.visible.resources.includes(e.resource)) ||
-          (e.resource === null && dashboardActionKey(e.action) === null) ||
+          (e.resource === null && !e.action.startsWith(DASHBOARD_ACTION_PREFIX)) ||
           ((e.resource === null || e.resource === DASHBOARD_AUDIT_RESOURCE) &&
             query.visible.actions.includes(e.action))),
     );
@@ -148,8 +148,54 @@ describe("describeAuditAction", () => {
     expect(describe_("users.bulk.archive")).toBe("Ran Archive");
     expect(describe_("users.bulk.delete")).toBe("Deleted");
     expect(describe_("users.action.gone_now")).toBe("Ran Gone now");
-    const sync = dashboardActionAudit("sync");
+    const sync = dashboardActionAudit("/", "sync");
     expect(describe_(sync.action, sync.resource)).toBe("Ran Sync");
+  });
+});
+
+describe("dashboard actions that share a key", () => {
+  const run = async () => ({ ok: true as const });
+  const admin = defineAdmin({
+    adapter,
+    auth: { session: async () => ({ id: "me" }), role: () => "support" },
+    resources: [resource({ __name: "users" }, { columns: [...columns] })],
+    dashboards: [
+      dashboard({
+        path: "/billing",
+        label: "Billing",
+        access: "admin",
+        sections: [],
+        actions: [{ key: "sync", label: "Sync invoices", run }],
+      }),
+      dashboard({
+        path: "/support",
+        label: "Support",
+        access: ["admin", "support"],
+        sections: [],
+        actions: [{ key: "sync", label: "Sync tickets", run }],
+      }),
+    ],
+  });
+  const billing = dashboardActionAudit("/billing", "sync");
+  const support = dashboardActionAudit("/support", "sync");
+
+  it("show a reader only the runs of the dashboard they may open", async () => {
+    const visible = await auditVisibility(admin, {
+      req: new Request("http://localhost/admin/audit-log"),
+      session: { id: "me" },
+      role: "support",
+      scope: null,
+      ip: null,
+      userAgent: null,
+    });
+    expect(visible.actions).toEqual([support.action]);
+    expect(billing.action).not.toBe(support.action);
+  });
+
+  it("are labelled by their own dashboard", () => {
+    const audit = DEFAULT_LABELS.audit;
+    expect(describeAuditAction(admin, billing, audit)).toBe("Ran Sync invoices");
+    expect(describeAuditAction(admin, support, audit)).toBe("Ran Sync tickets");
   });
 });
 

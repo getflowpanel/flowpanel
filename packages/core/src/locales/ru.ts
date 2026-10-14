@@ -4,8 +4,6 @@ import type { ResolvedLabels } from "../types/labels";
 
 /** Complete Russian chrome preset; plain strings safe to pass through RSC. */
 export const RU_LABELS: ResolvedLabels = {
-  noResults: "Ничего не найдено",
-  allOption: "Все",
   navigation: {
     breadcrumb: "Путь",
     queueBoards: "Доски очередей",
@@ -29,6 +27,8 @@ export const RU_LABELS: ResolvedLabels = {
     more: "Ещё",
   },
   table: {
+    noResults: "Ничего не найдено",
+    searchPlaceholder: "Поиск: {label}…",
     resizeColumn: "Изменить ширину столбца",
     columns: "Столбцы",
     columnOptions: "Настройки столбца «{label}»",
@@ -83,6 +83,7 @@ export const RU_LABELS: ResolvedLabels = {
     yesterday: "Вчера",
     last7d: "Последние 7 дней",
     last30d: "Последние 30 дней",
+    last12m: "Последние 12 месяцев",
     thisMonth: "Этот месяц",
     lastMonth: "Прошлый месяц",
     MTD: "С начала месяца",
@@ -113,6 +114,7 @@ export const RU_LABELS: ResolvedLabels = {
     pageSize: "{n} строк",
   },
   filters: {
+    allOption: "Все",
     tagsPlaceholder: "тег1, тег2",
     min: "От",
     max: "До",
@@ -143,7 +145,6 @@ export const RU_LABELS: ResolvedLabels = {
     },
     events: { one: "{n} событие", few: "{n} события", many: "{n} событий", other: "{n} события" },
   },
-  searchPlaceholder: "Поиск: {label}…",
   actions: {
     runConfirm: "Выполнить «{label}»?",
     ranOn: "«{label}»: готово, записей: {n}",
@@ -183,6 +184,7 @@ export const RU_LABELS: ResolvedLabels = {
   },
   related: { openList: "Открыть список" },
   form: {
+    error: "Что-то пошло не так — попробуйте ещё раз.",
     referencePlaceholder: "Поиск…",
     tagPlaceholder: "Добавить…",
     removeTag: "Убрать «{tag}»",
@@ -231,7 +233,6 @@ export const RU_LABELS: ResolvedLabels = {
     rateLimitedDescription:
       "Страницы открывались чаще, чем позволяет админка. Подождите немного и повторите.",
   },
-  formError: "Что-то пошло не так — попробуйте ещё раз.",
   confirm: {
     deleteSelectedTitle: "Удалить выбранные записи?",
     title: "Подтвердите действие",
@@ -252,6 +253,7 @@ export const RU_LABELS: ResolvedLabels = {
     minutesAgo: "{n} мин назад",
     previous: "было {value}",
     points: "{value} п.п.",
+    fresh: "новое",
     noChange: "Без изменений",
     vsPrevious: "к прошлому периоду",
     vsWeekAgo: "к прошлой неделе",
@@ -308,6 +310,14 @@ export const RU_LABELS: ResolvedLabels = {
     details: "Подробности",
     offline: "Нет подключения к интернету. Проверьте сеть и повторите.",
     network: "Сервер не ответил. Повторите чуть позже.",
+    notFound: "Запись удалена, или действие к ней больше не относится. Обновите страницу.",
+    forbidden: "Недостаточно прав для этого действия.",
+    signedOut: "Сессия закончилась. Войдите снова.",
+    readOnly: "Это изменение здесь отключено.",
+    rateLimited: "Слишком много запросов. Подождите немного и повторите.",
+    tooLarge: "Слишком много данных за один раз.",
+    tooManySelected: "Выберите не больше {max} строк.",
+    notApplicable: "Это действие не относится к этой строке.",
   },
   palette: {
     suggestions: "Подсказки",

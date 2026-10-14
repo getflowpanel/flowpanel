@@ -3,6 +3,7 @@ import { checkApi } from "./check-api";
 import { checkCli } from "./check-cli";
 import { checkContent } from "./check-content";
 import { checkOptions } from "./check-options";
+import { checkUpgradeGuide } from "./check-upgrade";
 import { walkFiles } from "./files";
 import { checkInitSnippets } from "./generate-init-snippets";
 import { checkLlms, expansionContext } from "./generate-llms";
@@ -21,6 +22,7 @@ export async function runDocsChecks(root: string): Promise<DocsReport> {
     ...checkApi(root),
     ...checkCli(root),
     ...checkOptions(root),
+    ...checkUpgradeGuide(root),
     ...checkLlms(root, llms),
     ...checkLlmsTopics(root, llms),
     ...(await checkInitSnippets()),

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { devSessionStub } from "../../packages/cli/src/commands/init-auth";
 import { guessedPaths } from "../../packages/cli/src/commands/init-detect";
 import {
   type ConfigTemplateInput,
@@ -111,12 +112,12 @@ export async function renderInitSnippets(): Promise<Record<string, string>> {
   const stub = { appName: "My app", preset: false, session: "stub" } as const;
   const tutorial = await config({
     orm: "drizzle",
-    preset: true,
+    preset: false,
     db: "@/db",
     schema: "@/db/schema",
-    auth: "@/server/lib/flowpanel-session",
+    auth: "@/server/lib/auth",
     appName: "scrapeai",
-    session: "own",
+    session: "stub",
   });
   const moved = wireResourcesDir(tutorial, await tutorialResourcesSpecifier(), () => false);
   if (moved.kind !== "wired") throw new Error("new --dir no longer wires the tutorial's config.");
@@ -124,7 +125,8 @@ export async function renderInitSnippets(): Promise<Record<string, string>> {
     "init/drizzle-config.ts": await config({ ...stub, orm: "drizzle", ...drizzle }),
     "init/prisma-config.ts": await config({ ...stub, orm: "prisma", ...prisma }),
     "init/auth-session.ts": await renderCall({ template: "auth-session.ts.txt", vars: {} }),
-    "init/better-auth-config.ts": tutorial,
+    "init/dev-auth-config.ts": tutorial,
+    "init/dev-session.ts": await devSessionStub("src/server/lib/auth.ts"),
     "src/admin/config/index.ts": moved.source,
     "src/server/lib/flowpanel-session.ts": await renderCall({
       template: "auth-session.better-auth.ts.txt",

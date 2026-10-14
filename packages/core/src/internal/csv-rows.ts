@@ -45,3 +45,20 @@ export function parseCsvRows(input: string): string[][] {
   }
   return rows.filter((cells) => cells.some((cell) => cell !== ""));
 }
+
+/** CSV text as its header and one record per data row; a column with an empty header is dropped. */
+export function csvRecords(input: string): {
+  header: string[];
+  records: Record<string, string>[];
+} {
+  const [first = [], ...rows] = parseCsvRows(input);
+  const header = first.filter((key) => key !== "");
+  const records = rows.map((cells) => {
+    const record: Record<string, string> = {};
+    first.forEach((key, index) => {
+      if (key) record[key] = cells[index] ?? "";
+    });
+    return record;
+  });
+  return { header, records };
+}

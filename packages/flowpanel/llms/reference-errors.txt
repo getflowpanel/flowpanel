@@ -53,7 +53,7 @@ name, and `FlowpanelValidationError`, which takes its field errors first.
 
 It carries `fieldErrors`, keyed by field name, as the first constructor argument:
 
-```ts
+```ts fragment
 constructor(fieldErrors: Record<string, string>, message = "Validation failed");
 ```
 

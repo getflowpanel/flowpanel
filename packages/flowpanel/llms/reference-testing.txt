@@ -15,6 +15,7 @@ it as a dev dependency; no other kit subpath loads it.
 
 ```sh
 pnpm add -D @playwright/test @axe-core/playwright
+pnpm exec playwright install chromium
 ```
 
 `@axe-core/playwright` runs the accessibility checks: with `a11y: true` and no `@axe-core/playwright`, `smokeAdmin` fails and names the package to install.
@@ -219,7 +220,8 @@ The test user needs the role your admin requires.
 
 `cookie` suits a bare session token your own code issues. For better-auth,
 next-auth and other providers that sign sessions, sign in first; `smokeAdmin` reuses
-the page's context.
+the page's context. Wait until the sign-in page has redirected, or the redirect
+aborts the walk's first navigation with `net::ERR_ABORTED`.
 
 ```ts
 import { test } from "@playwright/test";
@@ -230,6 +232,7 @@ test("the admin is healthy", async ({ page }) => {
   await page.getByLabel("Email").fill("admin@example.com");
   await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
   await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL((url) => url.pathname !== "/login");
 
   await smokeAdmin(page);
 });

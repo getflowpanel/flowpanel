@@ -6,7 +6,9 @@ export function encodeAtom(value: string | number): string {
   return encodeURIComponent(String(value));
 }
 
-function join(config: ResolvedAdminConfig, parts: string[]): string {
+type Paths = Pick<ResolvedAdminConfig, "paths">;
+
+function join(config: Paths, parts: string[]): string {
   const base = config.paths.admin === "/" ? "" : config.paths.admin;
   if (parts.length === 0) return base || "/";
   return `${base}/${parts.join("/")}`;
@@ -16,10 +18,7 @@ function join(config: ResolvedAdminConfig, parts: string[]): string {
  * Builds a URL under the admin's `paths.admin` from identity atoms, kept as-is since a key column can hold a leading slash.
  * Callers with no identifier build no URL — see `identityOf` in the table.
  */
-export function buildHref(
-  config: ResolvedAdminConfig,
-  ...segments: ReadonlyArray<string | number>
-): string {
+export function buildHref(config: Paths, ...segments: ReadonlyArray<string | number>): string {
   return join(config, segments.map(encodeAtom));
 }
 

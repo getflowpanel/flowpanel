@@ -126,9 +126,60 @@ disabled, and declaring any of them (or `import`, or an `editable` column) throw
 
 ### Icons
 
-Resource, dashboard, page, queue, action and command icons take an `IconName`, a
-Lucide icon name such as `users`, `settings`, `database` or `trash-2`. An unknown
-name is a type error. To render one in your own component:
+Resource, dashboard, page, queue, action and command icons take an `IconName`, one
+of these Lucide icon names. Other Lucide names, such as `building-2` or `receipt`,
+are a type error:
+
+```ts of="@flowpanel/kit"
+type IconName =
+  | "activity"
+  | "archive"
+  | "badge-dollar-sign"
+  | "ban"
+  | "bar-chart"
+  | "bell"
+  | "book-open"
+  | "box"
+  | "boxes"
+  | "briefcase"
+  | "calendar"
+  | "check"
+  | "circle-dollar-sign"
+  | "circle-help"
+  | "clipboard-list"
+  | "command"
+  | "credit-card"
+  | "database"
+  | "file-text"
+  | "gauge"
+  | "heart-pulse"
+  | "history"
+  | "home"
+  | "inbox"
+  | "layout-dashboard"
+  | "list"
+  | "lock"
+  | "mail"
+  | "moon"
+  | "package"
+  | "play"
+  | "refresh"
+  | "search"
+  | "settings"
+  | "shield"
+  | "shopping-cart"
+  | "sparkles"
+  | "tags"
+  | "trash-2"
+  | "user"
+  | "user-cog"
+  | "users"
+  | "workflow"
+  | "wrench"
+  | "x";
+```
+
+To render one in your own component:
 
 ```tsx
 import { FlowpanelIcon } from "@flowpanel/kit/react";
@@ -150,7 +201,7 @@ views: [
 ```
 
 A `daterange` filter also takes a preset name (`today`, `yesterday`, `last7d`,
-`last30d`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
+`last30d`, `last12m`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
 fields the list declares in `columns`, `filters` or `search`, with values that
 match the filter type; `defineAdmin` rejects the rest. For "older than N days",
 compute the number in a view and use a `numeric-range` filter. The menu button
@@ -184,7 +235,7 @@ type ColumnFormat =
   | "badge" | "money" | "number"
   | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
-  | { kind: "money"; currency?: string; scale?: number }
+  | { kind: "money"; currency?: string; minorUnits?: number; scale?: number }
   | { kind: "number"; tones?: Threshold }
   | { kind: "date"; time?: boolean; calendarDay?: boolean }
   | { kind: "percent"; digits?: number; heat?: boolean; tones?: Threshold }
@@ -192,6 +243,10 @@ type ColumnFormat =
   | { kind: "boolean"; labels?: { true?: string; false?: string } }
   | { kind: "url"; label?: string };
 ```
+
+A money column whose value holds minor units takes `minorUnits`, the same option as a
+`money` field: `{ kind: "money", minorUnits: 2 }` shows `5900` as `$59.00`. `scale`, the
+0.3 name (`scale: 100` is `minorUnits: 2`), still works and is deprecated.
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 The object form of `badge` maps each cell value to a tone:
@@ -326,6 +381,7 @@ rule; use `access` and `fieldAccess` for that.
 | A resource or a queue | Leaves it out of the navigation and the palette. Its routes still work. |
 | A column | Keeps it out of the table. Export and the drawer still read it. |
 | A filter | Applies the filter, and its `defaultValue`, without a control. |
+| A row action | Deprecated: write `when` with the condition reversed. |
 | A form field, `hidden: true` or a function of the values | Leaves the control out of the form. The server still fills its `defaultValue`. |
 | A form field with `type: "hidden"` | Renders `<input type="hidden">`, which posts its value and which anyone can edit in the page. |
 
@@ -371,7 +427,11 @@ type FilterType =
 ```
 
 `daterange` and `numeric-range` reach your adapter as a `FilterRangeValue`;
-`multiselect` as a `FilterInValue`. Both are documented under
+`multiselect` as a `FilterInValue`. A `numeric-range` filter on a money column takes
+the amount the column shows: with `minorUnits: 2` on its format, `60` to `90` matches
+`6000` to `9000`, in the list, its URL, the export and the JSON API. A `{ gte, lte }`
+in a `where`, a view, a link's `filter` or a `defaultValue` stays in stored units, and
+its link opens the same rows. Both are documented under
 [Contexts](/docs/reference/contexts#filter-values).
 
 ## Record page

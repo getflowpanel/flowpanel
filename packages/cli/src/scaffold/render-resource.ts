@@ -1,9 +1,11 @@
 import type { ColumnDescription, TableDescription } from "./describe-schema";
 
-export type ColumnKind = "skip" | "timestamp" | "date" | "boolean" | "enum" | "plain";
+export type ColumnKind = "skip" | "timestamp" | "date" | "boolean" | "enum" | "money" | "plain";
 
 const SEARCH_KEYS = ["name", "title", "email"];
 const SORT_KEYS = ["createdAt", "startedAt", "at", "updatedAt"];
+const CENTS = /(?:Cents|_cents)$/;
+const INTEGER = /Int(?:eger)?(?:53|64)?$/;
 const LONG_TEXT =
   /(?:description|body|content|text|notes?|html|markdown|prompt|payload|bio|summary|message)$/i;
 
@@ -17,6 +19,7 @@ export function columnKind(column: ColumnDescription): ColumnKind {
   if (/Date(String)?$/.test(column.columnType)) return "date";
   if (column.enumValues) return "enum";
   if (column.dataType === "boolean") return "boolean";
+  if (CENTS.test(column.key) && INTEGER.test(column.columnType)) return "money";
   return "plain";
 }
 
@@ -65,6 +68,7 @@ function columnSource(column: ColumnDescription, kind: ColumnKind, enumConsts: b
   if (kind === "timestamp") return `{ field: ${field}, format: { kind: "date", time: true } }`;
   if (kind === "date") return `{ field: ${field}, format: { kind: "date", calendarDay: true } }`;
   if (kind === "boolean") return `{ field: ${field}, format: "boolean" }`;
+  if (kind === "money") return `{ field: ${field}, format: { kind: "money", minorUnits: 2 } }`;
   if (kind === "enum" && enumConsts) {
     return `{ field: ${field}, format: ${pascal(column.key)}.format }`;
   }

@@ -27,7 +27,7 @@ import {
   serializeDashboardAction,
   warnManyPrimary,
 } from "../actions/dashboard-action";
-import { filterActionsByAccess } from "../runtime/action-helpers";
+import { offeredDashboardActions } from "../runtime/action-gate";
 import { activeFilters, filterChoices } from "../runtime/dashboard-filters";
 import {
   DATE_RANGE_PRESETS,
@@ -37,6 +37,7 @@ import {
 } from "../runtime/date-range";
 import { realtimeChannels } from "../runtime/realtime-channels";
 import { renderWidget } from "../runtime/render-widget";
+import { visibleWidgets } from "../runtime/widget-access";
 import { buildWidgetContext } from "../runtime/widget-context";
 import {
   describeOwner,
@@ -137,13 +138,22 @@ export async function DashboardPage({
     filters,
   );
   const choices = await filterChoices(dashboard, ctx);
-  const widgets = dashboard.sections.reduce((total, section) => total + section.widgets.length, 0);
+  const sections = (
+    await Promise.all(
+      dashboard.sections.map(async (section) => ({
+        ...section,
+        widgets: await visibleWidgets(section.widgets, reqCtx),
+      })),
+    )
+  ).filter(
+    (section, index) =>
+      section.widgets.length > 0 || dashboard.sections[index]?.widgets.length === 0,
+  );
+  const widgets = sections.reduce((total, section) => total + section.widgets.length, 0);
   const timer = pageTimer(dashboard.path, widgets);
   const refreshMs = dashboardRefreshMs(dashboard.refresh);
 
-  const actions = (await filterActionsByAccess(dashboard.actions, reqCtx)).map(
-    serializeDashboardAction,
-  );
+  const actions = (await offeredDashboardActions(dashboard, reqCtx)).map(serializeDashboardAction);
   warnManyPrimary(actions, `dashboard "${dashboard.path}"`);
   const encodedPath = encodeDashboardPath(dashboard.path);
 
@@ -170,7 +180,7 @@ export async function DashboardPage({
           ) : null}
         </div>
       </header>
-      {dashboard.sections.map((sec, idx) => {
+      {sections.map((sec, idx) => {
         const strip = sec.variant === "strip";
         const slots = sec.widgets.map((w, wIdx) => (
           <WidgetSlot

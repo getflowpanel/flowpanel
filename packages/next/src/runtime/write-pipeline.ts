@@ -23,6 +23,7 @@ import {
 } from "./action-helpers";
 import { parseActionInputSchema, validateActionOutput } from "./action-schema";
 import { type ApplyActionResultOptions, applyActionResult } from "./apply-action-result";
+import { type AffectedRows, tenantEvents } from "./audit-tenant";
 import { resolveRowProjection } from "./project-row";
 import { bindPublisher } from "./publish";
 import { type GuardFrame, type GuardSpec, withResolvedGuards } from "./with-guards";
@@ -127,6 +128,8 @@ export interface WriteEffects {
     targetIds?: readonly string[];
     /** Resolved only when an audit sink is listening. */
     diff?: () => Promise<AuditEvent["diff"] | undefined>;
+    /** The rows as they were before the write, for a row the write removes. */
+    rows?: AffectedRows;
   };
   /** The resource's `audit: false` opt-out, when the write belongs to one. */
   resourceAudit?: boolean | undefined;
@@ -167,25 +170,20 @@ export async function commitEffects(
   effects: WriteEffects,
 ): Promise<void> {
   if (!result.ok) return;
-  const { diff, ...audit } = effects.audit;
-  const resolvedDiff =
-    diff && isAuditActive(config, effects.resourceAudit)
-      ? await diffOrNone(config, reqCtx, diff)
-      : undefined;
-  await maybeEmitAudit(
-    result,
-    config,
-    effects.resourceAudit,
-    buildAuditEvent(config, reqCtx, {
-      ...audit,
-      ...(resolvedDiff !== undefined ? { diff: resolvedDiff } : {}),
-    }),
-  );
+  const { diff, rows, ...audit } = effects.audit;
+  const active = isAuditActive(config, effects.resourceAudit);
+  const resolvedDiff = diff && active ? await diffOrNone(config, reqCtx, diff) : undefined;
+  const event = buildAuditEvent(config, reqCtx, {
+    ...audit,
+    ...(resolvedDiff !== undefined ? { diff: resolvedDiff } : {}),
+  });
+  const events = active ? await tenantEvents(config, reqCtx, event, rows) : [event];
+  for (const each of events) await maybeEmitAudit(result, config, effects.resourceAudit, each);
   await applyActionResult(result, effects.publish);
 }
 
 interface DeclaredAction {
-  form?: unknown;
+  form?: FieldDef<Record<string, unknown>>[] | undefined;
   inputSchema?: z.ZodTypeAny | undefined;
   outputSchema?: z.ZodTypeAny | undefined;
   unsafe?: readonly "db"[];
@@ -198,7 +196,7 @@ export async function parseDeclaredInput(
   action: DeclaredAction,
   input: Record<string, unknown>,
 ): Promise<Record<string, unknown> | Response> {
-  const form = action.form as FieldDef<Record<string, unknown>>[] | undefined;
+  const { form } = action;
   const labels = mergeLabels(config.labels);
   const parsed = await parseActionInputSchema(form, action.inputSchema, input, labels);
   if (parsed.issues) return validationFailure(parsed.issues, reqCtx.requestId);

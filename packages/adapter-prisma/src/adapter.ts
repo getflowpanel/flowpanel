@@ -43,7 +43,7 @@ export interface PrismaAdapterOptions<P = unknown> {
   parseDates?: boolean;
 }
 
-export { MIGRATIONS_TABLE_DDL } from "./runtime";
+export { migrationsTableDdl } from "./runtime";
 export type { PrismaProvider } from "./sql-statements";
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {

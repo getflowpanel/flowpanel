@@ -56,7 +56,7 @@ resource(users, {
 
 ## Rows
 
-A row action's `when` is a server-side row condition: it runs on the loaded row, and the route answers 404 when it returns false. `hidden(row)` removes the action for that row and its route also answers 404; `disabled(row)` shows it with a reason and its route answers 409. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
+A row action's `when` is a server-side row condition: it runs on the loaded row, the menus leave the action out for that row, and the route answers 404 when it returns false. `disabled(row)` shows the action with a reason and its route answers 409. `hidden(row)` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`; only the route sees the posted input. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
 
 ## Read-only mode
 

@@ -90,6 +90,8 @@ A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as 
 @source "../admin";
 ```
 
+Importing `admin.css` in this root stylesheet is safe, unlike the plain import above: the `@layer` line fixes the layer order before any import, so FlowPanel's element defaults still sit in `components`, between Tailwind's base layer and your utilities. With `@import "tailwindcss";` first, Tailwind declares the same order.
+
 The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`. An app that already imports all of Tailwind keeps `@import "tailwindcss";` first and adds the two FlowPanel imports after it.
 
 FlowPanel renders its root, `[data-flowpanel-root]`, around the admin pages, and the `--fp-*` values these utilities read exist only inside it. Keep your app's header, layout and other pages outside that root, styled with your own classes; [`examples/ai-scraper`](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) wraps the admin in its own header that way.

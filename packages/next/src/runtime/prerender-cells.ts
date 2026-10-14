@@ -1,5 +1,7 @@
 import type { ColumnDef, ColumnFormat, ColumnMeta, RequestContext } from "@flowpanel/core";
-import type { ReactNode } from "react";
+import { columnFormatKind, urlCellParts } from "@flowpanel/core/format";
+import { isValidElement, type ReactNode } from "react";
+import { cellText, columnContent, textRem, widestRem } from "./column-content";
 
 /** Wire-safe column metadata derived from a resource's `ColumnDef[]`. */
 export interface PrerenderedColumn<Row> {
@@ -18,6 +20,10 @@ export interface PrerenderedColumn<Row> {
   format?: ColumnFormat;
   /** Mirrors `ColumnDef.secondary`; dropped on a `reference` column. */
   secondary?: keyof Row & string;
+  /** What a text column holds, which sizes it in the table. */
+  content?: "long" | "email" | "link";
+  /** The widest value on this page in rem, which sizes a text column. */
+  textRem?: number;
 }
 
 export interface PrerenderResult<Row> {
@@ -48,6 +54,26 @@ function warnFieldlessColumn(index: number): void {
   );
 }
 
+const NOT_TEXT = new Set<string | undefined>(["number", "date", "boolean", "reference"]);
+
+/** Whether the table sizes this column by the length of its text, not by its kind. */
+function sizedByText<Row>(column: PrerenderedColumn<Row>): boolean {
+  if (column.format !== undefined) return columnFormatKind(column.format) === "url";
+  return !NOT_TEXT.has(column.type);
+}
+
+/** The table sizes columns in px and rem, so any other unit throws its widths off. */
+const warnedWidths = new Set<string>();
+
+function warnUnreadWidth(field: string, width: number | string): void {
+  if (process.env.NODE_ENV === "production" || typeof width === "number") return;
+  if (/^\d+(?:\.\d+)?(?:px|rem)$/.test(width.trim()) || warnedWidths.has(field)) return;
+  warnedWidths.add(field);
+  console.warn(
+    `[flowpanel] column "${field}" has width "${width}"; use a number of px or a "px" or "rem" string so the other columns fit.`,
+  );
+}
+
 export function prerenderResourceCells<Row>(
   columnDefs: ReadonlyArray<keyof Row | ColumnDef<Row>>,
   rows: ReadonlyArray<Row>,
@@ -63,6 +89,8 @@ export function prerenderResourceCells<Row>(
       const field = String(c) as keyof Row & string;
       const col: PrerenderedColumn<Row> = { field };
       if (defaultSortable !== undefined) col.sortable = defaultSortable;
+      const content = columnContent(field);
+      if (content) col.content = content;
       const meta = metaByField?.get(field);
       if (meta) col.type = meta.type;
       columns.push(col);
@@ -83,12 +111,17 @@ export function prerenderResourceCells<Row>(
     if (def.label) out.label = def.label;
     const sortable = fieldless ? false : (def.sortable ?? defaultSortable);
     if (sortable !== undefined) out.sortable = sortable;
-    if (def.width !== undefined) out.width = def.width;
+    if (def.width !== undefined) {
+      out.width = def.width;
+      warnUnreadWidth(field, def.width);
+    }
     if (def.align) out.align = def.align;
     if (def.className) out.className = def.className;
     if (def.hidden !== undefined) out.hidden = def.hidden;
     if (!fieldless) {
       if (def.editable === true) out.editable = true;
+      const content = def.reference ? undefined : columnContent(field);
+      if (content) out.content = content;
       if (def.format !== undefined) out.format = def.format;
       if (def.secondary !== undefined && !def.reference) out.secondary = def.secondary;
       if (def.reference) out.type = "reference";
@@ -111,5 +144,21 @@ export function prerenderResourceCells<Row>(
     ? rows.map((row) => renderFns.map((fn) => (fn ? fn(row) : undefined)))
     : undefined;
 
+  columns.forEach((column, index) => {
+    if (!sizedByText(column)) return;
+    const widest = widestRem(
+      rows.map((row, rowIndex) => {
+        const cell = prerenderedCells?.[rowIndex]?.[index];
+        const shown = cellText(cell);
+        // An element gets 1rem more: rendered cells are often badges or carry an icon.
+        if (shown) return textRem(shown) + (isValidElement(cell) ? 1 : 0);
+        const raw = row[column.field];
+        const link = column.format === undefined ? null : urlCellParts(raw, column.format);
+        if (link) return textRem(link.text);
+        return typeof raw === "string" || typeof raw === "number" ? textRem(String(raw)) : 0;
+      }),
+    );
+    if (widest !== undefined) column.textRem = widest;
+  });
   return { columns, prerenderedCells };
 }

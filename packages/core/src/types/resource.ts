@@ -9,7 +9,7 @@ import type { DetailOptions } from "./detail";
 import type { DrawerConfig } from "./drawer";
 import type { IconName } from "./icon";
 import type { PluralLabel } from "./labels";
-import type { FieldAccessMap, ResourceAccess } from "./policy";
+import type { AccessRule, FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec } from "./registry";
 import type { Scope } from "./session";
 import type { Threshold } from "./threshold";
@@ -43,7 +43,14 @@ export type ColumnFormat =
       /** Display text per raw value, e.g. `{ admin: "Админ" }`; tones stay keyed by the raw value. */
       labels?: Record<string, string>;
     }
-  | { kind: "money"; currency?: string; scale?: number }
+  | {
+      kind: "money";
+      currency?: string;
+      /** The value holds minor units with this many digits, as on a `money` field: `2` shows `5900` as 59.00. */
+      minorUnits?: number;
+      /** @deprecated Use `minorUnits`; `scale: 100` is `minorUnits: 2`. */
+      scale?: number;
+    }
   | {
       kind: "number";
       /** Colour the cell by value. */
@@ -105,7 +112,7 @@ export interface ColumnDef<Row> {
   render?: (row: Row, ctx: RequestContext) => ReactNode;
   /** Allow clicking the header to sort by this column. */
   sortable?: boolean;
-  /** Fixed column width, in px when a number. */
+  /** Fixed column width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. */
   width?: number | string;
   /** Horizontal cell alignment. Defaults to `"left"`. */
   align?: "left" | "center" | "right";
@@ -353,6 +360,8 @@ export interface ResourceOptions<Row> {
 
   /** How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. */
   scope?: "bypass" | ResourceScope;
+  /** The tenant a row belongs to, as `scope` returns it; files `allTenants` staff's audit events under it. */
+  scopeOf?: (row: Row) => Scope;
   /** Canonical operation-level authorization. */
   access?: ResourceAccess<Row>;
   /** Canonical read/write policy for declared fields. */
@@ -368,6 +377,8 @@ export interface ResourceOptions<Row> {
         fields?: (keyof Row & string)[];
         /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */
         maxRows?: number;
+        /** Who may export, on top of the resource's `read` rule. Everyone who may read by default. */
+        access?: AccessRule;
       }
     | false;
   /** Import button. Off unless set; rows are created through the normal write path. */

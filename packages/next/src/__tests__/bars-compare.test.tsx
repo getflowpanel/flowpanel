@@ -1,5 +1,5 @@
 import type { RequestContext, ResolvedAdminConfig, WidgetContext } from "@flowpanel/core";
-import { bars } from "@flowpanel/core";
+import { bars, OTHER_KEY } from "@flowpanel/core";
 import { BarsCard } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -73,9 +73,21 @@ describe("joinPrevious", () => {
     ]);
   });
 
-  it("leaves a row the compared period did not return without a change", () => {
+  it("leaves a row without a change when the compared rows fold the rest into Other", () => {
+    expect(
+      joinPrevious(
+        [{ label: "etsy", value: 50 }],
+        [
+          { label: "ebay", value: 90 },
+          { key: OTHER_KEY, label: OTHER_KEY, value: 40 },
+        ],
+      ),
+    ).toEqual([{ label: "etsy", value: 50 }]);
+  });
+
+  it("counts a row the compared period did not return as 0 there, so it reads as new", () => {
     expect(joinPrevious([{ label: "youdo", value: 2 }], [{ label: "kwork", value: 1 }])).toEqual([
-      { label: "youdo", value: 2 },
+      { label: "youdo", value: 2, previous: 0 },
     ]);
   });
 });

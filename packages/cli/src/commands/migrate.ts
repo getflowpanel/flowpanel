@@ -3,6 +3,7 @@ import * as path from "node:path";
 import type { Command } from "commander";
 import pc from "picocolors";
 import { findAdminConfig } from "../scaffold/config-target";
+import { auditUpgrade } from "../utils/audit-upgrade";
 import { noConfigMessage } from "../utils/config-problem";
 import { missingConnectionEnv } from "../utils/db-env";
 import { detectPackageManager, pmCommands } from "../utils/detect";
@@ -82,9 +83,19 @@ export function migrateCommand(cli: Command): void {
       }
       const cfgPath = adminConfig.root;
 
-      const files = (await fs.readdir(dir).catch(() => [] as string[]))
-        .filter((f) => f.endsWith(".sql"))
-        .sort();
+      const upgrade = await auditUpgrade(cwd, await configDialect(cwd));
+      if (upgrade) {
+        const { intent, reason } = upgrade;
+        if (!opts.dryRun) {
+          await fs.mkdir(path.dirname(path.join(cwd, intent.path)), { recursive: true });
+          await fs.writeFile(path.join(cwd, intent.path), intent.content);
+        }
+        ui.info(`${opts.dryRun ? "Would write" : "Wrote"} ${intent.path}: ${reason}.`);
+      }
+
+      const onDisk = await fs.readdir(dir).catch(() => [] as string[]);
+      const planned = opts.dryRun && upgrade ? [path.basename(upgrade.intent.path)] : [];
+      const files = [...new Set([...onDisk, ...planned])].filter((f) => f.endsWith(".sql")).sort();
       if (files.length === 0) {
         if (opts.json) {
           writeJson({ command: "migrate", applied: false, pending: [], reason: "no-migrations" });

@@ -58,6 +58,8 @@ resource(schema.orders, {
 })
 ```
 
+The `search` fields also feed record search in the ⌘K palette. From two typed characters, it searches every resource that has `search` fields and is not `hidden`, through that resource's own list read, so access, scope and field rules apply. It shows up to 5 records per resource, titled by their first two non-empty search fields, and a result opens where the row opens. A resource without `search` is not searched there.
+
 A filter's `defaultValue` applies until the operator changes it; `hidden: true` applies it without a control. A `select` filter on an `enumOf()` column lists the enum's labels. See [Default and hidden filters](/docs/reference/resources#default-and-hidden-filters).
 
 ## Operations

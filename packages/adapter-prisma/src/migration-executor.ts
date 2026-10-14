@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { MIGRATIONS_TABLE_DDL, type PrismaClientLike } from "./runtime";
+import { migrationsTableDdl, type PrismaClientLike } from "./runtime";
 import { type PrismaProvider, splitSqlStatements } from "./sql-statements";
 
 const CLAIMS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS _flowpanel_migration_claims (
@@ -196,13 +196,13 @@ export function createMigrationMethods(prisma: PrismaClientLike, provider: Prism
   return {
     async applyMigration(id: string, rawSql: string): Promise<void> {
       const statements = statementsOf(rawSql, provider);
-      await prisma.$executeRawUnsafe(MIGRATIONS_TABLE_DDL);
+      await prisma.$executeRawUnsafe(migrationsTableDdl(provider));
       if (provider === "mysql") await applyWithClaim(prisma, id, statements);
       else await applyInTransaction(prisma, provider, id, statements);
     },
 
     async listAppliedMigrations(): Promise<Set<string>> {
-      await prisma.$executeRawUnsafe(MIGRATIONS_TABLE_DDL);
+      await prisma.$executeRawUnsafe(migrationsTableDdl(provider));
       const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id FROM _flowpanel_migrations`,
       );

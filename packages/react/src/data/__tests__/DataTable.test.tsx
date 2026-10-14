@@ -386,7 +386,7 @@ describe("DataTable", () => {
 
   it("renders localized empty title via LabelsProvider when emptyTitle prop omitted", () => {
     render(
-      <LabelsProvider value={{ noResults: "Ничего не найдено" }}>
+      <LabelsProvider value={{ table: { noResults: "Ничего не найдено" } }}>
         <DataTable
           columns={[{ field: "email" }]}
           rows={[]}

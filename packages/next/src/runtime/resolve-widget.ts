@@ -5,6 +5,7 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
+import { accessAllows } from "@flowpanel/core";
 import { RealtimeRefresh } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
@@ -115,6 +116,11 @@ export async function resolveWidget(
     throw new Error(
       "flowpanel: resolveWidget needs a context from requestWidgetContext(), or from widgetContext() " +
         "in @flowpanel/kit/test/widgets; a hand-built context carries no admin to render against.",
+    );
+  }
+  if (!(await accessAllows(widget.options.access, bound.reqCtx))) {
+    throw new Error(
+      `flowpanel: resolveWidget rendered nothing: the widget's access refuses the role "${bound.reqCtx.role}".`,
     );
   }
   const node = await renderWidget(widget, ctx, bound.config, bound.reqCtx);

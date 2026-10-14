@@ -127,6 +127,20 @@ describe("options that were renamed", () => {
       /users.*drawer\.header.*drawer\.title/,
     );
     expect(() => define({}, { basePath: "/ops" })).toThrow(/basePath.*paths\.admin/);
+    const run = async () => ({ ok: true as const });
+    expect(() =>
+      define({ drawer: { actions: [{ key: "flag", label: "Flag", palette: true, run }] } }),
+    ).toThrow(/drawer action "flag" palette/);
+  });
+
+  it("fail at boot for labels 0.4 moved into a group, naming the new place", () => {
+    expect(() => define({}, { labels: { noResults: "Пусто" } })).toThrow(/table\.noResults/);
+    expect(() => define({}, { labels: { allOption: "Все" } })).toThrow(/filters\.allOption/);
+    expect(() => define({}, { labels: { searchPlaceholder: "x" } })).toThrow(
+      /table\.searchPlaceholder/,
+    );
+    expect(() => define({}, { labels: { formError: "x" } })).toThrow(/form\.error/);
+    expect(() => define({}, { labels: { errors: { queryTitle: "x" } } })).toThrow(/loadTitle/);
   });
 });
 

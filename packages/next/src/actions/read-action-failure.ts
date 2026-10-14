@@ -1,3 +1,4 @@
+import { failureMessage, type ResolvedLabels } from "@flowpanel/core/labels";
 import { type ActionFormFieldErrors, mapActionIssuesToFieldErrors } from "./action-form-field";
 
 function asFieldErrors(value: unknown): ActionFormFieldErrors | null {
@@ -29,10 +30,14 @@ function asIssues(value: unknown): { path: (string | number)[]; message: string 
 }
 
 /**
- * The message and field errors of a failed action body. Routes answer `{ error: string, fieldErrors }`;
+ * The message and field errors of a failed action body. Routes answer `{ error: string, code, fieldErrors }`;
  * an `{ error: { message } }` envelope or an `issues` list from an older server reads the same.
+ * A refusal the kit names by `code` reads in the admin's language.
  */
-export function readActionFailure(body: unknown): {
+export function readActionFailure(
+  body: unknown,
+  errors: ResolvedLabels["errors"],
+): {
   message?: string;
   fieldErrors?: ActionFormFieldErrors;
 } {
@@ -44,10 +49,14 @@ export function readActionFailure(body: unknown): {
       ? nested.message
       : undefined;
   const issues = asIssues("issues" in body ? body.issues : undefined);
-  const message =
+  const code = "code" in body ? body.code : nested && "code" in nested ? nested.code : undefined;
+  const message = failureMessage(
+    errors,
+    code,
     typeof error === "string"
       ? error
-      : (nestedMessage ?? issues.find((issue) => issue.path.length === 0)?.message);
+      : (nestedMessage ?? issues.find((issue) => issue.path.length === 0)?.message),
+  );
   const fields =
     asFieldErrors("fieldErrors" in body ? body.fieldErrors : undefined) ??
     asFieldErrors(nested && "fieldErrors" in nested ? nested.fieldErrors : undefined) ??

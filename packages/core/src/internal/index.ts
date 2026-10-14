@@ -1,3 +1,4 @@
+export { authProvider } from "../auth-provider";
 export { bindFormat } from "../bind-format";
 export { isBuiltinBulkDelete } from "../compiler/builtin-bulk-delete";
 export { emitAudit, isAuditActive } from "../runtime/audit";
@@ -13,13 +14,14 @@ export { clientIpFrom } from "../runtime/client-ip";
 export { didYouMean } from "../suggest";
 export { type ChecklistRow, checklistRows, isDone } from "./checklist-rows";
 export { assertCountWhereColumns } from "./count-where";
-export { csvField } from "./csv-field";
-export { parseCsvRows } from "./csv-rows";
+export { csvField, csvLine } from "./csv-field";
+export { csvRecords, parseCsvRows } from "./csv-rows";
 export {
   DASHBOARD_ACTION_PREFIX,
   DASHBOARD_AUDIT_RESOURCE,
   dashboardActionAudit,
-  dashboardActionKey,
+  decodeDashboardPath,
+  encodeDashboardPath,
 } from "./dashboard-audit";
 export { clockIn, dayKeyIn, dayStartIn, shiftDayKey, weekdayOf } from "./day-key";
 export { encodeFilters, encodeFilterValue } from "./filter-encoding";

@@ -61,7 +61,7 @@ export function useActionRunner(): (
           .catch(() => ({ ok: false, error: res.statusText }))) as ActionServerResult;
 
         if (!res.ok || result.ok === false) {
-          const { message, fieldErrors } = readActionFailure(result);
+          const { message, fieldErrors } = readActionFailure(result, errors);
           if (fieldErrors) return fieldErrors;
           toast.error(message || opts.failureMessage);
           return null;

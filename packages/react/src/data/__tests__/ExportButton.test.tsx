@@ -6,7 +6,7 @@ vi.mock("../../lib/trigger-download", () => ({
   triggerDownload: (...args: unknown[]) => triggerDownload(...args),
 }));
 
-import { ExportButton } from "../csv-export";
+import { cappedMessage, ExportButton } from "../csv-export";
 import type { DataTableColumn } from "../data-table-types";
 
 afterEach(() => {
@@ -120,5 +120,12 @@ describe("ExportButton with a resource", () => {
       filename: "users-filtered-2026-10-09.csv",
     });
     vi.unstubAllGlobals();
+  });
+});
+
+describe("the capped-export warning", () => {
+  it("writes the row count the way the admin's locale groups numbers", () => {
+    expect(cappedMessage("first {n} rows", "10000", "ru-RU")).toBe("first 10\u00a0000 rows");
+    expect(cappedMessage("first {n} rows", "10000", "en-US")).toBe("first 10,000 rows");
   });
 });

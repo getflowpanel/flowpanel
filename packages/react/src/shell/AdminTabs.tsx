@@ -17,6 +17,22 @@ import { activeNavHref } from "./active-nav";
 import { Brand, type ShellBrand } from "./Brand";
 import { NavLinkPending } from "./NavLinkPending";
 
+/** How far into the strip's faded edge a tab may reach: its own padding, so its label stays clear of the fade. */
+const FADE_INSET_PX = 12;
+
+type Edges = { left: number; right: number };
+
+/** The tabs the strip does not show whole, counting a faded edge as not shown. */
+export function tabsCutOff(
+  strip: Edges,
+  tabs: ReadonlyArray<{ href: string; box: Edges }>,
+  faded: { start: boolean; end: boolean },
+): string[] {
+  const left = strip.left + (faded.start ? FADE_INSET_PX : 0) - 1;
+  const right = strip.right - (faded.end ? FADE_INSET_PX : 0) + 1;
+  return tabs.filter(({ box }) => box.left < left || box.right > right).map(({ href }) => href);
+}
+
 /** Horizontal tab strip variant of the admin nav. */
 export function AdminTabs({
   groups,
@@ -49,8 +65,10 @@ export function AdminTabs({
     // Scroll only as far as the active tab needs, so the strip starts on a whole tab.
     const tabRect = el.getBoundingClientRect();
     const stripRect = strip.getBoundingClientRect();
-    if (tabRect.right > stripRect.right) strip.scrollLeft += tabRect.right - stripRect.right;
-    else if (tabRect.left < stripRect.left) strip.scrollLeft -= stripRect.left - tabRect.left;
+    const right = stripRect.right - FADE_INSET_PX;
+    const left = stripRect.left + FADE_INSET_PX;
+    if (tabRect.right > right) strip.scrollLeft += tabRect.right - right;
+    else if (tabRect.left < left) strip.scrollLeft -= left - tabRect.left;
   }, [currentPath, hasMore]);
 
   useEffect(() => {
@@ -60,13 +78,14 @@ export function AdminTabs({
       const start = el.scrollLeft > 1;
       const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
       el.dataset.overflow = start && end ? "both" : start ? "start" : end ? "end" : "none";
-      const strip = el.getBoundingClientRect();
-      const cut = Array.from(el.querySelectorAll<HTMLAnchorElement>("a[data-tab-href]"))
-        .filter((tab) => {
-          const box = tab.getBoundingClientRect();
-          return box.left < strip.left - 1 || box.right > strip.right + 1;
-        })
-        .map((tab) => tab.dataset.tabHref ?? "");
+      const cut = tabsCutOff(
+        el.getBoundingClientRect(),
+        Array.from(el.querySelectorAll<HTMLAnchorElement>("a[data-tab-href]")).map((tab) => ({
+          href: tab.dataset.tabHref ?? "",
+          box: tab.getBoundingClientRect(),
+        })),
+        { start, end },
+      );
       setHidden((current) => (current.join("\n") === cut.join("\n") ? current : cut));
     };
     sync();

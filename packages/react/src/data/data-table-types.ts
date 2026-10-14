@@ -7,6 +7,7 @@ export interface DataTableColumn<Row> {
   label?: string;
   render?: (row: Row) => React.ReactNode;
   sortable?: boolean;
+  /** Fixed width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. */
   width?: number | string;
   align?: "left" | "center" | "right";
   hidden?: boolean;
@@ -18,6 +19,10 @@ export interface DataTableColumn<Row> {
   format?: ColumnFormat;
   /** A field of the row shown as a muted second line under the cell. */
   secondary?: keyof Row & string;
+  /** What a text column holds, which sizes it: long text and an email get more room, a link a little. Field names no longer decide it; set it yourself. */
+  content?: "long" | "email" | "link";
+  /** Optional: the widest value in this column, in rem at the table's text size. Its ideal width fits it; without it the column takes its kind's default. */
+  textRem?: number;
 }
 
 export interface DataTableSort<Row> {

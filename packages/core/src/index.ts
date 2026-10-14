@@ -1,4 +1,5 @@
 export { type AdapterScopeContext, resolveScopeApplier } from "./adapter-scope";
+export { allTenants, isAllTenants } from "./all-tenants";
 export { devAuth } from "./auth/dev";
 export { checklist, filled, heatmap } from "./builders/activity";
 export { areaChart, barChart, lineChart, pieChart } from "./builders/charts";

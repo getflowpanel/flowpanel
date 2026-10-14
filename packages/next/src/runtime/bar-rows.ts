@@ -11,12 +11,14 @@ function named(row: BarRow, ctx: WidgetContext): BarRow {
     : row;
 }
 
-/** Rows with `previous` filled from the compared period's rows, matched by `key`, else `label`. */
+/** Rows with `previous` from the compared rows by `key`, else `label`; a row they lack had 0 unless they fold "Other". */
 export function joinPrevious(rows: readonly BarRow[], before: readonly BarRow[]): BarRow[] {
   const values = new Map(before.map((row) => [identity(row), row.value]));
+  const folded = before.some((row) => row.key === OTHER_KEY);
   return rows.map((row) => {
-    const previous = values.get(identity(row));
-    return row.previous !== undefined || previous === undefined ? row : { ...row, previous };
+    if (row.previous !== undefined) return row;
+    const previous = values.get(identity(row)) ?? (folded ? undefined : 0);
+    return previous === undefined ? row : { ...row, previous };
   });
 }
 

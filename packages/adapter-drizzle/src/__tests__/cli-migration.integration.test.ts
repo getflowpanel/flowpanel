@@ -22,8 +22,24 @@ const TEMPLATES = path.resolve(
   "../../../cli/src/templates",
 );
 
-function initSql(dialect: "postgresql" | "mysql" | "sqlite"): string {
+function initSql(dialect: Dialect): string {
   return fs.readFileSync(path.join(TEMPLATES, `migration.${dialect}.sql.txt`), "utf8");
+}
+
+type Dialect = "postgresql" | "mysql" | "sqlite";
+
+/** A 0.3 audit table, then the 0002 that `flowpanel migrate` writes beside a 0.3 0001. */
+function upgradeSql(dialect: Dialect): { before: string; upgrade: string } {
+  return {
+    before: fs.readFileSync(
+      path.join(
+        path.dirname(fileURLToPath(import.meta.url)),
+        `fixtures/audit-log-0-3.${dialect}.sql`,
+      ),
+      "utf8",
+    ),
+    upgrade: fs.readFileSync(path.join(TEMPLATES, `migration-audit.${dialect}.sql.txt`), "utf8"),
+  };
 }
 
 function isDockerAvailable(): boolean {
@@ -56,6 +72,22 @@ describe("the 0001_init.sql that flowpanel init writes", () => {
     sqlite.close();
   });
 
+  it("upgrades a 0.3 audit table on SQLite, keeping its rows", async () => {
+    const sqlite = new Database(":memory:");
+    const probe = sqliteTable("probe", { id: sqliteText("id").primaryKey() });
+    const adapter = drizzleAdapter({ db: drizzleSqlite(sqlite), schema: { probe } });
+    const { before, upgrade } = upgradeSql("sqlite");
+    await adapter.applyMigration?.("0001_init", before);
+    sqlite.prepare("INSERT INTO flowpanel_audit_log (action) VALUES ('orders.update')").run();
+    await adapter.applyMigration?.("0002_audit_log_0_4", upgrade);
+    expect(sqlite.prepare("SELECT action, actor_name FROM flowpanel_audit_log").all()).toEqual([
+      { action: "orders.update", actor_name: null },
+    ]);
+    sqlite.prepare("DELETE FROM flowpanel_audit_log").run();
+    await expectAuditLogRoundTrip(adapter.auditLog);
+    sqlite.close();
+  });
+
   describe.skipIf(!dockerAvailable)("on servers", () => {
     let pg: StartedPostgreSqlContainer | undefined;
     let my: StartedMySqlContainer | undefined;
@@ -75,6 +107,18 @@ describe("the 0001_init.sql that flowpanel init writes", () => {
       expect(String(row?.id)).toMatch(/^[0-9a-f-]{36}$/);
       await client`DELETE FROM flowpanel_audit_log`;
       await expectAuditLogRoundTrip(adapter.auditLog);
+      await client`DROP TABLE flowpanel_audit_log`;
+      await client`DELETE FROM _flowpanel_migrations`;
+      const { before, upgrade } = upgradeSql("postgresql");
+      await adapter.applyMigration?.("0001_init", before);
+      await client`INSERT INTO flowpanel_audit_log (action) VALUES ('orders.update')`;
+      await adapter.applyMigration?.("0002_audit_log_0_4", upgrade);
+      await client.unsafe(upgrade);
+      expect(await client`SELECT action, actor_name FROM flowpanel_audit_log`).toEqual([
+        { action: "orders.update", actor_name: null },
+      ]);
+      await client`DELETE FROM flowpanel_audit_log`;
+      await expectAuditLogRoundTrip(adapter.auditLog);
       await client.end();
     }, 120_000);
 
@@ -87,6 +131,16 @@ describe("the 0001_init.sql that flowpanel init writes", () => {
       await pool.query("INSERT INTO flowpanel_audit_log (action) VALUES ('create')");
       const [rows] = await pool.query("SELECT id FROM flowpanel_audit_log");
       expect(JSON.stringify(rows)).toMatch(/"id":"[0-9a-f-]{36}"/);
+      await pool.query("DELETE FROM flowpanel_audit_log");
+      await expectAuditLogRoundTrip(adapter.auditLog);
+      await pool.query("DROP TABLE flowpanel_audit_log");
+      await pool.query("DELETE FROM _flowpanel_migrations");
+      const { before, upgrade } = upgradeSql("mysql");
+      await adapter.applyMigration?.("0001_init", before);
+      await pool.query("INSERT INTO flowpanel_audit_log (action) VALUES ('orders.update')");
+      await adapter.applyMigration?.("0002_audit_log_0_4", upgrade);
+      const [kept] = await pool.query("SELECT action, actor_name FROM flowpanel_audit_log");
+      expect(kept).toEqual([{ action: "orders.update", actor_name: null }]);
       await pool.query("DELETE FROM flowpanel_audit_log");
       await expectAuditLogRoundTrip(adapter.auditLog);
       await pool.end();

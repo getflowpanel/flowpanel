@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
+import { layoutColumns } from "../column-sizing";
 import { DataTable } from "../DataTable";
 
 afterEach(cleanup);
@@ -61,10 +62,25 @@ describe("DataTable layout", () => {
   it("sizes columns by what they hold, so new rows never move them", () => {
     render(<DataTable {...props} />);
     expect(screen.getByRole("table").className).toContain("fp-table-fixed");
+    const { widths, minWidth } = layoutColumns(columns);
     expect(headerCell("Plan").style.width).toBe("9rem");
-    expect(headerCell("Joined").style.width).toBe("11rem");
-    expect(headerCell("Seats").style.width).toBe("8rem");
-    expect(headerCell("Company").style.width).toBe("");
+    for (const [name, field] of [
+      ["Joined", "joined"],
+      ["Seats", "seats"],
+      ["Company", "company"],
+    ] as const) {
+      expect(headerCell(name).style.width).toBe(widths.get(field));
+    }
+    expect(screen.getByRole("table").style.minWidth).toBe(minWidth);
+  });
+
+  it("gives the loading skeleton the loaded table's widths, so no column moves when rows arrive", () => {
+    const { unmount } = render(<DataTable {...props} loading />);
+    const loading = screen.getAllByRole("columnheader").map((th) => th.style.width);
+    unmount();
+    render(<DataTable {...props} />);
+    const loaded = screen.getAllByRole("columnheader").map((th) => th.style.width);
+    expect(loading).toEqual(loaded);
   });
 
   it("names a reference column after the record it points to", () => {

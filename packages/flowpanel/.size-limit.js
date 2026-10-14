@@ -23,7 +23,8 @@ export default [
     name: "@flowpanel/kit/react UI on first render (shell, table, forms, toaster)",
     ...UI,
     modifyEsbuildConfig: firstRenderOnly,
-    limit: "85.8 KB",
+    // 0.4 polish: widths by need, refusals in the admin's language, wrapping phone cards and the nav's faded edge.
+    limit: "87 KB",
   },
   {
     name: "@flowpanel/kit/react on-demand chunks (importer dialogs and CSV parser, leave-guard dialog), alone with what they import",
@@ -32,7 +33,8 @@ export default [
       "dist/react/data/ImportDialogs.mjs": "{ ImportConfirm, ImportResult, readImportFile }",
       "dist/react/feedback/ConfirmDialog.mjs": "{ ConfirmDialog }",
     },
-    limit: "29 KB",
+    // The shared CSV writer moved to core with export's negative-number rule (+20 B).
+    limit: "29.05 KB",
   },
   {
     name: "@flowpanel/kit/client (hooks)",

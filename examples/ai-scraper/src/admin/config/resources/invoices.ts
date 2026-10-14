@@ -26,7 +26,7 @@ const refund = rowAction<Invoice, RefundInput>({
       required: true,
     },
   ],
-  hidden: (row) => row.status !== "paid",
+  when: ({ current }) => current?.status === "paid",
   run: refundPaidInvoice,
 });
 

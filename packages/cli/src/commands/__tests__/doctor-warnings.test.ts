@@ -217,6 +217,67 @@ describe("doctor — DATABASE_URL warning", () => {
   });
 });
 
+describe("doctor — resource tables", () => {
+  it("warns when the database has no table for a resource", async () => {
+    process.env.DATABASE_URL = "postgres://probe.invalid/app";
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": `export default {
+        resources: [{}],
+        adapter: { count: async () => { throw new Error('relation "users" does not exist'); } },
+        resourcesByName: new Map([["users", { ref: "users" }]]),
+      };\n`,
+    });
+    const check = await checkNamed("Resource tables");
+    expect(check).toMatchObject({ ok: true, warn: true });
+    expect(check?.hint).toContain("users has no table in the database DATABASE_URL points at");
+  });
+});
+
+describe("doctor — audit log table", () => {
+  const INIT_0_3 =
+    "CREATE TABLE IF NOT EXISTS flowpanel_audit_log (\n  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n  action text NOT NULL\n);\n";
+
+  it("warns beside a 0.3 0001 and fixes it by writing the 0002", async () => {
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": "export default {};\n",
+      "flowpanel/migrations/0001_init.sql": INIT_0_3,
+    });
+    const check = await checkNamed("Audit log table");
+    expect(check).toMatchObject({ ok: true, warn: true });
+    expect(check?.hint).toContain("is from 0.3");
+    expect(check?.hint).toContain("npx flowpanel migrate");
+    expect((await check?.fix?.())?.path).toBe("flowpanel/migrations/0002_audit_log_0_4.sql");
+  });
+
+  it("offers the 0002 when the table lacks the columns and the 0001 is already 0.4's", async () => {
+    process.env.DATABASE_URL = "postgres://probe.invalid/app";
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": `export default {
+        auditLog: { list: async () => { throw new Error('column "scope_key" does not exist'); } },
+      };\n`,
+      "flowpanel/migrations/0001_init.sql": await tpl("migration.postgresql.sql.txt"),
+    });
+    const check = await checkNamed("Audit log table");
+    expect(check?.hint).toContain("doctor --fix");
+    expect(await check?.fix?.()).toEqual({
+      path: "flowpanel/migrations/0002_audit_log_0_4.sql",
+      content: await tpl("migration-audit.postgresql.sql.txt"),
+    });
+  });
+
+  it("is quiet for the 0001 that init writes now", async () => {
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": "export default {};\n",
+      "flowpanel/migrations/0001_init.sql": await tpl("migration.postgresql.sql.txt"),
+    });
+    expect(await checkNamed("Audit log table")).toBeUndefined();
+  });
+});
+
 describe("doctor — kit installed check", () => {
   it("fails and says how to install when the kit is not installed", async () => {
     await write({ "package.json": PACKAGE, "flowpanel.config.ts": "export default {};\n" });

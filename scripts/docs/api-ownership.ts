@@ -276,6 +276,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/all-tenants.ts",
+    page: "/docs/guides/multi-tenant-scope",
+    anchor: "staff-who-work-across-tenants",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/adapter-scope.ts",
     page: "/docs/reference/runtime-contracts",
     guidance: true,

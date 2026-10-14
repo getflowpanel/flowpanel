@@ -52,6 +52,8 @@ function toWidgetColumn(c: PrerenderedColumn<WidgetRow>): PrerenderedColumn<Widg
   if (c.className !== undefined) out.className = c.className;
   if (c.type !== undefined) out.type = c.type;
   if (c.format !== undefined) out.format = c.format;
+  if (c.content !== undefined) out.content = c.content;
+  if (c.textRem !== undefined) out.textRem = c.textRem;
   return out;
 }
 

@@ -46,8 +46,10 @@ export const suspendUser = rowAction<User, SuspendInput>({
 
 <AutoTypeTable path="../../packages/core/src/types/action.ts" name="RowAction" />
 
-`hidden` runs on the server per row; a hidden action's route returns `404` for
-that row.
+`when` runs on the server per row: the menus offer the action only where it
+returns true, and the route returns `404` for any other row. Menus call it with no
+`input`; the route passes the posted input. `hidden` is deprecated: use `when` with
+the condition reversed.
 
 ## BulkAction
 
@@ -82,13 +84,10 @@ dashboardAction({ key: "retry", label: "Retry failed runs", emphasis: "primary",
 
 ## DrawerAction
 
-Rendered in the drawer footer. Its `form` uses `DrawerFieldFormSpec`.
+Rendered in the drawer's menu, like a row action, and takes the same options
+except `hidden` and `disabled`. Its `form` is a list of fields, as on a row action.
 
 <AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerAction" />
-
-### DrawerFieldFormSpec
-
-<AutoTypeTable path="../../packages/core/src/types/drawer.ts" name="DrawerFieldFormSpec" />
 
 ## ActionResult
 

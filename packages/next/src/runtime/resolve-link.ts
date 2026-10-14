@@ -9,6 +9,7 @@ import type {
 } from "@flowpanel/core";
 import { didYouMean, encodeFilters } from "@flowpanel/core/internal";
 import { buildHref, buildPath } from "./href";
+import { columnMoneyFactors } from "./money-field";
 
 /** A row a query returned, with its link resolved to the href a card renders. */
 export type LinkedRow<T> = Omit<T, "href"> & { href?: string };
@@ -44,8 +45,10 @@ function setFilters(
   params: URLSearchParams,
   filters: Record<string, unknown> | undefined,
   timeZone: string,
+  resource: ResourceConfig,
 ): void {
-  for (const [field, value] of Object.entries(encodeFilters(filters, timeZone))) {
+  const encoded = encodeFilters(filters, timeZone, columnMoneyFactors(resource));
+  for (const [field, value] of Object.entries(encoded)) {
     params.set(`f_${field}`, value);
   }
 }
@@ -70,7 +73,7 @@ function applyView(
   }
   if (view.search) params.set("q", view.search);
   if (view.sort) params.set("sort", `${view.sort.field}:${view.sort.dir}`);
-  setFilters(params, view.filters, timeZone);
+  setFilters(params, view.filters, timeZone, resource);
 }
 
 const wholeHistory = (ctx: WidgetContext): boolean => ctx.dateRange.from.getTime() <= 0;
@@ -91,7 +94,7 @@ function resourceHref(
   const { from, to, timeZone } = ctx.dateRange;
   const params = new URLSearchParams();
   if (target.view !== undefined) applyView(params, resource, target, timeZone);
-  setFilters(params, target.filter, timeZone);
+  setFilters(params, target.filter, timeZone, resource);
   if (target.range && !wholeHistory(ctx)) {
     params.set(`f_${target.range}`, `${from.toISOString()}~${to.toISOString()}`);
   }

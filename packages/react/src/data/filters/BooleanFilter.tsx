@@ -25,7 +25,7 @@ export function BooleanFilter({
   placeholder,
 }: BooleanFilterProps) {
   const labels = useLabels();
-  const allOption = placeholder ?? labels.allOption;
+  const allOption = placeholder ?? labels.filters.allOption;
   const id = React.useId();
   return (
     <FilterField label={label} htmlFor={id} active={Boolean(value)}>

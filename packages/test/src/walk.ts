@@ -1,3 +1,4 @@
+import { consoleText } from "./console-text";
 import type { SmokeLocator, SmokePage } from "./page";
 import type { A11yViolation, SmokeAdminOptions, SmokeAdminReport } from "./types";
 
@@ -178,8 +179,15 @@ export async function runSmoke(
   const maxRows = Math.max(0, options.maxRows ?? 1);
 
   if (options.cookie) await applyCookie(page, adminPath, options.cookie);
+  const reading: Promise<void>[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error") report.consoleErrors.push(message.text());
+    if (message.type() !== "error") return;
+    const index = report.consoleErrors.push(message.text()) - 1;
+    reading.push(
+      consoleText(message).then((text) => {
+        report.consoleErrors[index] = text;
+      }),
+    );
   });
 
   await open(walk, adminPath);
@@ -191,6 +199,7 @@ export async function runSmoke(
     await openRows(walk, route, maxRows);
   }
 
+  await Promise.all(reading);
   if (failures.length + report.consoleErrors.length + report.a11yViolations.length > 0) {
     throw smokeFailure(report, failures);
   }

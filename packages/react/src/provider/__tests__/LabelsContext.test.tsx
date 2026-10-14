@@ -14,7 +14,7 @@ function SaveLabelProbe() {
 
 function NoResultsProbe() {
   const l = useLabels();
-  return <div data-testid="no-results">{l.noResults}</div>;
+  return <div data-testid="no-results">{l.table.noResults}</div>;
 }
 
 function BulkSelectedProbe({ n }: { n: number }) {

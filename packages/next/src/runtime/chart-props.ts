@@ -40,6 +40,7 @@ export function chartProps(
       drilldown: _drilldown,
       freshness: _freshness,
       coverage: _coverage,
+      access: _access,
       ...options
     } = widget.options;
     return { options };
@@ -49,6 +50,8 @@ export function chartProps(
     labels: names,
     freshness: _freshness,
     coverage: _coverage,
+    access: _access,
+    minorUnits: _minorUnits,
     ...options
   } = widget.options;
   const y = options.y ?? inferredY(options.x, data);
@@ -60,4 +63,25 @@ export function chartProps(
     }),
   );
   return { options: { ...options, y }, seriesLabels };
+}
+
+/** The rows a chart draws: each `y` value moved from minor units to the amount when the chart sets `minorUnits`. */
+export function chartRows(
+  widget: ChartWidget,
+  data: unknown[],
+  options: ChartWidget["options"],
+): unknown[] {
+  if (widget.kind === "pieChart" || widget.options.minorUnits === undefined) return data;
+  if (!("y" in options) || options.y === undefined) return data;
+  const factor = 10 ** widget.options.minorUnits;
+  const keys = typeof options.y === "string" ? [options.y] : options.y;
+  return data.map((row) => {
+    if (typeof row !== "object" || row === null) return row;
+    const scaled: Record<string, unknown> = { ...row };
+    for (const key of keys) {
+      const value = scaled[key];
+      if (isNumericValue(value)) scaled[key] = Number(value) / factor;
+    }
+    return scaled;
+  });
 }

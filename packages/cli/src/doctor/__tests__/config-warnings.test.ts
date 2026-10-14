@@ -45,6 +45,65 @@ describe("the warnings doctor reads from a project's config", () => {
   });
 });
 
+describe("the audit table probe", () => {
+  const failingWith = (message: string): string =>
+    `export default { warnings: [], auditLog: { list: async () => { throw new Error(${JSON.stringify(message)}); } } };`;
+
+  async function withDatabaseUrl<T>(run: () => Promise<T>): Promise<T> {
+    const saved = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = "postgres://probe.invalid/app";
+    try {
+      return await run();
+    } finally {
+      if (saved === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = saved;
+    }
+  }
+
+  it("names the missing 0.4 columns", async () => {
+    const dir = await project(failingWith('column "scope_key" does not exist'));
+    expect(await withDatabaseUrl(() => readConfigWarnings(dir))).toEqual({
+      warnings: [],
+      auditTable: "columns",
+    });
+  });
+
+  it("names a missing table", async () => {
+    const dir = await project(failingWith('relation "flowpanel_audit_log" does not exist'));
+    expect(await withDatabaseUrl(() => readConfigWarnings(dir))).toEqual({
+      warnings: [],
+      auditTable: "table",
+    });
+  });
+
+  it("names the resources whose table is missing, through the adapter's count", async () => {
+    const dir = await project(`
+      const missing = (ref) => { throw new Error(\`relation "\${ref}" does not exist\`); };
+      export default {
+        warnings: [],
+        adapter: { count: async (ref) => (ref === "users" ? missing(ref) : 3) },
+        resourcesByName: new Map([["users", { ref: "users" }], ["orders", { ref: "orders" }]]),
+      };`);
+    expect(await withDatabaseUrl(() => readConfigWarnings(dir))).toEqual({
+      warnings: [],
+      missingTables: ["users"],
+    });
+  });
+
+  it("judges nothing on another error or without DATABASE_URL", async () => {
+    const offline = await project(failingWith("connect ECONNREFUSED"));
+    expect(await withDatabaseUrl(() => readConfigWarnings(offline))).toEqual({ warnings: [] });
+    const unset = await project(failingWith('column "scope_key" does not exist'));
+    const saved = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    try {
+      expect(await readConfigWarnings(unset)).toEqual({ warnings: [] });
+    } finally {
+      if (saved !== undefined) process.env.DATABASE_URL = saved;
+    }
+  });
+});
+
 describe("printing them", () => {
   it("writes one warning line each and nothing when there are none", () => {
     const written = vi.spyOn(process.stdout, "write").mockImplementation(() => true);

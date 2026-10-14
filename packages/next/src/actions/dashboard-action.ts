@@ -5,7 +5,12 @@ import type {
   IconName,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
-import { dashboardActionAudit } from "@flowpanel/core/internal";
+import {
+  dashboardActionAudit,
+  decodeDashboardPath,
+  encodeDashboardPath,
+} from "@flowpanel/core/internal";
+import { dashboardActionTarget } from "../runtime/action-gate";
 import { notFoundResponse } from "../runtime/action-helpers";
 import { buildHref } from "../runtime/href";
 import { warnOnce } from "../runtime/widget-reads";
@@ -17,6 +22,8 @@ import {
 } from "../runtime/write-pipeline";
 import type { ActionFormField } from "./action-form-field";
 import { serializeActionFormField } from "./serialize-action-field";
+
+export { decodeDashboardPath, encodeDashboardPath };
 
 /** Wire-safe descriptor for a single `form` field on a dashboard action. */
 export type SerializedDashboardActionField = ActionFormField;
@@ -66,22 +73,6 @@ export function warnManyPrimary(actions: SerializedDashboardAction[], where: str
   );
 }
 
-/**
- * URL-safe encoding of a `DashboardConfig.path`. Underscores are escaped
- * before slashes so paths containing literal underscores round-trip.
- */
-export function encodeDashboardPath(path: string): string {
-  if (path === "/" || path === "") return "_root_";
-  const trimmed = path.startsWith("/") ? path.slice(1) : path;
-  return trimmed.replace(/_/g, "_5f").replace(/\//g, "_2f");
-}
-
-/** Reverse of `encodeDashboardPath`. */
-export function decodeDashboardPath(encoded: string): string {
-  if (encoded === "_root_") return "/";
-  return `/${encoded.replace(/_2f/g, "/").replace(/_5f/g, "_")}`;
-}
-
 export function dashboardActionRoute(config: ResolvedAdminConfig) {
   return guardedRoute<
     { dashboard: string; action: string },
@@ -96,7 +87,7 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
       const action = lookupAction(dashboard.actions, params.action);
       if (action instanceof Response) return action;
       return {
-        spec: { pageAccess: dashboard.access, actionAccess: action.access },
+        spec: dashboardActionTarget(dashboard, action),
         target: { path, action },
       };
     },
@@ -111,7 +102,7 @@ export function dashboardActionRoute(config: ResolvedAdminConfig) {
         input,
         (parsed, actionCtx) => action.run(parsed, actionCtx),
         {
-          audit: { ...dashboardActionAudit(action.key), targetId: path },
+          audit: { ...dashboardActionAudit(path, action.key), targetId: path },
           publish: { pathname: buildHref(config, ...segments) },
         },
       );

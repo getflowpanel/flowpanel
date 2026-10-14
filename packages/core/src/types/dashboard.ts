@@ -8,7 +8,15 @@ import type { SelectOption } from "./resource";
 import type { WidgetConfig } from "./widget";
 import type { WidgetContext } from "./widget-context";
 
-export type DateRangePreset = "today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD";
+export type DateRangePreset =
+  | "today"
+  | "yesterday"
+  | "last7d"
+  | "last30d"
+  | "last12m"
+  | "MTD"
+  | "QTD"
+  | "YTD";
 
 /**
  * The sidebar group an entry joins: its label, or `{ label, collapsed: true }` for a

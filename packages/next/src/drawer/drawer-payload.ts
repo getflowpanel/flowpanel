@@ -17,6 +17,7 @@ import { type RecordActions, recordActions } from "../runtime/record-actions";
 import { readRelatedRows } from "../runtime/require-authorized";
 import { singularLabel, singularTitle } from "../runtime/resource-title";
 import { rowKeyOf } from "../runtime/row-identity";
+import { visibleWidgets } from "../runtime/widget-access";
 import { buildWidgetContext } from "../runtime/widget-context";
 import type { SerializedDrawerAction } from "./drawer-action";
 import { prerenderDrawerCells } from "./prerender";
@@ -116,7 +117,7 @@ async function serializeTab(
       resource,
     );
     const widgets: SerializedWidget[] = [];
-    for (const w of tab.widgets) {
+    for (const w of await visibleWidgets(tab.widgets, reqCtx)) {
       widgets.push(await serializeWidget(w, config, reqCtx, widgetCtx));
     }
     return { kind: "widgets", key: tab.key, label: tab.label, widgets };

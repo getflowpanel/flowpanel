@@ -1,11 +1,10 @@
 import type {
-  AccessRule,
   ActionResult,
   AuditEvent,
   RequestContext,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
-import { accessAllows } from "@flowpanel/core";
+import { isAllTenants } from "@flowpanel/core";
 import { emitAudit } from "@flowpanel/core/internal";
 import { accountUser } from "./account-user";
 import { actionFailure } from "./action-failure";
@@ -84,18 +83,6 @@ export function buildActionContext(
   };
 }
 
-/** Keep only the actions whose `access` admits the caller. */
-export async function filterActionsByAccess<Action extends { access?: AccessRule | undefined }>(
-  actions: readonly Action[] | undefined,
-  reqCtx: RequestContext,
-): Promise<Action[]> {
-  const visible: Action[] = [];
-  for (const action of actions ?? []) {
-    if (await accessAllows(action.access, reqCtx)) visible.push(action);
-  }
-  return visible;
-}
-
 type AuditBase = Pick<AuditEvent, "action" | "resource" | "targetId" | "targetIds" | "diff">;
 
 function actorName(config: ResolvedAdminConfig, session: RequestContext["session"]): string | null {
@@ -123,7 +110,7 @@ export function buildAuditEvent(
     ...(base.targetId !== undefined ? { targetId: base.targetId } : {}),
     ...(base.targetIds !== undefined ? { targetIds: base.targetIds } : {}),
     ...(base.diff !== undefined ? { diff: base.diff } : {}),
-    ...(reqCtx.scope ? { scope: reqCtx.scope } : {}),
+    ...(reqCtx.scope && !isAllTenants(reqCtx.scope) ? { scope: reqCtx.scope } : {}),
     ...(reqCtx.ip ? { ip: reqCtx.ip } : {}),
     ...(reqCtx.userAgent ? { userAgent: reqCtx.userAgent } : {}),
   };

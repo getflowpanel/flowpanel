@@ -299,6 +299,40 @@ export function verify(copied = [], entries = []) {
       );
     }
   }
+  problems.push(...browserProblems());
+  return problems;
+}
+
+/** The kit entries a browser loads, besides every `"use client"` module. */
+const BROWSER_ENTRIES = ["client.js", "react.js", "charts.js"];
+
+/** Each Node built-in a browser bundle would reach: from a browser entry or a `"use client"` module, through relative imports. */
+export function browserProblems(dist = DIST) {
+  const builtins = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
+  const code = walk(dist).filter((file) => /\.m?js$/.test(file) && !CJS.test(file));
+  const from = new Map();
+  const queue = code.filter((file) => {
+    if (BROWSER_ENTRIES.includes(posix(relative(dist, file)))) return true;
+    return /["']use client["']/.test(directivePrologue(readFileSync(file, "utf8")));
+  });
+  for (const root of queue) from.set(root, null);
+  const problems = [];
+  for (let index = 0; index < queue.length; index++) {
+    const file = queue[index];
+    for (const { name } of specifiers(readFileSync(file, "utf8"))) {
+      if (builtins.has(name) || name.startsWith("node:")) {
+        const chain = [];
+        for (let at = file; at; at = from.get(at)) chain.unshift(posix(relative(KIT, at)));
+        problems.push(`${chain.join(" → ")}: a browser bundle would import "${name}"`);
+      } else if (name.startsWith(".")) {
+        const target = resolve(dirname(file), name);
+        if (existsSync(target) && !from.has(target)) {
+          from.set(target, file);
+          queue.push(target);
+        }
+      }
+    }
+  }
   return problems;
 }
 

@@ -32,7 +32,7 @@ export function MultiSelectFilter({
 }: MultiSelectFilterProps) {
   const labels = useLabels();
   const { locale } = useFormatting();
-  const placeholder = override ?? labels.allOption;
+  const placeholder = override ?? labels.filters.allOption;
   const id = React.useId();
   const selected = React.useMemo(() => (value ? value.split(",").filter(Boolean) : []), [value]);
   const toggle = (v: string) => {

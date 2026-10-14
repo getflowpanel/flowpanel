@@ -5,6 +5,7 @@ import { useToast } from "../feedback/toast-api";
 import { resolveFieldLabel } from "../lib/humanize";
 import { triggerDownload } from "../lib/trigger-download";
 import { useApiBase } from "../provider/ApiBaseContext";
+import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
 import { Button } from "../ui/button";
 import {
@@ -114,10 +115,16 @@ function attachmentName(res: Response, fallback: string): string {
   return match?.[1] ?? fallback;
 }
 
+/** The capped-export warning, its row count grouped the way the admin's locale writes numbers. */
+export function cappedMessage(template: string, capped: string, locale: string): string {
+  return formatLabel(template, { n: new Intl.NumberFormat(locale).format(Number(capped)) });
+}
+
 function useServerExport(resource: string | undefined, tableLabel: string) {
   const apiBase = useApiBase();
   const toast = useToast();
   const labels = useLabels();
+  const { locale } = useFormatting();
   if (resource === undefined) return null;
   return async (format: ExportFormat) => {
     const params = new URLSearchParams(window.location.search);
@@ -133,7 +140,7 @@ function useServerExport(resource: string | undefined, tableLabel: string) {
         data: await res.blob(),
       });
       const capped = res.headers.get("x-flowpanel-export-capped");
-      if (capped) toast.warning(formatLabel(labels.table.exportCapped, { n: capped }));
+      if (capped) toast.warning(cappedMessage(labels.table.exportCapped, capped, locale));
     } catch {
       toast.error(labels.table.exportFailed);
     }

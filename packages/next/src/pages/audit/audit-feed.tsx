@@ -2,7 +2,6 @@ import type {
   AuditLogEntry,
   ColumnDef,
   ColumnFormat,
-  FieldDef,
   RequestContext,
   ResolvedAdminConfig,
   ResolvedFormatting,
@@ -15,11 +14,18 @@ import { TimeAgo } from "@flowpanel/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
+  type AuditTitles,
+  auditTitles,
+  referenceKey,
+  referencesOf,
+} from "../../runtime/audit-titles";
+import {
   type AuditChange,
   describeAuditAction,
   projectAuditDiff,
   readableDiffFields,
 } from "../../runtime/audit-view";
+import { formFieldsOf } from "../../runtime/form-fields-of";
 import { formatFieldValue } from "../../runtime/format-field-value";
 import { buildHref } from "../../runtime/href";
 import { moneyShape } from "../../runtime/money-field";
@@ -29,6 +35,8 @@ import { singularLabel } from "../../runtime/resource-title";
 interface FieldLook {
   label?: string;
   format?: ColumnFormat;
+  /** The `auditTitles` key of the resource the field points at. */
+  reference?: string;
 }
 
 /** Each field's label and format as the resource's columns and forms declare them; a money field formats as money. */
@@ -39,11 +47,7 @@ function fieldLooks(
 ): Map<string, FieldLook> {
   const looks = new Map<string, FieldLook>();
   const { columns } = config.adapter.introspect(writeTarget(resource));
-  const forms = [
-    ...(resource.options.create?.fields ?? []),
-    ...(resource.options.update?.fields ?? []),
-  ] as FieldDef<Record<string, unknown>>[];
-  for (const field of forms) {
+  for (const field of formFieldsOf(resource)) {
     const name = String(field.name);
     const look: FieldLook = { ...looks.get(name) };
     if (field.label !== undefined) look.label = field.label;
@@ -53,10 +57,13 @@ function fieldLooks(
         columns.find((c) => c.name === name),
         formatting,
       );
-      const scale = shape.storage === "minor" ? 10 ** shape.minorUnits : 1;
-      look.format = { kind: "money", currency: shape.currency, scale };
+      const minorUnits = shape.storage === "minor" ? shape.minorUnits : 0;
+      look.format = { kind: "money", currency: shape.currency, minorUnits };
     }
     looks.set(name, look);
+  }
+  for (const [field, reference] of referencesOf(resource)) {
+    looks.set(field, { ...looks.get(field), reference: referenceKey(reference) });
   }
   for (const column of (resource.options.columns ?? []) as Array<
     string | ColumnDef<Record<string, unknown>>
@@ -85,10 +92,13 @@ function shown(
   look: FieldLook | undefined,
   formatting: ResolvedFormatting,
   empty: string,
+  references: AuditTitles,
 ): ReactNode {
   if (value === null || value === undefined || value === "") {
     return <span className="fp-italic fp-text-faint">{empty}</span>;
   }
+  const title = look?.reference ? references.get(look.reference)?.get(String(value)) : undefined;
+  if (title !== undefined) return title;
   return look?.format !== undefined
     ? renderColumnFormat(look.format, value, formatting)
     : formatFieldValue(value);
@@ -122,6 +132,7 @@ export async function auditFeedItems(
       allowed.set(name, { fields, looks: fieldLooks(config, resource, formatting) });
     }),
   );
+  const titles = await auditTitles(config, reqCtx, entries, linkRecords);
   return entries.map((entry) => {
     const resource = entry.resource ? config.resourcesByName.get(entry.resource) : undefined;
     const access = entry.resource ? allowed.get(entry.resource) : undefined;
@@ -131,7 +142,7 @@ export async function auditFeedItems(
         ? {
             label: formatLabel(labels.record, {
               label: resource ? singularLabel(resource, entry.resource) : entry.resource,
-              id: entry.targetId,
+              id: titles.records.get(entry.resource)?.get(entry.targetId) ?? entry.targetId,
             }),
             href: resource ? buildHref(config, entry.resource, entry.targetId) : null,
           }
@@ -148,8 +159,8 @@ export async function auditFeedItems(
         return {
           field: change.field,
           label: resolveFieldLabel(look?.label, change.field),
-          before: shown(change.before, look, formatting, labels.emptyValue),
-          after: shown(change.after, look, formatting, labels.emptyValue),
+          before: shown(change.before, look, formatting, labels.emptyValue, titles.references),
+          after: shown(change.after, look, formatting, labels.emptyValue, titles.references),
         };
       }),
     };

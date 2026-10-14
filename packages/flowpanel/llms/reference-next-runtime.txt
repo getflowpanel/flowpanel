@@ -147,6 +147,7 @@ All paths are relative to `/api/flowpanel`.
 | `DELETE` | `/<resource>/<id>` | Delete (JSON API) |
 | `GET` | `/drawer/<resource>/<id>` | Drawer payload for one row |
 | `GET` | `/<resource>/reference/<field>` | Options for a reference picker |
+| `GET` | `/palette/search?q=` | ⌘K record search across the resources with `search` fields ([Search](/docs/build/resources#search-filters-and-sorting)) |
 | `GET` | `/export/<resource>?format=csv` | Every row the list would show for its query string, as CSV or JSON ([Import and export](/docs/build/import-export#export)) |
 | `POST` | `/<resource>/create` | Create form submit |
 | `POST` | `/<resource>/<id>/edit` | Edit form submit |
@@ -331,7 +332,7 @@ function makeActions(
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `create` | `(input: unknown) => Promise<unknown>` |  |
+| `create` | `(input: unknown, options?: CreateOptions) => Promise<unknown>` |  |
 | `update` | `(id: string, input: unknown, options?: UpdateOptions) => Promise<unknown>` |  |
 | `delete` | `(id: string) => Promise<void>` |  |
 

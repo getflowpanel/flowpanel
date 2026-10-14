@@ -19,6 +19,7 @@ export interface SmokeResponse {
 export interface SmokeConsoleMessage {
   type(): string;
   text(): string;
+  args?(): ReadonlyArray<{ jsonValue(): Promise<unknown> }>;
 }
 
 export interface SmokeCookie {

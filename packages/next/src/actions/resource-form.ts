@@ -11,6 +11,7 @@ import { moneyDecimals, parseMoney } from "@flowpanel/core/format";
 import { writeTarget } from "@flowpanel/core/internal";
 import { actionFailure } from "../runtime/action-failure";
 import { coerceRowByColumns } from "../runtime/coerce-values";
+import { fieldLabels } from "../runtime/field-labels";
 import { moneyExample, moneyShape } from "../runtime/money-field";
 import {
   type RequestBodyError,
@@ -110,6 +111,7 @@ function coerceFormData(
     raw,
     labels,
     resolveFormatting(config.formatting).timeZone,
+    fieldLabels(resource, declaredFormFields(resource, mode)),
   );
   const values = coerced.values;
   const fieldErrors = { ...coerced.fieldErrors, ...invalidMoney };
@@ -162,11 +164,9 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
       const parsed = await parseFormBody(req, resource, config, "create");
       if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
       try {
-        if (Object.keys(parsed.fieldErrors).length > 0) {
-          throw new FlowpanelValidationError(parsed.fieldErrors);
-        }
         const created = await makeActions(config, resource, { reqCtx, fromForm: true }).create(
           parsed.values,
+          { decodeErrors: parsed.fieldErrors },
         );
         const key =
           created && typeof created === "object"
@@ -191,10 +191,9 @@ export function resourceUpdateRoute(config: ResolvedAdminConfig) {
       const parsed = await parseFormBody(req, resource, config, "update");
       if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
       try {
-        if (Object.keys(parsed.fieldErrors).length > 0) {
-          throw new FlowpanelValidationError(parsed.fieldErrors);
-        }
-        await makeActions(config, resource, { reqCtx, fromForm: true }).update(id, parsed.values);
+        await makeActions(config, resource, { reqCtx, fromForm: true }).update(id, parsed.values, {
+          decodeErrors: parsed.fieldErrors,
+        });
         return Response.json({ ok: true } satisfies FormActionResult);
       } catch (err) {
         return formActionError(err);

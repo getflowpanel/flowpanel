@@ -268,7 +268,7 @@ describe("headerContext", () => {
   it("hands a record header the admin's formatters, strings and links", () => {
     const ctx = headerContext({ formatting: { locale: "ru-RU", timeZone: "UTC" } });
     expect(ctx.format.date(new Date("2026-09-20T10:00:00Z"))).toBe("20.09.2026");
-    expect(ctx.labels.searchPlaceholder).toBe("Поиск: {label}…");
+    expect(ctx.labels.table.searchPlaceholder).toBe("Поиск: {label}…");
     expectTypeOf(ctx).toEqualTypeOf<DetailHeaderContext>();
   });
 });

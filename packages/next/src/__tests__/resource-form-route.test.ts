@@ -135,6 +135,22 @@ describe("a money field", () => {
     });
     expect(captured.value).toBeUndefined();
   });
+
+  it("reports a bad amount together with every other field error", async () => {
+    const required = [
+      { name: "email", label: "Email", required: true },
+      { name: "priceCents", label: "Price", type: "money" },
+    ];
+    const handler = resourceCreateRoute(makeConfig({ createFields: required }));
+    const req = formRequest("http://localhost/x", { email: "", priceCents: "12.345" });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { fieldErrors?: Record<string, string> };
+    expect(body.fieldErrors).toEqual({
+      email: "Email is required",
+      priceCents: "Price has more decimals than its currency keeps. Enter an amount like 12.50",
+    });
+  });
 });
 
 describe("resourceCreateRoute", () => {

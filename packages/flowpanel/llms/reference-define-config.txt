@@ -243,8 +243,12 @@ leaves signed-out visitors unlimited and gets a warning saying so.
 
 ### RealtimeConfig
 
-An alias of `PublisherOptions`. Without it, events reach only the process that
-published them. See [Realtime](/docs/guides/realtime).
+`PublisherOptions` plus `channels`: the channels of your own the stream may
+serve, each with an optional `access` rule and `tenantSafe` flag. The stream
+refuses an undeclared channel, and `defineAdmin` refuses a widget, dashboard or
+list that subscribes to one. Without `realtime`, events reach only the process
+that published them. See [Declare your own channels](/docs/guides/realtime#declare-your-own-channels)
+and [Publisher](/docs/reference/scope-realtime#publisher).
 
 ### LabelsConfig
 
@@ -298,17 +302,14 @@ keeps English under a Russian locale.
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `noResults?` | `string` | Empty list state — used when a resource list returns 0 rows. |
-| `allOption?` | `string` | Empty filter / select dropdown — the "any/all" sentinel. |
 | `navigation?` | `{ /** The breadcrumb trail above a page heading. */ breadcrumb?: string; /** The tab row of queue boards. */ queueBoards?: string; /** A queue board frame. Use `{label}` for the queue. */ queueBoard?: string; /** The region toasts appear in. */ notifications?: string; /** A toast's close button. */ closeNotification?: string; skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; scrollHint?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; /** The menu holding the nav tabs that do not fit. */ more?: string; }` |  |
 | `table?` | `TableLabels` |  |
-| `dateRange?` | `{ /** Locale for calendar presentation; identical during SSR and hydration. */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
+| `dateRange?` | `{ /** Locale for calendar presentation; identical during SSR and hydration. */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; last12m?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
 | `savedViews?` | `{ save?: string; saveTrigger?: string; name?: string; current?: string; label?: string; yours?: string; saveCurrent?: string; saved?: string; deleted?: string; delete?: string; storageError?: string; }` |  |
 | `pagination?` | `{ label?: string; previous?: string; next?: string; of?: string; rowsPerPage?: string; /** Accessible page button name. Use `{n}` for the page number. */ page?: string; /** Page-size option. Use `{n}` for the row count. */ pageSize?: string; }` | Pagination chrome. |
-| `filters?` | `{ /** A tag filter's example input. */ tagsPlaceholder?: string; /** A number range filter's lower bound. */ min?: string; max?: string; /** Empties the list search. */ clearSearch?: string; label?: string; clear?: string; yes?: string; no?: string; searchPlaceholder?: string; /** The phone button that opens the filters. Use `{n}` for the active ones; `open` when none are. */ open?: string; openCount?: string; /** Closes the phone filter sheet. */ done?: string; }` |  |
+| `filters?` | `{ /** A select or boolean filter's "any value" choice. */ allOption?: string; /** A tag filter's example input. */ tagsPlaceholder?: string; /** A number range filter's lower bound. */ min?: string; max?: string; /** Empties the list search. */ clearSearch?: string; label?: string; clear?: string; yes?: string; no?: string; searchPlaceholder?: string; /** The phone button that opens the filters. Use `{n}` for the active ones; `open` when none are. */ open?: string; openCount?: string; /** Closes the phone filter sheet. */ done?: string; }` |  |
 | `bulkBar?` | `{ /** The bulk action toolbar. */ label?: string; /** The bulk action picker before a choice. */ choose?: string; /** Clears the selection. */ clearSelection?: string; /** Use `{n}` for the selection count. Default: `"{n} selected"`. */ selected?: string; clear?: string; }` | Bulk action bar. |
 | `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */ events?: PluralLabel; }` | Count templates per `Intl.PluralRules` category; when set, they win over `table.result`/`results` and `bulkBar.selected`. |
-| `searchPlaceholder?` | `string` | Resource search input placeholder. Use `{label}` for the resource's label. |
 | `actions?` | `{ /** A bulk action's confirm title when it names none. Use `{label}`. */ runConfirm?: string; /** A bulk action that succeeded. Use `{label}` and `{n}`. */ ranOn?: string; /** An action that succeeded without a message of its own. Use `{label}`. */ ran?: string; edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; /** The menu holding a record's actions on its page and in its drawer. */ more?: string; /** A bulk delete that stopped part way. Use `{done}` and `{total}`. */ deletedSome?: string; }` | Generic action buttons. |
 | `form?` | `FormLabels` | Generated create and edit form chrome. |
 | `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; /** A widget kind a drawer does not draw. Use `{kind}`. */ unsupported?: string; /** The dialog's name before the record loads. */ title?: string; /** The record could not be loaded. */ loadFailed?: string; /** The record is gone, or the reader may not see it. */ missing?: string; }` | Drawer chrome. |
@@ -316,7 +317,6 @@ keeps English under a Russian locale.
 | `related?` | `{ /** Link from a related tab to the target resource's own list. */ openList?: string; }` | Related detail-tab chrome. |
 | `notFound?` | `NotFoundLabels` | The admin's own not-found page, for a URL no resource or dashboard matches. |
 | `access?` | `AccessLabels` | The screens shown in place of a page when `auth.signInUrl` or `auth.forbiddenUrl` is not set, or the rate limit refuses it. |
-| `formError?` | `string` | Form-level banner shown when a submit fails with no field errors of its own. |
 | `confirm?` | `{ /** The built-in bulk delete's confirm title. */ deleteSelectedTitle?: string; title?: string; ok?: string; cancel?: string; /** Deleting one record. Use `{label}` for the resource's singular label. */ deleteTitle?: string; /** Under `deleteTitle` when the delete is permanent and `delete.confirm` is not set. */ deleteDescription?: string; /** Under `deleteTitle` when the resource soft-deletes and `delete.confirm` is not set. */ softDeleteDescription?: string; }` | Confirm dialog. |
 | `widget?` | `WidgetLabels` | Dashboard and detail-tab widget chrome. |
 | `timeline?` | `TimelineLabels` | `timeline()` chrome. |
@@ -331,6 +331,9 @@ keeps English under a Russian locale.
 | `audit?` | `AuditLabels` | The record History tab and the Audit log page. |
 
 ### CommandPaletteConfig
+
+Your own commands. The palette also searches records through each resource's
+`search` fields; see [Search, filters and sorting](/docs/build/resources#search-filters-and-sorting).
 
 `CommandPaletteConfig`
 

@@ -220,6 +220,24 @@ try {
   assert.equal(required, "function", "require(@flowpanel/kit/test) has no smokeAdmin");
   console.log("  require @flowpanel/kit/test: smokeAdmin");
 
+  const worker = path.join(full, "cjs-worker");
+  await mkdir(worker);
+  await writeFile(path.join(worker, "package.json"), JSON.stringify({ private: true }));
+  await writeFile(
+    path.join(worker, "admin-events.js"),
+    [
+      'const { createPublisher } = require("@flowpanel/kit/publish");',
+      "const sent = [];",
+      "const client = { publish: async (channel, message) => sent.push([channel, message]), on() {} };",
+      'const events = createPublisher({ redis: client, keyPrefix: "app" });',
+      'events.resource("orders", { id: 1 }).then(() => console.log(JSON.stringify(sent)));',
+      "",
+    ].join("\n"),
+  );
+  const published = JSON.parse(run(process.execPath, ["admin-events.js"], worker).trim());
+  assert.equal(published[0]?.[0], "app:resource.orders", "a CommonJS worker did not publish");
+  console.log("  require @flowpanel/kit/publish from a CommonJS worker: published");
+
   const registry = [
     probeFor(subpaths.map((subpath) => `@flowpanel/kit${subpath.slice(1)}`)),
     'import type { ResourceName } from "@flowpanel/kit";',

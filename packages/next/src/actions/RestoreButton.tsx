@@ -29,7 +29,7 @@ export function RestoreButton({ resource, id, onRestored }: RestoreButtonProps) 
       const result = (await res.json()) as { ok: boolean };
       if (!result.ok) {
         toast.error(
-          readActionFailure(result).message ||
+          readActionFailure(result, labels.errors).message ||
             formatLabel(labels.errors.actionFailed, { label: labels.actions.restore }),
         );
         return;

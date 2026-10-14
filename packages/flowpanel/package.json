@@ -52,8 +52,14 @@
       "import": "./dist/bullmq-board.js"
     },
     "./publish": {
-      "types": "./dist/publish.d.ts",
-      "import": "./dist/publish.js"
+      "import": {
+        "types": "./dist/publish.d.ts",
+        "default": "./dist/publish.js"
+      },
+      "require": {
+        "types": "./dist/core/publish.d.cts",
+        "default": "./dist/core/publish.cjs"
+      }
     },
     "./charts": {
       "types": "./dist/charts.d.ts",
@@ -100,7 +106,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./test ./styles/admin.css ./styles/tailwind.css && attw --pack . --profile node16 --entrypoints ./test",
+    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./test ./styles/admin.css ./styles/tailwind.css && attw --pack . --profile node16 --entrypoints ./test ./publish",
     "lint:publish": "publint --strict",
     "postpack": "node scripts/pack-manifest.mjs restore",
     "prepack": "node scripts/pack-manifest.mjs strip",

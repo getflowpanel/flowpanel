@@ -42,7 +42,7 @@ export function bindFormat(formatting: ResolvedFormatting): WidgetFormat {
     money: (value, options) => {
       if (isMissing(value)) return MISSING;
       const digits = options?.digits ?? 0;
-      const scale = options?.scale && options.scale > 0 ? options.scale : 1;
+      const scale = 10 ** (options?.minorUnits ?? 0);
       return numbers({
         style: "currency",
         currency: options?.currency ?? formatting.currency,

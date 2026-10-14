@@ -3,6 +3,8 @@
   "compilerOptions": {
     "allowJs": false,
     "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
     "noEmit": true,
     "plugins": [],
     "paths": {

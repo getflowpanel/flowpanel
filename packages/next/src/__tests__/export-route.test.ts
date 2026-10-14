@@ -51,7 +51,7 @@ const admin = defineAdmin({
       fieldAccess: { note: { read: "admin" }, apiKey: { sensitive: true } },
       scope: (scope, query: { where(condition: SQL): unknown }) =>
         query.where(eq(customers.tenantId, (scope as { tenantId: string }).tenantId)),
-      export: { formats: ["csv", "json"], maxRows: 3 },
+      export: { formats: ["csv", "json"], maxRows: 3, access: ["admin", "support"] },
     }),
   ],
 });
@@ -112,6 +112,19 @@ describe("the server export", () => {
     expect(audited).toMatchObject([{ action: "customers.export", actorId: "u1" }]);
     expect(audited[0]).not.toHaveProperty("targetId");
     expect((await exported("format=xml")).headers.get("content-type")).toContain("text/csv");
+  });
+});
+
+describe("export.access", () => {
+  it("refuses a role it leaves out, though that role may read the list", async () => {
+    role = "viewer";
+    const before = audited.length;
+    try {
+      expect((await exported("format=csv")).status).toBe(403);
+      expect(audited).toHaveLength(before);
+    } finally {
+      role = "admin";
+    }
   });
 });
 

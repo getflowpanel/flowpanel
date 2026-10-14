@@ -211,6 +211,8 @@ resource(schema.orders, {
 })
 ```
 
+The `search` fields also feed record search in the ⌘K palette. From two typed characters, it searches every resource that has `search` fields and is not `hidden`, through that resource's own list read, so access, scope and field rules apply. It shows up to 5 records per resource, titled by their first two non-empty search fields, and a result opens where the row opens. A resource without `search` is not searched there.
+
 A filter's `defaultValue` applies until the operator changes it; `hidden: true` applies it without a control. A `select` filter on an `enumOf()` column lists the enum's labels. See [Default and hidden filters](/docs/reference/resources#default-and-hidden-filters).
 
 ### Operations
@@ -278,7 +280,7 @@ The form shows `399.99` with the currency's sign beside it, in the admin's decim
 
 `storage` says what the column holds. `"minor"`, the default for an integer column, stores whole minor units. `"major"`, the default for a `numeric`, `decimal` or float column, stores the amount itself, `399.99`. Saving a form without touching a valid amount keeps the stored value exactly. A stored value the currency cannot hold, such as `1999.5` minor units, shows unrounded as `19.995`, and the form will not save until someone corrects it.
 
-A comma works as the decimal separator. Text that is not an amount is rejected with `invalidMoney`, and an amount with more decimals than `minorUnits` with `moneyTooPrecise`. The JSON API takes and returns the column's own value. Pair a minor-unit field with `format: { kind: "money", scale: 100 }` on the column, so the list and record show the same amount.
+A comma works as the decimal separator. Text that is not an amount is rejected with `invalidMoney`, and an amount with more decimals than `minorUnits` with `moneyTooPrecise`. The JSON API takes and returns the column's own value. Pair a minor-unit field with `format: { kind: "money", minorUnits: 2 }` on the column, so the list and record show the same amount, and a range filter on that column takes the same amount.
 
 ### Relation fields
 
@@ -305,7 +307,7 @@ A timestamp column gets a `datetime-local` control that shows the stored time on
 
 #### Rejection messages
 
-A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`, and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`, and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key. A value outside a select's choices or a schema enum reads `invalidOption`, whatever message the enum carries, so it is in the admin's language; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
 
 ### Restrict fields
 
@@ -367,7 +369,7 @@ Actions render as secondary buttons. A dashboard action takes `emphasis: "primar
 
 ### Authorization
 
-The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `hidden` removes an action for a row, and its route rejects that row; `disabled` shows the action with a reason. An action without its own `access` runs under the resource's `update` rule.
+The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `when` offers an action only on the rows it accepts, and its route rejects the others; `disabled` shows the action with a reason. `hidden` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`, so a `when` that reads the posted input decides only on the route. An action without its own `access` runs under the resource's `update` rule.
 
 ### Results
 
@@ -654,6 +656,7 @@ Pass `filters: [marketplace]` to the dashboard, bind `ctx.filters.site` in the s
 - `maxRange`, `freshness` and `coverage` add a caption saying how old or complete the numbers are; see [Captions](/docs/reference/widgets#captions).
 - `refresh: "60s"` re-renders the page on an interval while the tab is visible. `realtime` on a widget re-runs only that widget on an event.
 - Dashboard `actions` appear in the page header.
+- `access: "admin"` on a widget shows it only to that role, so one dashboard can serve admins and support; a refused widget runs no query.
 
 Every option: [Widgets reference](/docs/reference/widgets).
 
@@ -680,7 +683,7 @@ resource(schema.users, {
 
 Export is off until you set `export`. The toolbar's Export asks the server for every row that matches the list's current filters, search and sort, not only the page on screen. The server reads them through the same path as the list: tenant scope, the resource's `read` rule, and only the fields the user may read, so a `sensitive` field or one `fieldAccess.read` hides is left out. Soft-deleted rows are included only when the list shows them, which needs the `update` rule.
 
-The file has the columns in table order, or `fields` in its order. Each entry in `fields` must be a column or in `expose`. CSV cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'` so a spreadsheet does not run them as formulas. Dates are ISO 8601.
+The file has the columns in table order, or `fields` in its order. Each entry in `fields` must be a column or in `expose`. CSV cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'` so a spreadsheet does not run them as formulas; a negative number such as `-123.45` stays as it is. Dates are ISO 8601. A money column that stores minor units, through `minorUnits` on its format or a `money` field, holds the amount in major units as a plain decimal with no currency sign: `5900` cents is `59.00`. Ids, references and enum values stay as stored, so a file imports back as it came out.
 
 The file name says what it holds: `users-all-2026-10-09.csv`, or `users-filtered-2026-10-09.csv` when filters or search narrow the list. An export stops at `maxRows`, 10,000 by default; a capped file is named `users-filtered-first-10000-2026-10-09.csv`, carries the `X-Flowpanel-Export-Capped` header, and the admin tells the user to narrow the filters. Each export records one `<resource>.export` audit event when the download starts, and counts once against `rateLimit`. Rows are ordered by the list's sort with the primary key breaking ties, or by the primary key alone (every column of a composite key), so a file never repeats or skips a row between batches. When the adapter cannot see the key, the export is unordered.
 
@@ -698,9 +701,9 @@ resource(schema.users, {
 })
 ```
 
-Each row goes through the create path: validation, field access, scope, the adapter, audit and realtime. A read-only or role-restricted field in the file is rejected. CSV headers and JSON keys match field names.
+Each row goes through the create path: validation, field access, scope, the adapter, audit and realtime. A read-only or role-restricted field in the file is rejected. CSV headers and JSON keys match field names. A `money` field, or a column whose money format has `minorUnits`, takes the amount in major units, `59.00`, as the export writes it.
 
-Picking a file asks first: "Import customers.csv? 48 rows will be imported." After the import, a file whose rows were all accepted gets a toast. When some rows were refused, a dialog lists each one by its row number with the reason, and **Download failed rows (CSV)** saves those rows with an `error` column to fix and import again. The words come from `labels.importer`.
+Picking a file asks first: "Import customers.csv? 48 rows will be imported." After the import, a file whose rows were all accepted gets a toast. When some rows were refused, a dialog lists each one by its row number with the reason, in the same words as the form, naming each field by its label, and **Download failed rows (CSV)** saves those rows with an `error` column to fix and import again. The words come from `labels.importer`.
 
 Import enforces request and row caps. Rejected rows are reported, and nothing is silently truncated. For a large one-off migration, use a background job instead.
 

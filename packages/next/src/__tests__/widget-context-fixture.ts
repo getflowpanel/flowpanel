@@ -26,6 +26,7 @@ export function fakeWidgetContext(overrides: Partial<WidgetContext> = {}): Widge
   const ctx: WidgetContext = {
     db: {},
     session: null,
+    role: "admin",
     dateRange: {
       from: new Date(0),
       to: new Date(),

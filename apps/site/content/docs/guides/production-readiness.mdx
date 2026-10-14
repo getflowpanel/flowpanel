@@ -18,7 +18,7 @@ Do this review before an admin takes production traffic. FlowPanel runs inside y
 - **Authentication.** Replace any development session with real auth and set `auth.access`. `devAuth()` refuses to start when `NODE_ENV` is `production`. See [Authentication](/docs/guides/authentication).
 - **Roles.** Use resource and action `access` and field rules; the server rejects fields an operation may not write. See [Roles and permissions](/docs/guides/permissions).
 - **Tenants.** Scope every tenant-owned resource. The first-party adapters fail closed when a bound scope does not constrain the query. See [Multi-tenant scope](/docs/guides/multi-tenant-scope).
-- **Client IP.** Set `security.trustedProxies` to the number of proxies that append to `X-Forwarded-For` (`1` on Vercel or behind one nginx). Without it `ctx.ip` is `null` and `rateLimit` with `per: "ip"` puts every caller in one bucket. Never grant access by `ctx.ip`. See [SecurityConfig](/docs/reference/define-config#securityconfig).
+- **Client IP.** Set `security.trustedProxies` to the number of proxies that append to `X-Forwarded-For` (`1` on Vercel or behind one nginx). Without it `ctx.ip` is `null`, and `defineAdmin` refuses `rateLimit` with `per: "ip"` in production; with no proxy in front, use `per: "user"`. Never grant access by `ctx.ip`. See [SecurityConfig](/docs/reference/define-config#securityconfig).
 - **Origins.** Cross-origin writes are blocked by default. Add exact `security.trustedOrigins` only for another frontend that must write. Server-to-server clients without an `Origin` header pass this check, so authenticate them yourself.
 - **Read-only mode.** `readOnly: true` turns off every generated write for a demo, maintenance or an incident.
 
@@ -36,7 +36,7 @@ Run `pnpm flowpanel migrate --dry-run` before applying. On PostgreSQL and SQLite
 
 ## Realtime and queues
 
-Use the Redis driver when more than one process serves the admin, and treat events as refresh signals, not a durable log. Keep the queue board on a protected network with a strong token. See [Realtime](/docs/guides/realtime) and [Queues](/docs/guides/queues).
+Use the Redis driver when more than one process serves the admin, and treat events as refresh signals, not a durable log. Keep the queue board on a protected network, and give `queue()` a strong `boardSecret` that matches the board's `auth.secret`. See [Realtime](/docs/guides/realtime) and [Queues](/docs/guides/queues).
 
 ## Observability
 

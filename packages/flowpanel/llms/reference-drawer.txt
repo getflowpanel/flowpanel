@@ -146,8 +146,7 @@ record page shows. Each runs with the same guards as every action; see
 [DrawerAction](/docs/reference/actions#draweraction). An action the operator cannot
 run, or whose `when` rejects the open row, is left out, and a deleted row offers
 only Restore. `placement: "inline"` keeps an action as a button beside Edit, for
-the one a reviewer clicks on every row. `palette: true` also lists a drawer
-action in ⌘K.
+the one a reviewer clicks on every row.
 
 `DrawerAction`
 
@@ -155,15 +154,17 @@ action in ⌘K.
 | --- | --- | --- |
 | `key` | `string` | Stable identifier, used in the action's URL. |
 | `label` | `string` |  |
-| `variant?` | `"default" \| "destructive"` | `"destructive"` styles the button as dangerous. |
-| `placement?` | `"inline" \| "menu"` | `"inline"`: a button beside Edit instead of an entry in the record's menu. Default: `"menu"`. |
-| `confirm?` | `string` | Ask for confirmation with this message before running. |
-| `form?` | `DrawerFieldFormSpec[]` | Inputs collected before `run`, passed to it as `formData`. |
-| `palette?` | `boolean` | Also offer the action in the command palette. |
-| `access?` | `AccessRule` | Roles allowed to see and execute this action. |
-| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Server-enforced row condition evaluated after the scoped row load. |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `variant?` | `ActionVariant` | Button styling. |
+| `placement?` | `"inline" \| "menu"` | `"inline"` renders a button in the row; `"menu"` puts it in the row menu. |
+| `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
+| `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
+| `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
+| `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
+| `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
+| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `run` | `( row: Row, formData: Record<string, unknown>, ctx: ActionContext<InferDB>, ) => Promise<ActionResult>` | Server-side handler. Runs only after every guard has passed. |
+| `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
 
 ### The payload
 

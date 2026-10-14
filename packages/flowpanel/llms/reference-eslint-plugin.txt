@@ -73,7 +73,7 @@ In a `"use client"` file, flags imports of:
 Flags an `actions` or `bulkActions` entry with `variant: "destructive"` and no
 `confirm`.
 
-```ts
+```ts fragment
 // bad
 actions: [{ key: "delete", label: "Delete", variant: "destructive", run }];
 

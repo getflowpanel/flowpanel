@@ -90,7 +90,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
         )}
       >
         <Empty
-          title={emptyTitle ?? labels.noResults}
+          title={emptyTitle ?? labels.table.noResults}
           {...(emptyDescription ? { description: emptyDescription } : {})}
           {...(emptyAction ? { action: emptyAction } : {})}
           {...(emptyIcon ? { icon: emptyIcon } : {})}
@@ -155,7 +155,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                 ) : null}
                 <div className="fp-min-w-0 fp-flex-1">
                   {titleCol ? (
-                    <div className="fp-truncate fp-text-base fp-font-medium fp-text-ink">
+                    <div className="fp-line-clamp-2 fp-break-words fp-text-base fp-font-medium fp-text-ink">
                       {title}
                     </div>
                   ) : null}
@@ -164,7 +164,10 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                       {restCols.map((c) => (
                         <React.Fragment key={c.field}>
                           <dt className="fp-text-faint">{columnLabel(c)}</dt>
-                          <dd dir="auto" className="fp-min-w-0 fp-truncate fp-text-ink">
+                          <dd
+                            dir="auto"
+                            className="fp-min-w-0 fp-break-words fp-text-ink [&_.fp-truncate]:fp-whitespace-normal"
+                          >
                             {renderCell(c, r, idx, prerenderedCells, colIndex, formatting)}
                           </dd>
                         </React.Fragment>

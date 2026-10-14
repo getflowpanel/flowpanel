@@ -12,7 +12,7 @@ describe("mergeLabels", () => {
     const m = mergeLabels({ actions: { save: "Сохранить" } });
     expect(m.actions.save).toBe("Сохранить");
     expect(m.actions.cancel).toBe("Cancel"); // default preserved
-    expect(m.noResults).toBe("No results");
+    expect(m.table.noResults).toBe("No results");
   });
   it("user template strings replace defaults", () => {
     const m = mergeLabels({ bulkBar: { selected: "{n} выбрано" } });
@@ -27,18 +27,16 @@ describe("mergeLabels", () => {
   });
   it("keeps defaults for explicit undefined and preserves deliberate empty strings", () => {
     const pagination = { next: "Далее" };
-    const config: LabelsConfig = {
-      searchPlaceholder: "",
-      pagination,
-    };
+    const table = { searchPlaceholder: "" };
+    const config: LabelsConfig = { table, pagination };
     // A JavaScript caller is not constrained by exactOptionalPropertyTypes.
-    Object.assign(config, { noResults: undefined });
+    Object.assign(table, { noResults: undefined });
     Object.assign(pagination, { previous: undefined });
     const labels = mergeLabels(config);
-    expect(labels.noResults).toBe(DEFAULT_LABELS.noResults);
+    expect(labels.table.noResults).toBe(DEFAULT_LABELS.table.noResults);
     expect(labels.pagination.previous).toBe(DEFAULT_LABELS.pagination.previous);
     expect(labels.pagination.next).toBe("Далее");
-    expect(labels.searchPlaceholder).toBe("");
+    expect(labels.table.searchPlaceholder).toBe("");
   });
 
   it("merges one tone word without dropping the others", () => {

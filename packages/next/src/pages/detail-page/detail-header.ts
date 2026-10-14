@@ -10,6 +10,7 @@ import type {
 } from "@flowpanel/core";
 import type { ReactNode } from "react";
 import { declaredTitle } from "../../runtime/declared-title";
+import { labelValue } from "../../runtime/record-label";
 import { resolveLink } from "../../runtime/resolve-link";
 import { singularLabel } from "../../runtime/resource-title";
 import { rowKeyOf } from "../../runtime/row-identity";
@@ -21,16 +22,6 @@ export interface RecordHeader {
   title: ReactNode;
   subtitle?: string;
   badges: Pill[];
-}
-
-const LABEL_KEYS = ["name", "title", "email"];
-
-function labelValue(row: Row): string | undefined {
-  for (const key of LABEL_KEYS) {
-    const value = row[key];
-    if (typeof value === "string" && value.trim() !== "") return value;
-  }
-  return undefined;
 }
 
 /** The row's name, title or email, else "Customer · 52": what a record is called when `detail.title` says nothing. */

@@ -28,7 +28,7 @@ export function SelectFilter({
   placeholder: override,
 }: SelectFilterProps) {
   const labels = useLabels();
-  const placeholder = override ?? labels.allOption;
+  const placeholder = override ?? labels.filters.allOption;
   const id = React.useId();
   return (
     <FilterField label={label} htmlFor={id} active={Boolean(value)}>

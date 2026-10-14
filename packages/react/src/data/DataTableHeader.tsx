@@ -8,7 +8,7 @@ import { Checkbox } from "../ui/checkbox";
 import { ColumnPinMenu } from "./ColumnPinMenu";
 import { ColumnResizer } from "./ColumnResizer";
 import { columnLabel } from "./column-label";
-import { columnWidth, ROW_END_WIDTH, SELECTION_WIDTH_PX } from "./column-sizing";
+import { ROW_END_WIDTH, SELECTION_WIDTH_PX } from "./column-sizing";
 import type { DataTableColumn, DataTableSort } from "./data-table-types";
 import { ALIGN_CLASS } from "./format-cell";
 import type { PinMeta } from "./useColumnLayout";
@@ -18,6 +18,8 @@ export interface DataTableHeaderProps<Row> {
   sort?: DataTableSort<Row> | null;
   pinMeta: Map<string, PinMeta>;
   effectiveWidths: Record<string, number>;
+  /** Each column's width. */
+  widths: ReadonlyMap<string, string>;
   leftPins: string[];
   rightPins: string[];
   selectionEnabled: boolean;
@@ -39,6 +41,7 @@ export function DataTableHeader<Row>({
   sort,
   pinMeta,
   effectiveWidths,
+  widths,
   leftPins,
   rightPins,
   selectionEnabled,
@@ -82,7 +85,7 @@ export function DataTableHeader<Row>({
               ? "ascending"
               : "descending"
             : "none";
-          const width = columnWidth(c, effectiveWidths[c.field]);
+          const width = widths.get(c.field);
           const meta = pinMeta.get(c.field) ?? { side: "none" as const, offset: 0 };
           const style: Record<string, string> = {};
           if (width !== undefined) style.width = width;

@@ -20,10 +20,10 @@ export interface WidgetFormat {
   relative(value: MomentInput, now?: Date): string;
   /** A number with the locale's grouping and at most `digits` decimals. */
   number(value: NumberInput, digits?: number): string;
-  /** An amount divided by `scale`, in `currency` (default `formatting.currency`), `digits` decimals (0). */
+  /** An amount, in minor units when `minorUnits` is set, in `currency` (default `formatting.currency`), `digits` decimals (0). */
   money(
     value: NumberInput,
-    options?: { currency?: string; digits?: number; scale?: number },
+    options?: { currency?: string; digits?: number; minorUnits?: number },
   ): string;
   /** A fraction as a percentage — `0.42` is `42%`. */
   percent(value: NumberInput, digits?: number): string;
@@ -83,6 +83,8 @@ export interface WidgetContext<DB = InferDB> {
   /** Your database client, exactly as handed to the adapter. */
   db: DB;
   session: Session | null;
+  /** The signed-in role, as `auth.role` returns it. */
+  role: string;
   /** The picked range, the period before it and the admin's zone, resolved to dates. */
   dateRange: WidgetDateRange;
   /** The dashboard's active filters by key; `{}` on a record page or with none set. Bind them as parameters. */

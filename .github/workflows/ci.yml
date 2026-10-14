@@ -163,6 +163,13 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      # Before the install: pnpm links a workspace bin such as `flowpanel` only when its target in dist exists.
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: packages/*/dist
+          key: dist-${{ github.sha }}
+          fail-on-cache-miss: true
+
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -171,11 +178,6 @@ jobs:
           cache: "pnpm"
 
       - run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0 pnpm install --frozen-lockfile
-
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: packages/*/dist
-          key: dist-${{ github.sha }}
 
       - name: Cache Playwright browsers
         id: pw-cache
@@ -283,12 +285,12 @@ jobs:
       FLOWPANEL_ONBOARDING_DATABASE_URL: postgres://fp:fp@localhost:54330/fp
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - uses: ./.github/actions/setup
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: packages/*/dist
           key: dist-${{ github.sha }}
           fail-on-cache-miss: true
+      - uses: ./.github/actions/setup
       - run: pnpm check:next-onboarding ${{ matrix.package-manager }} ${{ matrix.mode }} ${{ matrix.next }}
 
   # ── Aggregate gate: a single required status for branch protection ───────

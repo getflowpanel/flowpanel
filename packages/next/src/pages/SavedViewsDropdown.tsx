@@ -171,7 +171,7 @@ export function SavedViewsDropdown({ resource, staticViews, defaults }: SavedVie
             {activeView
               ? formatLabel(copy.current, { name: activeView.name })
               : unfiltered
-                ? formatLabel(copy.current, { name: labels.allOption })
+                ? formatLabel(copy.current, { name: labels.filters.allOption })
                 : copy.label}
           </Button>
         </DropdownMenuTrigger>

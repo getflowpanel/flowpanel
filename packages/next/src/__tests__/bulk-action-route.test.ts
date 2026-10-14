@@ -324,7 +324,7 @@ describe("bulkActionRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.ok).toBe(false);
-    expect(body.error).toMatch(/too many ids \(max 1000\)/);
+    expect(body.error).toBe("Select at most 1000 rows.");
     expect(run).not.toHaveBeenCalled();
   });
 

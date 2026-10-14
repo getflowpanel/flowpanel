@@ -136,6 +136,13 @@ export function formatDayValue(
   return formatDateTime(value, formatting.dateLocale, { ...DAY_OPTIONS, timeZone });
 }
 
+/** How many stored units make one shown unit of a money column: `100` for cents, `1` for anything else. */
+export function moneyColumnFactor(format: ColumnFormat | undefined): number {
+  if (typeof format !== "object" || format.kind !== "money") return 1;
+  if (format.minorUnits !== undefined) return 10 ** format.minorUnits;
+  return format.scale && format.scale > 0 ? format.scale : 1;
+}
+
 /**
  * Formats every string-shaped variant of {@link ColumnFormat}, shared by server- and client-rendered cells.
  * The `badge` variant is JSX and stays with each renderer; here it reads as its label.
@@ -169,8 +176,7 @@ export function formatColumnValue(
   if (kind === "number") return numberFmt(locale).format(n);
   if (format === "money") return moneyFmt(locale, currency).format(n);
   if (typeof format === "object" && format.kind === "money") {
-    const scale = format.scale && format.scale > 0 ? format.scale : 1;
-    return moneyFmt(locale, format.currency ?? currency).format(n / scale);
+    return moneyFmt(locale, format.currency ?? currency).format(n / moneyColumnFactor(format));
   }
   return String(value);
 }

@@ -15,7 +15,7 @@ export default defineAdmin({
       columns: ["email", "plan", "status", "mrr", "createdAt"],
       search: ["email"],
       filters: [
-        { field: "plan", type: "select", options: ["free", "pro", "team"] },
+        { field: "plan", type: "select", options: ["free", "starter", "pro", "business"] },
       ],
     }),
   ],

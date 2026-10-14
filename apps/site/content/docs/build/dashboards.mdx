@@ -116,5 +116,6 @@ Pass `filters: [marketplace]` to the dashboard, bind `ctx.filters.site` in the s
 - `maxRange`, `freshness` and `coverage` add a caption saying how old or complete the numbers are; see [Captions](/docs/reference/widgets#captions).
 - `refresh: "60s"` re-renders the page on an interval while the tab is visible. `realtime` on a widget re-runs only that widget on an event.
 - Dashboard `actions` appear in the page header.
+- `access: "admin"` on a widget shows it only to that role, so one dashboard can serve admins and support; a refused widget runs no query.
 
 Every option: [Widgets reference](/docs/reference/widgets).
