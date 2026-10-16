@@ -8,6 +8,7 @@ import type {
 import { declaredListFields, filterShapeProblem } from "@flowpanel/core/internal";
 import { MetricCard } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { inAmount } from "./minor-units";
 import { resolveLink } from "./resolve-link";
 import { valueTone } from "./threshold-tone";
 import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
@@ -99,8 +100,12 @@ export async function renderMetric(
     previousResult(widget, ctx),
     caption,
   ]);
-  const result = asResult(produced);
-  const delta = result.delta ?? queriedDelta ?? comparedDelta(widget, ctx, result, before);
+  const minorUnits = widget.options.minorUnits;
+  const result = inAmount(asResult(produced), minorUnits);
+  const delta =
+    result.delta ??
+    queriedDelta ??
+    comparedDelta(widget, ctx, result, before && inAmount(before, minorUnits));
   const sublabel = result.sublabel ?? widget.options.sublabel;
   const tone = valueTone(result, widget.options);
   if (result.href === undefined) warnOnMismatch(widget, ctx, config);

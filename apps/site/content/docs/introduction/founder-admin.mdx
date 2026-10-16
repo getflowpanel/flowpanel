@@ -247,7 +247,7 @@ pnpm flowpanel new runs --dir src/admin/config/resources
 pnpm flowpanel new invoices --dir src/admin/config/resources --hidden
 ```
 
-Each command reads the table, picks columns by type, and adds the export to `src/admin/config/resources/index.ts`. A foreign key becomes a `reference` labelled by the target's `name`, `title` or `email`, and a picker in the create and edit form, once the target has its own file, which is why `customers` goes first. `--hidden` keeps invoices out of the navigation; they appear on the customer's page.
+Each command reads the table, picks columns by type, and adds the export to `src/admin/config/resources/index.ts`. A foreign key becomes a `reference` labelled by the target's `name`, `title` or `email`, and a picker in the create and edit form, once the target has its own file, which is why `customers` goes first. `--hidden` keeps invoices out of the navigation; they appear on the customer's page. `/admin/invoices` still opens for anyone who may read invoices, so a link from a customer page works; to close it, set `access` on the resource.
 
 The first `new --dir` wired the directory into the config, so `src/admin/config/index.ts` now reads:
 
@@ -449,6 +449,8 @@ export default defineAdmin({
 Each number links to the rows it counted, for the same period, through the `daterange` filter on the counted date that step 4 added. `defineAdmin` names a missing one.
 
 You should see three numbers in one band, each with its change and a link to its rows.
+
+"Today" starts at midnight in `formatting.timeZone`, which is UTC until you set it, so in another zone the band can show yesterday's numbers. Add `formatting: { timeZone: "Europe/Berlin" }`, with your own zone, next to `paths` in the config: "Today", the date filters and every time in the lists then follow your clock.
 
 ## 6. One SQL statement, several widgets
 
@@ -749,12 +751,12 @@ export function CrawlQueue({ waiting, failed }: { waiting: number; failed: numbe
 }
 ```
 
-Its numbers come from your queue. Until you connect one, return zeros:
+Its numbers come from your queue. Until you connect one, return numbers that change on every read, so you can watch the card refresh in step 10:
 
 ```ts
 // src/server/lib/queue.ts
 export async function queueCounts(): Promise<{ waiting: number; failed: number }> {
-  return { waiting: 0, failed: 0 };
+  return { waiting: new Date().getSeconds(), failed: 0 };
 }
 ```
 
@@ -943,7 +945,7 @@ With `pnpm dev` running and the admin open, run the script in a second terminal:
 pnpm tsx --env-file=.env scripts/crawl.ts
 ```
 
-You should see the runs list and the crawl queue card refresh each time the script runs, without a reload. See [Realtime](/docs/guides/realtime#publish-from-a-worker).
+You should see the runs list and the crawl queue card refresh each time the script runs, without a reload: the card's "waiting" number changes, since the stand-in `queueCounts` returns the current second. See [Realtime](/docs/guides/realtime#publish-from-a-worker).
 
 ## 11. Test the admin
 

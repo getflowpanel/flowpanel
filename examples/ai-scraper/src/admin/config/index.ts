@@ -1,4 +1,11 @@
-import { defineAdmin } from "@flowpanel/kit";
+import {
+  DE_LABELS,
+  defineAdmin,
+  ES_LABELS,
+  FR_LABELS,
+  PT_BR_LABELS,
+  type ResolvedLabels,
+} from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { queues } from "@/src/admin/queues";
 import { db } from "@/src/db/client";
@@ -26,11 +33,20 @@ declare module "@flowpanel/kit" {
 }
 
 const sandboxConfig = readSandboxConfig();
+const locale = process.env.DEMO_LOCALE;
+const localeLabels: Record<string, ResolvedLabels> = {
+  "de-DE": DE_LABELS,
+  "fr-FR": FR_LABELS,
+  es: ES_LABELS,
+  "pt-BR": PT_BR_LABELS,
+};
+const labels = locale ? localeLabels[locale] : undefined;
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
   readOnly: sandboxConfig.readOnly,
-  ...(process.env.DEMO_LOCALE ? { formatting: { locale: process.env.DEMO_LOCALE } } : {}),
+  ...(locale ? { formatting: { locale } } : {}),
+  ...(labels ? { labels } : {}),
   scope: ({ session }) => ({ sandboxId: requireSandboxId(session) }),
   realtime: {
     driver: "memory",

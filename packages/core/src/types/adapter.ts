@@ -29,6 +29,8 @@ export interface ColumnMeta {
   generated?: boolean;
   /** The database or ORM fills the column when the insert omits it. */
   hasDefault?: boolean;
+  /** That default when it is a plain value, such as an enum's `"draft"`; a generated create form starts there. */
+  defaultValue?: string | number | boolean;
   /** Adapter-discovered secret. Always excluded from generated read projections. */
   sensitive?: boolean;
 }

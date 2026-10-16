@@ -58,6 +58,7 @@ const testDmmf: PrismaDmmf = {
             isUnique: false,
             isList: false,
             hasDefaultValue: true,
+            default: "USER",
           },
           {
             name: "tags",
@@ -88,6 +89,7 @@ const testDmmf: PrismaDmmf = {
             isUnique: false,
             isList: false,
             hasDefaultValue: true,
+            default: { name: "now", args: [] },
           },
           // relation field — should be skipped
           {
@@ -165,6 +167,12 @@ describe("introspect", () => {
     expect(byName.createdAt?.hasDefault).toBe(true);
     expect(byName.email?.hasDefault).toBe(false);
     expect(byName.tags?.hasDefault).toBe(false);
+  });
+
+  it("reports a plain default value, and no value for a function such as now()", () => {
+    const byName = Object.fromEntries(introspect("User", testDmmf).columns.map((c) => [c.name, c]));
+    expect(byName.role?.defaultValue).toBe("USER");
+    expect(byName.createdAt?.defaultValue).toBeUndefined();
   });
 
   it("throws for an unknown model, including the list of available models", () => {

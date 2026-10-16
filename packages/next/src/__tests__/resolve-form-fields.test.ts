@@ -32,12 +32,28 @@ describe("declaredFormFields", () => {
 
   it("returns create.fields for create mode", () => {
     const r = resourceWith({ columns: [], create: { fields: createFields } });
-    expect(declaredFormFields(r, "create")).toBe(createFields);
+    expect(declaredFormFields(r, "create")).toEqual([{ name: "title", label: "Title" }]);
   });
 
   it("update mode falls back to create.fields when update.fields is omitted", () => {
     const r = resourceWith({ columns: [], create: { fields: createFields } });
-    expect(declaredFormFields(r, "update")).toBe(createFields);
+    expect(declaredFormFields(r, "update")).toEqual([{ name: "title", label: "Title" }]);
+  });
+
+  it("labels a field as its column does when the field sets no label", () => {
+    const r = resourceWith({
+      columns: [{ field: "sku", label: "Article no." }],
+      create: {
+        fields: [
+          { name: "sku" },
+          { name: "customerId", reference: { resource: "customers", labelField: "name" } },
+        ],
+      },
+    });
+    expect(declaredFormFields(r, "create")?.map((f) => f.label)).toEqual([
+      "Article no.",
+      "Customer",
+    ]);
   });
 
   it("update mode prefers its own fields when declared", () => {
@@ -46,7 +62,7 @@ describe("declaredFormFields", () => {
       create: { fields: createFields },
       update: { fields: updateFields },
     });
-    expect(declaredFormFields(r, "update")).toBe(updateFields);
+    expect(declaredFormFields(r, "update")).toEqual([{ name: "status", label: "Status" }]);
   });
 
   it("returns undefined when neither is declared", () => {

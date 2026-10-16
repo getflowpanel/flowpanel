@@ -8,6 +8,7 @@ import type {
 import { mergeLabels, resolveFormatting } from "@flowpanel/core";
 import { RelatedTabTable } from "@flowpanel/next/client";
 import type { ReactNode } from "react";
+import { fieldLabels } from "../../runtime/field-labels";
 import { declaredFieldSet, parsePage } from "../../runtime/parse-list-params";
 import { prerenderResourceCells } from "../../runtime/prerender-cells";
 import { projectRowFields } from "../../runtime/project-row";
@@ -150,7 +151,11 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
     targetCols ?? [],
     rows,
     reqCtx,
-    { metaByField, formatting: resolveFormatting(config.formatting) },
+    {
+      metaByField,
+      formatting: resolveFormatting(config.formatting),
+      labelOf: fieldLabels(target),
+    },
   );
   for (const column of columns) column.sortable = sortable.has(column.field);
   const cells = await withReferenceCells<Row>(

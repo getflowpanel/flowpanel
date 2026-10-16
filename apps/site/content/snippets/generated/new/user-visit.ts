@@ -4,6 +4,7 @@ import * as schema from "@/db/schema";
 const Surface = enumOf(schema.activitySurface.enumValues, { web: "Web", tma: "Tma" });
 
 export const userVisit = resource(schema.userVisit, {
+  plural: "User visits",
   hidden: true,
   columns: [
     "id",

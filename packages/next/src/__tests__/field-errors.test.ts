@@ -36,7 +36,7 @@ describe("what an empty required value says", () => {
 
   it("says the same thing for a missing value as for a cleared one", () => {
     expect(errorsFor({ priceCents: 1, note: "ok" }).email).toBe("Email is required");
-    expect(errorsFor({ email: "a@b.c", note: "ok" }).priceCents).toBe("Price cents is required");
+    expect(errorsFor({ email: "a@b.c", note: "ok" }).priceCents).toBe("Price (cents) is required");
   });
 
   it("asks for an emptied choice instead of listing the options", () => {
@@ -72,7 +72,7 @@ describe("what an empty required value says", () => {
 
   it("says a typed value that is not a number must be one, unless the schema has its own message", () => {
     expect(errorsFor({ email: "a@b.c", priceCents: "abc", note: "ok" }).priceCents).toBe(
-      "Price cents must be a number",
+      "Price (cents) must be a number",
     );
     const authored = z.object({ total: z.number({ message: "Use digits" }) });
     const parsed = authored.safeParse({ total: "abc" });

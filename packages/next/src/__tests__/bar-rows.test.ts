@@ -17,3 +17,15 @@ describe("barRows", () => {
     ]);
   });
 });
+
+describe("barRows in minor units", () => {
+  it("moves each value and its previous one to the amount", async () => {
+    const widget = bars({
+      minorUnits: 2,
+      query: async () => [{ key: "eu", label: "EU", value: 150_000, previous: 100_000 }],
+    });
+    expect(await barRows(widget, fakeWidgetContext())).toEqual([
+      { key: "eu", label: "EU", value: 1500, previous: 1000 },
+    ]);
+  });
+});

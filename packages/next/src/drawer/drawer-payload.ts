@@ -10,6 +10,7 @@ import type {
 } from "@flowpanel/core";
 import { mergeLabels } from "@flowpanel/core";
 import { isColumnDef } from "../runtime/column-defs";
+import { fieldLabels } from "../runtime/field-labels";
 import { buildHref } from "../runtime/href";
 import { projectRowFields } from "../runtime/project-row";
 import { filterColumnsByReadableFields, resolveReadableColumns } from "../runtime/readable-fields";
@@ -36,6 +37,8 @@ export type SerializedDrawerTab =
       resource: string;
       rows: Record<string, unknown>[];
       columns: string[];
+      /** Column → its header, as the related list labels it. */
+      columnLabels: Record<string, string>;
     }
   | {
       kind: "widgets";
@@ -57,7 +60,7 @@ export interface DrawerPayload extends Omit<RecordActions, "drawerActions"> {
   actions: SerializedDrawerAction[];
   /** Field → HTML for fields whose column declares a `render`. */
   prerendered: Record<string, string>;
-  /** Field → column label, so drawer rows read like their table headers. */
+  /** Field → the label it shows on every other surface, so drawer rows read like their table headers. */
   labels: Record<string, string>;
   /** Field → column `format`. Plain data, rendered client-side exactly as the table does. */
   formats: Record<string, ColumnFormat>;
@@ -104,13 +107,13 @@ function buildFieldFormats(columns: ReadonlyArray<unknown>): Record<string, Colu
   return out;
 }
 
-/** Map of field → column `label`, for fields whose column sets one. */
-function buildFieldLabels(columns: ReadonlyArray<unknown>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const col of columns.filter(isColumnDef)) {
-    if (col.field && col.label) out[col.field] = col.label;
-  }
-  return out;
+/** Field → the label it shows everywhere else, for each field the reader may see. */
+function buildFieldLabels(
+  resource: ResourceConfig,
+  row: Record<string, unknown>,
+): Record<string, string> {
+  const labelOf = fieldLabels(resource);
+  return Object.fromEntries(Object.keys(row).map((field) => [field, labelOf(field)]));
 }
 
 async function serializeTab(
@@ -162,6 +165,7 @@ async function serializeTab(
       resource: tab.resource,
       rows: [],
       columns: [],
+      columnLabels: {},
     };
   }
   const readableColumns = await resolveReadableColumns(
@@ -174,13 +178,16 @@ async function serializeTab(
     const col = c as { field?: string };
     return String(col.field ?? "");
   });
+  const shown = columns.filter((c) => c);
+  const labelOf = fieldLabels(target);
   return {
     kind: "resource",
     key: tab.key,
     label: tab.label,
     resource: tab.resource,
     rows,
-    columns: columns.filter((c) => c),
+    columns: shown,
+    columnLabels: Object.fromEntries(shown.map((c) => [c, labelOf(c)])),
   };
 }
 
@@ -195,6 +202,11 @@ export interface DrawerPayloadArgs {
   reqCtx: RequestContext;
   req: Request;
   deleted?: boolean;
+}
+
+function deletedTitle(config: ResolvedAdminConfig, resource: ResourceConfig, name: string): string {
+  const labels = mergeLabels(config.labels);
+  return singularTitle(labels.detail.deleted, resource, name, labels.dateRange.locale);
 }
 
 /** Everything the drawer shows for one row, built from fields the caller may read. */
@@ -258,14 +270,12 @@ export async function buildDrawerPayload({
       projectedRow,
       reqCtx,
     ),
-    labels: buildFieldLabels(columns),
+    labels: buildFieldLabels(resource, projectedRow),
     formats: buildFieldFormats(columns),
     references: await referenceLinks(config, reqCtx, columns, projectedRow),
     detailHref: resource.options.detail ? buildHref(config, name, id) : null,
     deleted,
-    ...(deleted
-      ? { deletedTitle: singularTitle(mergeLabels(config.labels).detail.deleted, resource, name) }
-      : {}),
+    ...(deleted ? { deletedTitle: deletedTitle(config, resource, name) } : {}),
     restorable: deleted && !resource.options.update?.disabled,
     ...menu,
   };

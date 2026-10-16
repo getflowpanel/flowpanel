@@ -42,6 +42,21 @@ resource(schema.people, {
 })
 ```
 
+## Field labels
+
+Label a field once, on a form, record or drawer field or on its column, and every surface uses that label: the filter, forms and their error messages, the drawer, the record page, History and the Audit log, and the headers of a CSV export and import. When several places label the same field, a form field's label wins, then a record field's, then a drawer field's, and a column's label is the fallback. A column's label always names its own list header, so a header such as "Status" over a rendered badge does not rename the field.
+
+```ts
+resource(schema.customers, {
+  columns: [{ field: "email", label: "Contact" }, "name"],
+  create: { fields: [{ name: "email", label: "Work email" }, { name: "name" }] },
+})
+```
+
+Here the list header says "Contact", while the create form, the "is already taken" error, the drawer and the History tab all say "Work email". Without the form's label, they would all say "Contact".
+
+A field nobody labels reads its name: `created_at` reads "Created at", `sku` "SKU", `orderId` "Order ID" and `durationMs` "Duration (ms)". A reference drops its key, so `customerId` reads "Customer", and a money column that stores cents drops the suffix, so `amount_cents` reads "Amount".
+
 ## Search, filters and sorting
 
 Search and filters are off until you name fields. Their values live in the URL with sorting and pagination, so a filtered list is a shareable link.

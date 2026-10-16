@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test:e2e": "playwright test",
+    "test:e2e:demo-de": "playwright test --config playwright.demo-de.config.ts",
     "test:e2e:demo-readonly": "playwright test --config playwright.demo-readonly.config.ts",
     "test:e2e:demo-ru": "playwright test --config playwright.demo-ru.config.ts",
     "test:e2e:presentation": "playwright test --config playwright.presentation.config.ts",

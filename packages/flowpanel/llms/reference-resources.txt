@@ -248,6 +248,10 @@ names the view whose filters, sort and search match the list, counting the
 resource's `defaultSort` and filter defaults, so `?f_status=needs_review` reads
 "View: Needs review".
 
+"Save current view…" keeps a person's own views in their browser's `localStorage`
+under `flowpanel:views:<resource>`, so they stay on that browser and do not follow
+the person to another device. Views every operator should see belong in `views`.
+
 ### ColumnDef
 
 An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
@@ -258,7 +262,7 @@ An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
 | --- | --- | --- |
 | `field?` | `keyof Row & string` | Row property this column reads. Omit only when `render` supplies the cell. |
 | `secondary?` | `keyof Row & string` | Another field of the row, shown as a muted second line under the cell — the email under a name. It is loaded with the row; sort and search still use `field`. Ignored on a `reference` column. |
-| `label?` | `string` | Header text. Defaults to a humanized `field`. |
+| `label?` | `string` | The field's label: this header and its name on every other surface, see [Field labels](https://flowpanel.tech/docs/build/resources#field-labels). Defaults to a humanized `field`. |
 | `render?` | `(row: Row, ctx: RequestContext) => ReactNode` | Custom cell renderer. Runs on the server; receives the request context. |
 | `sortable?` | `boolean` | Allow clicking the header to sort by this column. |
 | `width?` | `number \| string` | Fixed column width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. |
@@ -414,7 +418,7 @@ when both name the same key.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `name` | `keyof Row & string` | Row property this field writes. |
-| `label?` | `string` | Field label. Defaults to a humanized `name`. |
+| `label?` | `string` | Field label, also shown wherever no column labels this field. Defaults to a humanized `name`. |
 | `help?` | `string` | Hint rendered under the control. |
 | `placeholder?` | `string` | Placeholder text for empty inputs. |
 | `type?` | `FieldType` | Which control to render. Omitted, a declared field renders as `"text"` — or `"reference"` when `reference` is set. The adapter's column type is consulted only by a fully generated form, and only maps number, boolean, date and json. |
@@ -427,7 +431,7 @@ when both name the same key.
 | `readOnly?` | `boolean \| ((values: Partial<Row>) => boolean)` | Render non-editable. Enforced server-side, not just in the UI. |
 | `hidden?` | `boolean \| ((values: Partial<Row>) => boolean)` | Leave the field out of the form entirely. |
 | `validate?` | `\| z.ZodTypeAny \| ((value: unknown, values: Partial<Row>) => string \| null \| Promise<string \| null>)` | Per-field validation, run server-side after the resource schema. |
-| `defaultValue?` | `unknown \| ((ctx: QueryContext) => Promise<unknown>)` | Value used when creating, for keys the operator left empty; a visible field also pre-fills with it. The resource's `create.defaultValues` wins for the same key. |
+| `defaultValue?` | `FieldDefaultValue` | Value used when creating, for keys the operator left empty; a visible field also pre-fills with it. The resource's `create.defaultValues` wins for the same key. |
 | `span?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Width in a 12-column form grid. Defaults to full width. |
 | `group?` | `string` | Fieldset heading this field is grouped under. |
 | `render?` | `(row: Row, ctx: RequestContext) => ReactNode \| Promise<ReactNode>` | Detail pages and drawers only: what the field shows instead of its value — a join or a computed label. |

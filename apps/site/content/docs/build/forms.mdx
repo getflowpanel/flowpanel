@@ -7,6 +7,8 @@ metaTitle: Create and edit forms
 
 Create and edit forms are generated from the table. Declare `create.fields` and `update.fields` to choose exactly what each form writes; the server rejects any other field.
 
+A generated form follows the list's columns: a column's `label` names its control, a `reference` column is a picker, and a column whose `format` is money, such as `{ kind: "money", minorUnits: 2 }` on `totalCents`, takes the amount in major units, `74.35`, and stores `7435`. A column the database needs a value for is marked required, a column with a plain default such as an enum's `draft` starts there, and the create form leaves out a record timestamp the database fills, such as `created_at default now()` or `updated_at`. A defaulted date the user sets, such as `due_on default current_date`, stays as an optional field.
+
 ## Declare the fields
 
 ```ts
@@ -65,7 +67,7 @@ The stored value is the target's primary key. The lookup applies the target reso
 
 ## Validation and defaults
 
-The resource schema validates first, then each field's `validate`, a Zod schema or a function returning a message. `required` marks the control required and the server rejects a missing value. A NOT NULL column without `required` is checked too: a create that leaves it empty, or an edit that clears it, fails with its "is required" message.
+The resource schema, `required` and each field's `validate`, a Zod schema or a function returning a message, run in one round, so a submit shows every field's problem at once. A field the schema already refused keeps the schema's message and its `validate` does not run. `required` marks the control required and the server rejects a missing value. A NOT NULL column without `required` is checked too: a create that leaves it empty, or an edit that clears it, fails with its "is required" message.
 
 A timestamp column gets a `datetime-local` control that shows the stored time on the admin's clock, `formatting.timeZone` (UTC when unset), and the server reads the posted time in that zone. Saving without touching it keeps the stored seconds. A `type: "date"` field shows the day.
 
@@ -73,7 +75,7 @@ A timestamp column gets a `datetime-local` control that shows the stored time on
 
 ### Rejection messages
 
-A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`, and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key. A value outside a select's choices or a schema enum reads `invalidOption`, whatever message the enum carries, so it is in the admin's language; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`, and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key. A value outside a select's choices or a schema enum reads `invalidOption`, whatever message the enum carries, so it is in the admin's language; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. The [language presets](/docs/reference/define-config#language-presets) translate the built-in ones, and `{label}` is the field's [one label](/docs/build/resources#field-labels).
 
 ## Restrict fields
 

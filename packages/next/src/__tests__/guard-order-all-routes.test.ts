@@ -129,6 +129,7 @@ describe("every route maps a rate-limit rejection to 429", () => {
       await route.call();
       const res = await route.call();
       expect(res.status).toBe(429);
+      expect(res.headers.get("retry-after")).toBe("60");
     });
   }
 });

@@ -24,6 +24,27 @@ function pick(row: Record<string, unknown>, keys: string[]): Record<string, unkn
   return out;
 }
 
+/** Each cell under its field's name, so a header may be the name, the export's header or the form's label, in any case. */
+function byFieldName(
+  row: Record<string, unknown>,
+  fields: readonly string[],
+  labelsOf: ReadonlyArray<(name: string) => string>,
+): Record<string, unknown> {
+  const fieldOf = new Map<string, string>();
+  const key = (text: string) => text.trim().toLowerCase();
+  for (const labelOf of labelsOf) {
+    for (const field of fields)
+      if (!fieldOf.has(key(labelOf(field)))) fieldOf.set(key(labelOf(field)), field);
+  }
+  for (const field of fields) fieldOf.set(key(field), field);
+  const out: Record<string, unknown> = {};
+  for (const [header, value] of Object.entries(row)) {
+    const field = fieldOf.get(key(header)) ?? header;
+    if (!(field in out) || field === header) out[field] = value;
+  }
+  return out;
+}
+
 class BodyTooLargeError extends Error {}
 
 /** Reads `req`'s body, aborting once `maxBytes` is exceeded — chunked requests have no
@@ -137,6 +158,12 @@ export function importRoute(config: ResolvedAdminConfig) {
       const { columns } = config.adapter.introspect(writeTarget(resource));
       const labels = mergeLabels(config.labels);
       const labelOf = fieldLabels(resource, declaredFormFields(resource, "create"));
+      const named =
+        allowed ??
+        columns
+          .filter((column) => !column.primaryKey && column.writableOnCreate !== false)
+          .map((column) => column.name);
+      const headerLabels = [fieldLabels(resource), labelOf];
       const digits = moneyDigits(config, resource);
       const actions = makeActions(config, resource, { reqCtx, publish: false });
       let imported = 0;
@@ -147,7 +174,8 @@ export function importRoute(config: ResolvedAdminConfig) {
           continue;
         }
         try {
-          const picked = allowed ? pick(rawRow, allowed) : rawRow;
+          const keyed = byFieldName(rawRow, named, headerLabels);
+          const picked = allowed || columns.length > 0 ? pick(keyed, named) : keyed;
           const money = decodeMoneyCells(picked, digits, labelOf, labels);
           const coerced = coerceRowByColumns(columns, money.values, labels, undefined, labelOf);
           await actions.create(coerced.values, {

@@ -49,7 +49,18 @@ Actions render as secondary buttons. A dashboard action takes `emphasis: "primar
 
 ## Authorization
 
-The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `when` offers an action only on the rows it accepts, and its route rejects the others; `disabled` shows the action with a reason. `hidden` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`, so a `when` that reads the posted input decides only on the route. An action without its own `access` runs under the resource's `update` rule.
+The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `when` offers an action only on the rows it accepts, and its route rejects the others. It receives `{ current, input, session, role, scope }`, where `current` is the loaded row:
+
+```ts
+rowAction<{ id: number; status: string }>({
+  key: "escalate",
+  label: "Escalate",
+  when: ({ current }) => current?.status !== "escalated",
+  run: async (row) => ({ ok: true, message: `Escalated ${row.id}` }),
+});
+```
+
+`disabled` shows the action with a reason. `hidden` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`, so a `when` that reads the posted input decides only on the route. An action without its own `access` runs under the resource's `update` rule.
 
 ## Results
 

@@ -5,10 +5,13 @@ import type { A11yViolation, SmokeAdminOptions, SmokeAdminReport } from "./types
 const NAV = "nav[data-flowpanel-nav]";
 const MAIN = "main";
 const ERROR_SURFACE = "[data-fp-error]";
-const ROWS = "main table tbody tr";
+const ROWS = "main table tbody tr[data-fp-row]";
+const CARDS = "main [data-fp-card-link]";
 const DIALOG = '[role="dialog"]';
 const TAB = "[data-fp-tab]";
+const NEXT_ERROR = '[id="__next_error__"]';
 const ACTIVATION_TIMEOUT = 5_000;
+const MAIN_TIMEOUT = 15_000;
 
 /** One axe finding before the walk attributes it to a route. */
 export type A11yFinding = Omit<A11yViolation, "route">;
@@ -79,9 +82,20 @@ async function navRoutes(walk: Walk, resources: string[] | undefined): Promise<s
   return routes;
 }
 
+/** The text of Next's own error document, which replaces the admin when a render throws past every boundary. */
+async function nextErrorText(page: SmokePage): Promise<string | null> {
+  const document = page.locator(NEXT_ERROR).first();
+  if ((await document.count()) === 0) return null;
+  return (await document.innerText()).replace(/\s+/g, " ").trim().slice(0, 300);
+}
+
 async function inspect(walk: Walk, route: string): Promise<void> {
-  walk.report.visited.push(route);
-  await walk.page.locator(MAIN).first().waitFor({ state: "visible" });
+  try {
+    await walk.page.locator(MAIN).first().waitFor({ state: "visible", timeout: MAIN_TIMEOUT });
+  } catch {
+    walk.failures.push(`${route}: rendered no <main> within ${MAIN_TIMEOUT / 1000} s`);
+    return;
+  }
   if ((await walk.page.locator(ERROR_SURFACE).count()) > 0) {
     walk.failures.push(`${route}: rendered a FlowPanel error surface`);
   }
@@ -91,13 +105,20 @@ async function inspect(walk: Walk, route: string): Promise<void> {
 
 async function open(walk: Walk, route: string): Promise<void> {
   const status = (await walk.page.goto(route))?.status();
-  if (status !== undefined && status >= 400) walk.failures.push(`${route}: responded ${status}`);
+  walk.report.visited.push(route);
+  const crash = await nextErrorText(walk.page);
+  const failed = status !== undefined && status >= 400;
+  if (failed || crash !== null) {
+    const what = failed ? `responded ${status}` : "rendered Next's error page instead of the admin";
+    walk.failures.push(`${route}: ${what}${crash ? `: ${crash}` : ""}`);
+  }
+  if (crash !== null || (status !== undefined && status >= 500)) return;
   await inspect(walk, route);
 }
 
-/** A row acts by navigating to its page or by opening the drawer; both count. */
+/** A row opens as a keyboard user opens it, so a link inside one of its cells is never what gets followed. */
 async function activate(walk: Walk, row: SmokeLocator, from: string): Promise<boolean> {
-  await row.click({ timeout: ACTIVATION_TIMEOUT });
+  await row.press("Enter", { timeout: ACTIVATION_TIMEOUT });
   try {
     await walk.page.waitForURL((url) => `${url.pathname}${url.search}` !== from, {
       timeout: ACTIVATION_TIMEOUT,
@@ -123,10 +144,17 @@ async function openTabs(walk: Walk, route: string): Promise<void> {
   for (const key of await tabKeys(walk)) await open(walk, withTab(route, key));
 }
 
+/** The table's rows, or on a phone, where the list is cards, each card's open button. */
+async function listRows(page: SmokePage): Promise<SmokeLocator> {
+  const table = page.locator(ROWS);
+  if ((await table.count()) > 0 && (await table.first().isVisible())) return table;
+  return page.locator(CARDS);
+}
+
 async function openRows(walk: Walk, route: string, maxRows: number): Promise<void> {
   for (let index = 0; index < maxRows; index += 1) {
     if (index > 0) await open(walk, route);
-    const rows = walk.page.locator(ROWS);
+    const rows = await listRows(walk.page);
     if ((await rows.count()) <= index) return;
     if (!(await activate(walk, rows.nth(index), route))) return;
     const record = currentRoute(walk.page);
@@ -144,7 +172,10 @@ export function smokeFailure(report: SmokeAdminReport, failures: string[]): Erro
   const lines = [
     ...failures,
     ...report.consoleErrors.map((text) => `console.error: ${text}`),
-    ...report.a11yViolations.map((v) => `${v.route}: axe ${v.id} (${v.impact ?? "unknown"})`),
+    ...report.a11yViolations.map(
+      (v) =>
+        `${v.route}: axe ${v.id} (${v.impact ?? "unknown"})${v.targets ? ` at ${v.targets.join(", ")}` : ""}`,
+    ),
   ];
   const detail = JSON.stringify(report, null, 2);
   return new Error(

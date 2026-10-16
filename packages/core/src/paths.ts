@@ -14,3 +14,21 @@ export function withDeploymentBasePath(path: string): string {
   if (base === "" || !path.startsWith("/")) return path;
   return `${base}${path}`;
 }
+
+const PROTOCOL_METHODS = Object.freeze([
+  "GET",
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+  "OPTIONS",
+] as const);
+
+/** What a FlowPanel client needs to reach an admin's API: its id, mount points and wire protocol. */
+export function clientMetadata(admin: { id?: string; paths: { admin: string; api: string } }) {
+  return Object.freeze({
+    id: admin.id ?? "local",
+    paths: Object.freeze({ admin: admin.paths.admin, api: admin.paths.api }),
+    protocol: Object.freeze({ version: 1 as const, methods: PROTOCOL_METHODS }),
+  });
+}

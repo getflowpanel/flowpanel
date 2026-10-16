@@ -76,15 +76,18 @@ export function listEmptyProps(
   const action = empty?.action ? (
     linkButton(empty.action.href, empty.action.label)
   ) : creatable ? (
-    <CreateDrawerTrigger label={singularTitle(labels.table.createFirst, resource, name)} />
+    <CreateDrawerTrigger
+      label={singularTitle(labels.table.createFirst, resource, name, labels.dateRange.locale)}
+    />
   ) : null;
   return {
-    emptyTitle: empty?.title ?? fillLabel(labels.table.empty, plural),
+    emptyTitle: empty?.title ?? fillLabel(labels.table.empty, plural, labels.dateRange.locale),
     emptyDescription:
       empty?.description ??
       fillLabel(
         creatable ? labels.table.emptyDescription : labels.table.emptyReadOnlyDescription,
         plural,
+        labels.dateRange.locale,
       ),
     ...(empty?.icon
       ? { emptyIcon: <FlowpanelIcon name={empty.icon} className="fp-h-6 fp-w-6" /> }

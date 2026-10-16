@@ -106,7 +106,7 @@ export interface ColumnDef<Row> {
    * It is loaded with the row; sort and search still use `field`. Ignored on a `reference` column.
    */
   secondary?: keyof Row & string;
-  /** Header text. Defaults to a humanized `field`. */
+  /** The field's label: this header and its name on every other surface, see [Field labels](https://flowpanel.tech/docs/build/resources#field-labels). Defaults to a humanized `field`. */
   label?: string;
   /** Custom cell renderer. Runs on the server; receives the request context. */
   render?: (row: Row, ctx: RequestContext) => ReactNode;
@@ -158,6 +158,17 @@ export interface FilterDef<Row> {
   hidden?: boolean;
 }
 
+/** A form field's starting value, or a function of the request that resolves to one; `ctx` is typed without an annotation. */
+export type FieldDefaultValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | null
+  | undefined
+  | object
+  | ((ctx: QueryContext) => unknown);
+
 export type FieldType =
   | "text"
   | "textarea"
@@ -185,7 +196,7 @@ export type FieldType =
 export interface FieldDef<Row> {
   /** Row property this field writes. */
   name: keyof Row & string;
-  /** Field label. Defaults to a humanized `name`. */
+  /** Field label, also shown wherever no column labels this field. Defaults to a humanized `name`. */
   label?: string;
   /** Hint rendered under the control. */
   help?: string;
@@ -232,7 +243,7 @@ export interface FieldDef<Row> {
    * Value used when creating, for keys the operator left empty; a visible field also pre-fills with it.
    * The resource's `create.defaultValues` wins for the same key.
    */
-  defaultValue?: unknown | ((ctx: QueryContext) => Promise<unknown>);
+  defaultValue?: FieldDefaultValue;
   /** Width in a 12-column form grid. Defaults to full width. */
   span?: 1 | 2 | 3 | 4 | 6 | 12;
   /** Fieldset heading this field is grouped under. */

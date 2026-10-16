@@ -83,7 +83,9 @@ metric("Paid orders", async (ctx) => ({
 <AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="WidgetFormat" />
 
 `ctx.format` formats with the admin's `locale`, `timeZone` and `currency`, the same
-way table cells do.
+way table cells do. Outside a widget, such as in a `page()` component,
+`bindFormat(formatting)` from `@flowpanel/kit` returns the same formatters for a
+`ResolvedFormatting`.
 
 ```ts
 stat("Latency", async (ctx) => {
@@ -248,6 +250,18 @@ percentage of nothing means nothing; 0 both times reads "No change".
 
 ```ts
 metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
+```
+
+A query that sums a cents column returns minor units: set `minorUnits` with
+`format: "currency"` and the card shows the amount, as a chart's `minorUnits` does.
+`stat()` and `bars()` take it too, and `tones` and `max` read the amount shown.
+
+```ts
+metric("Revenue", (ctx) => revenueCents(ctx.db, ctx.dateRange), {
+  format: "currency",
+  minorUnits: 2,
+  compare: true,
+});
 ```
 
 ### MetricResult
@@ -897,3 +911,32 @@ dashboard({
 ### PageConfig
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="PageConfig" />
+
+A page's `component` gets the request as props: who is signed in, their tenant, the
+admin's formatting and its strings. `session` is what `auth.session` returned, the
+same object `access` rules see; with a provider preset that is the provider's own
+session, tokens included. Write the page as a server component and hand its client
+children only the fields they need. A `"use client"` page component gets
+`session: null` and `scope: null`, so neither reaches the browser. A component that throws shows an error card with Retry inside the
+admin, as a widget does, and the rest of the admin keeps working.
+
+```tsx
+// src/admin/pages/reports.tsx
+import { bindFormat, type PageProps } from "@flowpanel/kit";
+
+export function ReportsPage({ role, scope, formatting, searchParams }: PageProps) {
+  const format = bindFormat(formatting);
+  return (
+    <p>
+      {role} sees {String(scope?.orgId ?? "every tenant")} for {searchParams.year ?? "this year"}:{" "}
+      {format.money(1999, { minorUnits: 2 })}
+    </p>
+  );
+}
+```
+
+Register it with `page({ path: "/reports", label: "Reports", component: ReportsPage })`.
+
+### PageProps
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="PageProps" />

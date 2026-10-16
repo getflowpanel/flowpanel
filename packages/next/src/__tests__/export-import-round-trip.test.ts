@@ -25,7 +25,7 @@ const invoices = sqliteTable("invoices", {
 const sqlite = new Database(":memory:");
 afterAll(() => sqlite.close());
 
-function admin(locale = "en-US") {
+function admin(locale = "en-US", numberLabel?: string) {
   return defineAdmin({
     adapter: drizzleAdapter({ db: drizzle(sqlite), schema: { invoices }, dialect: "sqlite" }),
     auth: { session: async () => ({ id: "u1" }), role: () => "admin" },
@@ -33,7 +33,7 @@ function admin(locale = "en-US") {
     resources: [
       resource(invoices, {
         columns: [
-          "number",
+          numberLabel ? { field: "number", label: numberLabel } : "number",
           { field: "status", label: "State" },
           { field: "amountCents", label: "Amount", format: { kind: "money", minorUnits: 2 } },
         ],
@@ -101,16 +101,47 @@ describe("an export file", () => {
     ]);
   });
 
-  it("imports back to the same stored amounts", async () => {
+  it("imports back as it came out, headers and all, to the same stored amounts", async () => {
     for (const format of ["csv", "json"] as const) {
       const file = await exported(format);
       const before = stored();
       sqlite.exec("DELETE FROM invoices");
-      const content =
-        format === "csv" ? file.replace("Number,State,Amount", "number,status,amountCents") : file;
-      expect(await imported(format, content)).toMatchObject({ imported: 2, failed: [] });
+      expect(await imported(format, file)).toMatchObject({ imported: 2, failed: [] });
       expect(stored()).toEqual(before);
     }
+  });
+});
+
+describe("two fields with one label", () => {
+  it("export the later one under its field name, so the file imports back whole", async () => {
+    const twin = admin("en-US", "Amount");
+    const res = await handlers(twin).GET(
+      new Request("http://localhost/api/flowpanel/export/invoices?format=csv", { headers: origin }),
+      route("export", "invoices"),
+    );
+    const file = await res.text();
+    expect(file.split("\r\n")[0]).toBe("Amount,State,amountCents");
+    const before = stored();
+    sqlite.exec("DELETE FROM invoices");
+    const back = await handlers(twin).POST(
+      new Request("http://localhost/api/flowpanel/invoices/import", {
+        method: "POST",
+        headers: { ...origin, "content-type": "application/json" },
+        body: JSON.stringify({ format: "csv", content: file }),
+      }),
+      route("invoices", "import"),
+    );
+    expect(await back.json()).toMatchObject({ imported: 2, failed: [] });
+    expect(stored()).toEqual(before);
+  });
+});
+
+describe("import headers", () => {
+  it("take the field name, the export's header or the form's label, in any case", async () => {
+    sqlite.exec("DELETE FROM invoices");
+    const content = "NUMBER,state,amount\r\nA-9,paid,10.50\r\n";
+    expect(await imported("csv", content)).toMatchObject({ imported: 1, failed: [] });
+    expect(stored()).toEqual([{ number: "A-9", status: "paid", amount_cents: 1050 }]);
   });
 });
 
@@ -184,7 +215,7 @@ describe("a decimal money column without minorUnits", () => {
         headers: { ...origin, "content-type": "application/json" },
         body: JSON.stringify({
           format: "csv",
-          content: file.replace("Name,Balance,Credit", "name,balance,credit"),
+          content: file,
         }),
       }),
       route("accounts", "import"),
@@ -192,6 +223,41 @@ describe("a decimal money column without minorUnits", () => {
     expect(await res.json()).toMatchObject({ imported: 1, failed: [] });
     expect(sqlite.prepare("SELECT name, balance, credit FROM accounts").all()).toEqual([
       { name: "Acme", balance: 1234.56, credit: 10.5 },
+    ]);
+  });
+});
+
+describe("an import with no import.fields", () => {
+  const notes = sqliteTable("notes", {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    body: text("body").notNull(),
+  });
+
+  it("never writes the exported id back into the primary key", async () => {
+    sqlite.exec("DROP TABLE IF EXISTS notes");
+    sqlite.exec("CREATE TABLE notes (id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL)");
+    sqlite.exec("INSERT INTO notes (body) VALUES ('first')");
+    const h = handlers(
+      defineAdmin({
+        adapter: drizzleAdapter({ db: drizzle(sqlite), schema: { notes }, dialect: "sqlite" }),
+        auth: { session: async () => ({ id: "u1" }), role: () => "admin" },
+        resources: [
+          resource(notes, { columns: ["id", "body"], export: { formats: ["csv"] }, import: {} }),
+        ],
+      }),
+    );
+    const res = await h.POST(
+      new Request("http://localhost/api/flowpanel/notes/import", {
+        method: "POST",
+        headers: { ...origin, "content-type": "application/json" },
+        body: JSON.stringify({ format: "csv", content: "ID,Body\r\n1,again\r\n" }),
+      }),
+      route("notes", "import"),
+    );
+    expect(await res.json()).toMatchObject({ imported: 1, failed: [] });
+    expect(sqlite.prepare("SELECT id, body FROM notes ORDER BY id").all()).toEqual([
+      { id: 1, body: "first" },
+      { id: 2, body: "again" },
     ]);
   });
 });

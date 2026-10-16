@@ -183,7 +183,7 @@ What `GET /api/flowpanel/drawer/<resource>/<id>` returns.
 | `tabs` | `SerializedDrawerTab[] \| null` |  |
 | `actions` | `SerializedDrawerAction[]` |  |
 | `prerendered` | `Record<string, string>` | Field → HTML for fields whose column declares a `render`. |
-| `labels` | `Record<string, string>` | Field → column label, so drawer rows read like their table headers. |
+| `labels` | `Record<string, string>` | Field → the label it shows on every other surface, so drawer rows read like their table headers. |
 | `formats` | `Record<string, ColumnFormat>` | Field → column `format`. Plain data, rendered client-side exactly as the table does. |
 | `references` | `Record<string, { label: string; href: string }>` | Field → the record a `reference` column points at, so a drawer opened from a link reads like one opened from its row. |
 | `detailHref` | `string \| null` | The record's own page, when the resource configures `detail`. |

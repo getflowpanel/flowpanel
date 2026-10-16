@@ -1,9 +1,13 @@
-import type { ResolvedAdminConfig, ResolvedLabels, ResourceConfig } from "@flowpanel/core";
+import type {
+  FieldDef,
+  ResolvedAdminConfig,
+  ResolvedLabels,
+  ResourceConfig,
+} from "@flowpanel/core";
 import {
   FlowpanelError,
   FlowpanelValidationError,
   formatLabel,
-  humanize,
   mergeLabels,
   resolveFormatting,
 } from "@flowpanel/core";
@@ -18,12 +22,29 @@ import {
   readRequestFormData,
   requestBodyErrorResponse,
 } from "../runtime/request-body";
-import { declaredFormFields } from "../runtime/resolve-form-fields";
+import { declaredFormFields, generatedFormFields } from "../runtime/resolve-form-fields";
 import { rowKeyOf } from "../runtime/row-identity";
 import { guardedRoute, lookupResource } from "../runtime/write-pipeline";
 import { declaredWriteFields } from "./field-pipeline";
 import { type FormFieldShape, readFormValues } from "./form-values";
 import { type FormActionResult, makeActions } from "./resource-actions";
+
+/** The fields this form declares, or the ones it generates from the columns it may write. */
+function formFieldDefs(
+  resource: ResourceConfig,
+  config: ResolvedAdminConfig,
+  mode: "create" | "update",
+): FieldDef<Record<string, unknown>>[] {
+  const declared = declaredFormFields(resource, mode);
+  if (declared) return declared;
+  const writable = new Set(declaredWriteFields(resource, undefined));
+  const { columns } = config.adapter.introspect(writeTarget(resource));
+  return generatedFormFields(
+    resource,
+    columns.filter((column) => writable.has(column.name)),
+    mode,
+  );
+}
 
 /**
  * The controls this form renders, as the shapes `readFormValues` decodes.
@@ -39,11 +60,14 @@ function renderedFieldShapes(
   const byName = new Map(columns.map((c) => [c.name, c]));
   const formatting = resolveFormatting(config.formatting);
   const declared = declaredFormFields(resource, mode);
-  const writable = new Set(declaredWriteFields(resource, declared));
   if (!declared) {
-    return [...booleanColumns]
-      .filter((name) => writable.has(name))
-      .map((name) => ({ name, type: "boolean" }));
+    return formFieldDefs(resource, config, mode)
+      .filter((f) => f.type === "checkbox" || f.type === "money")
+      .map((f) => ({
+        name: f.name,
+        type: f.type,
+        ...(f.type === "money" ? moneyShape(f, byName.get(f.name), formatting) : {}),
+      }));
   }
   return declared
     .filter((f) => f.hidden === undefined || f.hidden === false)
@@ -66,7 +90,9 @@ function moneyErrors(
   const formatting = resolveFormatting(config.formatting);
   const { columns } = config.adapter.introspect(writeTarget(resource));
   const errors: Record<string, string> = {};
-  for (const field of declaredFormFields(resource, mode) ?? []) {
+  const fields = formFieldDefs(resource, config, mode);
+  const labelOf = fieldLabels(resource, fields);
+  for (const field of fields) {
     if (field.type !== "money") continue;
     const raw = fd.get(field.name);
     if (typeof raw !== "string" || raw.trim() === "") continue;
@@ -82,7 +108,7 @@ function moneyErrors(
         ? labels.form.moneyTooPrecise
         : labels.form.invalidMoney;
     errors[field.name] = formatLabel(message, {
-      label: field.label ?? humanize(field.name),
+      label: labelOf(field.name),
       example: moneyExample(shape, formatting.locale),
     });
     delete values[field.name];

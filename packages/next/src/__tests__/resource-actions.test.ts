@@ -407,7 +407,7 @@ describe("field rules on the write path", () => {
     };
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
-      fieldErrors: { ourPriceCents: "Our price cents is required" },
+      fieldErrors: { ourPriceCents: "Our price (cents) is required" },
     });
   });
 
@@ -570,6 +570,51 @@ describe("required fields on the server", () => {
     await expect(actions.create({ email: "nope" })).rejects.toMatchObject({
       fieldErrors: { email: expect.any(String), name: "Name is required" },
     });
+  });
+
+  it("reports a field's own validate message in the same round as a missing field", async () => {
+    const { config, resource } = withFields([
+      { name: "email", validate: () => "Format: PREFIX-1234" },
+      { name: "name", required: true },
+    ]);
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
+      fieldErrors: { email: "Format: PREFIX-1234", name: "Name is required" },
+    });
+  });
+
+  it("hands validate each field's parsed value even when a sibling field fails the schema", async () => {
+    const seen: unknown[] = [];
+    const { config, resource } = makeConfig({
+      schema: z.object({ code: z.string().trim(), email: z.string().email() }),
+    });
+    (resource.options as { create?: unknown }).create = {
+      fields: [
+        {
+          name: "code",
+          validate: (value: unknown, all: Record<string, unknown>) => {
+            seen.push(value, "email" in all);
+            return null;
+          },
+        },
+        { name: "email" },
+      ],
+    };
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ code: "  AB-1  ", email: "nope" })).rejects.toMatchObject({
+      fieldErrors: { email: expect.any(String) },
+    });
+    expect(seen).toEqual(["AB-1", false]);
+  });
+
+  it("does not run a field's validate on a value the schema already refused", async () => {
+    const validate = vi.fn(() => "never shown");
+    const { config, resource } = withFields([{ name: "email", validate }, { name: "name" }]);
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "nope" })).rejects.toMatchObject({
+      fieldErrors: { email: expect.not.stringMatching(/never shown/) },
+    });
+    expect(validate).not.toHaveBeenCalled();
   });
 
   it("accepts a required field that a defaultValue fills", async () => {

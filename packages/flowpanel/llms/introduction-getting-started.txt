@@ -134,13 +134,15 @@ export default defineAdmin({
 });
 ```
 
-The `declare module` block registers your database, your schema and your session type, so resource names, rows and the `s` in `auth.role` are typed. If your auth module already exports `getSession`, the config imports it and `role` is a longer guard that reads `user.role` defensively. When `init` finds better-auth, Auth.js, Clerk or Lucia, `auth` is `flowpanelAuth` from `server/lib/flowpanel-session.ts` instead, and that module registers the session.
+Dates, "Today" and the date filters use `formatting.timeZone`, which is UTC until you set it. Add `formatting: { timeZone: "Europe/Berlin" }`, with your own zone, to `defineAdmin` so the admin follows your clock.
+
+The `declare module` block registers your database, your schema and your session type, so resource names, rows and the `s` in `auth.role` are typed. If your auth module already exports `getSession`, the config imports it and `role` is a longer guard that reads `user.role` defensively. When `init` finds better-auth, Auth.js, Clerk or Lucia, `auth` is `flowpanelAuth` from `flowpanel-session.ts` beside your auth module, such as `lib/flowpanel-session.ts`, and that module registers the session.
 
 ### Connect auth
 
 `access: "admin"` lets in only sessions whose role is `admin`, so the admin needs your session.
 
-- With a detected provider, `server/lib/flowpanel-session.ts` holds the matching preset, which reads the role from `session.user.role`. Make sure your user's session carries the `admin` role.
+- With a detected provider, `flowpanel-session.ts` beside your auth module holds the matching preset, which reads the role from `session.user.role`. Make sure your user's session carries the `admin` role.
 - With your own `getSession`, the config uses it as it is.
 - Otherwise `server/lib/auth.ts` exports a `getSession` that returns `null`, so every request is denied. Return your session from it, or run `pnpm flowpanel init --dev-auth` for a development identity that refuses to run in production.
 
@@ -205,7 +207,7 @@ Paths start with `src/` in a `src/app` project.
 | File | Purpose |
 | --- | --- |
 | `flowpanel.config.ts` | Resources, dashboards, auth, scope, realtime and theme |
-| `server/lib/flowpanel-session.ts` | With a detected auth provider: its preset, your session and role |
+| `flowpanel-session.ts` beside your auth module | With a detected auth provider: its preset, your session and role |
 | `server/lib/auth.ts` | With no provider and no `getSession`: a stub that denies every request |
 | `app/admin/[[...slug]]/page.tsx` | Catch-all admin page; exports `generateMetadata` |
 | `app/admin/layout.tsx` | Imports the stylesheet and the theme script |

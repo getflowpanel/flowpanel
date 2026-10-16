@@ -12,6 +12,7 @@ import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
 import type { CardDate } from "@flowpanel/react";
 import { barRows } from "../runtime/bar-rows";
 import { type ListCardData, listCardData } from "../runtime/list-card-data";
+import { inAmount } from "../runtime/minor-units";
 import { realtimeProp } from "../runtime/realtime-channels";
 import { type LinkedRow, linkRows, resolveLink } from "../runtime/resolve-link";
 import { statDisplay } from "../runtime/stat-result";
@@ -91,7 +92,7 @@ export async function serializeCardWidget(
   });
   switch (w.kind) {
     case "stat": {
-      const result = await resolveItem(w.value, ctx, reqCtx);
+      const result = inAmount(await resolveItem(w.value, ctx, reqCtx), w.options.minorUnits);
       const hint = result.hint ?? w.options.hint;
       const href = resolveLink(config, ctx, result.href ?? w.options.href);
       const tone =

@@ -4,10 +4,11 @@ import {
   type FlowpanelError,
   FlowpanelValidationError,
   formatLabel,
-  humanize,
   mergeLabels,
 } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
+import { fieldLabels } from "./field-labels";
+import { declaredFormFields } from "./resolve-form-fields";
 
 type ViolationKind = "unique" | "reference" | "inUse" | "notNull";
 
@@ -152,7 +153,8 @@ export function explainConstraint(
   if (kind === "inUse") return new FlowpanelConflictError(labels.inUse);
   const columns = config.adapter.introspect(writeTarget(resource)).columns.map((c) => c.name);
   const field = fieldFor(violation, columns);
-  if (field === undefined) {
+  const policy = field === undefined ? undefined : resource.options.fieldAccess?.[field];
+  if (field === undefined || policy?.read !== undefined || policy?.sensitive === true) {
     if (kind === "notNull") return null;
     return new FlowpanelConflictError(kind === "unique" ? labels.conflict : labels.missingLink);
   }
@@ -163,7 +165,12 @@ export function explainConstraint(
         ? labels.missingReference
         : labels.required;
   return new FlowpanelValidationError({
-    [field]: formatLabel(template, { label: humanize(field) }),
+    [field]: formatLabel(template, {
+      label: fieldLabels(
+        resource,
+        declaredFormFields(resource, operation === "create" ? "create" : "update"),
+      )(field),
+    }),
   });
 }
 

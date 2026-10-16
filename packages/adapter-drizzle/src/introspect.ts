@@ -27,6 +27,7 @@ export function introspect(table: unknown): ResourceIntrospection {
       generated: raw.generated !== undefined,
       hasDefault: raw.hasDefault === true || raw.default !== undefined,
     };
+    if (isLiteral(raw.default)) meta.defaultValue = raw.default;
     if (raw.enumValues) meta.enumValues = raw.enumValues;
     if (meta.type === "number") meta.integer = isInteger(raw);
     if (raw.primary) primaryKey = name;
@@ -43,6 +44,10 @@ export function introspect(table: unknown): ResourceIntrospection {
   });
   memo.set(table as object, result);
   return result;
+}
+
+function isLiteral(value: unknown): value is string | number | boolean {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
 
 const EXTRA_CONFIG_BUILDER = Symbol.for("drizzle:ExtraConfigBuilder");

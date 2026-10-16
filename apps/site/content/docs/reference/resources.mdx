@@ -209,6 +209,10 @@ names the view whose filters, sort and search match the list, counting the
 resource's `defaultSort` and filter defaults, so `?f_status=needs_review` reads
 "View: Needs review".
 
+"Save current view…" keeps a person's own views in their browser's `localStorage`
+under `flowpanel:views:<resource>`, so they stay on that browser and do not follow
+the person to another device. Views every operator should see belong in `views`.
+
 ## ColumnDef
 
 An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.

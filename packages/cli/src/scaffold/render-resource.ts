@@ -1,3 +1,4 @@
+import { humanize, humanizeReference } from "@flowpanel/core/labels";
 import type { ColumnDescription, TableDescription } from "./describe-schema";
 
 export type ColumnKind = "skip" | "timestamp" | "date" | "boolean" | "enum" | "money" | "plain";
@@ -32,38 +33,19 @@ const pascal = (key: string): string => `${key.charAt(0).toUpperCase()}${key.sli
 const property = (value: string): string =>
   /^[A-Za-z_$][\w$]*$/.test(value) ? value : JSON.stringify(value);
 
-/** `past_due` → `Past due`, a readable stand-in label until the user picks their own. */
-function humanizeEnumValue(value: string): string {
-  const [head, ...rest] = value.replace(/[_-]+/g, " ").trim().split(/\s+/);
-  if (!head) return value;
-  return [
-    `${head.charAt(0).toUpperCase()}${head.slice(1).toLowerCase()}`,
-    ...rest.map((w) => w.toLowerCase()),
-  ].join(" ");
-}
-
 function entries(values: readonly string[]): string {
-  const rendered = values.map(
-    (value) => `${property(value)}: ${JSON.stringify(humanizeEnumValue(value))}`,
-  );
+  const rendered = values.map((value) => `${property(value)}: ${JSON.stringify(humanize(value))}`);
   const oneLine = `{ ${rendered.join(", ")} }`;
   if (oneLine.length <= 80) return oneLine;
   return `{\n  ${rendered.join(",\n  ")},\n}`;
-}
-
-/** `userId` → `User`: a foreign key's header names the record, not its key. */
-function referenceLabel(key: string): string | null {
-  const base = key.replace(/(?:_id|Id|ID)$/, "");
-  if (base === key || base === "") return null;
-  return humanizeEnumValue(base.replace(/([a-z0-9])([A-Z])/g, "$1 $2"));
 }
 
 function columnSource(column: ColumnDescription, kind: ColumnKind, enumConsts: boolean): string {
   const field = JSON.stringify(column.key);
   if (column.references) {
     const { table, labelField } = column.references;
-    const label = referenceLabel(column.key);
-    return `{ field: ${field}, ${label ? `label: ${JSON.stringify(label)}, ` : ""}reference: { resource: ${JSON.stringify(table)}, labelField: ${JSON.stringify(labelField)} } }`;
+    const label = humanizeReference(column.key);
+    return `{ field: ${field}, label: ${JSON.stringify(label)}, reference: { resource: ${JSON.stringify(table)}, labelField: ${JSON.stringify(labelField)} } }`;
   }
   if (kind === "timestamp") return `{ field: ${field}, format: { kind: "date", time: true } }`;
   if (kind === "date") return `{ field: ${field}, format: { kind: "date", calendarDay: true } }`;
@@ -81,6 +63,41 @@ export interface RenderOptions {
   schemaImport: string;
 }
 
+const UNCOUNTED = new Set([
+  "analytics",
+  "audit",
+  "billing",
+  "data",
+  "feedback",
+  "history",
+  "info",
+  "inventory",
+  "media",
+  "metadata",
+  "news",
+  "series",
+  "settings",
+  "species",
+  "staff",
+  "usage",
+]);
+
+/** `user` → `Users`: a singular table's plural navigation label, which `humanize` would leave singular. */
+export function scaffoldPlural(tableName: string): string | null {
+  const words = tableName
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .split(/[\s_-]+/)
+    .filter(Boolean);
+  const last = words.pop()?.toLowerCase();
+  if (!last || last.endsWith("s") || UNCOUNTED.has(last)) return null;
+  const plural = /[^aeiou]y$/.test(last)
+    ? `${last.slice(0, -1)}ies`
+    : /(?:x|z|ch|sh)$/.test(last)
+      ? `${last}es`
+      : `${last}s`;
+  return humanize([...words, plural].join(" "));
+}
+
 interface Planned {
   kept: Array<{ column: ColumnDescription; kind: ColumnKind }>;
   enums: Array<{ column: ColumnDescription; kind: ColumnKind }>;
@@ -96,7 +113,7 @@ function plan(table: TableDescription): Planned {
 /** The option lines of a scaffolded `resource(...)` call, indented two spaces. */
 function optionLines(
   { kept, enums }: Planned,
-  options: { hidden: boolean; enumConsts: boolean; name?: string },
+  options: { hidden: boolean; enumConsts: boolean; name?: string; plural?: string | null },
 ): string[] {
   const search = kept
     .filter(({ column }) => SEARCH_KEYS.includes(column.key) && column.dataType === "string")
@@ -107,6 +124,7 @@ function optionLines(
     kept.find(({ kind }) => kind === "timestamp");
   const lines: string[] = [];
   if (options.name !== undefined) lines.push(`  name: ${JSON.stringify(options.name)},`);
+  if (options.plural) lines.push(`  plural: ${JSON.stringify(options.plural)},`);
   if (options.hidden) lines.push("  hidden: true,");
   lines.push("  columns: [");
   for (const { column, kind } of kept) {
@@ -134,7 +152,11 @@ export function renderResourceEntry(
 ): string {
   return [
     `resource(${ref}, {`,
-    ...optionLines(plan(table), { ...options, enumConsts: false }),
+    ...optionLines(plan(table), {
+      ...options,
+      enumConsts: false,
+      plural: scaffoldPlural(options.name ?? table.tableName),
+    }),
     "})",
   ].join("\n");
 }
@@ -156,7 +178,13 @@ export function renderResourceFile(table: TableDescription, options: RenderOptio
   }
   if (planned.enums.length > 0) lines.push("");
   lines.push(`export const ${table.exportName} = resource(schema.${table.exportName}, {`);
-  lines.push(...optionLines(planned, { hidden: options.hidden, enumConsts: true }));
+  lines.push(
+    ...optionLines(planned, {
+      hidden: options.hidden,
+      enumConsts: true,
+      plural: scaffoldPlural(table.tableName),
+    }),
+  );
   lines.push("});", "");
   return lines.join("\n");
 }

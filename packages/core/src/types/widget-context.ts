@@ -20,7 +20,7 @@ export interface WidgetFormat {
   relative(value: MomentInput, now?: Date): string;
   /** A number with the locale's grouping and at most `digits` decimals. */
   number(value: NumberInput, digits?: number): string;
-  /** An amount, in minor units when `minorUnits` is set, in `currency` (default `formatting.currency`), `digits` decimals (0). */
+  /** An amount, in minor units when `minorUnits` is set, in `currency` (default `formatting.currency`). `digits` defaults to 0 for a whole amount, else to `minorUnits` or the currency's own: `1999` with `minorUnits: 2` and `19.99` are both `€19.99`. */
   money(
     value: NumberInput,
     options?: { currency?: string; digits?: number; minorUnits?: number },

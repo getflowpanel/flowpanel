@@ -35,7 +35,16 @@ export async function barRows(widget: BarsWidget, ctx: WidgetContext): Promise<B
   const [rows, before] = await Promise.all([widget.options.query(ctx), comparedRows(widget, ctx)]);
   const joined = before === null ? rows : joinPrevious(rows, before);
   const tones = widget.options.tones;
-  return joined.map((row) => {
+  const scale = 10 ** (widget.options.minorUnits ?? 0);
+  return joined.map((stored) => {
+    const row =
+      scale === 1
+        ? stored
+        : {
+            ...stored,
+            value: stored.value / scale,
+            ...(stored.previous === undefined ? {} : { previous: stored.previous / scale }),
+          };
     const tone = row.tone ?? thresholdTone(row.value, tones, undefined, widget.options.goodWhen);
     return named(tone ? { ...row, tone } : row, ctx);
   });

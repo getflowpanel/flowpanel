@@ -1,4 +1,5 @@
 import type { FlowpanelResult, ListResult } from "@flowpanel/core";
+import { clientMetadata as protocolMetadata } from "@flowpanel/core/paths";
 import {
   type FlowpanelClient,
   type FlowpanelClientMetadata,
@@ -10,6 +11,18 @@ import {
 
 export interface CreateFlowpanelClientOptions {
   fetch?: typeof globalThis.fetch;
+  /** The app's origin, plus its `basePath` if it has one, for a client outside the browser: `"http://localhost:3000"`. */
+  baseUrl?: string;
+  /** Sent with every request under each call's own headers, such as a session `cookie` from a script. */
+  headers?: HeadersInit;
+}
+
+/** The metadata `createFlowpanelClient` takes, from a `defineAdmin` result, for a script or test that cannot use `createFlowpanel(config).client`. */
+export function clientMetadata(admin: {
+  id?: string;
+  paths: { admin: string; api: string };
+}): FlowpanelClientMetadata {
+  return protocolMetadata(admin);
 }
 
 function safeSegment(value: string): string {
@@ -54,6 +67,7 @@ export function createFlowpanelClient(
     throw new Error(`Unsupported Flowpanel protocol version: ${metadata.protocol.version}`);
   }
   const fetcher = options.fetch ?? globalThis.fetch;
+  const base = `${(options.baseUrl ?? "").replace(/\/+$/, "")}${metadata.paths.api}`;
 
   async function request<T>(
     path: string,
@@ -62,7 +76,8 @@ export function createFlowpanelClient(
   ): Promise<FlowpanelResult<T>> {
     let response: Response;
     try {
-      const headers = new Headers(requestOptions.headers);
+      const headers = new Headers(options.headers);
+      for (const [name, value] of new Headers(requestOptions.headers)) headers.set(name, value);
       if (init.body !== undefined) headers.set("content-type", "application/json");
       const fetchInit: RequestInit = {
         ...init,
@@ -70,7 +85,7 @@ export function createFlowpanelClient(
         headers,
         ...(requestOptions.signal ? { signal: requestOptions.signal } : {}),
       };
-      response = await fetcher(`${metadata.paths.api}/${path}`, fetchInit);
+      response = await fetcher(`${base}/${path}`, fetchInit);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") throw error;
       return internal("Unable to reach Flowpanel.") as FlowpanelResult<T>;

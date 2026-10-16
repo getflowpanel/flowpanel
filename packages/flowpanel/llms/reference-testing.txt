@@ -32,7 +32,10 @@ test("the admin is healthy", async ({ page }) => {
 ```
 
 The walk starts at `paths.admin`, opens every dashboard and list in the navigation,
-then opens each list's first row as its record page or drawer. On a record page it
+then opens each list's first row as its record page or drawer. It opens a row with
+Enter, as a keyboard user does, so a reference link inside one of its cells is
+never what it follows; at a phone width, where the list is cards, it opens each
+card's own button. On a record page it
 opens every other tab as `?tab=<key>` (`tabs: false` skips them), so a failure
 names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its first tab.
 
@@ -40,15 +43,29 @@ names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its
 
 | Assertion | How it fails |
 | --- | --- |
-| Every navigation answers below 400 | `<route>: responded 500` |
+| Every navigation answers below 400 | `<route>: responded 500: <the error page's text>` |
+| No render crashed past the admin into Next's error page | `<route>: rendered Next's error page instead of the admin: <its text>` |
+| Every page shows its `main` within 15 seconds | `<route>: rendered no <main> within 15 s` |
 | Nothing wrote to `console.error` | `console.error: <text>` |
 | No page rendered `[data-fp-error]` | `<route>: rendered a FlowPanel error surface` |
-| Zero WCAG 2.2 AA violations, with `a11y` | `<route>: axe <rule> (<impact>)` |
+| Zero WCAG 2.2 AA violations, with `a11y` | `<route>: axe <rule> (<impact>) at <selectors>` |
 | The navigation has at least one route | `smokeAdmin found no navigation under <paths.admin> …` |
 
 `[data-fp-error]` marks FlowPanel's error cards: a failed widget, a failed read, a
-failed drawer. A walk that finds no routes fails. Pages count as loaded when `main`
-is visible, since realtime pages never reach network idle.
+failed drawer, a `page()` that threw. A walk that finds no routes fails. Pages count
+as loaded when `main` is visible, since realtime pages never reach network idle. A
+route that answers 500 or shows Next's error page fails at once, with the page's text
+and, in development, the server's error among the console errors, instead of waiting
+for the test's timeout.
+
+The accessibility scan leaves out iframes. A `queue()` page embeds bull-board, whose
+markup is not the admin's to fix, so an admin with queues passes `a11y: true` on its
+own pages. Check the board separately if it matters to you.
+
+`smokeAdmin` opens pages and rows; it submits no forms. A test of your own that submits an invalid form sees the browser log `Failed to load resource: … 422` for the rejected request. That line comes from the browser, not from the admin, so filter it out when you assert a clean console after a submit.
+
+`smokeAdmin` uses the page's viewport. To check the phone layout too, call it again
+after `page.setViewportSize({ width: 390, height: 844 })`.
 
 ### Options and report
 
@@ -59,7 +76,7 @@ is visible, since realtime pages never reach network idle.
 | `paths?` | `{ admin?: string }` | Where the admin is mounted: the config's `paths.admin`. Default: `"/admin"`. |
 | `cookie?` | `{ name: string; value: string; domain?: string }` | Session cookie added before the walk, for an admin behind authentication. |
 | `resources?` | `string[]` | Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. |
-| `a11y?` | `boolean` | Run axe against every visited route. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package. Default: `false`. |
+| `a11y?` | `boolean` | Run axe against every visited route, leaving out iframes such as a queue's bull-board. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package. Default: `false`. |
 | `maxRows?` | `number` | How many rows of each list the walk opens. Default: `1`. |
 | `tabs?` | `boolean` | On each record page, open every other detail tab as `?tab=<key>` and check it the same way. Default: `true`. |
 
@@ -78,6 +95,7 @@ is visible, since realtime pages never reach network idle.
 | `route` | `string` |  |
 | `id` | `string` |  |
 | `impact?` | `string` |  |
+| `targets?` | `string[]` | CSS selectors of the first few failing elements, as axe reports them. |
 
 `smokeAdmin` resolves with the report, or throws an `Error` listing each problem
 and the report as JSON.

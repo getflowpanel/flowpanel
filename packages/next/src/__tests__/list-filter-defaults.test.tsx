@@ -29,7 +29,9 @@ import { ResourceListPage } from "../pages/resource-list";
 import { ResourceListFilters as FilterRow } from "../pages/resource-list-filters";
 import { findAll } from "./detail-fixture";
 
-let seen: Record<string, unknown> = {};
+let seen: Record<string, unknown> | null = null;
+let rowsInTable = 3;
+let counted: Record<string, unknown> | null = null;
 
 const adapter = {
   kind: "drizzle",
@@ -47,8 +49,10 @@ const adapter = {
   }),
   inferSchema: () => ({}) as never,
   list: async (_ref: unknown, ctx: ListQueryContext<unknown>) => {
-    // Rows exist beyond the defaults, so an empty default view still reads as filtered.
-    if (ctx.select?.length === 0) return { rows: [], total: 4, page: 1, pageSize: 1 };
+    if (ctx.select?.length === 0) {
+      counted = ctx.filters as Record<string, unknown>;
+      return { rows: [], total: rowsInTable, page: 1, pageSize: 1 };
+    }
     seen = ctx.filters as Record<string, unknown>;
     return { rows: [], total: 0, page: ctx.page, pageSize: ctx.pageSize };
   },
@@ -84,7 +88,7 @@ const config = defineAdmin({
 });
 
 async function page(query: string) {
-  seen = {};
+  seen = null;
   const users = config.resourcesByName.get("users");
   if (!users) throw new Error("users is not registered");
   const tree = await ResourceListPage({
@@ -106,6 +110,7 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   nav.search = "";
+  rowsInTable = 3;
 });
 
 describe("a list filter's defaultValue", () => {
@@ -125,13 +130,14 @@ describe("a list filter's defaultValue", () => {
   });
 
   it("serves the list API the same effective filters", async () => {
-    seen = {};
+    seen = null;
     const get = (query: string) =>
       handlers(config).GET(new Request(`http://localhost/api/flowpanel/users${query}`), {
         params: Promise.resolve({ route: ["users"] }),
       });
     await get("");
     expect(seen).toEqual({ isTest: "false", role: "user" });
+    seen = null;
     await get("?filter.isTest=");
     expect(seen).toEqual({ role: "user" });
   });
@@ -154,6 +160,23 @@ describe("a list filter's defaultValue", () => {
     };
     expect(table.emptyTitle).toBe("Nothing matches the current filters.");
     expect(hrefOf(table.emptyAction)).toBe("/admin/users?sort=email%3Aasc&f_isTest=");
+  });
+});
+
+describe("an empty table under default filters", () => {
+  it("shows the true empty state, not a filtered one, when the table has no rows at all", async () => {
+    rowsInTable = 0;
+    const table = findAll(await page(""), DataTableWithDrawerRows)[0] as { emptyTitle?: string };
+    expect(table.emptyTitle).toBe("No users");
+    expect(counted).toEqual({ role: "user" });
+  });
+
+  it("still says the filters hide rows when the operator set them", async () => {
+    rowsInTable = 0;
+    const table = findAll(await page("f_plan=pro"), DataTableWithDrawerRows)[0] as {
+      emptyTitle?: string;
+    };
+    expect(table.emptyTitle).toBe("Nothing matches the current filters.");
   });
 });
 

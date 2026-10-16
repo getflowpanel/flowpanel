@@ -15,6 +15,7 @@ import type { ChecklistLabels, HeatmapLabels, TimelineLabels, WidgetLabels } fro
  * @example { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записи" }
  */
 export interface PluralLabel {
+  /** Its locale's `zero` category, and also any count of exactly 0: "Nenhum resultado". */
   zero?: string;
   one?: string;
   two?: string;
@@ -55,7 +56,7 @@ export interface LabelsConfig {
   };
   table?: TableLabels;
   dateRange?: {
-    /** Locale for calendar presentation; identical during SSR and hydration. */
+    /** The labels' language: the calendar's locale, and whether a label mid-sentence keeps its capital (German does). */
     locale?: string;
     label?: string;
     fieldLabel?: string;

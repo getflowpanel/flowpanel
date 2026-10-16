@@ -72,6 +72,7 @@ export declare function revenueSeries(
 ): Promise<Array<{ day: string; subscriptions: number; "one-off": number }>>;
 export declare function countPaid(db: Db, range: WidgetDateRange): Promise<number>;
 export declare function countSignups(db: Db, range: WidgetDateRange): Promise<number>;
+export declare function revenueCents(db: Db, range: WidgetDateRange): Promise<number>;
 export declare function countTrials(db: Db): Promise<number>;
 export declare function balance(db: Db): Promise<number>;
 export declare function latencyStages(

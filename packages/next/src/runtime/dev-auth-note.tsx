@@ -5,9 +5,9 @@ const AUTH_GUIDE_URL = "https://flowpanel.tech/docs/guides/authentication";
 /** What to do about a request with no session: sign in through the preset's provider, or wire `auth.session`. */
 export function devAuthNote(provider?: string): string {
   if (provider) {
-    return `Development note: \`auth.session\` returned no session for this request, so nobody is signed in to ${provider} in this browser. Sign in through your app, then reload this page.`;
+    return `Development note: \`auth.session\` returned no session for this request, so nobody is signed in to ${provider} in this browser. Sign in through your app, then reload this page. Set \`auth.signInUrl\` to send signed-out visitors to your sign-in page instead of this screen.`;
   }
-  return `Development note: \`auth.session\` returned no session for this request. Have \`auth.session\` in \`flowpanel.config.ts\` return your provider's session, or run \`${cliCommand("init --dev-auth")}\` to replace the stub \`init\` wrote with an open development identity.`;
+  return `Development note: \`auth.session\` returned no session for this request. Have \`auth.session\` in \`flowpanel.config.ts\` return your provider's session, or run \`${cliCommand("init --dev-auth")}\` to replace the stub \`init\` wrote with an open development identity. Set \`auth.signInUrl\` to send signed-out visitors to your sign-in page instead of this screen.`;
 }
 
 let warned = false;

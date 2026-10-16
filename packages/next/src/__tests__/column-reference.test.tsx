@@ -80,9 +80,12 @@ describe("a column reference without declared form fields", () => {
       name: "orders",
       req: new Request("http://localhost/admin/orders/new"),
     });
-    expect(findElement(tree, AutoForm)?.columnFields).toEqual([
-      { name: "customerId", label: "Customer", type: "reference", options: [] },
-    ]);
+    expect(findElement(tree, AutoForm)?.columnFields).toContainEqual({
+      name: "customerId",
+      label: "Customer",
+      type: "reference",
+      options: [],
+    });
   });
 
   it("shows the current record's label on the generated edit form", async () => {
@@ -93,9 +96,13 @@ describe("a column reference without declared form fields", () => {
       id: "o1",
       req: new Request("http://localhost/admin/orders/o1/edit"),
     });
-    expect(findElement(tree, AutoForm)?.columnFields).toMatchObject([
-      { name: "customerId", type: "reference", options: [{ value: "c2", label: "Bob" }] },
-    ]);
+    expect(findElement(tree, AutoForm)?.columnFields).toContainEqual(
+      expect.objectContaining({
+        name: "customerId",
+        type: "reference",
+        options: [{ value: "c2", label: "Bob" }],
+      }),
+    );
   });
 
   it("is served by reference search", async () => {

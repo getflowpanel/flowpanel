@@ -47,6 +47,13 @@ describe("introspect(drizzle pg table)", () => {
     expect(byName.name?.hasDefault).toBe(false);
   });
 
+  it("reports a plain default value, and none for an SQL default such as now()", () => {
+    const byName = Object.fromEntries(introspect(users).columns.map((c) => [c.name, c]));
+    expect(byName.role?.defaultValue).toBe("user");
+    expect(byName.active?.defaultValue).toBe(true);
+    expect(byName.createdAt?.defaultValue).toBeUndefined();
+  });
+
   it("memoizes per table ref: a repeated call does not re-scan the columns", () => {
     const other = pgTable("other", { id: uuid("id").primaryKey() });
 

@@ -1,8 +1,6 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import {
   assertResourceScope,
-  DEFAULT_LABELS,
-  formatLabel,
   mergeLabels,
   resolveFormatting,
   resolveOperationAccess,
@@ -18,6 +16,7 @@ import {
 import { FilterSheet, PageHeader } from "@flowpanel/react";
 import { exportTarget, targetAllows } from "../runtime/action-gate";
 import { DEFAULT_RESOURCE_PAGE_SIZE } from "../runtime/defaults";
+import { fieldLabels } from "../runtime/field-labels";
 import { listRequestFromParams } from "../runtime/list-request";
 import { listRows } from "../runtime/list-rows";
 import { resourceNavName } from "../runtime/nav";
@@ -27,12 +26,12 @@ import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAccessIfSet } from "../runtime/require-access";
 import { resolveReferences } from "../runtime/resolve-references";
-import { labelInSentence, pluralLabel, singularLabel } from "../runtime/resource-title";
+import { fillLabel, labelInSentence, pluralLabel, singularLabel } from "../runtime/resource-title";
 import { detailRowHrefs, resolveRowClick } from "../runtime/row-click";
 import { rowIdentity, rowKeyOf } from "../runtime/row-identity";
 import { wireViews } from "../runtime/saved-views";
 import { resolveResourceListActions } from "./resource-list-actions";
-import { buildResourceListCreateAction } from "./resource-list-create-action";
+import { buildResourceListCreateAction, mayCreate } from "./resource-list-create-action";
 import { listEmptyProps } from "./resource-list-empty";
 
 export interface ResourceListPageProps {
@@ -90,6 +89,7 @@ export async function ResourceListPage({
   const { surface: readable, filterSpecs, filters, sort } = listing;
   const effectiveSearch = listing.search;
   const timeZone = resolveFormatting(config.formatting).timeZone;
+  const labels = mergeLabels(config.labels);
 
   const displayPlural = pluralLabel(resource, name);
   const createAction = await buildResourceListCreateAction({ config, resource, name, reqCtx });
@@ -100,13 +100,11 @@ export async function ResourceListPage({
       <div className="fp-mb-4 fp-flex fp-flex-wrap fp-items-start fp-gap-2">
         {readable.searchFields.length > 0 ? (
           <ResourceListSearch
-            placeholder={
-              config.labels?.table?.searchPlaceholder === undefined
-                ? formatLabel(DEFAULT_LABELS.table.searchPlaceholder, {
-                    label: labelInSentence(displayPlural),
-                  })
-                : formatLabel(config.labels.table.searchPlaceholder, { label: displayPlural })
-            }
+            placeholder={fillLabel(
+              labels.table.searchPlaceholder,
+              displayPlural,
+              labels.dateRange.locale,
+            )}
           />
         ) : null}
         <FilterSheet active={Object.keys(filters).length + (listing.query.includeDeleted ? 1 : 0)}>
@@ -156,7 +154,12 @@ export async function ResourceListPage({
     columnDefs,
     clientRows,
     reqCtx,
-    { defaultSortable: true, metaByField, formatting: resolveFormatting(config.formatting) },
+    {
+      defaultSortable: true,
+      metaByField,
+      formatting: resolveFormatting(config.formatting),
+      labelOf: fieldLabels(resource),
+    },
   );
 
   const cellsWithRefs = applyReferenceCells(
@@ -215,9 +218,14 @@ export async function ResourceListPage({
     clientRows,
     rowKey,
     reqCtx,
-    mergeLabels(config.labels),
+    labels,
     new Set(deletedRowKeys),
   );
+  const importOptions = resource.options.import;
+  const importable =
+    importOptions && (await mayCreate(config, resource, reqCtx))
+      ? { resource: name, formats: importOptions.formats ?? ["csv", "json"] }
+      : undefined;
   const createdRowKeyParam = searchParams.get("fp_created");
   const createdRowKey =
     createdRowKeyParam && createdRowKeyParam.length <= 512 ? createdRowKeyParam : undefined;
@@ -234,18 +242,11 @@ export async function ResourceListPage({
         pageSize={result.pageSize}
         pageSizeOptions={pageSizeOptions}
         rowKey={rowKey as keyof Row & string}
-        rowLabel={labelInSentence(singularLabel(resource, name))}
+        rowLabel={labelInSentence(singularLabel(resource, name), labels.dateRange.locale)}
         {...(createdRowKey ? { enteringRowKeys: [createdRowKey], createdRowKey } : {})}
         {...(resource.options.density ? { density: resource.options.density } : {})}
         {...(exportable ? { exportable } : {})}
-        {...(resource.options.import
-          ? {
-              importable: {
-                resource: name,
-                formats: resource.options.import.formats ?? ["csv", "json"],
-              },
-            }
-          : {})}
+        {...(importable ? { importable } : {})}
         {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
         {...(cellsWithRefs ? { prerenderedCells: cellsWithRefs } : {})}
         {...(rowActions.length > 0 ? { rowActions } : {})}

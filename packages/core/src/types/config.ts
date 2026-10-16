@@ -33,7 +33,7 @@ export interface AuthConfig {
   access?: AccessRule;
   /** Where to send an unauthenticated visitor. Without it they get an inline notice. */
   signInUrl?: string;
-  /** Where to send a signed-in visitor who lacks the role. */
+  /** Where to send a signed-in visitor `access` keeps out of the whole admin; a page one role may not open shows its own screen. */
   forbiddenUrl?: string;
   /** Extracts the actor id for audit rows and per-user rate limiting. */
   userId?: (session: Session | null) => string | null;

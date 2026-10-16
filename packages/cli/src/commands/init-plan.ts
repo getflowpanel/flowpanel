@@ -29,6 +29,9 @@ import {
 
 const MIGRATION_FILE = "flowpanel/migrations/0001_init.sql";
 
+const HEADER_HINT = (layout: string) =>
+  `${layout} renders a <header> above every page. The admin's sidebar fills the window's height, so under that header each page scrolls by the header's height. Set shell: "tabs" in flowpanel.config.ts to put the admin's navigation under your header instead.`;
+
 export interface InitPlan {
   plan: FilesystemPlan;
   adminPath: string;
@@ -226,6 +229,10 @@ export async function planInit(
   let manualHydrationFix: string | null = null;
   if (hostLayout) {
     const source = await fs.readFile(path.join(cwd, hostLayout), "utf8");
+    if (/<header[\s>]/.test(source)) {
+      warnings.push(HEADER_HINT(hostLayout));
+      run.ui.info(HEADER_HINT(hostLayout));
+    }
     const patched = patchLayoutWithSuppressHydration(source);
     if (patched) {
       files[hostLayout] = patched;

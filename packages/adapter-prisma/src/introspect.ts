@@ -10,6 +10,8 @@ export interface PrismaDmmfField {
   isList: boolean;
   /** Set for `@default(...)`, including `autoincrement()`, `uuid()`, `cuid()` and `now()`. */
   hasDefaultValue: boolean;
+  /** The `@default(...)` value: a plain value, or a function such as `{ name: "now", args: [] }`. */
+  default?: unknown;
   /** Set for `@updatedAt`; Prisma fills the value on every write. */
   isUpdatedAt?: boolean;
   isGenerated?: boolean;
@@ -75,6 +77,14 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
     };
 
     if (meta.type === "number") meta.integer = field.type === "Int" || field.type === "BigInt";
+    const literal = field.default;
+    if (
+      typeof literal === "string" ||
+      typeof literal === "number" ||
+      typeof literal === "boolean"
+    ) {
+      meta.defaultValue = literal;
+    }
 
     if (field.kind === "enum") {
       const enumDef = dmmf.datamodel.enums.find((e) => e.name === field.type);

@@ -4,12 +4,12 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { humanize, reportUnexpectedError } from "@flowpanel/core";
-import { csvLine } from "@flowpanel/core/internal";
+import { reportUnexpectedError, resolveFormatting } from "@flowpanel/core";
+import { csvLine, dayKeyIn } from "@flowpanel/core/internal";
 import { actionFailure } from "../runtime/action-failure";
 import { exportTarget } from "../runtime/action-gate";
 import { actorIdFromSession, buildAuditEvent, maybeEmitAudit } from "../runtime/action-helpers";
-import { columnDefs } from "../runtime/column-defs";
+import { fieldLabels } from "../runtime/field-labels";
 import { listRequestFromParams } from "../runtime/list-request";
 import { type ListRowsPage, type ListRowsQuery, listRows } from "../runtime/list-rows";
 import { majorAmount, moneyDigits } from "../runtime/money-field";
@@ -24,13 +24,16 @@ const BATCH = 500;
 type Format = "csv" | "json";
 type Row = Record<string, unknown>;
 
-/** Header text per field: the column's label, else the field humanized. */
-function headers(resource: ResourceConfig, fields: readonly string[]): string[] {
-  const labels = new Map<string, string>();
-  for (const column of columnDefs(resource)) {
-    if (column.field && column.label) labels.set(column.field, column.label);
-  }
-  return fields.map((field) => labels.get(field) ?? humanize(field));
+/** Header text per field: its label, or its name where an earlier column has that label; import reads it back. */
+function exportHeaders(resource: ResourceConfig, fields: readonly string[]): string[] {
+  const labelOf = fieldLabels(resource);
+  const seen = new Set<string>();
+  return fields.map((field) => {
+    const label = labelOf(field);
+    const header = seen.has(label.toLowerCase()) ? field : label;
+    seen.add(header.toLowerCase());
+    return header;
+  });
 }
 
 /** The columns, in table order, unless `export.fields` names its own. */
@@ -54,12 +57,13 @@ function fileName(
   capped: number | null,
   format: Format,
   now: Date,
+  timeZone: string,
 ): string {
   const parts = [
     name,
     filtered ? "filtered" : "all",
     ...(capped === null ? [] : [`first-${capped}`]),
-    now.toISOString().slice(0, 10),
+    dayKeyIn(now, timeZone),
   ];
   return `${parts.join("-").replace(/[^A-Za-z0-9._-]+/g, "-")}.${format}`;
 }
@@ -169,7 +173,9 @@ export function exportRoute(config: ResolvedAdminConfig) {
       const body = new ReadableStream<Uint8Array>({
         start(controller) {
           controller.enqueue(
-            encoder.encode(format === "csv" ? `${csvLine(headers(resource, fields))}\r\n` : "["),
+            encoder.encode(
+              format === "csv" ? `${csvLine(exportHeaders(resource, fields))}\r\n` : "[",
+            ),
           );
         },
         async pull(controller) {
@@ -203,7 +209,7 @@ export function exportRoute(config: ResolvedAdminConfig) {
         headers: {
           "content-type":
             format === "csv" ? "text/csv; charset=utf-8" : "application/json; charset=utf-8",
-          "content-disposition": `attachment; filename="${fileName(name, filtered, capped, format, new Date())}"`,
+          "content-disposition": `attachment; filename="${fileName(name, filtered, capped, format, new Date(), resolveFormatting(config.formatting).timeZone)}"`,
           "cache-control": "no-store",
           ...(capped === null ? {} : { "x-flowpanel-export-capped": String(capped) }),
         },

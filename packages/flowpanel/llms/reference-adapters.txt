@@ -93,7 +93,9 @@ async function sql<Row>(strings: TemplateStringsArray, ...values: unknown[]) {
 }
 ```
 
-`sanitizeSqlParams` binds a `Date` as ISO-8601 text and a `bigint` as decimal text.
+`sanitizeSqlParams` binds a `Date` as ISO-8601 text and a `bigint` as decimal text,
+as the Drizzle adapter does; the Prisma adapter hands both to `$queryRaw` as they are,
+so Prisma binds a timestamp and a bigint.
 `parseSqlRows` reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s, unless
 `{ parseDates: false }`.
 
@@ -136,6 +138,7 @@ Returned by `introspect`. `kind: "view"` makes a resource read-only unless it se
 | `writableOnUpdate?` | `boolean` | Whether update input may contain this column. |
 | `generated?` | `boolean` | Database-computed column that must not be accepted as input. |
 | `hasDefault?` | `boolean` | The database or ORM fills the column when the insert omits it. |
+| `defaultValue?` | `string \| number \| boolean` | That default when it is a plain value, such as an enum's `"draft"`; a generated create form starts there. |
 | `sensitive?` | `boolean` | Adapter-discovered secret. Always excluded from generated read projections. |
 
 `type` and `enumValues` drive a fully generated form (no `create.fields` or

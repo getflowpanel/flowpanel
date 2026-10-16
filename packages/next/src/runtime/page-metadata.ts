@@ -62,11 +62,11 @@ async function titleFor(
   if (extra.length > 0 || (rest !== undefined && rest !== "edit")) return labels.notFound.title;
   if (id === "new" && !rest) {
     if (!(await allowedForCaller(resource, "create", reqCtx))) return undefined;
-    return singularTitle(labels.form.createTitle, resource, name);
+    return singularTitle(labels.form.createTitle, resource, name, labels.dateRange.locale);
   }
   if (rest === "edit") {
     if (!(await allowedForCaller(resource, "update", reqCtx))) return undefined;
-    return singularTitle(labels.form.editTitle, resource, name);
+    return singularTitle(labels.form.editTitle, resource, name, labels.dateRange.locale);
   }
   return (await recordTitle(config, resource, name, id, reqCtx)) ?? labels.notFound.title;
 }

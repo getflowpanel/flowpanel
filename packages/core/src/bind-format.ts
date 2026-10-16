@@ -41,14 +41,17 @@ export function bindFormat(formatting: ResolvedFormatting): WidgetFormat {
         : numbers(digits === undefined ? {} : { maximumFractionDigits: digits }).format(value),
     money: (value, options) => {
       if (isMissing(value)) return MISSING;
-      const digits = options?.digits ?? 0;
-      const scale = 10 ** (options?.minorUnits ?? 0);
+      const minorUnits = options?.minorUnits ?? 0;
+      const amount = value / 10 ** minorUnits;
+      const digits =
+        options?.digits ?? (Number.isInteger(amount) ? 0 : minorUnits > 0 ? minorUnits : undefined);
       return numbers({
         style: "currency",
         currency: options?.currency ?? formatting.currency,
-        minimumFractionDigits: digits,
-        maximumFractionDigits: digits,
-      }).format(value / scale);
+        ...(digits === undefined
+          ? {}
+          : { minimumFractionDigits: digits, maximumFractionDigits: digits }),
+      }).format(amount);
     },
     percent: (value, digits) =>
       isMissing(value) ? MISSING : formatPercentValue(value, formatting, digits),

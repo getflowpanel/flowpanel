@@ -50,6 +50,8 @@ export interface PrerenderOptions {
   metaByField?: ReadonlyMap<string, ColumnMeta>;
   /** The admin's locale and zone, so a number or date is measured as the cell shows it. */
   formatting?: ResolvedFormatting;
+  /** The label a field shows on every surface, for a column that sets none. */
+  labelOf?: (field: string) => string;
 }
 
 /** Synthetic column key for a field-less `render` column, stable across renders. */
@@ -113,6 +115,7 @@ export function prerenderResourceCells<Row>(
     defaultSortable,
     metaByField,
     formatting = DEFAULT_FORMATTING,
+    labelOf,
   } = options;
   const columns: PrerenderedColumn<Row>[] = [];
   const renderFns: (((row: Row) => ReactNode) | null)[] = [];
@@ -121,6 +124,7 @@ export function prerenderResourceCells<Row>(
     if (typeof c === "string" || typeof c === "number" || typeof c === "symbol") {
       const field = String(c) as keyof Row & string;
       const col: PrerenderedColumn<Row> = { field };
+      if (labelOf) col.label = labelOf(field);
       if (defaultSortable !== undefined) col.sortable = defaultSortable;
       const content = columnContent(field);
       if (content) col.content = content;
@@ -141,7 +145,8 @@ export function prerenderResourceCells<Row>(
     const out: PrerenderedColumn<Row> = {
       field: (fieldless ? syntheticColumnKey(index) : field) as keyof Row & string,
     };
-    if (def.label) out.label = def.label;
+    const label = def.label ?? (fieldless ? undefined : labelOf?.(field));
+    if (label) out.label = label;
     const sortable = fieldless ? false : (def.sortable ?? defaultSortable);
     if (sortable !== undefined) out.sortable = sortable;
     if (def.width !== undefined) {

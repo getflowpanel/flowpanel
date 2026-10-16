@@ -100,6 +100,7 @@ describe("a create form that cannot succeed", () => {
 
   it("says nothing about a resource that cannot be created", () => {
     expect(admin({ columns: ["id"], create: { disabled: true } }).warnings).toEqual([]);
+    expect(admin({ columns: ["id"], access: { create: false } }).warnings).toEqual([]);
   });
 
   it("says nothing on a read-only admin", () => {

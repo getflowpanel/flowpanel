@@ -6,7 +6,7 @@ Every widget builder and the options it accepts.
 
 Docs: https://flowpanel.tech/docs/reference/widgets
 
-Documented types: WidgetContext, WidgetFormat, CaptionOptions, Freshness, Threshold, ResourceLink, DashboardLink, metric, MetricOptions, MetricResult, MetricDelta, table, TableWidgetOptions, WidgetColumn, statGroup, StatGroupOptions, StatItem, stat, StatOptions, StatResult, kv, KvOptions, KvItem, KvResult, bars, BarsOptions, BarRow, funnel, FunnelOptions, FunnelStep, list, ListOptions, banner, ListRow, tracker, TrackerOptions, TrackerRow, timeline, TimelineOptions, TimelineSource, TimelineEvent, TimelinePage, heatmap, HeatmapOptions, HeatmapSource, checklist, ChecklistOptions, ChecklistItem, filled, custom, CustomOptions, ChartOptionsBase, areaChart, AreaChartOptions, barChart, BarChartOptions, lineChart, LineChartOptions, pieChart, PieChartOptions, series, SeriesOptions, breakdown, BreakdownOptions, presetRange, previousRange, fillDays, dashboard, page, DashboardConfig, SectionConfig, DateRangeConfig, DashboardFilter, ResolvedDateRange, WidgetDateRange, PageConfig
+Documented types: WidgetContext, WidgetFormat, CaptionOptions, Freshness, Threshold, ResourceLink, DashboardLink, metric, MetricOptions, MetricResult, MetricDelta, table, TableWidgetOptions, WidgetColumn, statGroup, StatGroupOptions, StatItem, stat, StatOptions, StatResult, kv, KvOptions, KvItem, KvResult, bars, BarsOptions, BarRow, funnel, FunnelOptions, FunnelStep, list, ListOptions, banner, ListRow, tracker, TrackerOptions, TrackerRow, timeline, TimelineOptions, TimelineSource, TimelineEvent, TimelinePage, heatmap, HeatmapOptions, HeatmapSource, checklist, ChecklistOptions, ChecklistItem, filled, custom, CustomOptions, ChartOptionsBase, areaChart, AreaChartOptions, barChart, BarChartOptions, lineChart, LineChartOptions, pieChart, PieChartOptions, series, SeriesOptions, breakdown, BreakdownOptions, presetRange, previousRange, fillDays, dashboard, page, DashboardConfig, SectionConfig, DateRangeConfig, DashboardFilter, ResolvedDateRange, WidgetDateRange, PageConfig, PageProps
 
 Widgets fill dashboard sections, record page tabs and drawer tabs. Each builder
 returns a `WidgetConfig`; every `query` runs on the server with a `WidgetContext`.
@@ -111,13 +111,15 @@ metric("Paid orders", async (ctx) => ({
 | `dateTime` | `(value: MomentInput) => string` | Day and clock, as a table cell shows a timestamp. |
 | `relative` | `(value: MomentInput, now?: Date) => string` | How long ago — `5 minutes ago`, `yesterday`. `now` defaults to the current time. |
 | `number` | `(value: NumberInput, digits?: number) => string` | A number with the locale's grouping and at most `digits` decimals. |
-| `money` | `(value: NumberInput, options?: { currency?: string; digits?: number; minorUnits?: number }) => string` | An amount, in minor units when `minorUnits` is set, in `currency` (default `formatting.currency`), `digits` decimals (0). |
+| `money` | `(value: NumberInput, options?: { currency?: string; digits?: number; minorUnits?: number }) => string` | An amount, in minor units when `minorUnits` is set, in `currency` (default `formatting.currency`). `digits` defaults to 0 for a whole amount, else to `minorUnits` or the currency's own: `1999` with `minorUnits: 2` and `19.99` are both `€19.99`. |
 | `percent` | `(value: NumberInput, digits?: number) => string` | A fraction as a percentage — `0.42` is `42%`. |
 | `duration` | `(ms: NumberInput) => string` | Milliseconds as the largest units that fit — `2 hr 5 min`. |
 | `plural` | `(count: number, label: string \| PluralLabel) => string` | A count in the plural form the locale picks; `{n}` is the formatted count. |
 
 `ctx.format` formats with the admin's `locale`, `timeZone` and `currency`, the same
-way table cells do.
+way table cells do. Outside a widget, such as in a `page()` component,
+`bindFormat(formatting)` from `@flowpanel/kit` returns the same formatters for a
+`ResolvedFormatting`.
 
 ```ts
 stat("Latency", async (ctx) => {
@@ -289,6 +291,7 @@ returns one or `null`.
 | --- | --- | --- |
 | `icon?` | `string` | Rendered as-is next to the label. Any string — an emoji, a ligature. No icon-name lookup exists. |
 | `format?` | `NumericFormat` | How the number is rendered. |
+| `minorUnits?` | `number` | The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `tones` compare the amount shown. |
 | `sublabel?` | `string` | Small caption under the value. |
 | `delta?` | `(ctx: WidgetContext) => Promise<MetricDelta \| null>` | Period-over-period change, queried alongside the value. |
 | `compare?` | `boolean \| { against?: "previous" \| "weekAgo" }` | Query the compared period too and show the change: `previous`, or `against: "weekAgo"` for the same range seven days back. Needs a numeric value; a `delta` the query returns wins. |
@@ -329,6 +332,18 @@ percentage of nothing means nothing; 0 both times reads "No change".
 
 ```ts
 metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
+```
+
+A query that sums a cents column returns minor units: set `minorUnits` with
+`format: "currency"` and the card shows the amount, as a chart's `minorUnits` does.
+`stat()` and `bars()` take it too, and `tones` and `max` read the amount shown.
+
+```ts
+metric("Revenue", (ctx) => revenueCents(ctx.db, ctx.dateRange), {
+  format: "currency",
+  minorUnits: 2,
+  compare: true,
+});
 ```
 
 #### MetricResult
@@ -476,6 +491,7 @@ One number with a label, without `metric()`'s delta and sparkline.
 | `tones?` | `Threshold` | Tone the value against a threshold; an explicit `tone` wins. |
 | `goodWhen?` | `GoodWhen` | Which direction is good news; `tones` must agree with it. Default: `"up"`. |
 | `format?` | `NumericFormat` | How a numeric value is rendered. |
+| `minorUnits?` | `number` | The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `tones` compare the amount shown. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
@@ -602,6 +618,7 @@ bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), form
 | `filterOnClick?` | `string` | A dashboard filter key: clicking a bar sets it to the row's `key` on the current dashboard. |
 | `query` | `(ctx: WidgetContext) => Promise<BarRow[]>` |  |
 | `format?` | `NumericFormat` | How bar values are rendered. |
+| `minorUnits?` | `number` | The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `max` and `tones` read the amount shown. |
 | `max?` | `number` | The value a full bar stands for — `1` for a rate with `format: "percent"`. Default, and for a value of `0` or less: the largest value in the rows. |
 | `share?` | `boolean` | Show each row's part of the total beside its value: its own `share`, else of the rows' sum. |
 | `goodWhen?` | `"up" \| "down" \| "neutral"` | Which direction is good news; colours each row's change ("neutral" doesn't), and `tones` must agree with it. Default: `"up"`. |

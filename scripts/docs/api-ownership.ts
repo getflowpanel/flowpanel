@@ -449,6 +449,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/bind-format.ts",
+    page: "/docs/reference/widgets",
+    anchor: "widgetformat",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/types/widget-tracker.ts",
     page: "/docs/reference/widgets",
     anchor: "tracker",

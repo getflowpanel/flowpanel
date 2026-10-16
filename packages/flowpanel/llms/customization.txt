@@ -337,7 +337,6 @@ export default defineAdmin({
 - `accent` and `accentDark` take the same `oklch()` values as shadcn's `--primary`; copy them from `globals.css`.
 - `shell: { mode: "tabs" }` puts the admin under your own header instead of beside a sidebar of its own.
 - The admin's content is at most 1600 px wide on every page. In the tabs shell, give your own header `max-width: 103rem`, `margin-inline: auto` and `padding-inline: 1.5rem` to line up with it.
-- Inside custom widgets, use FlowPanel's text tokens, such as `text-fp-text-2`, rather than shadcn's `text-muted-foreground`: shadcn's muted text is tuned for a white page, and FlowPanel's page is grey.
 
 `host` reads only the class `dark` on `<html>`. With next-themes' `attribute="data-theme"` or another class, keep `mode: "auto"`, and the admin keeps a scheme of its own.
 
@@ -362,7 +361,7 @@ Place it in the document head with the same default mode as the config. A stored
 
 ### Use FlowPanel tokens in your own Tailwind classes
 
-A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. In the CSS file that imports Tailwind, such as `app/globals.css`, import the token bridge after Tailwind and point `@source` at your admin code, relative to that file:
+A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. Put the Tailwind entry in the admin's own stylesheet, the `styles/admin.css` that `init` wrote and the admin layout imports, in place of its one import. The admin then loads FlowPanel's styles once, and your other pages never load them. Point `@source` at your admin code, relative to that file:
 
 ```css
 @layer theme, base, components, utilities;
@@ -373,11 +372,15 @@ A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as 
 @source "../admin";
 ```
 
-Importing `admin.css` in this root stylesheet is safe, unlike the plain import above: the `@layer` line fixes the layer order before any import, so FlowPanel's element defaults still sit in `components`, between Tailwind's base layer and your utilities. With `@import "tailwindcss";` first, Tailwind declares the same order.
+Restart `next dev` after adding these lines: Turbopack keeps the stylesheet it built first, so the new utilities appear only after a restart. If you put the lines in your root stylesheet, such as `app/globals.css`, instead, remove the admin layout's own stylesheet import, or the admin loads FlowPanel's styles twice.
+
+Importing `admin.css` next to Tailwind is safe, unlike the plain import above: the `@layer` line fixes the layer order before any import, so FlowPanel's element defaults still sit in `components`, between Tailwind's base layer and your utilities. With `@import "tailwindcss";` first, Tailwind declares the same order.
 
 The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`. An app that already imports all of Tailwind keeps `@import "tailwindcss";` first and adds the two FlowPanel imports after it.
 
 FlowPanel renders its root, `[data-flowpanel-root]`, around the admin pages, and the `--fp-*` values these utilities read exist only inside it. Keep your app's header, layout and other pages outside that root, styled with your own classes; [`examples/ai-scraper`](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) wraps the admin in its own header that way.
+
+Inside the admin, including custom widgets, colour text with FlowPanel's tokens, such as `text-fp-text-2` for secondary text. A host token such as shadcn's `text-muted-foreground` is tuned for a white page and falls under 4.5:1 contrast on the admin's grey background.
 
 FlowPanel's own classes all start with `fp-`, such as `fp-px-4`, so they never share a name with yours. Inside the root your classes and their variants work as your build defines them, and a class you pass to a FlowPanel component through `className` replaces the FlowPanel class it conflicts with.
 
@@ -430,7 +433,26 @@ export default defineAdmin({
 | `SkeletonTable` | `import("react").ComponentType<SkeletonTableProps>` |
 | `StatusBadge` | `import("react").ComponentType<StatusBadgeProps>` |
 
-`EmptyState` also replaces an empty list, on a phone too, and receives the list's `empty.icon` as `icon`, already drawn: a React node to place, not an icon name. An error card passes `data-fp-error`; put it on your root element, or `smokeAdmin` stops seeing a failing widget. `SkeletonTable` replaces a loading list and receives its `rows` and `columns`.
+`EmptyState` also replaces an empty list, on a phone too, and receives the list's `empty.icon` as `icon`, a rendered node rather than an `IconName`. When FlowPanel marks the state as a failure it passes `data-fp-error`; put it on your slot's root element, or `smokeAdmin` stops seeing that failure:
+
+```tsx
+// src/admin/ui/MyEmptyState.tsx
+"use client";
+import type { EmptyStateProps } from "@flowpanel/kit/react";
+
+export function MyEmptyState({ title, description, action, icon, ...marks }: EmptyStateProps) {
+  return (
+    <div {...marks} className="py-16 text-center">
+      {icon}
+      <p>{title}</p>
+      {description ? <p>{description}</p> : null}
+      {action}
+    </div>
+  );
+}
+```
+
+`SkeletonTable` replaces a loading list and receives its `rows` and `columns`.
 
 `FlowpanelComponentSlots` can be augmented with your own keys for custom widgets; FlowPanel's own UI reads only the keys above.
 

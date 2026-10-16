@@ -1,5 +1,4 @@
 export { authProvider } from "../auth-provider";
-export { bindFormat } from "../bind-format";
 export { isBuiltinBulkDelete } from "../compiler/builtin-bulk-delete";
 export { emitAudit, isAuditActive } from "../runtime/audit";
 export {

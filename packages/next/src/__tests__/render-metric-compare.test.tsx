@@ -124,3 +124,31 @@ describe("metric({ compare })", () => {
     expect(seen).toContain("2026-09-07T00:00:00.000Z");
   });
 });
+
+describe("a metric in minor units", () => {
+  it("shows the amount and compares amounts", async () => {
+    const widget = metric("Revenue", async (c) => (thisWeek(c) ? 260_000 : 200_000), {
+      format: "currency",
+      minorUnits: 2,
+      compare: true,
+    });
+    const ctx = buildWidgetContext(config, reqCtx, reqCtx.req, week);
+    const props = findProps(await renderWidget(widget, ctx, config, reqCtx), MetricCard);
+    expect(props?.value).toBe(2600);
+    expect(props?.delta).toMatchObject({ value: 0.3, previous: 2000 });
+  });
+});
+
+describe("a metric whose query returns a sum as text or a bigint", () => {
+  it("still shows the amount", async () => {
+    const ctx = buildWidgetContext(config, reqCtx, reqCtx.req, week);
+    for (const sum of ["260000", 260000n]) {
+      const widget = metric("Revenue", async () => sum as never, {
+        format: "currency",
+        minorUnits: 2,
+      });
+      const props = findProps(await renderWidget(widget, ctx, config, reqCtx), MetricCard);
+      expect(props?.value).toBe(2600);
+    }
+  });
+});

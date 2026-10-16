@@ -71,7 +71,8 @@ describe("dev-session template", () => {
     const warn = vi.fn();
     for (let instance = 0; instance < 2; instance++) {
       const loaded: { getSession?: () => Promise<{ user: { role: string } }> } = {};
-      new Function("exports", "console", outputText)(loaded, { warn });
+      const kit = { FlowpanelConfigError: Error };
+      new Function("exports", "require", "console", outputText)(loaded, () => kit, { warn });
       for (let request = 0; request < 3; request++) await loaded.getSession?.();
     }
     expect(warn).toHaveBeenCalledTimes(1);
@@ -82,7 +83,8 @@ describe("dev-session template", () => {
   it("refuses to run in production instead of signing everyone in as admin", async () => {
     const out = await tpl("dev-session.ts.txt", { FILE: "src/server/lib/auth.ts" });
     expect(out).toContain('process.env.NODE_ENV === "production"');
-    expect(out).toMatch(/throw new Error\(/);
+    expect(out).toMatch(/throw new FlowpanelConfigError\(/);
+    expect(out).not.toMatch(/FlowpanelConfigError\([^)]*src\/server/);
   });
 });
 

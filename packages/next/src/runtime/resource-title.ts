@@ -32,18 +32,24 @@ export function pluralLabel(resource: ResourceConfig, name: string): string {
   return resource.options.plural ?? resource.options.label ?? humanize(name);
 }
 
-/** The collection name mid-sentence: "Search customers…", while "API keys" keeps its capitals. */
-export function labelInSentence(label: string): string {
+/** The collection name mid-sentence ("Search customers…"); German keeps the noun's capital. */
+export function labelInSentence(label: string, locale: string): string {
+  if (/^de(?:-|$)/i.test(locale)) return label;
   return /^\p{Lu}\p{Ll}/u.test(label) ? label.charAt(0).toLowerCase() + label.slice(1) : label;
 }
 
 /** Fill `{label}`: after a word it reads mid-sentence, "No customers"; first or after punctuation it stays as written. */
-export function fillLabel(template: string, label: string): string {
+export function fillLabel(template: string, label: string, locale: string): string {
   const midSentence = /\p{L} \{label\}/u.test(template);
-  return formatLabel(template, { label: midSentence ? labelInSentence(label) : label });
+  return formatLabel(template, { label: midSentence ? labelInSentence(label, locale) : label });
 }
 
 /** A one-row heading such as "New {label}": "New user"; after punctuation or first, the label stays as written. */
-export function singularTitle(template: string, resource: ResourceConfig, name: string): string {
-  return fillLabel(template, singularLabel(resource, name));
+export function singularTitle(
+  template: string,
+  resource: ResourceConfig,
+  name: string,
+  locale: string,
+): string {
+  return fillLabel(template, singularLabel(resource, name), locale);
 }

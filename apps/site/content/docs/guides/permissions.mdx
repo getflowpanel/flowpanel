@@ -21,7 +21,7 @@ auth: {
 
 ## A dashboard, page or queue
 
-`access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`.
+`access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`. A role that opens a refused URL, from a bookmark or a pasted link, sees "You don't have access to …" inside the admin with a link to the next page it can open.
 
 ```ts
 dashboard({ path: "/finance", label: "Finance", access: "admin", sections });
@@ -31,7 +31,7 @@ queue(emailQueue, { label: "Emails", boardUrl, access: "admin" });
 
 ## A resource or action
 
-`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. A resource the caller may not `read` leaves the navigation and rejects its routes.
+`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. A resource the caller may not `read` leaves the navigation and rejects its routes. New and Import show only to a role that may `create`, Edit only to one that may `update`, and opening the list, record, create or edit URL without the rule shows the same in-admin screen.
 
 An action with its own `access` runs under that rule alone, the same one that shows it in the UI. An action without one runs under the resource's `update` rule.
 

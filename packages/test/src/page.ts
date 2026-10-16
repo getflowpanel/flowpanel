@@ -8,7 +8,9 @@ export interface SmokeLocator {
   count(): Promise<number>;
   all(): Promise<SmokeLocator[]>;
   getAttribute(name: string): Promise<string | null>;
-  click(options?: { timeout?: number }): Promise<void>;
+  press(key: string, options?: { timeout?: number }): Promise<void>;
+  innerText(): Promise<string>;
+  isVisible(): Promise<boolean>;
   waitFor(options?: { state?: "visible"; timeout?: number }): Promise<void>;
 }
 

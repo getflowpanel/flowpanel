@@ -12,6 +12,7 @@ import { actorIdFromSession } from "./action-helpers";
 import { browserOrigin } from "./request-origin";
 import { buildRequestContext, requestIdFrom } from "./request-setup";
 import { requireAuthorized } from "./require-authorized";
+import { withRetryAfter } from "./retry-after";
 
 export interface GuardFrame {
   route?: string | undefined;
@@ -86,6 +87,16 @@ function guardSameOrigin(
 
 /** Origin, identity, `readOnly`, then the target the URL names, then its access rules, then `handler`. */
 export async function withResolvedGuards<Target>(
+  config: ResolvedAdminConfig,
+  req: Request,
+  frame: GuardFrame,
+  resolve: (reqCtx: RequestContext) => { spec: GuardSpec; target: Target } | Response,
+  handler: (reqCtx: RequestContext, target: Target) => Promise<Response>,
+): Promise<Response> {
+  return withRetryAfter(await guarded(config, req, frame, resolve, handler), config);
+}
+
+async function guarded<Target>(
   config: ResolvedAdminConfig,
   req: Request,
   frame: GuardFrame,

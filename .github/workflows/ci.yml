@@ -218,6 +218,10 @@ jobs:
         working-directory: packages/e2e
         run: pnpm test:e2e:demo-ru
 
+      - name: Verify the admin chrome is fully translated under the de preset
+        working-directory: packages/e2e
+        run: pnpm test:e2e:demo-de
+
       - name: Verify the documentation site in a real browser
         working-directory: packages/e2e
         run: pnpm test:e2e:site

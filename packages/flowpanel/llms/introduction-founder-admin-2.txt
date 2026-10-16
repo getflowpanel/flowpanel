@@ -139,7 +139,7 @@ With `pnpm dev` running and the admin open, run the script in a second terminal:
 pnpm tsx --env-file=.env scripts/crawl.ts
 ```
 
-You should see the runs list and the crawl queue card refresh each time the script runs, without a reload. See [Realtime](/docs/guides/realtime#publish-from-a-worker).
+You should see the runs list and the crawl queue card refresh each time the script runs, without a reload: the card's "waiting" number changes, since the stand-in `queueCounts` returns the current second. See [Realtime](/docs/guides/realtime#publish-from-a-worker).
 
 ### 11. Test the admin
 

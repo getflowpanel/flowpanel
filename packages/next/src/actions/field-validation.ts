@@ -43,7 +43,7 @@ export function missingRequiredErrors(
   return out;
 }
 
-/** Per-field validators, then the choices and references the form offered this caller. */
+/** Per-field validators, then the choices and references the form offered this caller; fields in `skip` already failed. */
 export async function fieldRuleErrors(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
@@ -52,10 +52,15 @@ export async function fieldRuleErrors(
   current: Record<string, unknown> | null,
   reqCtx: RequestContext,
   labels: ResolvedLabels,
+  skip: ReadonlySet<string> = new Set(),
 ): Promise<Record<string, string> | null> {
+  const checked = Object.fromEntries(Object.entries(values).filter(([name]) => !skip.has(name)));
   const errors = {
-    ...(await runFieldValidators(fields, values)),
-    ...(await choiceErrors(config, resource, fields, values, current, reqCtx, labels)),
+    ...(await runFieldValidators(
+      fields?.filter((field) => !skip.has(field.name)),
+      checked,
+    )),
+    ...(await choiceErrors(config, resource, fields, checked, current, reqCtx, labels)),
   };
   return Object.keys(errors).length > 0 ? errors : null;
 }
@@ -131,7 +136,28 @@ export function friendlyFieldErrors(
   return out;
 }
 
-/** Schema, `required`, validators, choices and references: every field error at once, or the values to write. */
+/** Each value as its own field's schema reads it, when the object as a whole failed; a refused field is left out. */
+function fieldByFieldValues(
+  schema: z.ZodTypeAny | undefined,
+  values: Record<string, unknown>,
+  refused: ReadonlySet<string>,
+): Record<string, unknown> {
+  const shape: Record<string, z.ZodTypeAny> | undefined = Reflect.get(Object(schema), "shape");
+  const out: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(values)) {
+    if (refused.has(name)) continue;
+    const field = shape?.[name];
+    if (!field || typeof field.safeParse !== "function") {
+      out[name] = value;
+      continue;
+    }
+    const read = field.safeParse(value);
+    if (read.success) out[name] = read.data;
+  }
+  return out;
+}
+
+/** Schema, `required`, validators, choices and references in one round: every field error at once, or the values to write. */
 export async function checkedValues(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
@@ -154,13 +180,24 @@ export async function checkedValues(
     typeof schema?.safeParse === "function"
       ? schema.safeParse(values)
       : { success: true as const, data: values };
-  if (!parsed.success) {
-    const fieldErrors = friendlyFieldErrors(fields, values, parsed.error, labels, labelOf);
-    throw new FlowpanelValidationError({ ...fieldErrors, ...missing });
-  }
-  if (Object.keys(missing).length > 0) throw new FlowpanelValidationError(missing);
-  const data = parsed.data as Record<string, unknown>;
-  const ruleErrors = await fieldRuleErrors(config, resource, fields, data, current, reqCtx, labels);
-  if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
+  const builtIn = {
+    ...(parsed.success ? {} : friendlyFieldErrors(fields, values, parsed.error, labels, labelOf)),
+    ...missing,
+  };
+  const data = parsed.success
+    ? (parsed.data as Record<string, unknown>)
+    : fieldByFieldValues(schema, values, new Set(Object.keys(builtIn)));
+  const ruleErrors = await fieldRuleErrors(
+    config,
+    resource,
+    fields,
+    data,
+    current,
+    reqCtx,
+    labels,
+    new Set(Object.keys(builtIn)),
+  );
+  const errors = { ...ruleErrors, ...builtIn };
+  if (Object.keys(errors).length > 0) throw new FlowpanelValidationError(errors);
   return data;
 }

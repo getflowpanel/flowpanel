@@ -96,7 +96,7 @@ export default defineAdmin({
 });
 ```
 
-`init` writes this wiring when it finds `better-auth`: the preset goes in `server/lib/flowpanel-session.ts` as `flowpanelAuth`, and the config uses `auth: flowpanelAuth`. Add `signInUrl` and `forbiddenUrl` there. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
+`init` writes this wiring when it finds `better-auth`: the preset goes in `flowpanel-session.ts` beside your auth module, such as `lib/flowpanel-session.ts`, as `flowpanelAuth`, and the config uses `auth: flowpanelAuth`. Add `signInUrl` and `forbiddenUrl` there. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
 
 When the role lives in your own table, `role` can be async:
 
@@ -152,10 +152,14 @@ auth: {
 
 `session` receives the request. Both `session` and `role` run on every request. `access` takes the same rule as everywhere else: a role, a list of roles, or a function of `{ session, role }`. It runs before `scope`, so a function sees `scope` as `null`.
 
+### Status codes
+
+Without a `signInUrl` or `forbiddenUrl`, the sign-in and access-denied screens answer 200 inside the admin; [Limits](/docs/introduction/limits#sign-in-and-access-denied-status-on-pages) says why. If the session provider throws, the page shows "Something went wrong" with a request ID, and the server log has the error. A refusal FlowPanel wrote, such as the development stub `init` writes running in production, is shown in full on that screen.
+
 ### Verify
 
 1. With no session, the page redirects to `signInUrl` and the API rejects the request.
-2. Signed in without the role, the page redirects to `forbiddenUrl` and the API returns 403.
+2. Signed in without the role, the page redirects to `forbiddenUrl` and the API returns 403. A role the admin lets in but one page refuses sees "You don't have access to …" inside the admin instead.
 3. Signed in with the role, pages and API calls succeed.
 
 Without a `signInUrl`, the page shows a sign-in screen instead of redirecting. In development it says that `auth.session` returned null and links to this guide.
@@ -188,7 +192,7 @@ auth: {
 
 ### A dashboard, page or queue
 
-`access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`.
+`access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`. A role that opens a refused URL, from a bookmark or a pasted link, sees "You don't have access to …" inside the admin with a link to the next page it can open.
 
 ```ts
 dashboard({ path: "/finance", label: "Finance", access: "admin", sections });
@@ -198,7 +202,7 @@ queue(emailQueue, { label: "Emails", boardUrl, access: "admin" });
 
 ### A resource or action
 
-`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. A resource the caller may not `read` leaves the navigation and rejects its routes.
+`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. A resource the caller may not `read` leaves the navigation and rejects its routes. New and Import show only to a role that may `create`, Edit only to one that may `update`, and opening the list, record, create or edit URL without the rule shows the same in-admin screen.
 
 An action with its own `access` runs under that rule alone, the same one that shows it in the UI. An action without one runs under the resource's `update` rule.
 
@@ -722,6 +726,8 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | a field's `readOnly` checked in the form only | it applies to writes, a `readOnly` function receives the stored row on edit, and it wins over `fieldAccess.write` |
 | a fractional value for a Drizzle integer column reaching the database | the form rejects it first |
 | a unique, foreign key or NOT NULL violation answering 500 | 422 with a field message, or 409; another unexpected error is logged with its request id, and a form answers "Internal server error" with `requestId` |
+| `auth.forbiddenUrl` receiving a role that one dashboard, page, queue, the Audit log or a resource route refuses | it receives only a role `auth.access` keeps out of the whole admin; a role refused one page sees "You don't have access to …" inside the admin |
+| `FieldDef.defaultValue` typed `unknown` | `FieldDefaultValue`: a string, number, boolean, bigint, date, object, `null` or a function of the request; cast an `unknown` value, such as `value as string` |
 | an unknown admin path or a missing record | your `not-found.tsx` through `notFound()`, 404, or 200 with `noindex` under `cacheComponents`; add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix` |
 | **UI** | |
 | unprefixed classes such as `px-4` or `bg-fp-bg-2` in a custom widget, styled by admin.css | your own Tailwind build with the token bridge, as [Styling](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes) shows; `toneTextClass` and `toneFillClass` return prefixed classes |
@@ -730,6 +736,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | `ChartRenderer` reading `options.drilldown` | pass the card's resolved link as its `drilldown` href |
 | a `DataTableColumn` named `description`, `email` or `website` that your own `DataTable` sized as long text, an email or a link | set `content: "long"`, `"email"` or `"link"` on the column; field names no longer decide it |
 | English built-in text under a Russian `formatting.locale` | Russian; set `labels` to keep English |
+| a field without a label named "Customer ID", "Amount cents", "Sku" or "Duration MS", in lists, forms, History, the Audit log and CSV export headers | "Customer", "Amount", "SKU", "Duration (ms)"; set `label` on the column or field to keep the old text |
 | a resource without `labelOne` or `label` named by its plural | its singular name, "User" for `users`; "New …" and "Edit …" put the label mid-sentence |
 | **Adapters** | |
 | Prisma `Decimal` values as `Decimal` objects | strings at the `@db.Decimal` scale, such as `"49.90"` (`"49.9"` on Prisma 5); use `Number(value)` instead of `.toNumber()` |

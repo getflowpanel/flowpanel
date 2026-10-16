@@ -1,6 +1,7 @@
 export { type AdapterScopeContext, resolveScopeApplier } from "./adapter-scope";
 export { allTenants, isAllTenants } from "./all-tenants";
 export { devAuth } from "./auth/dev";
+export { bindFormat } from "./bind-format";
 export { checklist, filled, heatmap } from "./builders/activity";
 export { areaChart, barChart, lineChart, pieChart } from "./builders/charts";
 export { dashboard, page } from "./builders/dashboard";
@@ -38,8 +39,12 @@ export {
   toneFillClass,
   toneTextClass,
 } from "./format-column";
-export { humanize, humanizeReference, resolveFieldLabel } from "./humanize";
+export { humanize, humanizeAmount, humanizeReference, resolveFieldLabel } from "./humanize";
 export type { KeyLabels } from "./internal/key-labels";
+export { DE_LABELS } from "./locales/de";
+export { ES_LABELS } from "./locales/es";
+export { FR_LABELS } from "./locales/fr";
+export { PT_BR_LABELS } from "./locales/pt-br";
 export { RU_LABELS } from "./locales/ru";
 export { accessAllows, requireAccess, resolveOperationAccess } from "./policy/access";
 export { assertWritableInput, filterReadableProjection } from "./policy/fields";

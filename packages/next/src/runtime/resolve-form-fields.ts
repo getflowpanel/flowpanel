@@ -1,31 +1,34 @@
 import type {
+  ColumnFormat,
   ColumnMeta,
   FieldDef,
+  FieldType,
   QueryContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import {
-  accessAllows,
-  humanize,
-  humanizeReference,
-  resolveFormatting,
-  runWithRequestContext,
-} from "@flowpanel/core";
+import { accessAllows, humanize, resolveFormatting, runWithRequestContext } from "@flowpanel/core";
+import { moneyColumnFactor } from "@flowpanel/core/format";
 import type { ResolvedField } from "@flowpanel/react";
 import { columnDefs } from "./column-defs";
+import { fieldLabels } from "./field-labels";
 import { moneyInputValue, moneyShape } from "./money-field";
 import { readRelatedRows } from "./require-authorized";
 import { toWireOptions } from "./select-options";
 
-/** The declared field specs for a form mode. */
+/** The declared field specs for a form mode, each labelled as the resource labels it everywhere. */
 export function declaredFormFields(
   resource: ResourceConfig,
   mode: "create" | "update",
 ): FieldDef<Record<string, unknown>>[] | undefined {
-  if (mode === "create") return resource.options.create?.fields;
-  return resource.options.update?.fields ?? resource.options.create?.fields;
+  const fields =
+    mode === "create"
+      ? resource.options.create?.fields
+      : (resource.options.update?.fields ?? resource.options.create?.fields);
+  if (!fields) return undefined;
+  const labelOf = fieldLabels(resource, fields);
+  return fields.map((field) => (field.label ? field : { ...field, label: labelOf(field.name) }));
 }
 
 /** Evaluate a `boolean | (values) => boolean` field option server-side. */
@@ -95,6 +98,17 @@ async function resolveReferenceCurrentOption(
   return [{ value: String(row[pk]), label: String(row[ref.labelField] ?? row[pk]) }];
 }
 
+/** A create form field's `defaultValue`, a function of the request resolved. */
+async function resolvedDefault(
+  field: FieldDef<Record<string, unknown>>,
+  reqCtx: RequestContext,
+  queryCtx: QueryContext,
+): Promise<unknown> {
+  const value = field.defaultValue;
+  if (typeof value !== "function") return value;
+  return runWithRequestContext(reqCtx, () => value(queryCtx));
+}
+
 export async function resolveFormFields(
   config: ResolvedAdminConfig,
   fields: FieldDef<Record<string, unknown>>[],
@@ -113,26 +127,12 @@ export async function resolveFormFields(
   };
   const values = row ?? {};
   const visible = fields.filter((f) => !hidden.has(f.name) && !fieldFlag(f.hidden, values));
+  const labelOf = fieldLabels(undefined, fields);
   return Promise.all(
     visible.map(async (f): Promise<ResolvedField> => {
-      let defaultValue: unknown;
-      if (row === undefined && f.defaultValue !== undefined) {
-        defaultValue =
-          typeof f.defaultValue === "function"
-            ? await runWithRequestContext(reqCtx, () =>
-                (f.defaultValue as (ctx: QueryContext) => Promise<unknown>)(queryCtx),
-              )
-            : f.defaultValue;
-        if (f.type === "money") {
-          const shape = moneyShape(
-            f,
-            columns.find((c) => c.name === f.name),
-            formatting,
-          );
-          defaultValue = moneyInputValue(defaultValue, shape, formatting.locale);
-        }
-      }
       const opts = f.options;
+      const defaultValue =
+        row === undefined ? await resolvedDefault(f, reqCtx, queryCtx) : undefined;
       let options: { label: string; value: string }[] | undefined;
       if (f.reference) {
         options = await resolveReferenceCurrentOption(
@@ -147,15 +147,27 @@ export async function resolveFormFields(
       } else if (Array.isArray(opts)) {
         options = toWireOptions(opts);
       }
+      const shownDefault =
+        defaultValue !== undefined && f.type === "money"
+          ? moneyInputValue(
+              defaultValue,
+              moneyShape(
+                f,
+                columns.find((c) => c.name === f.name),
+                formatting,
+              ),
+              formatting.locale,
+            )
+          : defaultValue;
       return {
         name: f.name,
-        label: f.label ?? (f.reference ? humanizeReference(f.name) : humanize(f.name)),
+        label: labelOf(f.name),
         type: f.type ?? (f.reference ? "reference" : "text"),
         ...(f.help ? { help: f.help } : {}),
         ...(f.placeholder ? { placeholder: f.placeholder } : {}),
         ...(f.required ? { required: f.required } : {}),
         ...(fieldFlag(f.readOnly, values) || denied.has(f.name) ? { readOnly: true } : {}),
-        ...(defaultValue !== undefined ? { defaultValue } : {}),
+        ...(shownDefault !== undefined ? { defaultValue: shownDefault } : {}),
         ...(f.type === "money" && f.currency ? { currency: f.currency } : {}),
         ...(f.span ? { span: f.span } : {}),
         ...(f.group ? { group: f.group } : {}),
@@ -181,29 +193,102 @@ export function columnReferences(
   return out;
 }
 
+const RECORD_TIMESTAMP = /^(?:created|updated|inserted|modified)(?:_?at|_?on)?$/i;
+
+/** A timestamp the database stamps on the record, such as `created_at default now()`: a generated create form leaves it out. */
+export function systemTimestamp(
+  column: Pick<ColumnMeta, "name" | "type" | "hasDefault" | "defaultValue">,
+): boolean {
+  return (
+    column.type === "date" &&
+    column.hasDefault === true &&
+    column.defaultValue === undefined &&
+    RECORD_TIMESTAMP.test(column.name)
+  );
+}
+
+function controlOf(column: ColumnMeta): FieldType {
+  if (column.enumValues?.length) return "select";
+  if (column.type === "number") return "number";
+  if (column.type === "boolean") return "checkbox";
+  if (column.type === "date") return "datetime";
+  if (column.type === "json") return "json";
+  return "text";
+}
+
+/** A money column's control: minor units when its format scales the stored amount, as the list shows it. */
+function moneyControl(
+  format: ColumnFormat | undefined,
+): Pick<FieldDef<Record<string, unknown>>, "type" | "storage" | "minorUnits" | "currency"> | null {
+  if (typeof format !== "object" || format.kind !== "money") return null;
+  const digits = Math.log10(moneyColumnFactor(format));
+  const scaled = Number.isInteger(digits) && digits > 0;
+  return {
+    type: "money",
+    storage: scaled ? "minor" : "major",
+    ...(scaled ? { minorUnits: digits } : {}),
+    ...(format.currency ? { currency: format.currency } : {}),
+  };
+}
+
 /**
- * A generated form's pickers: each offered column whose `ColumnDef.reference` names another
- * resource, resolved like a declared `reference` field, current label included.
+ * The fields of a form no `create.fields` or `update.fields` declares, from its columns: the column's label,
+ * its reference picker or money control, and a required mark where the database needs a value the form must send.
  */
-export async function columnReferenceFields(
+export function generatedFormFields(
+  resource: ResourceConfig,
+  columns: ReadonlyArray<ColumnMeta>,
+  mode: "create" | "update",
+): FieldDef<Record<string, unknown>>[] {
+  const defs = new Map(
+    columnDefs(resource).flatMap((def) => (def.field ? [[def.field, def]] : [])),
+  );
+  const references = columnReferences(resource);
+  const labelOf = fieldLabels(resource);
+  return columns
+    .filter((column) => !column.primaryKey && (mode === "update" || !systemTimestamp(column)))
+    .map((column) => {
+      const def = defs.get(column.name);
+      const reference = references.get(column.name)?.reference;
+      const money = reference ? null : moneyControl(def?.format);
+      const required =
+        column.type !== "boolean" &&
+        !column.nullable &&
+        !column.generated &&
+        (mode === "update" || column.hasDefault !== true);
+      return {
+        ...(money ?? {}),
+        name: column.name,
+        label: labelOf(column.name),
+        ...(reference ? { reference } : {}),
+        ...(money || reference ? {} : { type: controlOf(column) }),
+        ...(!reference && column.enumValues?.length
+          ? { options: column.enumValues.map((value) => ({ label: humanize(value), value })) }
+          : {}),
+        ...(required ? { required: true } : {}),
+        ...(mode === "create" && column.defaultValue !== undefined
+          ? { defaultValue: column.defaultValue }
+          : {}),
+      };
+    });
+}
+
+/** The generated form's controls, resolved like declared fields: current reference labels and money amounts included. */
+export async function generatedColumnFields(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
-  columns: ReadonlyArray<{ name: string }>,
+  columns: ReadonlyArray<ColumnMeta>,
+  mode: "create" | "update",
   reqCtx: RequestContext,
   row?: Record<string, unknown>,
 ): Promise<ResolvedField[]> {
-  const references = columnReferences(resource);
-  const fields: FieldDef<Record<string, unknown>>[] = columns.flatMap((column) => {
-    const found = references.get(column.name);
-    return found
-      ? [
-          {
-            name: column.name,
-            reference: found.reference,
-            ...(found.label ? { label: found.label } : {}),
-          },
-        ]
-      : [];
-  });
-  return fields.length > 0 ? resolveFormFields(config, fields, reqCtx, row) : [];
+  return resolveFormFields(
+    config,
+    generatedFormFields(resource, columns, mode),
+    reqCtx,
+    row,
+    undefined,
+    undefined,
+    columns,
+  );
 }

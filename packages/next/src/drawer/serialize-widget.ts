@@ -10,6 +10,7 @@ import type {
 import { formatLabel, mergeLabels, runWithRequestContext } from "@flowpanel/core";
 import type { CardDate } from "@flowpanel/react";
 import { safeErrorMessage } from "../runtime/action-helpers";
+import { inAmount } from "../runtime/minor-units";
 import {
   declaredFieldName,
   filterReadableDeclarations,
@@ -119,8 +120,10 @@ export async function serializeWidget(
       case "metric": {
         const scoped = scopedCountMetric(w, widgetCtx, config);
         const produced = await runWithRequestContext(reqCtx, () => scoped.query(widgetCtx));
-        const result: MetricResult =
-          typeof produced === "object" && produced !== null ? produced : { value: produced };
+        const result: MetricResult = inAmount(
+          typeof produced === "object" && produced !== null ? produced : { value: produced },
+          w.options.minorUnits,
+        );
         const sublabel = result.sublabel ?? w.options.sublabel;
         const tone =
           result.tone ??
@@ -252,6 +255,10 @@ export async function serializeWidget(
     }
   } catch (err) {
     const label = widgetLabel(w);
+    console.error(
+      `[flowpanel] drawer widget ${label ? `«${label}» ` : ""}(${w.kind}) failed (request ${reqCtx.requestId})`,
+      err,
+    );
     return {
       kind: "unsupported",
       ...(label ? { label } : {}),

@@ -23,7 +23,7 @@ export default [
     name: "@flowpanel/kit/react UI on first render (shell, table, forms, toaster)",
     ...UI,
     modifyEsbuildConfig: firstRenderOnly,
-    // 0.4 rc: palette, JSON, tag, inline-cell editors and CSV writer load on use; the palette's loading frame and phone select-all add 0.3 KB.
+    // 0.4 rc: editors and CSV writer load on use; measured 86.73 KB with humanize's lists.
     limit: "86.75 KB",
   },
   {
@@ -33,7 +33,7 @@ export default [
       "dist/react/data/ImportDialogs.mjs": "{ ImportConfirm, ImportResult, readImportFile }",
       "dist/react/feedback/ConfirmDialog.mjs": "{ ConfirmDialog }",
     },
-    // 0.4 rc: the search-only empty label and the refused-field border (+90 B).
+    // 0.4 rc: the search-only empty label, the refused-field border and humanize's lists; measured 29.08 KB.
     limit: "29.1 KB",
   },
   {

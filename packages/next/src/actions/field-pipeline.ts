@@ -1,7 +1,6 @@
 import type {
   FieldAccessMap,
   FieldDef,
-  QueryContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
@@ -141,7 +140,7 @@ export async function applyFieldDefaults(
   for (const f of defaulted) {
     if (out[f.name] !== undefined) continue;
     if (typeof f.defaultValue === "function") {
-      const resolve = f.defaultValue as (ctx: QueryContext) => Promise<unknown>;
+      const resolve = f.defaultValue;
       out[f.name] = await runWithRequestContext(reqCtx, () =>
         resolve({
           ...reqCtx,

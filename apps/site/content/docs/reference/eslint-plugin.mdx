@@ -25,6 +25,24 @@ import flowpanel from "@flowpanel/eslint-plugin";
 export default [flowpanel.configs.recommended];
 ```
 
+A `create-next-app` project already has an `eslint.config.mjs` that exports an array. Add the preset to that array; on Next.js 16 it reads:
+
+```js title="eslint.config.mjs"
+import flowpanel from "@flowpanel/eslint-plugin";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+import { defineConfig, globalIgnores } from "eslint/config";
+
+export default defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  flowpanel.configs.recommended,
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+]);
+```
+
+On Next.js 15, where the file builds its array with `FlatCompat`, put `flowpanel.configs.recommended` after `...compat.extends(...)` the same way.
+
 `configs.recommended` turns on all five rules. To choose them yourself:
 
 ```ts title="eslint.config.ts"

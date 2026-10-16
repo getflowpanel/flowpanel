@@ -21,7 +21,7 @@ const INSTANCE = "export const auth = { api: { getSession: async () => null } };
 const WIRED = "export async function getSession(): Promise<null> { return null; }\n";
 
 describe("planAuthSession", () => {
-  it("bridges a better-auth instance through the preset", async () => {
+  it("bridges a better-auth instance through the preset, beside the auth module", async () => {
     const cwd = await project(INSTANCE);
     expect(
       await planAuthSession({
@@ -33,8 +33,8 @@ describe("planAuthSession", () => {
       }),
     ).toEqual({
       provider: "better-auth",
-      file: "src/server/lib/flowpanel-session.ts",
-      specifier: "@/server/lib/flowpanel-session",
+      file: "src/lib/flowpanel-session.ts",
+      specifier: "@/lib/flowpanel-session",
       template: "auth-session.better-auth.ts.txt",
       vars: { AUTH_MODULE: "@/lib/auth" },
     });

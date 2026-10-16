@@ -20,9 +20,17 @@ The admin layout does not import `admin.css`. Restore `@import "@flowpanel/kit/s
 
 The config names something that does not exist or clashes: an unknown column, a duplicate or reserved name, a duplicate action key, a `rowClick: "drawer"` without a drawer, or an unresolved reference. The error is a `FlowpanelConfigError` that reads `[flowpanel] <where in the config>: <what is wrong>. <how to fix>.`, with the closest match when there is one. See [Errors](/docs/reference/errors#flowpanelconfigerror).
 
+### “The admin stays on 500 after I fixed a config error”
+
+In development with Turbopack, Next.js can keep a server module that failed to load. After `defineAdmin` threw and you fixed the config, the page still answers 500 with "module factory is not available" or the old error. This is Next's dev cache, not your config: stop `next dev` and start it again. If it persists, delete `.next` before starting. Run `flowpanel doctor` to check the config without the dev server.
+
 ### “Column typos compile without an error”
 
 The resource's row type fell back to `Record<string, unknown>`, usually because a Prisma model is missing from `FlowpanelResources`. Add it and make sure TypeScript includes the file. See [Type registry](/docs/reference/registry).
+
+### “No overload matches this call” on resource()
+
+`resource()` has two signatures, one for a resource with `name` and one without, so TypeScript reports a mistake once per signature and points at the `resource(` call. Read the first block: it names the field, such as `Type '"nmae"' is not assignable to type '"name" | "sku" | …'`. The last line, `Type 'string' is not assignable to type 'undefined'`, comes from the signature without `name` and is not the problem. `flowpanel doctor` and the dev server also print the closest column name.
 
 ### “flowpanel init exits in CI”
 
@@ -93,6 +101,10 @@ Next.js routes files before FlowPanel's catch-all. Delete or move the ejected ro
 ### “getRequestContext() called outside of a request scope”
 
 The call is outside a request, or two copies of `@flowpanel/kit` are installed. Use `tryGetRequestContext()` where the context is optional, and align FlowPanel package versions (`pnpm list @flowpanel/kit`). See [Request-scoped access](/docs/reference/contexts#request-scoped-access).
+
+### “A custom page reads no session or tenant”
+
+A `page()` component gets the request as props: `session`, `role`, `scope`, `formatting`, `labels` and `searchParams`. It renders after FlowPanel's own request scope, so read these props instead of `getRequestContext()`. A `"use client"` page component gets `session` and `scope` as `null`; read them in a server component. `bindFormat(formatting)` from `@flowpanel/kit` gives the formatters a widget gets as `ctx.format`. See [PageConfig](/docs/reference/widgets#pageconfig).
 
 ### “Which widget is slow”
 

@@ -22,9 +22,17 @@ describe("DevAuthNote", () => {
       "flowpanel.config.ts",
       "pnpm flowpanel init --dev-auth",
       "init",
+      "auth.signInUrl",
     ]);
     expect(screen.getByRole("link", { name: "Authentication guide" }).getAttribute("href")).toBe(
       "https://flowpanel.tech/docs/guides/authentication",
+    );
+  });
+
+  it("names the option that sends a signed-out visitor to the app's sign-in page", () => {
+    const { container } = render(<DevAuthNote provider={undefined} />);
+    expect(container.textContent).toContain(
+      "Set auth.signInUrl to send signed-out visitors to your sign-in page instead of this screen.",
     );
   });
 

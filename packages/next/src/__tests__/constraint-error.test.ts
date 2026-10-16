@@ -162,4 +162,27 @@ describe("a write's constraint violation", () => {
     expect(explain(new Error("connection reset"))).toBeNull();
     expect(explain({ code: "23502" })).toBeNull();
   });
+
+  it("names no field the reader may not see, only the conflict", () => {
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "orders" },
+          { columns: ["id", "userId"], fieldAccess: { email: { sensitive: true } } },
+        ),
+      ],
+    });
+    const orders = config.resourcesByName.get("orders");
+    if (!orders) throw new Error("fixture: resource not registered");
+    const err = explainConstraint(
+      { code: "23505", detail: "Key (email)=(a@b.c) already exists." },
+      config,
+      orders,
+      "create",
+    );
+    expect(err instanceof FlowpanelConflictError).toBe(true);
+    expect(fieldErrorsOf(err)).toBeUndefined();
+  });
 });

@@ -23,9 +23,10 @@ import { projectRowFields, selectKnownFields } from "../runtime/project-row";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAccessIfSet } from "../runtime/require-access";
 import {
-  columnReferenceFields,
   declaredFormFields,
   deniedFieldWrites,
+  generatedColumnFields,
+  generatedFormFields,
   hiddenFormFields,
   resolveFormFields,
 } from "../runtime/resolve-form-fields";
@@ -133,15 +134,19 @@ export async function ResourceEditPage({
   const { timeZone } = formatting;
   const columnTypes = new Map(written.columns.map((column) => [column.name, column.type]));
   const declaredByName = new Map(declared?.map((field) => [field.name, field]));
+  const formFields = declared ?? generatedFormFields(resource, columns, "update");
+  const moneyByName = new Map(
+    formFields.filter((field) => field.type === "money").map((field) => [field.name, field]),
+  );
   const defaultValues = Object.fromEntries(
     defaultFields
       .filter((field) => readable.includes(field) && Object.hasOwn(projectedValues, field))
       .map((field) => {
         const value = projectedValues[field];
-        const declaredField = declaredByName.get(field);
-        if (declaredField?.type === "money") {
+        const moneyField = moneyByName.get(field);
+        if (moneyField) {
           const column = written.columns.find((c) => c.name === field);
-          const shape = moneyShape(declaredField, column, formatting);
+          const shape = moneyShape(moneyField, column, formatting);
           return [field, moneyInputValue(value, shape, formatting.locale)];
         }
         const input = dateInputFor(
@@ -154,7 +159,9 @@ export async function ResourceEditPage({
 
   return (
     <>
-      <PageHeader title={singularTitle(labels.form.editTitle, resource, name)} />
+      <PageHeader
+        title={singularTitle(labels.form.editTitle, resource, name, labels.dateRange.locale)}
+      />
       <div className="fp-max-w-xl fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-6 fp-shadow-xs">
         <AutoForm
           action={action}
@@ -162,10 +169,11 @@ export async function ResourceEditPage({
           {...(declared
             ? {}
             : {
-                columnFields: await columnReferenceFields(
+                columnFields: await generatedColumnFields(
                   config,
                   resource,
                   columns,
+                  "update",
                   reqCtx,
                   projectedValues,
                 ),

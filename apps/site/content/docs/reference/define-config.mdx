@@ -7,7 +7,8 @@ metaTitle: "defineAdmin() config reference"
 
 `defineAdmin` takes the config object, validates it, fills defaults, and returns
 the `ResolvedAdminConfig` that `createFlowpanel` serves. It does no I/O, so a page,
-script or test can import the config freely.
+script or test can import the config freely, a CommonJS `tsx` script on Node.js 20.19
+or 22.12 and newer included.
 
 <ApiSignature path="../../packages/core/src/define-admin.ts" name="defineAdmin" />
 
@@ -156,7 +157,7 @@ type RateLimitOptions =
 
 The memory driver counts per process and keeps at most 10,000 keys, dropping
 expired and then the oldest buckets; use Redis with more than one instance. A
-caller over the limit gets `429`. `per: "ip"` keys by `ctx.ip`, so it needs
+caller over the limit gets `429` with `Retry-After`, the window in seconds. `per: "ip"` keys by `ctx.ip`, so it needs
 `security.trustedProxies`; without it `defineAdmin` refuses to start in
 production and warns in development. An app with no proxy in front uses
 `per: "user"` for signed-in operators, or `enabled: false`. A caller with neither
@@ -206,13 +207,32 @@ for the same count.
 sign-in and access-denied screens shown when `auth.signInUrl` or
 `auth.forbiddenUrl` is not set.
 
-A Russian `formatting.locale` (`"ru"`, `"ru-RU"`) makes `RU_LABELS` the base that
-`labels` merges over, so set only the strings you want different, such as
-`labels: { actions: { new: "Добавить" } }`. Other locales use English. Import
-`RU_LABELS` or `DEFAULT_LABELS` from `@flowpanel/kit`; `labels: DEFAULT_LABELS`
-keeps English under a Russian locale.
-
 <AutoTypeTable path="../../packages/core/src/types/labels/config.ts" name="LabelsConfig" />
+
+### Language presets
+
+`@flowpanel/kit` exports the whole built-in UI in five languages beside English:
+`DE_LABELS` (German), `FR_LABELS` (French), `ES_LABELS` (Spanish), `PT_BR_LABELS`
+(Brazilian Portuguese) and `RU_LABELS` (Russian). Pass one as `labels`, merged
+with the strings you want different, and set `formatting.locale` to the same
+language so numbers, money and dates follow it:
+
+```ts as="AdminDefinition"
+labels: mergeLabels({ actions: { new: "Hinzufügen" } }, DE_LABELS),
+formatting: { locale: "de-DE" },
+```
+
+Each preset's counts take the plural forms its language has. A preset is plain
+data, not code: an admin that imports none ships none of them. A preset sets
+`dateRange.locale` to its language, which also decides whether a resource label
+keeps its capital mid-sentence (German does); set it yourself when you write a
+whole language by hand. Counts pick their plural form by `formatting.locale`.
+A Russian `formatting.locale` (`"ru"`, `"ru-RU"`) makes `RU_LABELS` the
+base by itself, so there `labels` holds only the strings you want different;
+`labels: DEFAULT_LABELS` keeps English under a Russian locale. Field and resource
+labels stay yours: write them in the admin's language, and each field label
+reaches every surface, as [Field labels](/docs/build/resources#field-labels)
+describes.
 
 ## CommandPaletteConfig
 

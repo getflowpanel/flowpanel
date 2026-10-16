@@ -84,6 +84,22 @@ describe("runSmoke", () => {
     expect(page.waited.every((selector) => selector === "main")).toBe(true);
   });
 
+  it("opens a record from a phone's card list", async () => {
+    const page = new FakePage(
+      admin({
+        "/admin/customers": {
+          navLinks: NAV,
+          rows: 1,
+          cards: true,
+          rowTargets: ["/admin/customers/1"],
+        },
+      }),
+    );
+    const report = await runSmoke(page, {}, null);
+
+    expect(report.visited).toContain("/admin/customers/1");
+  });
+
   it("counts a drawer that keeps the list route as an opened row", async () => {
     const page = new FakePage(
       admin({
@@ -130,6 +146,28 @@ describe("runSmoke", () => {
     await expect(runSmoke(page, {}, null)).rejects.toThrow("/admin/orders: responded 500");
   });
 
+  it("fails at once with Next's error text when a render crashed past the admin", async () => {
+    const page = new FakePage(
+      admin({
+        "/admin/orders": {
+          crash: "Application error: a server-side exception has occurred. Digest: 3083534743",
+        },
+      }),
+    );
+
+    await expect(runSmoke(page, {}, null)).rejects.toThrow(
+      "/admin/orders: rendered Next's error page instead of the admin: Application error: a server-side exception has occurred. Digest: 3083534743",
+    );
+  });
+
+  it("names the route that never rendered its main region instead of hanging", async () => {
+    const page = new FakePage(admin({ "/admin/orders": { navLinks: NAV, noMain: true } }));
+
+    await expect(runSmoke(page, {}, null)).rejects.toThrow(
+      "/admin/orders: rendered no <main> within 15 s",
+    );
+  });
+
   it("fails on a rendered FlowPanel error surface", async () => {
     const page = new FakePage(admin({ "/admin/orders": { navLinks: NAV, errorSurface: true } }));
 
@@ -151,6 +189,17 @@ describe("runSmoke", () => {
 
     await expect(runSmoke(page, {}, scan)).rejects.toThrow(
       /\/admin: axe color-contrast \(serious\)/,
+    );
+  });
+
+  it("names the elements an axe finding is about", async () => {
+    const page = new FakePage(admin());
+    const scan = async () => [
+      { id: "target-size", impact: "serious", targets: ["#row-menu-1", "#row-menu-2"] },
+    ];
+
+    await expect(runSmoke(page, {}, scan)).rejects.toThrow(
+      "/admin: axe target-size (serious) at #row-menu-1, #row-menu-2",
     );
   });
 

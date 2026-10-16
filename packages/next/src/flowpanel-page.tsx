@@ -1,5 +1,10 @@
 import type { RequestContext, ResolvedAdminConfig, ShellConfig, ShellMode } from "@flowpanel/core";
-import { FlowpanelRateLimitError, mergeLabels } from "@flowpanel/core";
+import {
+  FlowpanelError,
+  FlowpanelRateLimitError,
+  mergeLabels,
+  reportUnexpectedError,
+} from "@flowpanel/core";
 import { CommandHost, DrawerHost, NotFoundBody, PathAwareShell } from "@flowpanel/next/client";
 import {
   AdminShell,
@@ -22,10 +27,11 @@ import {
   toSearchParams,
 } from "./runtime/page-url";
 import { bindPublisher } from "./runtime/publish";
+import { isControlFlow } from "./runtime/query-error";
 import { renderContent } from "./runtime/render-content";
-import { buildRequestContext } from "./runtime/request-setup";
+import { buildRequestContext, requestIdFrom } from "./runtime/request-setup";
 import { ThemeColor, ThemeVars } from "./runtime/theme-vars";
-import { handleRenderError } from "./runtime/walls";
+import { handleRenderError, sessionFailedWall } from "./runtime/walls";
 
 export { renderContent } from "./runtime/render-content";
 export { handleRenderError } from "./runtime/walls";
@@ -88,6 +94,19 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
       content = await renderContent(config, slug, sp, req, reqCtx);
     } catch (err) {
       const admitted = reqCtx !== undefined;
+      if (!admitted && !(err instanceof FlowpanelError) && !isControlFlow(err)) {
+        const requestId = requestIdFrom(req);
+        await reportUnexpectedError(
+          err,
+          { requestId, route: "page", method: "GET", url: req.url, ip: null, userAgent: null },
+          config.hooks?.onError,
+        );
+        return (
+          <AdminFrame config={config}>
+            <main id="main">{sessionFailedWall(config, requestId, err)}</main>
+          </AdminFrame>
+        );
+      }
       if (err instanceof FlowpanelRateLimitError && !admitted) {
         reqCtx = await buildRequestContext({ req, config, rateLimit: false }).catch(
           () => undefined,

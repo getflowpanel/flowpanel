@@ -195,6 +195,21 @@ resource(schema.people, {
 })
 ```
 
+### Field labels
+
+Label a field once, on a form, record or drawer field or on its column, and every surface uses that label: the filter, forms and their error messages, the drawer, the record page, History and the Audit log, and the headers of a CSV export and import. When several places label the same field, a form field's label wins, then a record field's, then a drawer field's, and a column's label is the fallback. A column's label always names its own list header, so a header such as "Status" over a rendered badge does not rename the field.
+
+```ts
+resource(schema.customers, {
+  columns: [{ field: "email", label: "Contact" }, "name"],
+  create: { fields: [{ name: "email", label: "Work email" }, { name: "name" }] },
+})
+```
+
+Here the list header says "Contact", while the create form, the "is already taken" error, the drawer and the History tab all say "Work email". Without the form's label, they would all say "Contact".
+
+A field nobody labels reads its name: `created_at` reads "Created at", `sku` "SKU", `orderId` "Order ID" and `durationMs` "Duration (ms)". A reference drops its key, so `customerId` reads "Customer", and a money column that stores cents drops the suffix, so `amount_cents` reads "Amount".
+
 ### Search, filters and sorting
 
 Search and filters are off until you name fields. Their values live in the URL with sorting and pagination, so a filtered list is a shareable link.
@@ -240,6 +255,8 @@ Configure create and edit forms with typed fields, validation, defaults and rela
 Docs: https://flowpanel.tech/docs/build/forms
 
 Create and edit forms are generated from the table. Declare `create.fields` and `update.fields` to choose exactly what each form writes; the server rejects any other field.
+
+A generated form follows the list's columns: a column's `label` names its control, a `reference` column is a picker, and a column whose `format` is money, such as `{ kind: "money", minorUnits: 2 }` on `totalCents`, takes the amount in major units, `74.35`, and stores `7435`. A column the database needs a value for is marked required, a column with a plain default such as an enum's `draft` starts there, and the create form leaves out a record timestamp the database fills, such as `created_at default now()` or `updated_at`. A defaulted date the user sets, such as `due_on default current_date`, stays as an optional field.
 
 ### Declare the fields
 
@@ -299,7 +316,7 @@ The stored value is the target's primary key. The lookup applies the target reso
 
 ### Validation and defaults
 
-The resource schema validates first, then each field's `validate`, a Zod schema or a function returning a message. `required` marks the control required and the server rejects a missing value. A NOT NULL column without `required` is checked too: a create that leaves it empty, or an edit that clears it, fails with its "is required" message.
+The resource schema, `required` and each field's `validate`, a Zod schema or a function returning a message, run in one round, so a submit shows every field's problem at once. A field the schema already refused keeps the schema's message and its `validate` does not run. `required` marks the control required and the server rejects a missing value. A NOT NULL column without `required` is checked too: a create that leaves it empty, or an edit that clears it, fails with its "is required" message.
 
 A timestamp column gets a `datetime-local` control that shows the stored time on the admin's clock, `formatting.timeZone` (UTC when unset), and the server reads the posted time in that zone. Saving without touching it keeps the stored seconds. A `type: "date"` field shows the day.
 
@@ -307,7 +324,7 @@ A timestamp column gets a `datetime-local` control that shows the stored time on
 
 #### Rejection messages
 
-A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`, and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key. A value outside a select's choices or a schema enum reads `invalidOption`, whatever message the enum carries, so it is in the admin's language; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. `RU_LABELS` translates the built-in ones.
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`, and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key. A value outside a select's choices or a schema enum reads `invalidOption`, whatever message the enum carries, so it is in the admin's language; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. The [language presets](/docs/reference/define-config#language-presets) translate the built-in ones, and `{label}` is the field's [one label](/docs/build/resources#field-labels).
 
 ### Restrict fields
 
@@ -371,7 +388,18 @@ Actions render as secondary buttons. A dashboard action takes `emphasis: "primar
 
 ### Authorization
 
-The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `when` offers an action only on the rows it accepts, and its route rejects the others; `disabled` shows the action with a reason. `hidden` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`, so a `when` that reads the posted input decides only on the route. An action without its own `access` runs under the resource's `update` rule.
+The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `when` offers an action only on the rows it accepts, and its route rejects the others. It receives `{ current, input, session, role, scope }`, where `current` is the loaded row:
+
+```ts
+rowAction<{ id: number; status: string }>({
+  key: "escalate",
+  label: "Escalate",
+  when: ({ current }) => current?.status !== "escalated",
+  run: async (row) => ({ ok: true, message: `Escalated ${row.id}` }),
+});
+```
+
+`disabled` shows the action with a reason. `hidden` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`, so a `when` that reads the posted input decides only on the route. An action without its own `access` runs under the resource's `update` rule.
 
 ### Results
 
@@ -610,7 +638,7 @@ const byDay = barChart(
 );
 ```
 
-Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL; `series` buckets in the admin's zone and fills gaps. `keys` keeps a marketplace with no listings in the comparison. Above about 50,000 rows, group by hour in SQL first. `ctx.sql` applies no scope or access rules: add tenant predicates yourself.
+The SQL names a Drizzle schema's snake_case table; on Prisma, use the model's quoted names, such as `from "CrawlHourlyStat" where "hour" >= ...` ([Prisma setup](/docs/introduction/prisma#raw-sql)). Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL; `series` buckets in the admin's zone and fills gaps. `keys` keeps a marketplace with no listings in the comparison. Above about 50,000 rows, group by hour in SQL first. `ctx.sql` applies no scope or access rules: add tenant predicates yourself.
 
 ### Thresholds
 
@@ -687,7 +715,7 @@ Export is off until you set `export`. The toolbar's Export asks the server for e
 
 The file has the columns in table order, or `fields` in its order. Each entry in `fields` must be a column or in `expose`. CSV cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'` so a spreadsheet does not run them as formulas; a negative number such as `-123.45` stays as it is. Dates are ISO 8601. A money column that stores minor units, through `minorUnits` on its format or a `money` field, holds the amount in major units as a plain decimal with no currency sign: `5900` cents is `59.00`. Ids, references and enum values stay as stored, so a file imports back as it came out.
 
-The file name says what it holds: `users-all-2026-10-09.csv`, or `users-filtered-2026-10-09.csv` when filters or search narrow the list. An export stops at `maxRows`, 10,000 by default; a capped file is named `users-filtered-first-10000-2026-10-09.csv`, carries the `X-Flowpanel-Export-Capped` header, and the admin tells the user to narrow the filters. Each export records one `<resource>.export` audit event when the download starts, and counts once against `rateLimit`. Rows are ordered by the list's sort with the primary key breaking ties, or by the primary key alone (every column of a composite key), so a file never repeats or skips a row between batches. When the adapter cannot see the key, the export is unordered.
+The file name says what it holds: `users-all-2026-10-09.csv`, or `users-filtered-2026-10-09.csv` when filters or search narrow the list. The date is the day on the admin's clock, `formatting.timeZone`. An export stops at `maxRows`, 10,000 by default; a capped file is named `users-filtered-first-10000-2026-10-09.csv`, carries the `X-Flowpanel-Export-Capped` header, and the admin tells the user to narrow the filters. Each export records one `<resource>.export` audit event when the download starts, and counts once against `rateLimit`. Rows are ordered by the list's sort with the primary key breaking ties, or by the primary key alone (every column of a composite key), so a file never repeats or skips a row between batches. When the adapter cannot see the key, the export is unordered.
 
 The route is `GET <paths.api>/export/<resource>?format=csv`, with the list page's own query string (`f_<field>`, `q`, `sort`, `deleted`). `export` is a reserved name, so no resource or queue can take it.
 
@@ -703,7 +731,7 @@ resource(schema.users, {
 })
 ```
 
-Each row goes through the create path: validation, field access, scope, the adapter, audit and realtime. A read-only or role-restricted field in the file is rejected. CSV headers and JSON keys match field names. A `money` field, or a column whose money format has `minorUnits`, takes the amount in major units, `59.00`, as the export writes it.
+Each row goes through the create path: validation, field access, scope, the adapter, audit and realtime. A read-only or role-restricted field in the file is rejected. A CSV header or JSON key is a field name, the export's header (the column's label) or the create form's label, in any case, so an exported file imports back without editing its first line. A row reports every field's problem at once. A `money` field, or a column whose money format has `minorUnits`, takes the amount in major units, `59.00`, as the export writes it.
 
 Picking a file asks first: "Import customers.csv? 48 rows will be imported." After the import, a file whose rows were all accepted gets a toast. When some rows were refused, a dialog lists each one by its row number with the reason, in the same words as the form, naming each field by its label, and **Download failed rows (CSV)** saves those rows with an `error` column to fix and import again. The words come from `labels.importer`.
 

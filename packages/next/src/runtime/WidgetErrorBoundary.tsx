@@ -20,6 +20,8 @@ interface BoundaryProps {
   plain?: boolean;
   /** The widget's card title, which the fallback card shows. */
   title?: string;
+  /** What failed, in place of "Couldn't load this widget". */
+  failureTitle?: string;
 }
 
 interface SentryLike {
@@ -45,11 +47,13 @@ function BoundaryFallback({
   onReset,
   plain,
   title,
+  failureTitle,
 }: {
   error: Error & { digest?: string };
   onReset: () => void;
   plain: boolean;
   title: string | undefined;
+  failureTitle: string | undefined;
 }): React.JSX.Element {
   const router = useRouter();
   const { errors } = useLabels();
@@ -58,7 +62,7 @@ function BoundaryFallback({
   return (
     <FailureCard
       {...(title ? { heading: title } : {})}
-      title={errors.widgetTitle}
+      title={failureTitle ?? errors.widgetTitle}
       hint={error.digest ? `${errors.widgetHint} ${errors.reportHint}` : errors.widgetHint}
       detail={developing && error.message ? { summary: errors.details, text: error.message } : null}
       plain={plain}
@@ -116,6 +120,7 @@ export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
           onReset={this.reset}
           plain={this.props.plain === true}
           title={this.props.title}
+          failureTitle={this.props.failureTitle}
         />
       );
     }

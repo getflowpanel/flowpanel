@@ -241,12 +241,12 @@ function deletedNotice(
   name: string,
   id: string,
 ): React.ReactNode {
-  const { detail } = mergeLabels(config.labels);
+  const { detail, dateRange } = mergeLabels(config.labels);
   return (
     <div className="fp-mb-6">
       <HealthBanner
         tone="warn"
-        title={singularTitle(detail.deleted, resource, name)}
+        title={singularTitle(detail.deleted, resource, name, dateRange.locale)}
         description={detail.deletedDescription}
         {...(resource.options.update?.disabled
           ? {}

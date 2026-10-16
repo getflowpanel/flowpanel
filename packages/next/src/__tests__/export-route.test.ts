@@ -227,3 +227,18 @@ describe("the server export of a composite-key table", () => {
     db.close();
   });
 });
+
+describe("the export file's name", () => {
+  it("carries the day on the admin's clock, not UTC's", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-13T21:00:00Z"));
+    const local = defineAdmin({ ...admin, formatting: { timeZone: "Asia/Bangkok" } });
+    role = "admin";
+    const res = await handlers(local).GET(
+      new Request("http://localhost/api/flowpanel/export/customers?format=csv"),
+      { params: Promise.resolve({ route: ["export", "customers"] }) },
+    );
+    vi.useRealTimers();
+    expect(res.headers.get("content-disposition")).toContain("-2026-10-14.csv");
+  });
+});

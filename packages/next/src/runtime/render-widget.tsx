@@ -24,6 +24,7 @@ import { barRows } from "./bar-rows";
 import { withFilterHrefs } from "./dashboard-filters";
 import { filteredEmptyState } from "./filtered-empty";
 import { listCardData } from "./list-card-data";
+import { inAmount } from "./minor-units";
 import { realtimeChannels } from "./realtime-channels";
 import { scopedCountMetric } from "./record-scope";
 import { renderChartWidget } from "./render-chart-widget";
@@ -111,7 +112,7 @@ export async function renderWidget(
       );
     }
     case "stat": {
-      const result = await resolveItem(widget.value, ctx);
+      const result = inAmount(await resolveItem(widget.value, ctx), widget.options.minorUnits);
       const hint = result.hint ?? widget.options.hint;
       const href = resolveLink(config, ctx, result.href ?? widget.options.href);
       const tone = valueTone(result, widget.options);

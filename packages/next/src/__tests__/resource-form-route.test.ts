@@ -258,7 +258,7 @@ describe("resourceCreateRoute", () => {
     expect(res.status).toBe(422);
     const body = (await res.json()) as { ok: boolean; fieldErrors?: Record<string, string> };
     expect(body.ok).toBe(false);
-    expect(body.fieldErrors?.priceCents).toBe("Price cents must be a number");
+    expect(body.fieldErrors?.priceCents).toBe("Price (cents) must be a number");
   });
 
   it("answers 422 'Email is already taken' when the database reports a duplicate", async () => {

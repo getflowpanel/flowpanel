@@ -36,7 +36,7 @@ export default defineAdmin({
 });
 ```
 
-`init` writes this wiring when it finds `better-auth`: the preset goes in `server/lib/flowpanel-session.ts` as `flowpanelAuth`, and the config uses `auth: flowpanelAuth`. Add `signInUrl` and `forbiddenUrl` there. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
+`init` writes this wiring when it finds `better-auth`: the preset goes in `flowpanel-session.ts` beside your auth module, such as `lib/flowpanel-session.ts`, as `flowpanelAuth`, and the config uses `auth: flowpanelAuth`. Add `signInUrl` and `forbiddenUrl` there. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
 
 When the role lives in your own table, `role` can be async:
 
@@ -92,10 +92,14 @@ auth: {
 
 `session` receives the request. Both `session` and `role` run on every request. `access` takes the same rule as everywhere else: a role, a list of roles, or a function of `{ session, role }`. It runs before `scope`, so a function sees `scope` as `null`.
 
+## Status codes
+
+Without a `signInUrl` or `forbiddenUrl`, the sign-in and access-denied screens answer 200 inside the admin; [Limits](/docs/introduction/limits#sign-in-and-access-denied-status-on-pages) says why. If the session provider throws, the page shows "Something went wrong" with a request ID, and the server log has the error. A refusal FlowPanel wrote, such as the development stub `init` writes running in production, is shown in full on that screen.
+
 ## Verify
 
 1. With no session, the page redirects to `signInUrl` and the API rejects the request.
-2. Signed in without the role, the page redirects to `forbiddenUrl` and the API returns 403.
+2. Signed in without the role, the page redirects to `forbiddenUrl` and the API returns 403. A role the admin lets in but one page refuses sees "You don't have access to …" inside the admin instead.
 3. Signed in with the role, pages and API calls succeed.
 
 Without a `signInUrl`, the page shows a sign-in screen instead of redirecting. In development it says that `auth.session` returned null and links to this guide.

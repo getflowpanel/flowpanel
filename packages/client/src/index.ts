@@ -1,4 +1,8 @@
-export { type CreateFlowpanelClientOptions, createFlowpanelClient } from "./client";
+export {
+  type CreateFlowpanelClientOptions,
+  clientMetadata,
+  createFlowpanelClient,
+} from "./client";
 export {
   type UseAdminMutation,
   type UseAdminMutationOptions,

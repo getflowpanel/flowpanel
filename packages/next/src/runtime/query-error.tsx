@@ -48,10 +48,14 @@ export function QueryErrorCard({
   site: QuerySite & { requestId: string };
   cause: unknown;
 }): React.JSX.Element {
-  const { errors } = mergeLabels(site.config.labels);
+  const { errors, dateRange } = mergeLabels(site.config.labels);
   const developing = process.env.NODE_ENV !== "production";
   const detail = developing ? causeMessage(cause) : null;
-  const title = fillLabel(site.record ? errors.loadRecordTitle : errors.loadTitle, site.label);
+  const title = fillLabel(
+    site.record ? errors.loadRecordTitle : errors.loadTitle,
+    site.label,
+    dateRange.locale,
+  );
   return (
     <FailureCard
       title={title}

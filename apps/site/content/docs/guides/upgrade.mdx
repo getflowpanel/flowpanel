@@ -93,6 +93,8 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | a field's `readOnly` checked in the form only | it applies to writes, a `readOnly` function receives the stored row on edit, and it wins over `fieldAccess.write` |
 | a fractional value for a Drizzle integer column reaching the database | the form rejects it first |
 | a unique, foreign key or NOT NULL violation answering 500 | 422 with a field message, or 409; another unexpected error is logged with its request id, and a form answers "Internal server error" with `requestId` |
+| `auth.forbiddenUrl` receiving a role that one dashboard, page, queue, the Audit log or a resource route refuses | it receives only a role `auth.access` keeps out of the whole admin; a role refused one page sees "You don't have access to …" inside the admin |
+| `FieldDef.defaultValue` typed `unknown` | `FieldDefaultValue`: a string, number, boolean, bigint, date, object, `null` or a function of the request; cast an `unknown` value, such as `value as string` |
 | an unknown admin path or a missing record | your `not-found.tsx` through `notFound()`, 404, or 200 with `noindex` under `cacheComponents`; add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix` |
 | **UI** | |
 | unprefixed classes such as `px-4` or `bg-fp-bg-2` in a custom widget, styled by admin.css | your own Tailwind build with the token bridge, as [Styling](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes) shows; `toneTextClass` and `toneFillClass` return prefixed classes |
@@ -101,6 +103,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | `ChartRenderer` reading `options.drilldown` | pass the card's resolved link as its `drilldown` href |
 | a `DataTableColumn` named `description`, `email` or `website` that your own `DataTable` sized as long text, an email or a link | set `content: "long"`, `"email"` or `"link"` on the column; field names no longer decide it |
 | English built-in text under a Russian `formatting.locale` | Russian; set `labels` to keep English |
+| a field without a label named "Customer ID", "Amount cents", "Sku" or "Duration MS", in lists, forms, History, the Audit log and CSV export headers | "Customer", "Amount", "SKU", "Duration (ms)"; set `label` on the column or field to keep the old text |
 | a resource without `labelOne` or `label` named by its plural | its singular name, "User" for `users`; "New …" and "Edit …" put the label mid-sentence |
 | **Adapters** | |
 | Prisma `Decimal` values as `Decimal` objects | strings at the `@db.Decimal` scale, such as `"49.90"` (`"49.9"` on Prisma 5); use `Number(value)` instead of `.toNumber()` |

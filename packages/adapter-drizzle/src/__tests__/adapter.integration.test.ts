@@ -231,6 +231,20 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     expect(r.rows.map((row: any) => row.id).sort()).toEqual(["u1", "u3", "u5"]);
   });
 
+  it("compares a timestamp column with a Date bound in ctx.sql, as a dashboard does", async () => {
+    const run = adapter.sql;
+    if (!run) throw new Error("fixture: the sql capability is missing");
+    const from = new Date(Date.now() - 86_400_000);
+    const to = new Date(Date.now() + 86_400_000);
+    const [inRange] = await run<{ n: number }>`
+      select count(*)::int as n from users where created_at >= ${from} and created_at < ${to}`;
+    const [all] = await run<{ n: number }>`select count(*)::int as n from users`;
+    expect(inRange?.n).toBe(all?.n);
+    const [none] = await run<{ n: number }>`
+      select count(*)::int as n from users where created_at >= ${to}`;
+    expect(none?.n).toBe(0);
+  });
+
   it("get returns a row or null", async () => {
     expect(await adapter.get(users, { ...ctx(), id: "u3" } as any)).toMatchObject({
       id: "u3",

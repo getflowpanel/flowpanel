@@ -141,9 +141,10 @@ It fires for a required column with no default that neither `create.fields` nor
 
 `FlowpanelAuthError` and `FlowpanelAccessError` thrown during a page render:
 
-- `auth.signInUrl` is set → redirect there.
-- `auth.forbiddenUrl` is set and the visitor is signed in → redirect there.
-- Neither → an inline "Sign in required" or "Access denied" panel.
+- No session and `auth.signInUrl` is set → redirect there.
+- Signed in, but `auth.access` refuses the whole admin, and `auth.forbiddenUrl` is set → redirect there.
+- Signed in and admitted, but one dashboard, page, queue, the Audit log or a resource route refuses the role → the "You don't have access to …" screen inside the admin, with a link to the next page the role can open. `forbiddenUrl` is not used here.
+- Otherwise → an inline "Sign in required" or "You don't have access to this admin" screen.
 
 Other errors reach your Next.js error boundary, except failed adapter reads.
 

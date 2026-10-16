@@ -26,7 +26,7 @@ export function DrawerResourceTab({
           <tr>
             {cols.map((c) => (
               <th key={c} scope="col" className="fp-px-4 fp-py-2 fp-text-left fp-font-normal">
-                {humanize(c)}
+                {tab.columnLabels[c] ?? humanize(c)}
               </th>
             ))}
           </tr>

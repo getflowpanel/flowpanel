@@ -108,9 +108,14 @@ export async function recordActions(
     delete: canDelete
       ? {
           label: labels.actions.delete,
-          title: singularTitle(labels.confirm.deleteTitle, resource, name),
+          title: singularTitle(labels.confirm.deleteTitle, resource, name, labels.dateRange.locale),
           description: deleteConfirmFor(config, resource, soft, labels),
-          successMessage: singularTitle(labels.saving.deleted, resource, name),
+          successMessage: singularTitle(
+            labels.saving.deleted,
+            resource,
+            name,
+            labels.dateRange.locale,
+          ),
           listHref: buildHref(config, name),
         }
       : null,

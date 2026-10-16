@@ -13,7 +13,7 @@ import {
 } from "@flowpanel/core/internal";
 import { AuditLogFilters, DetailTabsClient } from "@flowpanel/next/client";
 import { describe, expect, it } from "vitest";
-import { AuditFeed, type AuditFeedItem } from "../pages/audit/audit-feed";
+import { AuditFeed, type AuditFeedItem, auditFeedItems } from "../pages/audit/audit-feed";
 import { AuditLogPage } from "../pages/audit/audit-log-page";
 import { ResourceDetailPage } from "../pages/resource-detail";
 import { auditVisibility, describeAuditAction, projectAuditDiff } from "../runtime/audit-view";
@@ -309,5 +309,67 @@ describe("an event of a resource the reader may not read", () => {
     };
     expect(filters.resources.map((r) => r.value)).toEqual(["users"]);
     expect(filters.actions.map((a) => a.value)).toEqual(["users.update"]);
+  });
+});
+
+describe("an audit event in the feed", () => {
+  const reader = {
+    requestId: "r1",
+    req: new Request("http://localhost/admin/audit-log"),
+    session: { id: "me" },
+    role: "support",
+    scope: null,
+    ip: null,
+    userAgent: null,
+  };
+
+  it("names an export by the list it exported, linked", async () => {
+    const admin = config({ columns: [...columns] });
+    const [item] = await auditFeedItems(
+      admin,
+      reader,
+      [entry({ action: "users.export", targetId: null, diff: null })],
+      DEFAULT_LABELS.audit,
+      { linkRecords: true },
+    );
+    expect(item?.record).toEqual({ label: "Users", href: "/admin/users" });
+  });
+
+  it("reads a boolean change as yes or no in the admin's words", async () => {
+    const admin = config({ columns: [...columns] });
+    const [item] = await auditFeedItems(
+      admin,
+      reader,
+      [entry({ diff: { before: { plan: true }, after: { plan: false } } })],
+      DEFAULT_LABELS.audit,
+      { linkRecords: false },
+    );
+    expect(item?.changes.map((change) => [change.before, change.after])).toEqual([["Yes", "No"]]);
+  });
+
+  it("labels a changed field as its form or drawer does when no column names it", async () => {
+    const admin = config({
+      columns: [...columns],
+      drawer: { fields: [{ name: "plan", label: "Tarif" }] },
+    });
+    const [item] = await auditFeedItems(
+      admin,
+      reader,
+      [entry({ diff: { before: { plan: true }, after: { plan: false } } })],
+      DEFAULT_LABELS.audit,
+      { linkRecords: false },
+    );
+    expect(item?.changes.map((change) => change.label)).toEqual(["Tarif"]);
+  });
+
+  it("names a record once when its title already says what it is", async () => {
+    const admin = config({
+      columns: [...columns],
+      detail: { title: (row) => `User ${String(row.email)}` },
+    });
+    const [item] = await auditFeedItems(admin, reader, [entry()], DEFAULT_LABELS.audit, {
+      linkRecords: true,
+    });
+    expect(item?.record?.label).toMatch(/^User [^U]/);
   });
 });

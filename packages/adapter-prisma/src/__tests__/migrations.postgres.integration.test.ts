@@ -116,6 +116,20 @@ describe.skipIf(!dockerAvailable)("prismaAdapter — writes on PostgreSQL", () =
     expect(placed.status).toBe("pending");
   });
 
+  it("compares a timestamp column with a Date bound in ctx.sql, as a dashboard does", async () => {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "TestUser" (email, "createdAt") VALUES ('old@example.com', '2020-01-01'), ('new@example.com', '2026-03-01')`,
+    );
+    const from = new Date("2026-01-01T00:00:00.000Z");
+    const to = new Date("2027-01-01T00:00:00.000Z");
+    const run = adapter.sql;
+    if (!run) throw new Error("fixture: the sql capability is missing");
+    const rows = await run<{ email: string }>`
+      select email from "TestUser" where "createdAt" >= ${from} and "createdAt" < ${to} order by email`;
+    expect(rows.map((row) => row.email)).toContain("new@example.com");
+    expect(rows.map((row) => row.email)).not.toContain("old@example.com");
+  });
+
   it("reports a missing foreign key with the constraint Prisma names", async () => {
     const error = await adapter
       .create("TestOrder", { input: { userId: 999_999, total: 1 } } as any)

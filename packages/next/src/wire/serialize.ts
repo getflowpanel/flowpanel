@@ -1,4 +1,5 @@
 import { FlowpanelValidationError } from "@flowpanel/core";
+import { clientMetadata } from "@flowpanel/core/paths";
 
 export type WireValue =
   | null
@@ -80,12 +81,5 @@ export function serializeClientMetadata(input: {
   id?: string;
   paths: { admin: string; api: string };
 }): FlowpanelClientMetadata {
-  return Object.freeze({
-    id: input.id ?? "local",
-    paths: Object.freeze({ admin: input.paths.admin, api: input.paths.api }),
-    protocol: Object.freeze({
-      version: 1 as const,
-      methods: Object.freeze(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] as const),
-    }),
-  });
+  return clientMetadata(input);
 }

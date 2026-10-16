@@ -30,13 +30,13 @@ export async function missingRecordCopy(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
 ): Promise<Record<string, MissingRecordCopy>> {
-  const { notFound } = mergeLabels(config.labels);
+  const { notFound, dateRange } = mergeLabels(config.labels);
   const copy: Record<string, MissingRecordCopy> = {};
   for (const resource of config.resourcesByName.values()) {
     if (!(await readableByCaller(resource, reqCtx))) continue;
     const name = resourceNavName(resource);
     copy[name] = {
-      title: singularTitle(notFound.record, resource, name),
+      title: singularTitle(notFound.record, resource, name, dateRange.locale),
       back: formatLabel(notFound.backTo, { label: pluralLabel(resource, name) }),
       href: buildHref(config, name),
     };

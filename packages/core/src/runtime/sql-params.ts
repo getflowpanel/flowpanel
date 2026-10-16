@@ -8,8 +8,8 @@ function sanitizeSqlParam(value: unknown): unknown {
 }
 
 /**
- * Coerces `ctx.sql` values to what every driver can bind: a `Date` to ISO-8601 text, a `bigint` to decimal text.
- * Call this from an adapter's `sql` so the same template behaves the same on Postgres, MySQL and SQLite.
+ * Coerces `ctx.sql` values for a driver that binds untyped text: a `Date` to ISO-8601 text, a `bigint` to decimal text.
+ * The Drizzle adapter uses it; a driver that types its parameters, such as Prisma's `$queryRaw`, takes the values as they are.
  */
 export function sanitizeSqlParams(values: readonly unknown[]): unknown[] {
   return values.map(sanitizeSqlParam);

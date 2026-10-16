@@ -97,7 +97,10 @@ async function newIntoDir(cwd: string, resource: string, dir: string, opts: NewO
   if (!config) stop(opts, await noConfig(cwd));
   const configSource = await fs.readFile(config.file, "utf8");
   if (adapterKindOf(configSource) === "prisma") {
-    stop(opts, "--dir writes Drizzle resource files. With Prisma, run new without --dir.");
+    stop(
+      opts,
+      "--dir writes Drizzle resource files. With Prisma, run new without --dir and move the entry into its own file: https://flowpanel.tech/docs/introduction/prisma#one-file-per-resource",
+    );
   }
   const absoluteDir = path.resolve(cwd, dir);
   const shownDir = path.relative(cwd, absoluteDir) || ".";

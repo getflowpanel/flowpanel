@@ -60,6 +60,8 @@ export interface MetricOptions extends CaptionOptions {
   icon?: string;
   /** How the number is rendered. */
   format?: NumericFormat;
+  /** The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `tones` compare the amount shown. */
+  minorUnits?: number;
   /** Small caption under the value. */
   sublabel?: string;
   /** Period-over-period change, queried alongside the value. */

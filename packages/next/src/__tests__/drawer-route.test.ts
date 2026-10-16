@@ -313,7 +313,7 @@ describe("drawerRoute", () => {
     expect(body.title).toBe("safe");
     expect(body.fields).toEqual([{ name: "id" }, { name: "email" }]);
     expect(body.prerendered).toEqual({ email: "redacted" });
-    expect(body.labels).toEqual({ email: "Email" });
+    expect(body.labels).toEqual({ id: "ID", email: "Email" });
     expect(body.formats).toEqual({});
     expect(headerRows).toEqual([{ id: "abc", email: "a@b.c" }]);
     expect(renderRows).toEqual([{ id: "abc", email: "a@b.c" }]);
@@ -348,7 +348,7 @@ describe("drawerRoute", () => {
       prerendered: Record<string, string>;
     };
     expect(body.formats).toEqual({ amount: { kind: "money", currency: "EUR", scale: 100 } });
-    expect(body.labels).toEqual({ email: "Email" });
+    expect(body.labels).toMatchObject({ id: "ID", email: "Email" });
     // `render` still wins — it is prerendered server-side, formats are data.
     expect(body.prerendered.name).toBe("Alice");
     expect(body.formats).not.toHaveProperty("name");

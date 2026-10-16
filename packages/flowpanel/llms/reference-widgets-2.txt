@@ -395,6 +395,44 @@ dashboard({
 | `label` | `string` | Nav entry and page title. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
 | `navGroup?` | `NavGroupRef` | Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. |
-| `component?` | `ComponentType<Record<string, never>>` | Server or client React component rendered at `<paths.admin><path>`. |
+| `component?` | `ComponentType<PageProps>` | Server or client React component rendered at `<paths.admin><path>`; a failure shows an error card inside the admin. |
 | `href?` | `string` | External href used when `component` is not provided. |
 | `access?` | `AccessRule` | Who may see and open this page. |
+
+A page's `component` gets the request as props: who is signed in, their tenant, the
+admin's formatting and its strings. `session` is what `auth.session` returned, the
+same object `access` rules see; with a provider preset that is the provider's own
+session, tokens included. Write the page as a server component and hand its client
+children only the fields they need. A `"use client"` page component gets
+`session: null` and `scope: null`, so neither reaches the browser. A component that throws shows an error card with Retry inside the
+admin, as a widget does, and the rest of the admin keeps working.
+
+```tsx
+// src/admin/pages/reports.tsx
+import { bindFormat, type PageProps } from "@flowpanel/kit";
+
+export function ReportsPage({ role, scope, formatting, searchParams }: PageProps) {
+  const format = bindFormat(formatting);
+  return (
+    <p>
+      {role} sees {String(scope?.orgId ?? "every tenant")} for {searchParams.year ?? "this year"}:{" "}
+      {format.money(1999, { minorUnits: 2 })}
+    </p>
+  );
+}
+```
+
+Register it with `page({ path: "/reports", label: "Reports", component: ReportsPage })`.
+
+#### PageProps
+
+`PageProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `session` | `Session \| null` | What `auth.session` returned, the session `access` rules see; `null` for a `"use client"` component, so a provider's tokens never reach the browser. |
+| `role` | `string` | The signed-in role, as `auth.role` returns it. |
+| `scope` | `Scope` | The tenant `scope` resolved for this request; `null` without one, and for a `"use client"` component. |
+| `formatting` | `ResolvedFormatting` | Locale, time zone and currency from `formatting`; `bindFormat(formatting)` gives the formatters a widget gets as `ctx.format`. |
+| `labels` | `ResolvedLabels` | The admin's resolved strings, in its locale. |
+| `searchParams` | `Readonly<Record<string, string>>` | The page URL's query string; the last value wins for a repeated key. |

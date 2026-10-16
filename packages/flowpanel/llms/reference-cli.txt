@@ -169,7 +169,7 @@ What varies:
   own.
 - **Authentication**: for `better-auth`, `next-auth`, `@clerk/nextjs` or `lucia`,
   when the auth module exports the provider's instance rather than `getSession`,
-  `init` writes `server/lib/flowpanel-session.ts` on the matching
+  `init` writes `flowpanel-session.ts` beside that module on the matching
   [preset](/docs/guides/authentication). Otherwise it writes a closed `getSession`
   adapter. `--dev-auth`, or a yes to the wizard question, writes an open development
   identity that warns once per process and refuses to run in production. On an
@@ -421,6 +421,7 @@ import * as schema from "@/db/schema";
 const Surface = enumOf(schema.activitySurface.enumValues, { web: "Web", tma: "Tma" });
 
 export const userVisit = resource(schema.userVisit, {
+  plural: "User visits",
   hidden: true,
   columns: [
     "id",
@@ -443,10 +444,12 @@ target's `name`, `title` or `email` when the target already has a file, which
 also makes it a searchable picker in the generated create and edit forms, so
 scaffold referenced tables first. JSON and long text are left out of the list columns, `name`,
 `title` and `email` become search fields, and the list sorts by `createdAt` or `startedAt`.
-`--hidden` keeps the resource out of the navigation.
+`--hidden` keeps the resource out of the navigation. A table with a singular name,
+such as `user`, gets `plural: "Users"` so the navigation reads as a collection.
 
 Re-running changes nothing; a different existing file stops it. `--dir` is
-Drizzle only. Without `--dir`, a config whose `resources` comes from a `--dir`
+Drizzle only. On Prisma, run `new` without it and move the entry into its own file
+by hand, as [Prisma setup](/docs/introduction/prisma#one-file-per-resource) shows. Without `--dir`, a config whose `resources` comes from a `--dir`
 directory gets the new file there; any other `resources` that is not an array
 literal is left unchanged, and `new` exits `1`.
 
