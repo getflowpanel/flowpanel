@@ -2,6 +2,7 @@
 import * as React from "react";
 import { pinnedPx } from "./column-sizing";
 import type { DataTableColumn } from "./data-table-types";
+import { useCutColumns } from "./useCutColumns";
 
 export interface PinMeta {
   side: "left" | "right" | "none";
@@ -20,6 +21,8 @@ export interface ColumnLayout<Row> {
   setLiveWidths: React.Dispatch<React.SetStateAction<Record<string, number>>>;
   liveWidthsRef: React.MutableRefObject<Record<string, number>>;
   resizingRef: React.MutableRefObject<{ field: string; base: number } | null>;
+  /** Px each column rose by where the reader's font cut its header or a value. */
+  raised: Record<string, number>;
 }
 
 /** Shallow value-equality for width maps (same keys, same numeric widths). */
@@ -40,8 +43,13 @@ export function useColumnLayout<Row>(params: {
   pinnedColumns?: { left?: string[]; right?: string[] };
   /** Width of the fixed column before the first data column, such as the checkboxes. */
   leadingPx?: number;
+  /** Room each header needs beside its label, such as the pin button. */
+  headExtrasRem?: number;
+  table: React.RefObject<HTMLTableElement | null>;
+  rows: unknown;
 }): ColumnLayout<Row> {
-  const { columns, columnVisibility, columnWidths, pinnedColumns, leadingPx = 0 } = params;
+  const { columns, columnVisibility, columnWidths, pinnedColumns } = params;
+  const { leadingPx = 0, headExtrasRem = 0, table, rows } = params;
 
   const [liveWidths, setLiveWidths] = React.useState<Record<string, number>>(columnWidths ?? {});
   const [syncedWidths, setSyncedWidths] = React.useState(columnWidths);
@@ -92,6 +100,7 @@ export function useColumnLayout<Row>(params: {
     right.sort((a, b) => rightPins.indexOf(a.field) - rightPins.indexOf(b.field));
     return [...left, ...middle, ...right];
   }, [visible, leftPins, rightPins]);
+  const raised = useCutColumns(table, orderedVisible, rows);
 
   const pinMeta = React.useMemo(() => {
     const map = new Map<string, PinMeta>();
@@ -102,21 +111,27 @@ export function useColumnLayout<Row>(params: {
     for (const c of orderedVisible) {
       if (leftPins.includes(c.field)) {
         map.set(c.field, { side: "left", offset: leftOffset });
-        leftOffset += pinnedPx(c, liveWidths[c.field]);
+        leftOffset += pinnedPx(c, liveWidths[c.field], {
+          headExtrasRem,
+          raisedPx: raised[c.field],
+        });
       }
     }
     let rightOffset = 0;
     for (const c of [...orderedVisible].reverse()) {
       if (rightPins.includes(c.field)) {
         map.set(c.field, { side: "right", offset: rightOffset });
-        rightOffset += pinnedPx(c, liveWidths[c.field]);
+        rightOffset += pinnedPx(c, liveWidths[c.field], {
+          headExtrasRem,
+          raisedPx: raised[c.field],
+        });
       }
     }
     for (const c of orderedVisible) {
       if (!map.has(c.field)) map.set(c.field, { side: "none", offset: 0 });
     }
     return map;
-  }, [orderedVisible, leftPins, rightPins, liveWidths, leadingPx]);
+  }, [orderedVisible, leftPins, rightPins, liveWidths, leadingPx, headExtrasRem, raised]);
 
   return {
     orderedVisible,
@@ -128,5 +143,6 @@ export function useColumnLayout<Row>(params: {
     setLiveWidths,
     liveWidthsRef,
     resizingRef,
+    raised,
   };
 }

@@ -13,6 +13,10 @@ export function serializeActionFormField(f: FieldDef<Record<string, unknown>>): 
   if (f.currency !== undefined) out.currency = f.currency;
   if (f.minorUnits !== undefined) out.minorUnits = f.minorUnits;
   if (f.storage !== undefined) out.storage = f.storage;
+  const start = f.defaultValue;
+  if (typeof start === "string" || typeof start === "number" || typeof start === "boolean") {
+    out.defaultValue = start;
+  }
   return out;
 }
 

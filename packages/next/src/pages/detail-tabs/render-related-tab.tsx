@@ -150,9 +150,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
     targetCols ?? [],
     rows,
     reqCtx,
-    {
-      metaByField,
-    },
+    { metaByField, formatting: resolveFormatting(config.formatting) },
   );
   for (const column of columns) column.sortable = sortable.has(column.field);
   const cells = await withReferenceCells<Row>(

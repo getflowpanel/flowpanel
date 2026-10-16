@@ -62,7 +62,7 @@ export function LiveOperations({ initial, running, tracked }: LiveOperationsProp
   return (
     <section
       aria-labelledby="live-operations-title"
-      className="overflow-hidden rounded-fp-xl border border-fp-border-1 bg-fp-bg-1 shadow-fp-sm"
+      className="overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-sm"
     >
       <header className="flex items-start justify-between gap-4 px-5 pt-5 pb-4">
         <div>

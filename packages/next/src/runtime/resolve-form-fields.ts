@@ -115,16 +115,6 @@ export async function resolveFormFields(
   const visible = fields.filter((f) => !hidden.has(f.name) && !fieldFlag(f.hidden, values));
   return Promise.all(
     visible.map(async (f): Promise<ResolvedField> => {
-      const opts = f.options;
-      let options: { label: string; value: string }[] | undefined;
-      if (f.reference) {
-        options = await resolveReferenceCurrentOption(config, reqCtx, f.reference, values[f.name]);
-      } else if (typeof opts === "function") {
-        const resolved = await runWithRequestContext(reqCtx, () => opts(queryCtx));
-        options = toWireOptions(resolved);
-      } else if (Array.isArray(opts)) {
-        options = toWireOptions(opts);
-      }
       let defaultValue: unknown;
       if (row === undefined && f.defaultValue !== undefined) {
         defaultValue =
@@ -141,6 +131,21 @@ export async function resolveFormFields(
           );
           defaultValue = moneyInputValue(defaultValue, shape, formatting.locale);
         }
+      }
+      const opts = f.options;
+      let options: { label: string; value: string }[] | undefined;
+      if (f.reference) {
+        options = await resolveReferenceCurrentOption(
+          config,
+          reqCtx,
+          f.reference,
+          values[f.name] ?? defaultValue,
+        );
+      } else if (typeof opts === "function") {
+        const resolved = await runWithRequestContext(reqCtx, () => opts(queryCtx));
+        options = toWireOptions(resolved);
+      } else if (Array.isArray(opts)) {
+        options = toWireOptions(opts);
       }
       return {
         name: f.name,

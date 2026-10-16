@@ -25,6 +25,7 @@ export function DrawerBody({
       prerendered={payload.prerendered}
       labels={payload.labels}
       formats={payload.formats}
+      references={payload.references}
       listCell={listCell}
     />
   );

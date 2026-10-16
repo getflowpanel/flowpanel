@@ -56,6 +56,7 @@ export const RU_LABELS: ResolvedLabels = {
     empty: "{label}: записей нет",
     emptyDescription: "{label}: созданные записи появятся здесь.",
     emptyReadOnlyDescription: "{label}: записи появятся здесь, когда их добавят.",
+    noSearchMatch: "По запросу «{query}» ничего не найдено.",
     createFirst: "Создать: {label}",
     editCell: "Изменить: {label}",
     saved: "Сохранено",

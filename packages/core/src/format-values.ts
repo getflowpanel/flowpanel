@@ -261,3 +261,10 @@ export function urlCellParts(
     return null;
   }
 }
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** An email cut after "@" and before each dot, where a narrow line may break it; `null` for any other text. */
+export function emailParts(text: string): string[] | null {
+  return EMAIL.test(text) ? text.split(/(?=\.)|(?<=@)/) : null;
+}

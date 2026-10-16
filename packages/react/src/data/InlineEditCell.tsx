@@ -168,7 +168,7 @@ export function InlineEditCell({
       }}
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        "fp-w-full fp-rounded-sm fp-border fp-border-line-strong fp-bg-surface fp-px-1.5 fp-py-0.5 fp-text-ink focus:fp-border-accent focus:fp-outline-none",
+        "-fp-my-[3px] fp-w-full fp-rounded-sm fp-border fp-border-line-strong fp-bg-surface fp-px-1.5 fp-py-0.5 fp-text-ink focus:fp-border-accent focus:fp-outline-none",
         className,
       )}
     />

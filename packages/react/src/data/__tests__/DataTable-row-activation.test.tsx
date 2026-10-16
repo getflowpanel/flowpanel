@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
@@ -12,6 +12,23 @@ vi.mock("next/navigation", () => ({
 import { DataTable } from "../DataTable";
 
 afterEach(cleanup);
+
+// The inline editor loads on first use; load it once so each test below renders it at once.
+beforeAll(async () => {
+  render(
+    <DataTable
+      columns={[{ field: "name", editable: true }]}
+      rows={[{ id: "1", name: "a" }]}
+      rowKey="id"
+      total={1}
+      page={1}
+      pageSize={10}
+      inlineEditResource="user"
+    />,
+  );
+  await screen.findByRole("button", { name: "Edit Name" });
+  cleanup();
+});
 
 const baseProps = {
   columns: [{ field: "name" as const }],

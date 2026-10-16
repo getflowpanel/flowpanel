@@ -62,7 +62,7 @@ export async function ResourceCreatePage({
   return (
     <>
       <PageHeader title={singularTitle(labels.form.createTitle, resource, name)} />
-      <div className="fp-max-w-xl fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
+      <div className="fp-max-w-xl fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-6 fp-shadow-xs">
         <AutoForm
           action={action}
           columns={offered}

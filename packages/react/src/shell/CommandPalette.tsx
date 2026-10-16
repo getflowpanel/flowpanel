@@ -1,7 +1,7 @@
 "use client";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Command } from "cmdk";
 import type * as React from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { lazyRetry } from "../lib/lazy-retry";
 import { useLabels } from "../provider/LabelsContext";
 
 export interface CommandGroupUI {
@@ -28,87 +28,46 @@ export interface CommandPaletteProps {
   itemsLoading?: boolean;
 }
 
-/** ⌘K command palette built on `cmdk`. */
-export function CommandPalette({
-  open,
-  onOpenChange,
-  groups,
-  placeholder,
-  onSearch,
-  itemsLoading,
-}: CommandPaletteProps) {
+const CommandPaletteDialog = lazyRetry<CommandPaletteProps>(() =>
+  import("./CommandPaletteDialog").then((module) => ({ default: module.CommandPaletteDialog })),
+);
+
+/** The palette's frame while its code loads: it takes the focus, so keys stop reaching the page, and Escape closes it. */
+function PaletteShell({ onOpenChange }: Pick<CommandPaletteProps, "onOpenChange">) {
   const { palette } = useLabels();
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => input.current?.focus(), []);
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay
-          data-flowpanel-portal=""
-          className="fp-anim-overlay fp-fixed fp-inset-0 fp-z-50 fp-bg-overlay/60 fp-backdrop-blur-[2px]"
+    <div className="fp-fixed fp-inset-0 fp-z-50 fp-bg-overlay/60">
+      <div
+        role="dialog"
+        aria-label={palette.title}
+        aria-busy="true"
+        className="fp-fixed fp-left-1/2 fp-top-20 fp-w-[600px] fp-max-w-[92vw] -fp-translate-x-1/2 fp-rounded-xl fp-border fp-border-line fp-bg-surface fp-shadow-lg"
+      >
+        <input
+          ref={input}
+          readOnly
+          aria-label={palette.title}
+          placeholder={palette.loading}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") onOpenChange(false);
+          }}
+          className="fp-h-12 fp-w-full fp-bg-transparent fp-px-4 fp-text-sm fp-outline-none placeholder:fp-text-faint"
         />
-        <DialogPrimitive.Content
-          data-flowpanel-portal=""
-          className="fp-anim-dialog fp-fixed fp-left-1/2 fp-top-20 fp-z-50 fp-w-[600px] fp-max-w-[92vw] -fp-translate-x-1/2 fp-overflow-hidden fp-rounded-xl fp-border fp-border-line fp-bg-surface fp-shadow-lg focus:fp-outline-none"
-        >
-          <DialogPrimitive.Title className="fp-sr-only">{palette.title}</DialogPrimitive.Title>
-          <DialogPrimitive.Description className="fp-sr-only">
-            {palette.description}
-          </DialogPrimitive.Description>
-          <Command label={palette.title}>
-            <Command.Input
-              placeholder={placeholder ?? palette.placeholder}
-              {...(onSearch ? { onValueChange: onSearch } : {})}
-              className="fp-h-12 fp-w-full fp-border-b fp-border-line fp-bg-transparent fp-px-4 fp-text-sm fp-text-ink fp-outline-none placeholder:fp-text-faint"
-            />
-            <Command.List
-              label={palette.suggestions}
-              className="fp-max-h-[380px] fp-overflow-y-auto fp-p-2"
-            >
-              {itemsLoading ? (
-                <Command.Loading className="fp-px-3 fp-py-6 fp-text-center fp-text-sm fp-text-faint">
-                  {palette.loading}
-                </Command.Loading>
-              ) : null}
-              {itemsLoading ? null : (
-                <Command.Empty className="fp-px-3 fp-py-6 fp-text-center fp-text-sm fp-text-faint">
-                  {palette.noResults}
-                </Command.Empty>
-              )}
-              {groups.map((g) => (
-                <Command.Group
-                  key={g.label}
-                  heading={g.label}
-                  className="[&_[cmdk-group-heading]]:fp-px-3 [&_[cmdk-group-heading]]:fp-pb-1 [&_[cmdk-group-heading]]:fp-pt-2 [&_[cmdk-group-heading]]:fp-text-xs [&_[cmdk-group-heading]]:fp-font-medium [&_[cmdk-group-heading]]:fp-text-faint"
-                >
-                  {g.items.map((it) => (
-                    <Command.Item
-                      key={`${g.label}:${it.value ?? it.label}`}
-                      value={it.value ?? it.label}
-                      onSelect={it.onSelect}
-                      keywords={[
-                        it.label,
-                        ...(it.detail ? [it.detail] : []),
-                        ...(it.keywords ?? []),
-                      ]}
-                      className="fp-flex fp-cursor-pointer fp-items-center fp-gap-2 fp-rounded fp-px-3 fp-py-2 fp-text-sm fp-text-ink aria-selected:fp-bg-fill/70"
-                    >
-                      {it.icon}
-                      <span className="fp-min-w-0 fp-truncate">{it.label}</span>
-                      {it.detail ? (
-                        <span className="fp-min-w-0 fp-truncate fp-text-faint">{it.detail}</span>
-                      ) : null}
-                      {it.shortcut ? (
-                        <kbd className="fp-ml-auto fp-rounded-sm fp-border fp-border-line fp-bg-canvas fp-px-1.5 fp-py-0.5 fp-font-mono fp-text-[10px] fp-text-faint">
-                          {it.shortcut}
-                        </kbd>
-                      ) : null}
-                    </Command.Item>
-                  ))}
-                </Command.Group>
-              ))}
-            </Command.List>
-          </Command>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+      </div>
+    </div>
+  );
+}
+
+/** ⌘K command palette; it and `cmdk` load the first time it opens, not with every page. */
+export function CommandPalette(props: CommandPaletteProps) {
+  const [opened, setOpened] = useState(props.open);
+  if (props.open && !opened) setOpened(true);
+  if (!opened) return null;
+  return (
+    <Suspense fallback={props.open ? <PaletteShell onOpenChange={props.onOpenChange} /> : null}>
+      <CommandPaletteDialog {...props} />
+    </Suspense>
   );
 }

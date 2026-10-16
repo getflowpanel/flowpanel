@@ -49,7 +49,7 @@ export const ratingCell = (rating: number | null | undefined) => {
   if (rating == null) return "—";
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-      <span style={{ color: "hsl(var(--fp-warn))" }}>★</span>
+      <span style={{ color: "hsl(var(--fp-warn-text))" }}>★</span>
       <span style={tabularNums}>{rating.toFixed(1)}</span>
     </span>
   );

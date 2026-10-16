@@ -10,7 +10,7 @@ import {
   type ResolvedFormatting,
   type Tone,
 } from "../lib/format";
-import { LABEL_TEXT } from "../lib/label-text";
+import { INLINE_LINK, LABEL_TEXT } from "../lib/label-text";
 import { toneTextClass } from "../lib/tone-classes";
 import { useFormatting } from "../provider/FormattingContext";
 import { CardHeading } from "./CardHeading";
@@ -58,15 +58,15 @@ export function StatGroupCard({ label, stats, caption }: StatGroupCardProps) {
                 <dt className={cn("fp-break-words", LABEL_TEXT)}>{s.label}</dt>
                 <dd
                   className={cn(
-                    TWO_LINES,
+                    s.href ? undefined : TWO_LINES,
                     "fp-mt-0.5 fp-min-w-0 fp-text-base fp-font-medium fp-tabular-nums",
                     toneTextClass[s.tone ?? "default"],
                   )}
                   {...fullTextTitle(text)}
                 >
                   {s.href ? (
-                    <a href={s.href} className="hover:fp-underline">
-                      {text}
+                    <a href={s.href} className={cn(INLINE_LINK, "fp-block")}>
+                      <span className={TWO_LINES}>{text}</span>
                     </a>
                   ) : (
                     text

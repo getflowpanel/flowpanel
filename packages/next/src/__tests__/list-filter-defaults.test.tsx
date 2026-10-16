@@ -47,6 +47,8 @@ const adapter = {
   }),
   inferSchema: () => ({}) as never,
   list: async (_ref: unknown, ctx: ListQueryContext<unknown>) => {
+    // Rows exist beyond the defaults, so an empty default view still reads as filtered.
+    if (ctx.select?.length === 0) return { rows: [], total: 4, page: 1, pageSize: 1 };
     seen = ctx.filters as Record<string, unknown>;
     return { rows: [], total: 0, page: ctx.page, pageSize: ctx.pageSize };
   },

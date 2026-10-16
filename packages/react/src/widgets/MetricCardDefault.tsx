@@ -9,7 +9,7 @@ import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
 import { CaptionLine } from "./CaptionLine";
 import { deltaPrint, describeDelta, type GoodWhen, MOOD_TEXT, NEUTRAL_BAND } from "./delta";
-import { FIGURE } from "./figure";
+import { FIGURE, figureSize } from "./figure";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface MetricCardProps {
@@ -139,9 +139,12 @@ export function DefaultMetricCard(props: MetricCardProps) {
       </CardHeader>
       <CardContent className="fp-pt-0">
         <div className="fp-flex fp-flex-wrap fp-items-end fp-justify-between fp-gap-x-3 fp-gap-y-2">
-          <div className="fp-grow fp-basis-0 fp-max-w-full">
+          <div className="fp-width-container fp-grow fp-basis-0 fp-max-w-full">
             <div className="fp-flex fp-items-baseline fp-gap-1.5 fp-whitespace-nowrap">
-              <span className={cn("fp-min-w-0 fp-truncate", FIGURE, toneTextClass[tone])}>
+              <span
+                className={cn("fp-min-w-0 fp-truncate", FIGURE, toneTextClass[tone])}
+                style={figureSize(display)}
+              >
                 {display}
               </span>
               {unit ? <span className="fp-shrink-0 fp-text-sm fp-text-faint">{unit}</span> : null}

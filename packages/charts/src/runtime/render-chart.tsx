@@ -1,13 +1,24 @@
 "use client";
 import type { WidgetCaption, WidgetConfig } from "@flowpanel/core";
+import { chartBox } from "@flowpanel/core/internal";
 import { Card, CardHeading } from "@flowpanel/react";
-import { type ReactNode, useEffect, useState } from "react";
-import { AreaChart } from "./AreaChart";
-import { BarChart } from "./BarChart";
+import {
+  lazy,
+  type ReactNode,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { ChartSkeleton } from "./ChartSkeleton";
-import { DEFAULT_CHART_HEIGHT } from "./defaults";
-import { LineChart } from "./LineChart";
-import { PieChart } from "./PieChart";
+
+// One more try after a short wait, as when a redeploy removed the chunk the page asked for.
+const ChartBody = lazy(() =>
+  import("./chart-body").catch(() =>
+    new Promise<void>((resolve) => setTimeout(resolve, 800)).then(() => import("./chart-body")),
+  ),
+);
 
 type ChartWidget = Extract<WidgetConfig, { kind: `${string}Chart` }>;
 
@@ -24,22 +35,55 @@ export interface ChartRendererProps {
   caption?: WidgetCaption;
 }
 
-/** Recharts measures its container, which the server lacks, so a same-height skeleton holds until it mounts. */
-export function chartBody(
-  { kind, options, data, seriesLabels }: ChartRendererProps,
-  mounted: boolean,
-): ReactNode {
-  if (!mounted) return <ChartSkeleton height={options.height ?? DEFAULT_CHART_HEIGHT} />;
-  switch (kind) {
-    case "areaChart":
-      return <AreaChart data={data} options={options as never} names={seriesLabels} />;
-    case "barChart":
-      return <BarChart data={data} options={options as never} names={seriesLabels} />;
-    case "lineChart":
-      return <LineChart data={data} options={options as never} names={seriesLabels} />;
-    case "pieChart":
-      return <PieChart data={data} options={options as never} />;
+const FILL = { height: "100%" };
+
+/** Draws the chart at the height its box takes from its width; a hidden box, measured 0, is skipped. */
+function ChartFrame(props: ChartRendererProps) {
+  const box = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const element = box.current;
+    if (!element) return;
+    const measure = () => {
+      if (element.offsetHeight > 0) setHeight(element.offsetHeight);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={box} style={chartBox(props.options.height)}>
+      {height === null ? (
+        <ChartSkeleton style={FILL} />
+      ) : (
+        <Suspense fallback={<ChartSkeleton style={FILL} />}>
+          <ChartBody {...props} options={{ ...props.options, height }} />
+        </Suspense>
+      )}
+    </div>
+  );
+}
+
+/** Recharts measures its container, which the server lacks, so a skeleton in the chart's box holds until it mounts and loads. */
+export function chartBody(props: ChartRendererProps, mounted: boolean): ReactNode {
+  if (!mounted) return <ChartSkeleton style={chartBox(props.options.height)} />;
+  if (props.data.length === 0) {
+    return (
+      <Suspense fallback={null}>
+        <ChartBody {...props} />
+      </Suspense>
+    );
   }
+  if (props.options.height !== undefined) {
+    return (
+      <Suspense fallback={<ChartSkeleton style={chartBox(props.options.height)} />}>
+        <ChartBody {...props} />
+      </Suspense>
+    );
+  }
+  return <ChartFrame {...props} />;
 }
 
 /** Wrap a chart card in its link when it has one. */

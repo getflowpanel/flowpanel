@@ -140,8 +140,10 @@ test("the admin shows no kit English under the ru locale", async ({ page }) => {
   const listingRows = page.locator("tbody tr");
   await listingRows.nth(0).getByRole("checkbox").check();
   await listingRows.nth(1).getByRole("checkbox").check();
-  await page.getByRole("button", { name: RU_LABELS.bulkBar.choose }).click();
-  await page.getByRole("menuitem", { name: RU_LABELS.actions.delete }).click();
+  await page
+    .getByRole("region", { name: RU_LABELS.bulkBar.label })
+    .getByRole("button", { name: RU_LABELS.actions.delete })
+    .click();
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: `${RU_LABELS.actions.delete} (2)` })

@@ -8,7 +8,7 @@ import type {
   ResolvedLabels,
   ResourceConfig,
 } from "@flowpanel/core";
-import { formatLabel, resolveFieldLabel, resolveFormatting } from "@flowpanel/core";
+import { formatLabel, mergeLabels, resolveFieldLabel, resolveFormatting } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
 import { TimeAgo } from "@flowpanel/react";
 import Link from "next/link";
@@ -93,15 +93,24 @@ function shown(
   formatting: ResolvedFormatting,
   empty: string,
   references: AuditTitles,
+  yesNo: { yes: string; no: string },
 ): ReactNode {
   if (value === null || value === undefined || value === "") {
     return <span className="fp-italic fp-text-faint">{empty}</span>;
   }
+  if (typeof value === "boolean" && look?.format === undefined) return value ? yesNo.yes : yesNo.no;
   const title = look?.reference ? references.get(look.reference)?.get(String(value)) : undefined;
   if (title !== undefined) return title;
   return look?.format !== undefined
     ? renderColumnFormat(look.format, value, formatting)
     : formatFieldValue(value);
+}
+
+/** "Invoice ACME-1000": the record's title, which already reads "Invoice ACME-1000" when `detail.title` says so. */
+function recordName(template: string, label: string, title: string): string {
+  return title.toLowerCase().startsWith(label.toLowerCase())
+    ? title
+    : formatLabel(template, { label, id: title });
 }
 
 /** Events with each diff cut down to what this reader may see, and every label resolved. */
@@ -133,6 +142,7 @@ export async function auditFeedItems(
     }),
   );
   const titles = await auditTitles(config, reqCtx, entries, linkRecords);
+  const yesNo = mergeLabels(config.labels).filters;
   return entries.map((entry) => {
     const resource = entry.resource ? config.resourcesByName.get(entry.resource) : undefined;
     const access = entry.resource ? allowed.get(entry.resource) : undefined;
@@ -140,10 +150,11 @@ export async function auditFeedItems(
     const record =
       linkRecords && entry.resource && entry.targetId
         ? {
-            label: formatLabel(labels.record, {
-              label: resource ? singularLabel(resource, entry.resource) : entry.resource,
-              id: titles.records.get(entry.resource)?.get(entry.targetId) ?? entry.targetId,
-            }),
+            label: recordName(
+              labels.record,
+              resource ? singularLabel(resource, entry.resource) : entry.resource,
+              titles.records.get(entry.resource)?.get(entry.targetId) ?? entry.targetId,
+            ),
             href: resource ? buildHref(config, entry.resource, entry.targetId) : null,
           }
         : null;
@@ -159,8 +170,15 @@ export async function auditFeedItems(
         return {
           field: change.field,
           label: resolveFieldLabel(look?.label, change.field),
-          before: shown(change.before, look, formatting, labels.emptyValue, titles.references),
-          after: shown(change.after, look, formatting, labels.emptyValue, titles.references),
+          before: shown(
+            change.before,
+            look,
+            formatting,
+            labels.emptyValue,
+            titles.references,
+            yesNo,
+          ),
+          after: shown(change.after, look, formatting, labels.emptyValue, titles.references, yesNo),
         };
       }),
     };
@@ -221,7 +239,7 @@ export function AuditFeed({
   labels: ResolvedLabels["audit"];
 }): ReactNode {
   return (
-    <ol className="fp-divide-y fp-divide-line fp-rounded fp-border fp-border-line fp-bg-surface">
+    <ol className="fp-divide-y fp-divide-line fp-rounded-lg fp-border fp-border-line fp-bg-surface">
       {items.map((item) => (
         <li key={item.entry.id} className="fp-px-4 fp-py-3 sm:fp-px-6" data-fp-audit-event="">
           <div className="fp-flex fp-items-baseline fp-justify-between fp-gap-3">

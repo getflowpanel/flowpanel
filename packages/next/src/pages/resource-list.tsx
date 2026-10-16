@@ -97,7 +97,7 @@ export async function ResourceListPage({
     <>
       <PageHeader title={displayPlural} {...(createAction ? { actions: createAction } : {})} />
       {/* Search sits in the filter row, not above it — one band of chrome. */}
-      <div className="fp-mb-4 fp-flex fp-flex-wrap fp-items-center fp-gap-2">
+      <div className="fp-mb-4 fp-flex fp-flex-wrap fp-items-start fp-gap-2">
         {readable.searchFields.length > 0 ? (
           <ResourceListSearch
             placeholder={
@@ -156,7 +156,7 @@ export async function ResourceListPage({
     columnDefs,
     clientRows,
     reqCtx,
-    { defaultSortable: true, metaByField },
+    { defaultSortable: true, metaByField, formatting: resolveFormatting(config.formatting) },
   );
 
   const cellsWithRefs = applyReferenceCells(
@@ -170,6 +170,27 @@ export async function ResourceListPage({
 
   const rowKey = rowKeyOf(resource);
   const rowClick = resolveRowClick(resource);
+  // A list empty under its own default filters may be empty everywhere, as for a new tenant: then it says so.
+  const defaults = listDefaults(filterSpecs, resource).filters;
+  const hiddenFilters = new Set(filterSpecs.filter((f) => f.hidden).map((f) => f.field));
+  const chosen = Object.entries(filters).filter(([field]) => !hiddenFilters.has(field));
+  const underDefaults =
+    clientRows.length === 0 &&
+    effectiveSearch === "" &&
+    chosen.length > 0 &&
+    chosen.length === Object.keys(defaults).length &&
+    chosen.every(([field, value]) => defaults[field] === value);
+  const emptyEverywhere =
+    underDefaults &&
+    (
+      await listRows(config, resource, reqCtx, {
+        ...listing.query,
+        filters: Object.fromEntries(
+          Object.entries(filters).filter(([field]) => hiddenFilters.has(field)),
+        ),
+        countOnly: true,
+      })
+    ).total === 0;
   const rowHrefs =
     rowClick === "detail" ? detailRowHrefs(config, name, clientRows, rowKey) : undefined;
 
@@ -240,7 +261,8 @@ export async function ResourceListPage({
             }
           : {})}
         {...listEmptyProps(config, resource, name, displayPlural, {
-          filtered: effectiveSearch !== "" || Object.keys(filters).length > 0,
+          filtered: !emptyEverywhere && (effectiveSearch !== "" || Object.keys(filters).length > 0),
+          searchOnly: Object.keys(filters).length === 0,
           params: searchParams,
           search: effectiveSearch,
           defaulted: filterSpecs.filter((f) => f.defaultValue !== undefined && !f.hidden),

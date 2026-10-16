@@ -355,6 +355,45 @@ describe("drawerRoute", () => {
   });
 });
 
+describe("drawerRoute (references)", () => {
+  it("names a reference's record, so a drawer opened from a link shows its label, not the id", async () => {
+    const adapter: Adapter = {
+      ...fakeAdapter,
+      list: async () => ({
+        rows: [{ id: "u7", email: "owner@x.test" }],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      }),
+      get: async (_ref, ctx) => ({ id: ctx.id, title: "Broken login", ownerId: "u7" }),
+    };
+    const config = defineAdmin({
+      adapter,
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource(
+          { __name: "tickets" },
+          {
+            columns: [
+              "title",
+              { field: "ownerId", reference: { resource: "users", labelField: "email" } },
+            ],
+            drawer: { fields: "*" },
+          },
+        ),
+        resource({ __name: "users" }, { columns: ["id", "email"] }),
+      ],
+    });
+    const res = await drawerRoute(config)(mkReq(), {
+      params: Promise.resolve({ resource: "tickets", id: "t1" }),
+    });
+    const body = (await res.json()) as { references: Record<string, unknown> };
+    expect(body.references).toEqual({
+      ownerId: { label: "owner@x.test", href: "/admin/users/u7" },
+    });
+  });
+});
+
 describe("drawerRoute (tabs)", () => {
   function mkConfigWithTabs() {
     return defineAdmin({

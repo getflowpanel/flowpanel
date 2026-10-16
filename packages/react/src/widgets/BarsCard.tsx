@@ -4,6 +4,7 @@ import type * as React from "react";
 import { Card, CardContent } from "../layout/Card";
 import { cn } from "../lib/cn";
 import type { NumericFormat, Tone } from "../lib/format";
+import { INLINE_LINK } from "../lib/label-text";
 import { toneFillClass } from "../lib/tone-classes";
 import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
@@ -71,12 +72,12 @@ export function BarsCard({
             <div key={index} data-tone={row.tone} className="fp-space-y-1">
               <div className="fp-flex fp-items-baseline fp-justify-between fp-gap-3 fp-text-xs">
                 <span
-                  className={cn(TWO_LINES, "fp-min-w-0 fp-text-soft")}
+                  className={cn(row.href ? undefined : TWO_LINES, "fp-min-w-0 fp-text-soft")}
                   {...fullTextTitle(row.label)}
                 >
                   {row.href ? (
-                    <a href={row.href} className="hover:fp-underline">
-                      {row.label}
+                    <a href={row.href} className={cn(INLINE_LINK, "fp-block")}>
+                      <span className={TWO_LINES}>{row.label}</span>
                     </a>
                   ) : (
                     row.label

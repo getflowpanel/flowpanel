@@ -1,5 +1,5 @@
 "use client";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import type * as React from "react";
 import { cn } from "../lib/cn";
 
@@ -16,12 +16,18 @@ export function ReferenceCell({ label, href, className }: ReferenceCellProps) {
       href={href}
       prefetch={false}
       className={cn(
-        "fp-inline-block fp-max-w-full fp-truncate fp-align-bottom fp-text-ink fp-underline fp-decoration-line-strong fp-underline-offset-2 hover:fp-decoration-faint",
+        "-fp-my-0.5 fp-inline-block fp-max-w-full fp-truncate fp-py-0.5 fp-align-bottom fp-text-ink fp-underline fp-decoration-line fp-underline-offset-2 hover:fp-decoration-faint",
         className,
       )}
       onClick={(e) => e.stopPropagation()}
     >
-      {label}
+      <Opening>{label}</Opening>
     </Link>
   );
+}
+
+/** Dims the link while the record it opens is on its way, so a click shows it was heard. */
+function Opening({ children }: { children: React.ReactNode }) {
+  const { pending } = useLinkStatus();
+  return <span className={pending ? "fp-animate-pulse fp-opacity-60" : undefined}>{children}</span>;
 }

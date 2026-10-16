@@ -46,6 +46,8 @@ export function listEmptyProps(
   plural: string,
   narrowed: {
     filtered: boolean;
+    /** Only a search narrowed the list, no filter. */
+    searchOnly?: boolean;
     params: URLSearchParams;
     search?: string;
     defaulted?: ReadonlyArray<{ field: string }>;
@@ -56,12 +58,16 @@ export function listEmptyProps(
   const labels = mergeLabels(config.labels);
   if (narrowed.filtered) {
     const query = narrowed.search ?? "";
-    const title = (query && empty?.searched) || empty?.filtered || labels.widget.filtered;
+    const searchOnly = narrowed.searchOnly === true && query !== "";
+    const title =
+      (query && empty?.searched) ||
+      empty?.filtered ||
+      (searchOnly ? labels.table.noSearchMatch : labels.widget.filtered);
     return {
       emptyTitle: formatLabel(title, { query }),
       emptyAction: linkButton(
         clearedHref(config, name, narrowed.params, narrowed.defaulted ?? []),
-        labels.filters.clear,
+        searchOnly ? labels.filters.clearSearch : labels.filters.clear,
         "outline",
       ),
     };

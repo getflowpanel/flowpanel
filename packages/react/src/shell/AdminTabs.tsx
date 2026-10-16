@@ -107,7 +107,7 @@ export function AdminTabs({
       <p id="admin-tabs-scroll-hint" className="fp-sr-only">
         {navigation.scrollHint}
       </p>
-      <div className="fp-mx-auto fp-flex fp-max-w-7xl fp-items-center fp-gap-2 fp-px-4 sm:fp-gap-6 sm:fp-px-6">
+      <div className="fp-mx-auto fp-flex fp-max-w-[103rem] fp-items-center fp-gap-2 fp-px-4 sm:fp-gap-6 sm:fp-px-6">
         {hasBrand ? (
           <Brand
             brand={brand}
@@ -160,12 +160,17 @@ export function AdminTabs({
             );
           })}
         </ul>
-        {hidden.length > 0 ? (
+        {items.length > 1 ? (
+          // Held in place on a phone before it knows what is cut, so the strip does not jump when it does.
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="fp-inline-flex fp-h-11 fp-flex-shrink-0 fp-items-center fp-gap-1 fp-rounded-sm fp-px-2 fp-text-sm fp-text-soft hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
+                {...(hasMore ? {} : { "aria-hidden": true, tabIndex: -1 })}
+                className={cn(
+                  !hasMore && "fp-invisible sm:fp-hidden",
+                  "fp-inline-flex fp-h-11 fp-flex-shrink-0 fp-items-center fp-gap-1 fp-rounded-sm fp-px-2 fp-text-sm fp-text-soft hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+                )}
               >
                 {navigation.more}
                 <ChevronDown aria-hidden className="fp-h-4 fp-w-4" />

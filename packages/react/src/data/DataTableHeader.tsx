@@ -8,7 +8,7 @@ import { Checkbox } from "../ui/checkbox";
 import { ColumnPinMenu } from "./ColumnPinMenu";
 import { ColumnResizer } from "./ColumnResizer";
 import { columnLabel } from "./column-label";
-import { ROW_END_WIDTH, SELECTION_WIDTH_PX } from "./column-sizing";
+import { SELECTION_WIDTH_PX } from "./column-sizing";
 import type { DataTableColumn, DataTableSort } from "./data-table-types";
 import { ALIGN_CLASS } from "./format-cell";
 import type { PinMeta } from "./useColumnLayout";
@@ -32,7 +32,8 @@ export interface DataTableHeaderProps<Row> {
   resizingRef: React.MutableRefObject<{ field: string; base: number } | null>;
   liveWidthsRef: React.MutableRefObject<Record<string, number>>;
   setLiveWidths: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  rowEndCell?: unknown;
+  /** The trailing column's width, when the table has one. */
+  rowEndWidth?: string | undefined;
   rowEndCellLabel: string;
 }
 
@@ -54,7 +55,7 @@ export function DataTableHeader<Row>({
   resizingRef,
   liveWidthsRef,
   setLiveWidths,
-  rowEndCell,
+  rowEndWidth,
   rowEndCellLabel,
 }: DataTableHeaderProps<Row>) {
   const labels = useLabels();
@@ -72,6 +73,7 @@ export function DataTableHeader<Row>({
             className="fp-sticky fp-left-0 fp-top-0 fp-z-[4] fp-bg-surface fp-px-4 fp-py-2"
           >
             <Checkbox
+              className="sm:fp-flex"
               checked={allOnPageSelected ? true : someOnPageSelected ? "indeterminate" : false}
               aria-label={allOnPageSelected ? labels.table.deselectAll : labels.table.selectAll}
               onCheckedChange={() => onToggleAll()}
@@ -91,6 +93,14 @@ export function DataTableHeader<Row>({
           if (width !== undefined) style.width = width;
           if (meta.side === "left") style["--fp-col-pin-left"] = `${meta.offset}px`;
           else if (meta.side === "right") style["--fp-col-pin-right"] = `${meta.offset}px`;
+          const arrow = cn(
+            "fp-h-3 fp-w-3 fp-shrink-0",
+            c.align === "right" ? "fp-mr-1" : "fp-ml-1",
+          );
+          // Without a pin button beside it, the button reaches into the padding, so its arrow takes none of the label's width.
+          const reach = onPinnedColumnsChange
+            ? "fp-max-w-full"
+            : cn("fp-max-w-[calc(100%+1rem)]", c.align === "right" ? "-fp-ml-4" : "-fp-mr-4");
           const currentPin: "left" | "right" | null =
             meta.auto || meta.side === "none" ? null : meta.side;
           return (
@@ -101,6 +111,7 @@ export function DataTableHeader<Row>({
                 else headCells.current.delete(c.field);
               }}
               scope="col"
+              data-fp-col={c.field}
               aria-sort={c.sortable ? ariaSort : undefined}
               {...(Object.keys(style).length > 0 ? { style: style as React.CSSProperties } : {})}
               {...(meta.side === "left" && lastLeftPin === c.field
@@ -122,7 +133,8 @@ export function DataTableHeader<Row>({
                   type="button"
                   onClick={() => onHeaderClick(c)}
                   className={cn(
-                    "fp-inline-flex fp-max-w-full fp-items-center fp-gap-1 fp-rounded-sm fp-transition-colors hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+                    "-fp-my-1 fp-inline-flex fp-items-center fp-rounded-sm fp-py-1 fp-transition-colors hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-inset focus-visible:fp-ring-focus/60",
+                    reach,
                     c.align === "right" && "fp-flex-row-reverse",
                     active && "fp-text-ink",
                   )}
@@ -130,14 +142,17 @@ export function DataTableHeader<Row>({
                   <span className="fp-truncate">{columnLabel(c)}</span>
                   {active ? (
                     sort?.dir === "asc" ? (
-                      <ArrowUp aria-hidden className="fp-h-3 fp-w-3" />
+                      <ArrowUp aria-hidden className={arrow} />
                     ) : (
-                      <ArrowDown aria-hidden className="fp-h-3 fp-w-3" />
+                      <ArrowDown aria-hidden className={arrow} />
                     )
                   ) : (
                     <ChevronsUpDown
                       aria-hidden
-                      className="fp-h-3 fp-w-3 fp-opacity-0 fp-transition-opacity group-hover:fp-opacity-60"
+                      className={cn(
+                        arrow,
+                        "fp-opacity-0 fp-transition-opacity group-hover:fp-opacity-60",
+                      )}
                     />
                   )}
                 </button>
@@ -183,10 +198,10 @@ export function DataTableHeader<Row>({
             </th>
           );
         })}
-        {rowEndCell ? (
+        {rowEndWidth ? (
           <th
             scope="col"
-            style={{ width: ROW_END_WIDTH }}
+            style={{ width: rowEndWidth }}
             className="fp-sticky fp-top-0 fp-z-[3] fp-bg-surface fp-px-4 fp-py-2 fp-text-right"
           >
             <span className="fp-sr-only">{rowEndCellLabel}</span>

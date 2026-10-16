@@ -20,7 +20,7 @@ export async function renderChartWidget(
   config: ResolvedAdminConfig,
   caption: CaptionPromise = NO_CAPTION,
 ): Promise<ReactNode> {
-  const { ChartRenderer } = await import("@flowpanel/charts");
+  const { ChartRenderer } = await import("@flowpanel/charts/renderer");
   const data = await widget.query(ctx);
   const captionLine = await caption;
   const drilldown = resolveLink(config, ctx, widget.options.drilldown);

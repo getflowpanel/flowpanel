@@ -73,6 +73,7 @@ export function BarChart({
             />
             <YAxis
               type="category"
+              width="auto"
               dataKey={options.x}
               {...AXIS_STYLE_PROPS}
               tickFormatter={categoryTickFormatter}
@@ -90,7 +91,7 @@ export function BarChart({
             />
             <YAxis
               {...AXIS_STYLE_PROPS}
-              width={40}
+              width="auto"
               {...(valueTickFormatter ? { tickFormatter: valueTickFormatter } : {})}
             />
           </>

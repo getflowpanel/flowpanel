@@ -3,7 +3,7 @@ import { cn } from "../lib/cn";
 import { LABEL_TEXT } from "../lib/label-text";
 import { Skeleton } from "../ui/skeleton";
 import { columnLabel } from "./column-label";
-import { ROW_END_WIDTH, SELECTION_WIDTH_PX } from "./column-sizing";
+import { SELECTION_WIDTH_PX } from "./column-sizing";
 import type { DataTableColumn } from "./data-table-types";
 import { ALIGN_CLASS } from "./format-cell";
 import { TableScroll } from "./TableScroll";
@@ -16,7 +16,8 @@ export interface DataTableSkeletonProps<Row> {
   pageSize: number;
   rowPadding: string;
   selectionEnabled: boolean;
-  rowEndCell?: unknown;
+  /** The trailing column's width, when the table has one. */
+  rowEndWidth?: string | undefined;
   rowEndCellLabel: string;
 }
 
@@ -32,7 +33,7 @@ export function DataTableSkeleton<Row>({
   pageSize,
   rowPadding,
   selectionEnabled,
-  rowEndCell,
+  rowEndWidth,
   rowEndCellLabel,
 }: DataTableSkeletonProps<Row>) {
   const skeletonRows = Array.from({ length: skeletonRowCount(pageSize) });
@@ -60,10 +61,10 @@ export function DataTableSkeleton<Row>({
                 </th>
               );
             })}
-            {rowEndCell ? (
+            {rowEndWidth ? (
               <th
                 scope="col"
-                style={{ width: ROW_END_WIDTH }}
+                style={{ width: rowEndWidth }}
                 className="fp-px-4 fp-py-2 fp-text-right"
               >
                 <span className="fp-sr-only">{rowEndCellLabel}</span>
@@ -81,7 +82,7 @@ export function DataTableSkeleton<Row>({
                   <Skeleton className="fp-h-4 fp-w-full fp-max-w-24" />
                 </td>
               ))}
-              {rowEndCell ? <td className={cn("fp-px-4", rowPadding)} /> : null}
+              {rowEndWidth ? <td className={cn("fp-px-4", rowPadding)} /> : null}
             </tr>
           ))}
         </tbody>

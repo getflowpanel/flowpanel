@@ -1,7 +1,7 @@
 import type { Adapter, ColumnMeta } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { recordSearchRoute } from "../command/record-search";
+import { recordSearchRoute, resultLines } from "../command/record-search";
 
 const column = (name: string): ColumnMeta => ({
   name,
@@ -131,5 +131,31 @@ describe("record search for the command palette", () => {
     const body = await (await route(search("n"))).json();
     expect(body.groups).toEqual([]);
     expect(list).not.toHaveBeenCalled();
+  });
+});
+
+describe("a palette result's second line", () => {
+  const fields = ["title", "brand", "asin", "seller"];
+
+  it("shows the field that matched when the title did not", () => {
+    const rows = [
+      { title: "Sony WH-1000XM5", brand: "Sony", asin: "B0A", seller: "Northwind Audio" },
+    ];
+    expect(resultLines(rows, fields, "north")).toEqual([["Sony WH-1000XM5", "Northwind Audio"]]);
+    expect(resultLines(rows, fields, "sony")).toEqual([["Sony WH-1000XM5", "Sony"]]);
+  });
+
+  it("tells rows that read alike apart by the first field that differs", () => {
+    const twin = { title: "Sony WH-1000XM5 Renewed", brand: "Sony", seller: "Northwind" };
+    const rows = [
+      { ...twin, asin: "B01" },
+      { ...twin, asin: "B02" },
+      { title: "Bose QC45", brand: "Bose", asin: "B03", seller: "Harbor" },
+    ];
+    expect(resultLines(rows, fields, "renewed").map((line) => line[1])).toEqual([
+      "B01",
+      "B02",
+      "Bose",
+    ]);
   });
 });

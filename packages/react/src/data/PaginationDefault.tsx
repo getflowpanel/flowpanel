@@ -88,11 +88,11 @@ export function DefaultPagination({
     <nav
       aria-label={labels.label}
       className={cn(
-        "fp-flex fp-flex-wrap fp-items-center fp-justify-center fp-gap-1 fp-border-t fp-border-line fp-px-4 fp-py-3 fp-text-sm",
+        "fp-flex fp-flex-wrap fp-items-center fp-justify-end fp-gap-1 fp-border-t fp-border-line fp-px-4 fp-py-3 fp-text-sm",
         className,
       )}
     >
-      <span className="fp-mr-2 fp-tabular-nums fp-text-faint">
+      <span className="fp-mr-auto fp-tabular-nums fp-text-faint">
         {`${number.format(first)}–${number.format(last)} ${labels.of} ${number.format(total)}`}
       </span>
 

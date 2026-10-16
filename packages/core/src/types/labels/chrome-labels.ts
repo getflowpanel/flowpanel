@@ -153,6 +153,8 @@ export interface TableLabels {
   emptyDescription?: string;
   /** Under `empty` when nobody creates rows here. Use `{label}` for the plural label. */
   emptyReadOnlyDescription?: string;
+  /** A list a search alone left empty; `{query}` is the search. */
+  noSearchMatch?: string;
   /** The empty list's create button. Use `{label}` for the singular label. */
   createFirst?: string;
   /** The pencil on an editable cell. Use `{label}` for the column label. */

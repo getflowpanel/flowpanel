@@ -66,6 +66,8 @@ export interface DataTableProps<Row> {
   /** Subscribe to an SSE channel and trigger `router.refresh()` on events. */
   realtime?: string | { channel: string; debounceMs?: number };
   rowEndCell?: (row: Row, rowIndex: number) => React.ReactNode;
+  /** The trailing column's width in rem; the default 3.5 holds the row menu. */
+  rowEndCellRem?: number;
   /** Accessible label for the trailing column header. Defaults to "Actions". */
   rowEndCellLabel?: string;
   /** Triggered when the user presses `e` on a focused row. */

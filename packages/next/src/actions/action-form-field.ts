@@ -13,6 +13,8 @@ export interface ActionFormField {
   currency?: string;
   minorUnits?: number;
   storage?: "minor" | "major";
+  /** The value the control starts with. */
+  defaultValue?: string | number | boolean;
 }
 
 /** Field-level error map keyed by `ActionFormField.name`. */

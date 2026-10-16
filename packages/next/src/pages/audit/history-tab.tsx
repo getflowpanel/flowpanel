@@ -44,7 +44,7 @@ export async function renderHistoryTab(
   const { entries, total } = read.value;
   if (entries.length === 0) {
     return (
-      <div className="fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
+      <div className="fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-6">
         <p className="fp-text-sm fp-text-faint">{labels.empty}</p>
       </div>
     );

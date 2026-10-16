@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 describe("a quiet table", () => {
-  it("offers no export when there is nothing to export", () => {
+  it("keeps Export in its place, disabled, when there is nothing to export", () => {
     render(
       <DataTable
         columns={columns}
@@ -46,7 +46,7 @@ describe("a quiet table", () => {
         exportable
       />,
     );
-    expect(screen.queryByRole("button", { name: "Export" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Export" })).toHaveProperty("disabled", true);
   });
 
   it("sets compact rows at 40px with body-size text", () => {

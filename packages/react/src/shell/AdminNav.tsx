@@ -27,6 +27,7 @@ export interface NavGroup {
 const GROUP_LABEL = cn("fp-px-2", LABEL_TEXT);
 
 function NavItems({ items, activeHref }: { items: NavEntry[]; activeHref: string | undefined }) {
+  const iconColumn = items.some((item) => item.icon);
   return (
     <ul className="fp-mt-1 fp-space-y-0.5">
       {items.map((it) => {
@@ -46,6 +47,8 @@ function NavItems({ items, activeHref }: { items: NavEntry[]; activeHref: string
             >
               {it.icon ? (
                 <FlowpanelIcon name={it.icon} className="fp-h-4 fp-w-4 fp-shrink-0" />
+              ) : iconColumn ? (
+                <span aria-hidden className="fp-w-4 fp-shrink-0" />
               ) : null}
               <span>{it.label}</span>
               <NavLinkPending className="fp-inset-x-2.5 fp-bottom-0.5 fp-h-[2px]" />
@@ -109,7 +112,7 @@ export function AdminNav({
         ))}
       </ul>
       {user ? (
-        <div className="fp-border-t fp-border-line fp-p-2">
+        <div className="fp-sticky fp-bottom-0 fp-border-t fp-border-line fp-bg-surface fp-p-2">
           <AccountMenu user={user} />
         </div>
       ) : null}

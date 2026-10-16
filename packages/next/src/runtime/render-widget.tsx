@@ -222,7 +222,18 @@ export async function renderWidget(
         </ServerCard>
       );
       const framed = widget.options.frame === false ? inner : card;
-      return withRealtime(framed, widget.options.realtime);
+      const held =
+        widget.options.minHeight === undefined ? (
+          framed
+        ) : (
+          <div
+            className="fp-flex fp-flex-col [&>*]:fp-flex-1"
+            style={{ minHeight: widget.options.minHeight }}
+          >
+            {framed}
+          </div>
+        );
+      return withRealtime(held, widget.options.realtime);
     }
     case "timeline":
       return withRealtime(

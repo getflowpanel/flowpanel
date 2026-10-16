@@ -53,6 +53,7 @@ export {
   type ColumnFormatKind,
   cellTone,
   columnFormatKind,
+  emailParts,
   formatBooleanValue,
   formatDurationCompact,
   formatDurationValue,
@@ -74,6 +75,7 @@ export {
   parseMajorUnits,
   parseMoney,
 } from "./money-input";
+export { textWidthEm } from "./text-width";
 export { toneFillClass, toneTextClass } from "./tone-classes";
 export { toneFor } from "./tone-for";
 export type { Threshold } from "./types/threshold";

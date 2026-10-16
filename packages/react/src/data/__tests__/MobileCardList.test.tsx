@@ -221,8 +221,8 @@ describe("MobileCardList", () => {
     const checkbox = screen.getByRole("checkbox", { name: "Select row 1" });
     expect(checkbox.className).toContain("fp-h-11");
     expect(checkbox.className).toContain("fp-w-11");
-    expect(checkbox.className).toContain("sm:fp-h-5");
-    expect(checkbox.className).toContain("sm:fp-w-5");
+    expect(checkbox.className).toContain("sm:fp-h-6");
+    expect(checkbox.className).toContain("sm:fp-w-6");
     expect(checkbox.querySelector("span")?.className).toContain("fp-h-4");
     expect(checkbox.querySelector("span")?.className).toContain("fp-w-4");
   });

@@ -63,7 +63,7 @@ export function LineChart({
         />
         <YAxis
           {...AXIS_STYLE_PROPS}
-          width={40}
+          width="auto"
           {...(valueTickFormatter ? { tickFormatter: valueTickFormatter } : {})}
         />
         {options.tooltip !== false ? (

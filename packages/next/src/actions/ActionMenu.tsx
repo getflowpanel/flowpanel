@@ -92,7 +92,7 @@ export function ActionMenu({ actions, label, look, leading, onDone, dense }: Act
       <button
         type="button"
         aria-label={label}
-        className="fp-inline-flex fp-h-7 fp-w-7 fp-items-center fp-justify-center fp-rounded-sm fp-text-faint hover:fp-bg-canvas focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-accent"
+        className="fp-inline-flex fp-h-7 fp-w-7 fp-shrink-0 fp-items-center fp-justify-center fp-rounded-sm fp-text-faint hover:fp-bg-canvas focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-accent"
         disabled={pending !== null}
       >
         <KebabIcon />
@@ -115,7 +115,7 @@ export function ActionMenu({ actions, label, look, leading, onDone, dense }: Act
       aria-label={label}
       className={cn(
         "fp-flex fp-items-center fp-justify-end",
-        look === "row" ? "fp-gap-1" : "fp-gap-2",
+        look === "row" ? "-fp-my-1.5 fp-gap-1" : "fp-gap-2",
       )}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}

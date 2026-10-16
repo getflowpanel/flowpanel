@@ -36,6 +36,8 @@ resource(schema.users, { columns: ["email", "status"], actions: [suspend] });
 
 `rowAction<Row, Input>` types the row and checks every form field name against `Input`. `ctx` carries the session, scope, actor and the publish helper. Query through your own client, or declare `unsafe: ["db"]` to receive the adapter's client as `ctx.unsafe.db`.
 
+A form field takes the same options as a resource form field. A `defaultValue` that is a plain value pre-fills its control when the dialog opens; a `money` default is in stored units, as on a resource form, so `1999` shows as `19.99`. A `defaultValue` function is not run for an action form.
+
 ## Placement
 
 - A row action receives one row.

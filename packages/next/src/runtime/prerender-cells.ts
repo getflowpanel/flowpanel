@@ -1,6 +1,14 @@
 import type { ColumnDef, ColumnFormat, ColumnMeta, RequestContext } from "@flowpanel/core";
-import { columnFormatKind, urlCellParts } from "@flowpanel/core/format";
-import { isValidElement, type ReactNode } from "react";
+import {
+  columnFormatKind,
+  DEFAULT_FORMATTING,
+  formatColumnValue,
+  formatDateValue,
+  type ResolvedFormatting,
+  toDateValue,
+  urlCellParts,
+} from "@flowpanel/core/format";
+import { createElement, Fragment, isValidElement, type ReactNode } from "react";
 import { cellText, columnContent, textRem, widestRem } from "./column-content";
 
 /** Wire-safe column metadata derived from a resource's `ColumnDef[]`. */
@@ -22,7 +30,7 @@ export interface PrerenderedColumn<Row> {
   secondary?: keyof Row & string;
   /** What a text column holds, which sizes it in the table. */
   content?: "long" | "email" | "link";
-  /** The widest value on this page in rem, which sizes a text column. */
+  /** The widest value on this page in rem as the cell shows it, which sizes the column. */
   textRem?: number;
 }
 
@@ -40,6 +48,8 @@ export interface PrerenderOptions {
   defaultSortable?: boolean;
   /** Adapter introspection keyed by column name. */
   metaByField?: ReadonlyMap<string, ColumnMeta>;
+  /** The admin's locale and zone, so a number or date is measured as the cell shows it. */
+  formatting?: ResolvedFormatting;
 }
 
 /** Synthetic column key for a field-less `render` column, stable across renders. */
@@ -54,12 +64,30 @@ function warnFieldlessColumn(index: number): void {
   );
 }
 
-const NOT_TEXT = new Set<string | undefined>(["number", "date", "boolean", "reference"]);
+/** A value as its cell shows it, for measuring; a reference waits for its label, and a badge is sized by all its labels. */
+function shownText<Row>(
+  column: PrerenderedColumn<Row>,
+  raw: unknown,
+  formatting: ResolvedFormatting,
+): string {
+  if (raw === null || raw === undefined || raw === "" || column.type === "reference") return "";
+  if (column.format !== undefined) {
+    if (columnFormatKind(column.format) === "badge") return "";
+    return (
+      urlCellParts(raw, column.format)?.text ?? formatColumnValue(raw, column.format, formatting)
+    );
+  }
+  if (typeof raw === "boolean") return "✓";
+  const date = column.type === "date" ? toDateValue(raw) : null;
+  if (date) return formatDateValue(date, formatting);
+  return typeof raw === "string" || typeof raw === "number" ? String(raw) : "";
+}
 
-/** Whether the table sizes this column by the length of its text, not by its kind. */
-function sizedByText<Row>(column: PrerenderedColumn<Row>): boolean {
-  if (column.format !== undefined) return columnFormatKind(column.format) === "url";
-  return !NOT_TEXT.has(column.type);
+/** A rendered cell travels in an array, so React asks it for a key; a JSX `render` rarely gives one. */
+function keyed(node: ReactNode, index: number): ReactNode {
+  return isValidElement(node) && node.key === null
+    ? createElement(Fragment, { key: index }, node)
+    : node;
 }
 
 /** The table sizes columns in px and rem, so any other unit throws its widths off. */
@@ -80,7 +108,12 @@ export function prerenderResourceCells<Row>(
   reqCtx: RequestContext,
   options: PrerenderOptions = {},
 ): PrerenderResult<Row> {
-  const { dropHidden = false, defaultSortable, metaByField } = options;
+  const {
+    dropHidden = false,
+    defaultSortable,
+    metaByField,
+    formatting = DEFAULT_FORMATTING,
+  } = options;
   const columns: PrerenderedColumn<Row>[] = [];
   const renderFns: (((row: Row) => ReactNode) | null)[] = [];
 
@@ -141,21 +174,21 @@ export function prerenderResourceCells<Row>(
 
   const hasAnyRenderer = renderFns.some((fn) => fn !== null);
   const prerenderedCells: (ReactNode | undefined)[][] | undefined = hasAnyRenderer
-    ? rows.map((row) => renderFns.map((fn) => (fn ? fn(row) : undefined)))
+    ? rows.map((row) => renderFns.map((fn, index) => (fn ? keyed(fn(row), index) : undefined)))
     : undefined;
 
   columns.forEach((column, index) => {
-    if (!sizedByText(column)) return;
     const widest = widestRem(
       rows.map((row, rowIndex) => {
         const cell = prerenderedCells?.[rowIndex]?.[index];
         const shown = cellText(cell);
         // An element gets 1rem more: rendered cells are often badges or carry an icon.
-        if (shown) return textRem(shown) + (isValidElement(cell) ? 1 : 0);
-        const raw = row[column.field];
-        const link = column.format === undefined ? null : urlCellParts(raw, column.format);
-        if (link) return textRem(link.text);
-        return typeof raw === "string" || typeof raw === "number" ? textRem(String(raw)) : 0;
+        const own = shown
+          ? textRem(shown) + (isValidElement(cell) ? 1 : 0)
+          : textRem(shownText(column, row[column.field], formatting));
+        // The muted second line is set in 12 px type, under the cell's 14 px.
+        const second = column.secondary === undefined ? "" : row[column.secondary];
+        return Math.max(own, typeof second === "string" ? (textRem(second) * 12) / 14 : 0);
       }),
     );
     if (widest !== undefined) column.textRem = widest;

@@ -64,13 +64,6 @@ export const DEFAULT_DOC_CONTRACTS = [
     consumerExpression: "widget.options.frame === false ? inner : card",
   },
   {
-    typeName: "ChartOptionsBase",
-    member: "height",
-    value: "240",
-    consumerFile: "packages/charts/src/runtime/defaults.ts",
-    consumerExpression: "export const DEFAULT_CHART_HEIGHT = 240;",
-  },
-  {
     typeName: "PieChartOptions",
     member: "showLegend",
     value: "true",

@@ -1,4 +1,10 @@
-import type { RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
+import {
+  type ColumnMeta,
+  type RequestContext,
+  type ResolvedAdminConfig,
+  resolveFormatting,
+} from "@flowpanel/core";
+import { formatDateValue } from "@flowpanel/core/format";
 import { describe, expect, it, vi } from "vitest";
 import { cellText, columnContent, textRem, widestRem } from "../runtime/column-content";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
@@ -61,11 +67,48 @@ describe("how wide a column's values run", () => {
     ]);
   });
 
+  it("measures ids, numbers, money and dates as their cells show them, and leaves badges to their labels", () => {
+    const meta = new Map<string, ColumnMeta>(
+      (["id", "createdAt"] as const).map((name) => [
+        name,
+        {
+          name,
+          type: name === "id" ? "number" : "date",
+          nullable: false,
+          unique: name === "id",
+          primaryKey: name === "id",
+        },
+      ]),
+    );
+    const formatting = resolveFormatting({ locale: "en-US", timeZone: "UTC" });
+    const { columns } = prerenderResourceCells<Record<string, unknown>>(
+      [
+        "id",
+        { field: "mrr", format: { kind: "money", minorUnits: 2 } },
+        "createdAt",
+        { field: "plan", format: { kind: "badge", labels: { pro: "Pro" } } },
+      ],
+      [
+        { id: 7, mrr: 129900, createdAt: new Date("2026-10-13T20:55:00Z"), plan: "pro" },
+        { id: 1234, mrr: 0, createdAt: null, plan: "pro" },
+      ],
+      reqCtx,
+      { metaByField: meta, formatting },
+    );
+    const quarter = (rem: number) => Math.ceil(rem * 4) / 4;
+    expect(columns.map((column) => column.textRem)).toEqual([
+      quarter(textRem("1234")),
+      quarter(textRem("$1,299.00")),
+      quarter(textRem(formatDateValue(new Date("2026-10-13T20:55:00Z"), formatting))),
+      undefined,
+    ]);
+  });
+
   it("counts capitals and wide letters wider than narrow ones", () => {
     expect(textRem("ЖШЩ")).toBe(textRem("WWW"));
     expect(textRem("Д")).toBe(textRem("D"));
-    expect(textRem("支払い")).toBe(textRem("WWW") + (14 * 3 - 12 * 3) / 16);
-    expect(textRem("👨‍👩‍👧")).toBe(18 / 16);
+    expect(textRem("支払い")).toBeGreaterThan(textRem("WWW"));
+    expect(textRem("👨‍👩‍👧")).toBeCloseTo((1.3 * 14) / 16, 6);
     expect(textRem("WWWW")).toBeGreaterThan(textRem("MMM"));
     expect(textRem("ABCD")).toBeGreaterThan(textRem("abcd"));
     expect(textRem("abcd")).toBeGreaterThan(textRem("ilj."));

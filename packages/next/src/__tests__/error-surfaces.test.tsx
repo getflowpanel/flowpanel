@@ -181,6 +181,7 @@ describe("every FlowPanel error surface is findable by data-fp-error", () => {
           labels: {},
           ...RECORD_DEFAULTS,
           formats: {},
+          references: {},
           detailHref: null,
         }),
       ),

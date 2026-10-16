@@ -80,6 +80,7 @@ Your own component in the grid. `props` is a value or a server function. See
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `frame?` | `boolean` | Wrap the component in the standard widget card. Default: `true`. |
 | `label?` | `string` | The card's title when framed, and the name errors and slow-widget timings use. |
+| `minHeight?` | `number` | The height in px the widget keeps, while it loads and after, so the page below it does not jump when it arrives. |
 
 ### Charts
 
@@ -104,7 +105,7 @@ Shared by area, bar and line charts.
 | `y?` | `RowKey<R> \| RowKey<R>[]` | Row key(s) plotted on the y-axis; an array draws one series per key. Default: every key of the first row except `x`, in its order — the columns a `series({ by })` returns. |
 | `labels?` | `KeyLabels` | Legend and tooltip name per series key: a map, an `enumOf()` or a function. Default: the key. |
 | `colors?` | `Readonly<Record<string, string>>` | A CSS colour per series key, e.g. `{ paid: "hsl(var(--fp-chart-1))" }`. Default: `--fp-data` for a single series, `--fp-chart-1…7` in `y` order for several. |
-| `height?` | `number` | Chart height in px. Default: `240`. |
+| `height?` | `number` | Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. |
 | `format?` | `NumericFormat` | How y-values are rendered in ticks and tooltips. |
 | `minorUnits?` | `number` | The y-values are minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. |
 | `tooltip?` | `"default" \| "compact" \| false` | `false` omits the `<Tooltip>` entirely. |
@@ -172,7 +173,7 @@ unless you pass `showLegend: false`.
 | `value` | `RowKey<R>` | Row key holding each slice's magnitude. |
 | `donut?` | `boolean` | Cut a hole in the middle. |
 | `showLegend?` | `boolean` | Show the slice legend. Default: `true`. |
-| `height?` | `number` | Chart height in px. |
+| `height?` | `number` | Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |

@@ -14,16 +14,47 @@ import {
 
 const PER_RESOURCE = 5;
 
-/** The row's own words for a result line: its first two non-empty search fields. */
-function lineOf(row: Record<string, unknown>, fields: string[]): string[] {
+/** The row's non-empty search fields, as text. */
+function wordsOf(row: Record<string, unknown>, fields: string[]): string[] {
   return fields
     .map((field) => row[field])
     .filter(
       (value): value is string | number => typeof value === "string" || typeof value === "number",
     )
     .map(String)
-    .filter((text) => text.trim() !== "")
-    .slice(0, 2);
+    .filter((text) => text.trim() !== "");
+}
+
+/** Each row's title and second line: the field that matched, else the next one, else one that tells look-alikes apart. */
+export function resultLines(
+  rows: ReadonlyArray<Record<string, unknown>>,
+  fields: string[],
+  query: string,
+): Array<[title: string | undefined, detail: string | undefined]> {
+  const needle = query.toLowerCase();
+  const words = rows.map((row) => wordsOf(row, fields));
+  const lines = words.map(([title, ...rest]): [string | undefined, string | undefined] => {
+    const matched = title?.toLowerCase().includes(needle)
+      ? undefined
+      : rest.find((text) => text.toLowerCase().includes(needle));
+    return [title, matched ?? rest[0]];
+  });
+  const seen = new Map<string, number>();
+  for (const [title, detail] of lines) {
+    const key = `${title}\u0000${detail}`;
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+  }
+  return lines.map(([title, detail], index) => {
+    if ((seen.get(`${title}\u0000${detail}`) ?? 0) < 2) return [title, detail];
+    const twins = lines.flatMap((line, other) =>
+      line[0] === title && line[1] === detail ? [words[other] ?? []] : [],
+    );
+    const own = words[index] ?? [];
+    const apart = own.find(
+      (text, at) => at > 0 && twins.filter((twin) => twin[at] === text).length === 1,
+    );
+    return [title, apart ?? detail];
+  });
 }
 
 async function searchResource(
@@ -51,10 +82,11 @@ async function searchResource(
   const rowKey = rowKeyOf(resource);
   const rows: Record<string, unknown>[] = result.data.rows;
   const hrefs = openRowHrefs(config, name, resource, rows, rowKey) ?? [];
+  const lines = resultLines(rows, fields, query);
   const items = rows.flatMap((row, index): RecordSearchItem[] => {
     const href = hrefs[index];
     if (!href) return [];
-    const [title, detail] = lineOf(row, fields);
+    const [title, detail] = lines[index] ?? [];
     return [
       { title: title ?? rowIdentity(row, rowKey) ?? "", ...(detail ? { detail } : {}), href },
     ];

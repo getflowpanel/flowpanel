@@ -195,7 +195,7 @@ export function AutoForm({
           <Link
             href={cancelHref}
             prefetch={false}
-            className="fp-text-sm fp-text-soft fp-underline-offset-4 hover:fp-text-ink hover:fp-underline"
+            className="-fp-my-1 fp-py-1 fp-text-sm fp-text-soft fp-underline-offset-4 hover:fp-text-ink hover:fp-underline"
           >
             {labels.actions.cancel}
           </Link>

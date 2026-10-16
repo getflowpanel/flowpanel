@@ -4,6 +4,7 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import * as React from "react";
 import { cn } from "../lib/cn";
 import { named } from "../lib/named";
+import { INVALID_CLASS } from "./input";
 
 const Select = SelectPrimitive.Root;
 const SelectGroup = SelectPrimitive.Group;
@@ -18,6 +19,7 @@ const SelectTrigger = /* @__PURE__ */ named(
       ref={ref}
       className={cn(
         "fp-flex fp-h-9 fp-w-full fp-items-center fp-justify-between fp-gap-2 fp-rounded fp-border fp-border-line fp-bg-surface fp-px-3 fp-py-2 fp-text-sm fp-text-ink fp-shadow-xs fp-transition-colors hover:fp-border-line-strong placeholder:fp-text-faint focus:fp-outline-none focus:fp-border-focus focus:fp-ring-2 focus:fp-ring-focus/25 disabled:fp-cursor-not-allowed disabled:fp-opacity-50 [&>span]:fp-truncate",
+        INVALID_CLASS,
         className,
       )}
       {...props}

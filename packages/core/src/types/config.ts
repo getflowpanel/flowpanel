@@ -94,7 +94,7 @@ export interface ThemeConfig {
   /** Product name, logo and home link shown in the shell header. */
   brand?: { name?: string; logo?: string; href?: string };
   /**
-   * Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped.
+   * Accent color: any CSS colour as hex or a colour function, `oklch(…)` included, or an HSL triplet such as `"220 90% 50%"`.
    * Data fills take it too unless `cssVars` sets `--fp-data`.
    */
   accent?: string;
@@ -103,8 +103,12 @@ export interface ThemeConfig {
    * Dark data fills take it too unless `cssVarsDark` sets `--fp-data`.
    */
   accentDark?: string;
-  /** Initial color scheme. `"auto"` follows the operating system. */
-  mode?: "light" | "dark" | "auto";
+  /**
+   * Initial color scheme. `"auto"` follows the operating system. `"host"` follows the host app instead:
+   * the admin is dark while `<html>` has the class `dark`, as shadcn and next-themes set it, and the
+   * palette's theme switch is left out because the host's own switch drives it.
+   */
+  mode?: "light" | "dark" | "auto" | "host";
   /** Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. */
   cssVars?: ThemeTokens;
   /**

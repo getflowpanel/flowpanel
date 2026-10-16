@@ -46,6 +46,7 @@ const payload = {
   labels: {},
   ...RECORD_DEFAULTS,
   formats: {},
+  references: {},
 };
 
 describe("a statGroup in the drawer", () => {

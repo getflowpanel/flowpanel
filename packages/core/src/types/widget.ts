@@ -179,6 +179,8 @@ export interface CustomOptions extends CaptionOptions {
   frame?: boolean;
   /** The card's title when framed, and the name errors and slow-widget timings use. */
   label?: string;
+  /** The height in px the widget keeps, while it loads and after, so the page below it does not jump when it arrives. */
+  minHeight?: number;
 }
 
 export interface CustomWidget<P = unknown> {

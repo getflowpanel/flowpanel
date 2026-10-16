@@ -23,9 +23,7 @@ export interface ChartOptionsBase<R = unknown> extends CaptionOptions {
    * for a single series, `--fp-chart-1…7` in `y` order for several.
    */
   colors?: Readonly<Record<string, string>>;
-  /** Chart height in px.
-   * @defaultValue 240
-   */
+  /** Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. */
   height?: number;
   /** How y-values are rendered in ticks and tooltips. */
   format?: NumericFormat;
@@ -74,7 +72,7 @@ export interface PieChartOptions<R = unknown> extends CaptionOptions {
    * @defaultValue true
    */
   showLegend?: boolean;
-  /** Chart height in px. */
+  /** Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. */
   height?: number;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;

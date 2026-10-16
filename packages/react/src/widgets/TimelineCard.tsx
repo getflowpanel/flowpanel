@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Card, CardContent } from "../layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
-import { QUIET_LINK } from "../lib/label-text";
+import { INLINE_LINK, QUIET_LINK } from "../lib/label-text";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
 import { EmptyLine } from "./EmptyLine";
@@ -73,7 +73,7 @@ function Head({ line, expandable }: { line: TimelineCardLine; expandable?: boole
       </time>
       <span className="fp-min-w-0 fp-break-words fp-text-sm fp-text-ink">
         {line.href && !expandable ? (
-          <a href={line.href} className="hover:fp-underline">
+          <a href={line.href} className={INLINE_LINK}>
             {line.title}
           </a>
         ) : (

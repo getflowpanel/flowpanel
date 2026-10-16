@@ -1,6 +1,13 @@
 "use client";
 import type { ColumnFormat } from "@flowpanel/core";
-import { humanize, KV, KVRow, renderFormatCell, useFormatting } from "@flowpanel/react";
+import {
+  humanize,
+  KV,
+  KVRow,
+  ReferenceCell,
+  renderFormatCell,
+  useFormatting,
+} from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { formatFieldValue } from "../runtime/format-field-value";
 import type { SerializedField, SerializedFieldList } from "./serialize-fields";
@@ -19,6 +26,7 @@ export interface DrawerFieldsViewProps {
   prerendered: Record<string, string>;
   labels: Record<string, string>;
   formats: Record<string, ColumnFormat>;
+  references: Record<string, { label: string; href: string }>;
   /** The cell the list already drew for this field, so the drawer reads like the row it opened from. */
   listCell: (field: string) => ReactNode | undefined;
 }
@@ -30,6 +38,7 @@ export function DrawerFieldsView({
   prerendered,
   labels,
   formats,
+  references,
   listCell,
 }: DrawerFieldsViewProps) {
   const formatting = useFormatting();
@@ -39,6 +48,7 @@ export function DrawerFieldsView({
         const html = prerendered[k];
         const cell = listCell(k);
         const format = formats[k];
+        const reference = references[k];
         return (
           <KVRow
             key={k}
@@ -49,6 +59,8 @@ export function DrawerFieldsView({
                 <span dangerouslySetInnerHTML={{ __html: html }} />
               ) : cell !== undefined ? (
                 cell
+              ) : reference ? (
+                <ReferenceCell label={reference.label} href={reference.href} />
               ) : format !== undefined ? (
                 renderFormatCell(format, row[k], formatting)
               ) : (

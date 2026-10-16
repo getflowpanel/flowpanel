@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rowsToCsv, rowsToJson } from "../csv-export";
+import { rowsToCsv, rowsToJson } from "../csv-rows";
 import type { DataTableColumn } from "../data-table-types";
 
 type Row = Record<string, unknown>;

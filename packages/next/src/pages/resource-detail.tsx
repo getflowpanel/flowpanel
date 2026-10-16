@@ -193,7 +193,7 @@ export async function ResourceDetailPage({
     ) : null;
 
   return (
-    <>
+    <div className="fp-max-w-[77rem]">
       <PageHeader
         title={header.title}
         {...(header.subtitle ? { description: header.subtitle } : {})}
@@ -202,7 +202,7 @@ export async function ResourceDetailPage({
       />
       {deleted ? deletedNotice(config, resource, name, id) : null}
       {recordLayout(strip, body, aside)}
-    </>
+    </div>
   );
 }
 

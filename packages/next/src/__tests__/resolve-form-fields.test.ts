@@ -190,6 +190,17 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
     expect(list).not.toHaveBeenCalled();
   });
 
+  it("labels a create form's default by the record it points to, as an edit form does", async () => {
+    const { config: cfg } = configWith({});
+    const resolved = await resolveFormFields(
+      cfg,
+      [{ ...fields[0], name: "ownerId", defaultValue: async () => "u42" }],
+      ctx("admin"),
+    );
+    expect(resolved[0]?.defaultValue).toBe("u42");
+    expect(resolved[0]?.options).toEqual([{ value: "u42", label: "owner@x.com" }]);
+  });
+
   it("returns no options when the referenced row no longer exists", async () => {
     const { config: cfg } = configWith({ rows: [] });
     const resolved = await resolveFormFields(cfg, fields, ctx("admin"), { ownerId: "u42" });

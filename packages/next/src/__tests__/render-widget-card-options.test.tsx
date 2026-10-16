@@ -149,3 +149,25 @@ describe("a funnel widget with an alertDrop", () => {
     expect(out.alertDrop).toBe(0.3);
   });
 });
+
+describe("a custom widget's minHeight", () => {
+  it("holds the height after load too, with the widget stretched to fill it", async () => {
+    const Panel = () => null;
+    const widget = {
+      kind: "custom",
+      Component: Panel,
+      props: {},
+      options: { frame: false, minHeight: 437 },
+    } as unknown as WidgetConfig;
+    const fragment = (await renderWidget(widget, ctx, cfg, reqCtx)) as ReactElement<{
+      children: ReactNode[];
+    }>;
+    const node = fragment.props.children[0] as ReactElement<{
+      style?: { minHeight?: number };
+      className?: string;
+    }>;
+    expect(isValidElement(node)).toBe(true);
+    expect(node.props.style?.minHeight).toBe(437);
+    expect(node.props.className).toContain("[&>*]:fp-flex-1");
+  });
+});

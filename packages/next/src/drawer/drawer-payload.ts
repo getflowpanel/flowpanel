@@ -15,6 +15,7 @@ import { projectRowFields } from "../runtime/project-row";
 import { filterColumnsByReadableFields, resolveReadableColumns } from "../runtime/readable-fields";
 import { type RecordActions, recordActions } from "../runtime/record-actions";
 import { readRelatedRows } from "../runtime/require-authorized";
+import { resolveReferences } from "../runtime/resolve-references";
 import { singularLabel, singularTitle } from "../runtime/resource-title";
 import { rowKeyOf } from "../runtime/row-identity";
 import { visibleWidgets } from "../runtime/widget-access";
@@ -60,6 +61,8 @@ export interface DrawerPayload extends Omit<RecordActions, "drawerActions"> {
   labels: Record<string, string>;
   /** Field → column `format`. Plain data, rendered client-side exactly as the table does. */
   formats: Record<string, ColumnFormat>;
+  /** Field → the record a `reference` column points at, so a drawer opened from a link reads like one opened from its row. */
+  references: Record<string, { label: string; href: string }>;
   /** The record's own page, when the resource configures `detail`. */
   detailHref: string | null;
   /** Soft-deleted, shown only to a caller who could restore it. */
@@ -68,6 +71,28 @@ export interface DrawerPayload extends Omit<RecordActions, "drawerActions"> {
   deletedTitle?: string;
   /** A deleted row whose resource takes updates, so Restore can bring it back. */
   restorable: boolean;
+}
+
+/** Field → label and link of each `reference` column's record, through the target's own read rules. */
+async function referenceLinks(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  columns: ReadonlyArray<keyof Record<string, unknown> | ColumnDef<Record<string, unknown>>>,
+  row: Record<string, unknown>,
+): Promise<Record<string, { label: string; href: string }>> {
+  const labels = await resolveReferences(config, reqCtx, columns, [row]);
+  const out: Record<string, { label: string; href: string }> = {};
+  for (const column of columns.filter(isColumnDef)) {
+    const field = String(column.field ?? "");
+    const id = row[field];
+    const label = labels.get(field)?.get(String(id));
+    if (!column.reference || id === null || id === undefined || label === undefined) continue;
+    out[field] = {
+      label: String(label),
+      href: buildHref(config, column.reference.resource, String(id)),
+    };
+  }
+  return out;
 }
 
 /** Map of field → column `format`, so drawer rows format like their table cells. */
@@ -235,6 +260,7 @@ export async function buildDrawerPayload({
     ),
     labels: buildFieldLabels(columns),
     formats: buildFieldFormats(columns),
+    references: await referenceLinks(config, reqCtx, columns, projectedRow),
     detailHref: resource.options.detail ? buildHref(config, name, id) : null,
     deleted,
     ...(deleted

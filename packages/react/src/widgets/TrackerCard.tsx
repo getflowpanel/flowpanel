@@ -3,6 +3,7 @@ import type * as React from "react";
 import { Card, CardContent } from "../layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
+import { INLINE_LINK } from "../lib/label-text";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
 import { EmptyLine } from "./EmptyLine";
@@ -60,7 +61,7 @@ export function TrackerCard({ label, rows, caption, emptyState }: TrackerCardPro
                   <span className="fp-truncate fp-text-ink" {...fullTextTitle(row.label)}>
                     <ToneWord tone={row.tone} />
                     {row.href ? (
-                      <a href={row.href} className="hover:fp-underline">
+                      <a href={row.href} className={INLINE_LINK}>
                         {row.label}
                       </a>
                     ) : (

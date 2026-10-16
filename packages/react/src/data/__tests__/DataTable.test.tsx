@@ -175,7 +175,7 @@ describe("DataTable", () => {
     );
     expect(screen.getByText("No users")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Row density/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Export" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Export" })).toHaveProperty("disabled", true);
   });
 
   it("renders skeleton rows when loading", () => {
@@ -402,7 +402,7 @@ describe("DataTable", () => {
 });
 
 describe("a right-aligned sortable header", () => {
-  it("puts its sort icon before the label, so the label ends over the figures", () => {
+  it("puts its sort icon before the label, in the left padding, so the label ends over the figures", () => {
     render(
       <DataTable
         columns={[{ field: "found", label: "Found", align: "right", sortable: true }]}
@@ -413,8 +413,9 @@ describe("a right-aligned sortable header", () => {
         rowKey="id"
       />,
     );
-    expect(screen.getByRole("button", { name: "Found" }).className).toContain(
-      "fp-flex-row-reverse",
-    );
+    const button = screen.getByRole("button", { name: "Found" });
+    expect(button.className).toContain("fp-flex-row-reverse");
+    expect(button.className).toContain("-fp-ml-4");
+    expect(button.querySelector("svg")?.getAttribute("class")).toContain("fp-mr-1");
   });
 });

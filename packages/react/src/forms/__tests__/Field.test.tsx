@@ -2,7 +2,7 @@
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import * as React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { Field } from "../Field";
 import { Form, FormActionDispatchContext, FormContext } from "../Form";
@@ -32,6 +32,20 @@ function ctxWithError(name: FieldName) {
     form: {} as never,
   } as never;
 }
+
+// JSON and tag editors load on first use; load them once so each test below renders them at once.
+beforeAll(async () => {
+  const { container } = render(
+    <FormContext.Provider value={ctx}>
+      <Field name="meta" type="json" />
+      <Field name="tags" type="tags" />
+    </FormContext.Provider>,
+  );
+  await waitFor(() =>
+    expect(container.querySelectorAll("textarea, input:not([type=hidden])").length).toBe(2),
+  );
+  cleanup();
+});
 
 const OPTIONS = [{ label: "Alex Admin", value: "4" }];
 const SELECT_OPTIONS = [{ label: "A", value: "a" }];

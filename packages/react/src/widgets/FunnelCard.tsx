@@ -5,6 +5,7 @@ import type * as React from "react";
 import { Card, CardContent } from "../layout/Card";
 import { cn } from "../lib/cn";
 import { formatNumber, type NumericFormat } from "../lib/format";
+import { INLINE_LINK } from "../lib/label-text";
 import { toneFillClass, toneTextClass } from "../lib/tone-classes";
 import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
@@ -82,12 +83,12 @@ export function FunnelCard({
               >
                 <div className="fp-flex fp-items-baseline fp-justify-between fp-gap-3 fp-text-xs">
                   <span
-                    className={cn(TWO_LINES, "fp-min-w-0 fp-text-soft")}
+                    className={cn(step.href ? undefined : TWO_LINES, "fp-min-w-0 fp-text-soft")}
                     {...fullTextTitle(step.label)}
                   >
                     {step.href ? (
-                      <a href={step.href} className="hover:fp-underline">
-                        {step.label}
+                      <a href={step.href} className={cn(INLINE_LINK, "fp-block")}>
+                        <span className={TWO_LINES}>{step.label}</span>
                       </a>
                     ) : (
                       step.label

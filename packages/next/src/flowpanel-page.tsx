@@ -147,7 +147,14 @@ function AdminChrome({
       <DrawerHost />
       <CommandHost
         navItems={navItems}
-        {...(config.commandPalette ? { config: config.commandPalette } : {})}
+        {...(config.commandPalette || config.theme?.mode === "host"
+          ? {
+              config: {
+                ...config.commandPalette,
+                ...(config.theme?.mode === "host" ? { disableTheme: true } : {}),
+              },
+            }
+          : {})}
       />
     </>
   );
@@ -188,7 +195,8 @@ function AdminFrame({
   children: React.ReactNode;
 }) {
   const themeComponents = config.theme?.components as Partial<FlowpanelComponentSlots> | undefined;
-  const themeMode = config.theme?.mode;
+  const mode = config.theme?.mode;
+  const themeMode = mode === "host" ? undefined : mode;
   const labels = config.labels;
   return (
     <FlowpanelGlobals
@@ -196,6 +204,7 @@ function AdminFrame({
       {...(config.formatting ? { formatting: config.formatting } : {})}
       {...(themeComponents ? { themeComponents } : {})}
       {...(themeMode ? { themeMode } : {})}
+      {...(mode === "host" ? { followHost: true } : {})}
       {...(labels ? { labels } : {})}
     >
       <ThemeVars theme={config.theme} />

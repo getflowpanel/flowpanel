@@ -4,7 +4,9 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useAdminCommand } from "../../hooks/useAdminCommand";
 import { LabelsProvider } from "../../provider/LabelsContext";
-import { type CommandGroupUI, CommandPalette } from "../CommandPalette";
+import { type CommandGroupUI, CommandPalette as LazyPalette } from "../CommandPalette";
+import { CommandPaletteDialog as CommandPalette } from "../CommandPaletteDialog";
+import { paletteScore } from "../palette-score";
 
 afterEach(() => {
   cleanup();
@@ -27,6 +29,26 @@ function makeGroups(onSelectA: () => void): CommandGroupUI[] {
 }
 
 describe("CommandPalette", () => {
+  it("shows a frame that holds the focus while the dialog loads, and Escape closes it", async () => {
+    const onOpenChange = vi.fn();
+    render(<LazyPalette open onOpenChange={onOpenChange} groups={[]} />);
+    const shell = screen.getByRole("textbox", { name: "Command palette" });
+    expect(shell.getAttribute("placeholder")).toBe("Loading…");
+    expect(document.activeElement).toBe(shell);
+    fireEvent.keyDown(shell, { key: "Escape" });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(await screen.findByRole("combobox")).toBeTruthy();
+  });
+
+  it("loads nothing until it first opens, then the dialog", async () => {
+    const { container, rerender } = render(
+      <LazyPalette open={false} onOpenChange={() => {}} groups={[]} />,
+    );
+    expect(container.innerHTML).toBe("");
+    rerender(<LazyPalette open onOpenChange={() => {}} groups={[]} />);
+    expect(await screen.findByRole("combobox")).toBeTruthy();
+  });
+
   it("keeps the default English search and empty copy without a provider", () => {
     render(<CommandPalette open onOpenChange={() => {}} groups={[]} />);
     expect(screen.getByRole("combobox").getAttribute("placeholder")).toBe(
@@ -135,5 +157,18 @@ describe("useAdminCommand", () => {
       window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
     });
     expect(screen.getByTestId("state").textContent).toBe("OPEN");
+  });
+});
+
+describe("palette ranking", () => {
+  it("puts exact and prefix matches first and drops letters merely in order", () => {
+    const record = paletteScore("/admin/products/7", "Retro", ["Retro Tee", "retro"]);
+    const prefix = paletteScore("Retro Tee", "Retro");
+    const inner = paletteScore("Order items", "items");
+    expect(record).toBe(1);
+    expect(prefix).toBeLessThan(record);
+    expect(inner).toBeLessThan(prefix);
+    expect(paletteScore("Categories", "Retro", ["/admin/categories"])).toBe(0);
+    expect(paletteScore("Toggle dark mode", "Retro")).toBe(0);
   });
 });

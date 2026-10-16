@@ -1,6 +1,6 @@
 import { Card, CardContent } from "../layout/Card";
 import { cn } from "../lib/cn";
-import { QUIET_LINK } from "../lib/label-text";
+import { INLINE_LINK, QUIET_LINK } from "../lib/label-text";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
 import type { ListCardProps } from "./ListCard";
@@ -35,7 +35,7 @@ function Text({ row, className }: { row: Row; className: string }) {
   return (
     <span className={cn(TWO_LINES, "fp-min-w-0 fp-flex-1", className)} {...fullTextTitle(row.text)}>
       {row.href ? (
-        <a href={row.href} className="hover:fp-underline">
+        <a href={row.href} className={INLINE_LINK}>
           {row.text}
         </a>
       ) : (

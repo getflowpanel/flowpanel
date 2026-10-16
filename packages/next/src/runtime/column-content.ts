@@ -1,3 +1,4 @@
+import { textWidthEm } from "@flowpanel/core/format";
 import { isValidElement, type ReactNode } from "react";
 
 const EMAIL = /e-?mail/i;
@@ -13,17 +14,6 @@ export function columnContent(field: string): "long" | "email" | "link" | undefi
 }
 
 const MOST_REM = 24;
-const WIDTH_PX: ReadonlyArray<readonly [RegExp, number]> = [
-  [/\p{Extended_Pictographic}/u, 18],
-  [/\s/, 3.75],
-  [/[ilj.,:;'|!()[\]]/, 4.5],
-  [/[ftrI\-/]/, 5.5],
-  [/[mwMW@%ШЩЖМЮшщжмюы]/, 12],
-  [/\p{Lu}/u, 10],
-  [/[0-9]/, 8.5],
-  [/[\u2e80-\u9fff\uac00-\ud7af\uff00-\uffef]/, 14],
-];
-const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
 /** The text a server-rendered cell shows, read from its elements' children. */
 export function cellText(node: ReactNode): string {
@@ -33,13 +23,9 @@ export function cellText(node: ReactNode): string {
   return "";
 }
 
-/** About how wide a text runs in the table's 14 px type, in rem, by the shape of each character. */
+/** About how wide a text runs in the table's 14 px type, in rem. */
 export function textRem(text: string): number {
-  let px = 0;
-  for (const { segment } of GRAPHEMES.segment(text.trim())) {
-    px += WIDTH_PX.find(([shape]) => shape.test(segment))?.[1] ?? 7.5;
-  }
-  return px / 16;
+  return (textWidthEm(text.trim()) * 14) / 16;
 }
 
 /** The widest of a column's values in rem, a quarter rem up and capped, so the table can give it room. */

@@ -93,7 +93,7 @@ export function AdminShell({
           {...(brand !== undefined ? { brand } : {})}
           {...(user !== undefined ? { user } : {})}
         />
-        <main id="main" className="fp-mx-auto fp-max-w-7xl fp-px-6 fp-py-6">
+        <main id="main" className="fp-mx-auto fp-max-w-[103rem] fp-px-6 fp-py-6">
           {children}
         </main>
       </div>
@@ -147,7 +147,7 @@ export function AdminShell({
         />
       </div>
       <main id="main" className="fp-flex-1 fp-overflow-auto" style={SIDEBAR_MAIN_STYLE}>
-        <div className="fp-mx-auto fp-max-w-7xl fp-px-6 fp-py-6">{children}</div>
+        <div className="fp-mx-auto fp-max-w-[103rem] fp-px-6 fp-py-6">{children}</div>
       </main>
     </div>
   );

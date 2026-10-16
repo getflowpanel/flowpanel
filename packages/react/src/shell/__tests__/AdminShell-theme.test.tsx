@@ -24,6 +24,21 @@ function Probe() {
   return <EmptyState title="probe" />;
 }
 
+describe("FlowpanelGlobals — following the host's scheme", () => {
+  it("marks its root for the host's .dark class and keeps no scheme of its own", async () => {
+    window.localStorage.setItem("fp-theme", "dark");
+    render(
+      <FlowpanelGlobals followHost>
+        <div>content</div>
+      </FlowpanelGlobals>,
+    );
+    const root = document.querySelector("[data-flowpanel-root]");
+    expect(root?.getAttribute("data-scheme")).toBe("host");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(root?.hasAttribute("data-theme")).toBe(false);
+  });
+});
+
 describe("FlowpanelGlobals — themeComponents prop", () => {
   it("applies the configured theme after a client-side mount", async () => {
     window.localStorage.removeItem("fp-theme");

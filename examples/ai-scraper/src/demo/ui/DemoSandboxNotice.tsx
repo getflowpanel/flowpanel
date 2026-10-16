@@ -43,7 +43,7 @@ export function DemoSandboxNotice({ readOnly }: { readOnly: boolean }) {
 
   return (
     <aside className="border-b border-demo-border bg-demo-surface">
-      <div className="mx-auto flex min-h-11 max-w-7xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5 text-xs sm:px-6">
+      <div className="mx-auto flex min-h-11 max-w-[103rem] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5 text-xs sm:px-6">
         <span className="font-medium text-demo-text">{sandboxNoticeBadge(readOnly)}</span>
         <span
           aria-live="polite"

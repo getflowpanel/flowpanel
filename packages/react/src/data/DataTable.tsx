@@ -59,6 +59,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   onPinnedColumnsChange,
   realtime,
   rowEndCell,
+  rowEndCellRem = ROW_END_REM,
   rowEndCellLabel: rowEndCellLabelOverride,
   onEditRow,
   onDeleteRow,
@@ -79,9 +80,14 @@ export function DataTable<Row extends Record<string, unknown>>({
   const Empty = EmptyOverride ?? TableEmptyState;
 
   const selectionEnabledProp = onSelectionChange !== undefined;
+  const tableRef = React.useRef<HTMLTableElement>(null);
+  const headExtrasRem = onPinnedColumnsChange ? 1.5 : 0;
   const layout = useColumnLayout<Row>({
     columns,
     leadingPx: selectionEnabledProp ? SELECTION_WIDTH_PX : 0,
+    headExtrasRem,
+    table: tableRef,
+    rows,
     ...(columnVisibility ? { columnVisibility } : {}),
     ...(columnWidths ? { columnWidths } : {}),
     ...(pinnedColumns ? { pinnedColumns } : {}),
@@ -96,6 +102,7 @@ export function DataTable<Row extends Record<string, unknown>>({
     setLiveWidths,
     liveWidthsRef,
     resizingRef,
+    raised,
   } = layout;
 
   const live = useTableLive(realtime);
@@ -151,7 +158,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   const frame =
     "fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-shadow-xs fp-overflow-clip";
 
-  const exportSetup = exportSetupOf(exportable, rows.length, columns, orderedVisible);
+  const exportSetup = exportSetupOf(exportable, columns, orderedVisible);
   const showToolbar =
     exportSetup !== null || Boolean(importable) || showDensityToggle || live.configured;
   const toolbar = showToolbar ? (
@@ -182,8 +189,10 @@ export function DataTable<Row extends Record<string, unknown>>({
   const { widths, minWidth } = layoutColumns(orderedVisible, {
     overrides: effectiveWidths,
     pinned: new Set([...leftPins, ...rightPins]),
+    headExtrasRem,
+    raised,
     extrasRem:
-      (selectionEnabled ? SELECTION_WIDTH_PX / REM_PX : 0) + (rowEndCell ? ROW_END_REM : 0),
+      (selectionEnabled ? SELECTION_WIDTH_PX / REM_PX : 0) + (rowEndCell ? rowEndCellRem : 0),
   });
   if (loading) {
     return (
@@ -201,7 +210,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             pageSize={pageSize}
             rowPadding={rowPadding}
             selectionEnabled={selectionEnabled}
-            rowEndCell={rowEndCell}
+            rowEndWidth={rowEndCell ? `${rowEndCellRem}rem` : undefined}
             rowEndCellLabel={rowEndCellLabel}
           />
         )}
@@ -265,6 +274,7 @@ export function DataTable<Row extends Record<string, unknown>>({
       {toolbar}
       <TableScroll>
         <table
+          ref={tableRef}
           className="fp-w-full fp-table-fixed fp-text-sm"
           style={{ minWidth }}
           aria-rowcount={total + 1}
@@ -287,7 +297,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             resizingRef={resizingRef}
             liveWidthsRef={liveWidthsRef}
             setLiveWidths={setLiveWidths}
-            rowEndCell={rowEndCell}
+            rowEndWidth={rowEndCell ? `${rowEndCellRem}rem` : undefined}
             rowEndCellLabel={rowEndCellLabel}
           />
           <DataTableBody<Row>

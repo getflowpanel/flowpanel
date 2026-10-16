@@ -52,14 +52,22 @@ export function applyReferenceCells<Row extends Record<string, unknown>>(
 
       const raw = row[field];
       if (raw === null || raw === undefined) {
-        rowCells[index] = <span className="fp-text-faint">—</span>;
+        rowCells[index] = (
+          <span key={field} className="fp-text-faint">
+            —
+          </span>
+        );
         continue;
       }
       const id = String(raw);
       const label = labels.get(id);
       if (label === undefined) continue;
       rowCells[index] = (
-        <ReferenceCell label={String(label)} href={buildHref(config, reference.resource, id)} />
+        <ReferenceCell
+          key={field}
+          label={String(label)}
+          href={buildHref(config, reference.resource, id)}
+        />
       );
     }
   });

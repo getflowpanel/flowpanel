@@ -37,13 +37,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <div className="flex-1">{children}</div>
 
         <footer className="border-t border-demo-border bg-demo-surface">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 text-xs text-demo-subtle sm:px-6">
+          <div className="mx-auto flex max-w-[103rem] items-center justify-between gap-4 px-4 py-4 text-xs text-demo-subtle sm:px-6">
             <span>Built with FlowPanel.</span>
             <a
               href={demoLinks.config}
               target="_blank"
               rel="noreferrer"
-              className="font-medium text-demo-muted hover:text-demo-text"
+              className="-my-1 py-1 font-medium text-demo-muted hover:text-demo-text"
             >
               View config
             </a>

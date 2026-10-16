@@ -34,7 +34,9 @@ export function SelectFilter({
     <FilterField label={label} htmlFor={id} active={Boolean(value)}>
       <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
         <SelectTrigger id={id} className={cn(BARE_CONTROL, "fp-w-auto fp-justify-start")}>
-          <SelectValue placeholder={placeholder} />
+          <SelectValue placeholder={placeholder}>
+            {options.find((o) => o.value === value)?.label ?? value ?? placeholder}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>{placeholder}</SelectItem>

@@ -37,7 +37,7 @@ function fieldsBlock<Row extends Record<string, unknown>>({
   emptyState,
 }: BlockArgs<Row>): ReactNode {
   return (
-    <div className="fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
+    <div className="fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-6">
       {fields.length === 0 ? (
         <p className="fp-text-sm fp-text-faint">{emptyState}</p>
       ) : (

@@ -4,6 +4,7 @@ import { formatLabel } from "@flowpanel/core/labels";
 import * as React from "react";
 import type { EmptyStateProps } from "../feedback/EmptyStateDefault";
 import { cn } from "../lib/cn";
+import { withEmailBreaks } from "../lib/email-breaks";
 import { useComponent } from "../provider/ComponentsContext";
 import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
@@ -99,7 +100,15 @@ export function MobileCardList<Row extends Record<string, unknown>>({
     );
   }
 
-  const [titleCol, ...restCols] = visible;
+  // The card's title is its first text column: an id, number, date or badge reads poorly as a heading.
+  const at = Math.max(
+    0,
+    visible.findIndex(
+      (c) => c.format === undefined && !["number", "date", "boolean"].includes(c.type ?? ""),
+    ),
+  );
+  const titleCol = visible[at];
+  const restCols = visible.filter((_, index) => index !== at);
 
   return (
     <ul className={cn("fp-space-y-2", className)}>
@@ -150,7 +159,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                       onSelectionChange?.(Array.from(next));
                     }}
                     aria-label={formatLabel(labels.table.selectRow, { id: identity ?? "" })}
-                    className="-fp-ml-3 -fp-mt-2 fp-h-11 fp-w-11 fp-shrink-0 sm:fp-ml-0 sm:fp-mt-1 sm:fp-h-5 sm:fp-w-5"
+                    className="-fp-ml-3 -fp-mt-2 fp-h-11 fp-w-11 fp-shrink-0 sm:fp-ml-0 sm:fp-mt-1 sm:fp-h-6 sm:fp-w-6"
                   />
                 ) : null}
                 <div className="fp-min-w-0 fp-flex-1">
@@ -207,7 +216,7 @@ function renderCell<Row extends Record<string, unknown>>(
       : undefined;
   const cell =
     pre !== undefined ? pre : c.render ? c.render(r) : renderDefaultCell(c, r, formatting);
-  return withSecondary(c, r, cell, formatting);
+  return withSecondary(c, r, typeof cell === "string" ? withEmailBreaks(cell) : cell, formatting);
 }
 
 /** The card list's own empty state, which a host's `EmptyState` slot replaces. */

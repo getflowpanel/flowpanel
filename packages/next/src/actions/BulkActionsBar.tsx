@@ -73,35 +73,56 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
     void execute(action);
   }
 
+  // Up to three verbs sit on the bar itself; a longer list keeps two and folds the rest into the menu.
+  const inline = actions.length <= 3 ? actions : actions.slice(0, 2);
+  const folded = actions.slice(inline.length);
   return (
     <section
       aria-label={labels.bulkBar.label}
-      className="fp-mb-2 fp-flex fp-items-center fp-justify-between fp-gap-3 fp-rounded fp-border fp-border-line fp-bg-canvas fp-px-3 fp-py-2"
+      className="fp-sticky fp-bottom-4 fp-z-30 fp-mx-auto fp-mt-3 fp-flex fp-w-fit fp-max-w-full fp-flex-wrap fp-items-center fp-gap-3 fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-py-2 fp-pl-4 fp-pr-2 fp-shadow-lg"
     >
-      <div className="fp-text-sm fp-text-soft">
+      <div className="fp-whitespace-nowrap fp-text-sm fp-font-medium fp-tabular-nums fp-text-ink">
         {formatCount(labels.plurals?.selected ?? labels.bulkBar.selected, selection.length, locale)}
       </div>
-      <div className="fp-flex fp-items-center fp-gap-2">
-        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="default" disabled={pending !== null}>
-              {labels.bulkBar.choose}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {actions.map((a) => (
-              <DropdownMenuItem
-                key={a.key}
-                disabled={pending === a.key}
-                onSelect={() => onActionPick(a)}
-                className={a.variant === "destructive" ? "fp-text-err" : undefined}
-              >
-                {a.icon ? <FlowpanelIcon name={a.icon} className="fp-mr-2 fp-h-4 fp-w-4" /> : null}
-                {a.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <span aria-hidden className="fp-h-5 fp-w-px fp-bg-line" />
+      <div className="fp-flex fp-flex-wrap fp-items-center fp-gap-2">
+        {inline.map((a) => (
+          <Button
+            key={a.key}
+            size="sm"
+            variant={a.variant === "destructive" ? "destructive" : "outline"}
+            disabled={pending !== null}
+            aria-busy={pending === a.key || undefined}
+            onClick={() => onActionPick(a)}
+          >
+            {a.icon ? <FlowpanelIcon name={a.icon} className="fp-h-4 fp-w-4" /> : null}
+            {a.label}
+          </Button>
+        ))}
+        {folded.length > 0 ? (
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" disabled={pending !== null}>
+                {labels.bulkBar.choose}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {folded.map((a) => (
+                <DropdownMenuItem
+                  key={a.key}
+                  disabled={pending === a.key}
+                  onSelect={() => onActionPick(a)}
+                  className={a.variant === "destructive" ? "fp-text-err" : undefined}
+                >
+                  {a.icon ? (
+                    <FlowpanelIcon name={a.icon} className="fp-mr-2 fp-h-4 fp-w-4" />
+                  ) : null}
+                  {a.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
         <Button size="sm" variant="ghost" onClick={onClear} disabled={pending !== null}>
           {labels.bulkBar.clear}
         </Button>

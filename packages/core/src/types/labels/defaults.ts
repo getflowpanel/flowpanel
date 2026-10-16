@@ -86,6 +86,7 @@ export const DEFAULT_LABELS: {
     empty: "No {label}",
     emptyDescription: "{label} you create show up here.",
     emptyReadOnlyDescription: "{label} show up here once they are recorded.",
+    noSearchMatch: "Nothing matches “{query}”.",
     createFirst: "Create {label}",
     editCell: "Edit {label}",
     saved: "Saved",

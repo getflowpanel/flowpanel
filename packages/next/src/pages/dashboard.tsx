@@ -14,13 +14,7 @@ import {
   DashboardFilters,
   WidgetErrorBoundary,
 } from "@flowpanel/next/client";
-import {
-  DashboardRefresh,
-  RealtimeRefresh,
-  Section,
-  SkeletonCard,
-  StatStrip,
-} from "@flowpanel/react";
+import { DashboardRefresh, RealtimeRefresh, Section, StatStrip } from "@flowpanel/react";
 import { Suspense } from "react";
 import {
   encodeDashboardPath,
@@ -48,6 +42,7 @@ import {
 } from "../runtime/widget-owner";
 import { warnOnce } from "../runtime/widget-reads";
 import { stripWidget } from "./strip-widget";
+import { widgetSkeleton } from "./widget-skeleton";
 import { sectionColumns, widgetSlotClassName } from "./widget-slot";
 
 export interface DashboardPageProps {
@@ -248,7 +243,7 @@ function WidgetSlot({
         {...(slot.plain ? { plain: true } : {})}
         {...(slot.owner.label ? { title: slot.owner.label } : {})}
       >
-        <Suspense fallback={<SkeletonCard />}>
+        <Suspense fallback={widgetSkeleton(slot.widget)}>
           <WidgetAsync {...slot} />
         </Suspense>
       </WidgetErrorBoundary>

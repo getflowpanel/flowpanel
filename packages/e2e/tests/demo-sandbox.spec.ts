@@ -156,8 +156,7 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
     const disposableRow = pageA.locator("tbody tr").filter({ hasText: editedTitleA });
     await disposableRow.getByRole("checkbox").check();
     const bulkActions = pageA.getByRole("region", { name: "Bulk actions" });
-    await bulkActions.getByRole("button", { name: "Action…" }).click();
-    await pageA.getByRole("menuitem", { name: "Delete" }).click();
+    await bulkActions.getByRole("button", { name: "Delete" }).click();
     const deleteDialog = pageA.getByRole("alertdialog");
     await expect(deleteDialog).toContainText("The product and its matches");
     await deleteDialog.getByRole("button", { name: "Delete (1)" }).click();

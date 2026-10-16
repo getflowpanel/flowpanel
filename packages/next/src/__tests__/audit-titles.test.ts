@@ -24,7 +24,7 @@ const sqlite = new Database(":memory:");
 sqlite.exec("CREATE TABLE orgs (id TEXT PRIMARY KEY, name TEXT NOT NULL)");
 sqlite.exec("CREATE TABLE members (id TEXT PRIMARY KEY, email TEXT NOT NULL, org_id TEXT)");
 sqlite.exec("CREATE TABLE secrets (id TEXT PRIMARY KEY, name TEXT)");
-sqlite.exec("INSERT INTO orgs VALUES ('o1', 'Acme'), ('o2', 'Globex')");
+sqlite.exec("INSERT INTO orgs VALUES ('o1', 'Acme'), ('o2', 'Globex'), ('o3', 'Org Initech')");
 sqlite.exec("INSERT INTO members VALUES ('7f3a9c1e', 'ann@example.com', 'o2')");
 sqlite.exec("INSERT INTO secrets VALUES ('s1', 'Vault')");
 sqlite.exec("CREATE TABLE notes (id TEXT PRIMARY KEY, title TEXT, deleted_at INTEGER)");
@@ -72,6 +72,13 @@ async function items(entries: AuditLogEntry[]) {
 }
 
 describe("an audit event's record and references", () => {
+  it("does not say the label twice when the record's title already starts with it", async () => {
+    const [item] = await items([
+      entry({ resource: "orgs", action: "orgs.update", targetId: "o3", diff: null }),
+    ]);
+    expect(item?.record?.label).toBe("Org Initech");
+  });
+
   it("name a record by its email and a reference by the record it points at", async () => {
     const [item] = await items([entry({})]);
     expect(item?.record?.label).toBe("Member ann@example.com");

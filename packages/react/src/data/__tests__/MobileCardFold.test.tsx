@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MOBILE_ROWS, MobileCardFold } from "../MobileCardFold";
 
 afterEach(cleanup);
@@ -46,5 +46,35 @@ describe("MobileCardFold", () => {
     rerender(<Fold rows={rowsOf(12, "Next")} page={2} />);
     expect(container.querySelectorAll("li")).toHaveLength(MOBILE_ROWS);
     expect(screen.getByRole("button", { name: "2 more" })).toBeTruthy();
+  });
+
+  it("selects every row on the page with one 44 px control, folded cards included", () => {
+    const onSelectionChange = vi.fn();
+    const rows = rowsOf(14);
+    const fold = (selection: string[]) => (
+      <MobileCardFold
+        columns={[{ field: "name" }]}
+        rows={rows}
+        rowKey="id"
+        selection={selection}
+        onSelectionChange={onSelectionChange}
+      />
+    );
+    const { rerender } = render(fold(["Row1"]));
+    const all = screen.getByRole("checkbox", { name: "Select all rows on this page" });
+    expect(all.getAttribute("aria-checked")).toBe("mixed");
+    expect(all.className).toContain("fp-h-11");
+    fireEvent.click(all);
+    expect(new Set(onSelectionChange.mock.lastCall?.[0])).toEqual(
+      new Set(rows.map((row) => row.id)),
+    );
+    rerender(fold(rows.map((row) => row.id)));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Deselect all rows on this page" }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it("shows no select-all when rows cannot be selected", () => {
+    render(<Fold rows={rowsOf(3)} page={1} />);
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 });

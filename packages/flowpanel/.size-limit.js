@@ -23,8 +23,8 @@ export default [
     name: "@flowpanel/kit/react UI on first render (shell, table, forms, toaster)",
     ...UI,
     modifyEsbuildConfig: firstRenderOnly,
-    // 0.4 polish: widths by need, refusals in the admin's language, wrapping phone cards and the nav's faded edge.
-    limit: "87 KB",
+    // 0.4 rc: palette, JSON, tag, inline-cell editors and CSV writer load on use; the palette's loading frame and phone select-all add 0.3 KB.
+    limit: "86.75 KB",
   },
   {
     name: "@flowpanel/kit/react on-demand chunks (importer dialogs and CSV parser, leave-guard dialog), alone with what they import",
@@ -33,20 +33,20 @@ export default [
       "dist/react/data/ImportDialogs.mjs": "{ ImportConfirm, ImportResult, readImportFile }",
       "dist/react/feedback/ConfirmDialog.mjs": "{ ConfirmDialog }",
     },
-    // The shared CSV writer moved to core with export's negative-number rule (+20 B).
-    limit: "29.05 KB",
+    // 0.4 rc: the search-only empty label and the refused-field border (+90 B).
+    limit: "29.1 KB",
   },
   {
     name: "@flowpanel/kit/client (hooks)",
     path: "dist/client.js",
     import: "{ useAdminMutation }",
-    limit: "25 KB",
+    limit: "1 KB",
   },
   {
     name: "@flowpanel/kit/charts (own code; Recharts not counted)",
     path: "dist/charts.js",
     import: "{ AreaChart, BarChart, LineChart, PieChart }",
-    limit: "8 KB",
+    limit: "7.6 KB",
     ignore: ["recharts"],
   },
 ];

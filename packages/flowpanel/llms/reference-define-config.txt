@@ -76,9 +76,9 @@ The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
 | Property | Type | Notes |
 | --- | --- | --- |
 | `brand?` | `{ name?: string; logo?: string; href?: string }` | Product name, logo and home link shown in the shell header. |
-| `accent?` | `string` | Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. Data fills take it too unless `cssVars` sets `--fp-data`. |
+| `accent?` | `string` | Accent color: any CSS colour as hex or a colour function, `oklch(…)` included, or an HSL triplet such as `"220 90% 50%"`. Data fills take it too unless `cssVars` sets `--fp-data`. |
 | `accentDark?` | `string` | Dark-mode accent override, same format as `accent`; a light-tuned accent usually fails WCAG contrast on dark. Dark data fills take it too unless `cssVarsDark` sets `--fp-data`. |
-| `mode?` | `"light" \| "dark" \| "auto"` | Initial color scheme. `"auto"` follows the operating system. |
+| `mode?` | `"light" \| "dark" \| "auto" \| "host"` | Initial color scheme. `"auto"` follows the operating system. `"host"` follows the host app instead: the admin is dark while `<html>` has the class `dark`, as shadcn and next-themes set it, and the palette's theme switch is left out because the host's own switch drives it. |
 | `cssVars?` | `ThemeTokens` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
 | `cssVarsDark?` | `ThemeTokens` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
 | `components?` | `Partial<FlowpanelComponentSlots>` | Replace built-in components. See the styling guide. |

@@ -12,6 +12,7 @@ export {
 } from "../runtime/audit-sql";
 export { clientIpFrom } from "../runtime/client-ip";
 export { didYouMean } from "../suggest";
+export { CHART_HEIGHT, type ChartBox, chartBox } from "./chart-box";
 export { type ChecklistRow, checklistRows, isDone } from "./checklist-rows";
 export { assertCountWhereColumns } from "./count-where";
 export { csvField, csvLine } from "./csv-field";
