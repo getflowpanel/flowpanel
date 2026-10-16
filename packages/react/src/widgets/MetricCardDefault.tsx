@@ -9,7 +9,7 @@ import { formatNumber, type NumericFormat, type Tone } from "../lib/format";
 import { toneTextClass } from "../lib/tone-classes";
 import { CaptionLine } from "./CaptionLine";
 import { deltaPrint, describeDelta, type GoodWhen, MOOD_TEXT, NEUTRAL_BAND } from "./delta";
-import { FIGURE } from "./figure";
+import { FIGURE, figureSize } from "./figure";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface MetricCardProps {
@@ -34,6 +34,8 @@ export interface MetricCardProps {
   previousLabel?: string;
   /** How a rate's change in points reads, `{value}` filled — injected by `MetricCard`. */
   pointsLabel?: string;
+  /** A change from nothing in the compared period — injected by `MetricCard`. */
+  freshLabel?: string;
   /** Shown instead of a change inside the neutral band — injected by `MetricCard`. */
   noChangeLabel?: string;
   /** The sparkline's accessible name — injected by `MetricCard`. */
@@ -50,6 +52,7 @@ interface DeltaLineProps {
   formatting: ResolvedFormatting | undefined;
   previousLabel: string | undefined;
   pointsLabel: string | undefined;
+  freshLabel: string | undefined;
   noChangeLabel: string | undefined;
 }
 
@@ -61,11 +64,12 @@ function DeltaLine({
   formatting,
   previousLabel,
   pointsLabel,
+  freshLabel,
   noChangeLabel,
 }: DeltaLineProps) {
-  const print = deltaPrint(format, formatting, pointsLabel);
+  const print = deltaPrint(format, formatting, pointsLabel, freshLabel);
   const view = describeDelta({ ...delta, goodWhen }, value, format, print);
-  if (Math.abs(delta.value) < NEUTRAL_BAND) {
+  if (view === null || Math.abs(delta.value) < NEUTRAL_BAND) {
     return (
       <p data-delta="flat" className="fp-mt-1 fp-text-xs fp-text-faint">
         {noChangeLabel ?? DEFAULT_LABELS.widget.noChange} {delta.vs}
@@ -84,7 +88,7 @@ function DeltaLine({
         data-delta={view.mood}
         className={view.material ? MOOD_TEXT[view.mood] : MOOD_TEXT.flat}
       >
-        {view.text} {delta.vs}
+        {view.fresh ? view.text : `${view.text} ${delta.vs}`}
       </span>
       {previous ? <span className="fp-text-faint">{previous}</span> : null}
     </div>
@@ -109,6 +113,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
     formatting,
     previousLabel,
     pointsLabel,
+    freshLabel,
     noChangeLabel,
     trendLabel,
     caption,
@@ -134,9 +139,12 @@ export function DefaultMetricCard(props: MetricCardProps) {
       </CardHeader>
       <CardContent className="fp-pt-0">
         <div className="fp-flex fp-flex-wrap fp-items-end fp-justify-between fp-gap-x-3 fp-gap-y-2">
-          <div className="fp-grow fp-basis-0 fp-max-w-full">
+          <div className="fp-width-container fp-grow fp-basis-0 fp-max-w-full">
             <div className="fp-flex fp-items-baseline fp-gap-1.5 fp-whitespace-nowrap">
-              <span className={cn("fp-min-w-0 fp-truncate", FIGURE, toneTextClass[tone])}>
+              <span
+                className={cn("fp-min-w-0 fp-truncate", FIGURE, toneTextClass[tone])}
+                style={figureSize(display)}
+              >
                 {display}
               </span>
               {unit ? <span className="fp-shrink-0 fp-text-sm fp-text-faint">{unit}</span> : null}
@@ -158,6 +166,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
                 formatting={formatting}
                 previousLabel={previousLabel}
                 pointsLabel={pointsLabel}
+                freshLabel={freshLabel}
                 noChangeLabel={noChangeLabel}
               />
             ) : null}

@@ -10,8 +10,8 @@
       // Doc snippets are typechecked by check:snippets against the fixtures under `@/`.
       "entry": ["content/snippets/**/*.{ts,tsx}", "!content/snippets/.generated/**"],
       "paths": { "@/*": ["content/snippets/fixtures/src/*", "content/snippets/generated/src/*"] },
-      // Imported by eslint.config.ts blocks in the docs; @prisma/client is declared by the fixtures.
-      "ignoreDependencies": ["@flowpanel/eslint-plugin", "@prisma/client"]
+      // Imported by eslint.config.ts and drizzle.config.ts blocks in the docs; @prisma/client is declared by the fixtures.
+      "ignoreDependencies": ["@flowpanel/eslint-plugin", "@prisma/client", "drizzle-kit"]
     },
     "examples/ai-scraper": {
       // flowpanel.config.ts is what `flowpanel migrate` and `doctor` load.

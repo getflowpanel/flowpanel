@@ -1,6 +1,6 @@
 import * as path from "node:path";
 import { resolveProjectModule, validateProjectImport } from "../utils/module-path";
-import { projectManifest } from "../utils/project-packages";
+import { projectManifest, resolvePackageDirectory } from "../utils/project-packages";
 import { dialectFromDependencies, drizzleDialectFrom, type SqlDialect } from "../utils/sql-dialect";
 import {
   type AuthSessionPlan,
@@ -131,7 +131,10 @@ export async function chooseModules(run: InitRun, stack: DetectedStack): Promise
     if (guess && (await resolveProjectModule(cwd, specifier)) === null) missingModules.push(guess);
     else run.fail(`Nothing was written. ${problem}\nUse ${flag} <module> to select your module.`);
   }
-  if (missingModules.length > 0) run.fail(missingModuleMessage(missingModules, stack.pmc));
+  if (missingModules.length > 0) {
+    const pg = (await resolvePackageDirectory(cwd, "pg")) !== null;
+    run.fail(missingModuleMessage(missingModules, stack.pmc, { pg }));
+  }
 
   const replacement =
     devAuth && !sessionStub && !opts.auth ? await planDevStubReplacement(cwd, auth) : null;

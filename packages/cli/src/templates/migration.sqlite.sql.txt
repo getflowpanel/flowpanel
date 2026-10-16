@@ -1,9 +1,4 @@
--- The migrate bookkeeping table, and the audit log the admin writes when `audit` is on without a `sink`.
-
-CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
-  id text PRIMARY KEY,
-  applied_at text NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+-- The audit log the admin writes when `audit` is on without a `sink`; migrate keeps its own bookkeeping table.
 
 CREATE TABLE IF NOT EXISTS flowpanel_audit_log (
   id text PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),

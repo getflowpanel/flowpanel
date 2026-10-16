@@ -109,13 +109,13 @@ describe("@flowpanel/kit exposes a ./publish subpath re-exporting @flowpanel/cor
     expect(source).toContain('export * from "@flowpanel/core/publish"');
   });
 
-  it("package.json wires ./publish to dist/publish", () => {
+  it("package.json wires ./publish to dist/publish, and require to core's CommonJS build", () => {
     const pkg = JSON.parse(readFileSync(KIT_PACKAGE_JSON, "utf8")) as {
-      exports: Record<string, { types?: string; import?: string }>;
+      exports: Record<string, unknown>;
     };
     expect(pkg.exports["./publish"]).toEqual({
-      types: "./dist/publish.d.ts",
-      import: "./dist/publish.js",
+      import: { types: "./dist/publish.d.ts", default: "./dist/publish.js" },
+      require: { types: "./dist/core/publish.d.cts", default: "./dist/core/publish.cjs" },
     });
   });
 

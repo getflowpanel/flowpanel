@@ -3,7 +3,7 @@ import { Section } from "./Section";
 const ITEMS: ReadonlyArray<{ title: string; body: string }> = [
   {
     title: "Lists and forms",
-    body: "Sorting and pagination on every list, plus the search fields and filters you name. Forms infer number, date, boolean, JSON and enum inputs from your schema; declare fields for references and validation.",
+    body: "Sorting and pagination on every list, plus the search fields and filters you name. Forms infer number, date, boolean, JSON and enum inputs from your schema, and a record picker for a column with a reference; declare fields for validation.",
   },
   {
     title: "Dashboards and record pages",
@@ -11,7 +11,15 @@ const ITEMS: ReadonlyArray<{ title: string; body: string }> = [
   },
   {
     title: "Access control",
-    body: "Uses the Clerk, Better Auth or Auth.js session your app already has. Roles and tenant scope are checked on the server for every request.",
+    body: "Uses the Clerk, Better Auth, Auth.js or Lucia session your app already has. Roles and tenant scope are checked on the server for every request.",
+  },
+  {
+    title: "Audit log",
+    body: "Every write the admin makes can be recorded with who made it and what changed, shown on each record's History tab and on one Audit log page.",
+  },
+  {
+    title: "Import and export",
+    body: "Export every row that matches the list's filters, not only the page on screen, as CSV or JSON. Import a file through the same validation and access checks as the form.",
   },
   {
     title: "Queues and realtime",

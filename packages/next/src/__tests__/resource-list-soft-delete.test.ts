@@ -173,3 +173,36 @@ describe("ResourceListPage — soft-delete wiring", () => {
     expect(props?.rows[1]).not.toHaveProperty("deletedAt");
   });
 });
+
+describe("ResourceListPage — import", () => {
+  it.each([
+    ["admin", true],
+    ["viewer", false],
+  ])("offers Import to %s only when the role may create", async (role, offered) => {
+    const config = defineAdmin({
+      adapter: makeAdapter(vi.fn()),
+      auth: { session: async () => null, role: () => role },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            access: { read: ["admin", "viewer"], create: "admin" },
+            import: { fields: ["email"] },
+          },
+        ),
+      ],
+    });
+    const resourceCfg = config.resourcesByName.get("users");
+    if (!resourceCfg) throw new Error("users resource not registered");
+
+    const node = await ResourceListPage({
+      config,
+      resource: resourceCfg,
+      searchParams: new URLSearchParams(),
+      req: new Request("http://localhost/admin/users"),
+    });
+
+    expect(findElement(node, DataTableWithDrawerRows)?.importable !== undefined).toBe(offered);
+  });
+});

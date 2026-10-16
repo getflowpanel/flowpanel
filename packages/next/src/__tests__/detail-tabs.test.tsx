@@ -274,6 +274,22 @@ describe("a widgets tab that fails", () => {
     );
   });
 
+  it("gives a tab's only widget the whole width and pairs two", async () => {
+    const tabFor = async (widgets: ReturnType<typeof stat>[]) => {
+      const { tree } = await renderDetail(
+        {
+          label: "Customer",
+          columns: ["id"],
+          detail: { tabs: [{ key: "activity", label: "Activity", widgets }] },
+        },
+        "?tab=activity",
+      );
+      return findAll(tree, Section)[0]?.columns;
+    };
+    expect(await tabFor([stat("Feed", 1)])).toBe(1);
+    expect(await tabFor([stat("Feed", 1), stat("Plan", 2)])).toBe(2);
+  });
+
   it("treats an empty widgets array as a widgets tab with nothing in it", async () => {
     const { tree } = await renderDetail(
       {

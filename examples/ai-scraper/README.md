@@ -14,12 +14,15 @@ Node.js 22+, pnpm and Docker. From the repository root:
 ```bash
 pnpm install
 pnpm --filter "./packages/**" build
+pnpm install
 pnpm --filter ai-scraper docker:up
 pnpm --filter ai-scraper db:push
 pnpm --filter ai-scraper db:migrate
 pnpm --filter ai-scraper db:seed
 pnpm --filter ai-scraper dev
 ```
+
+The second `pnpm install` links the `flowpanel` command the build just made; on a fresh clone pnpm skips it the first time, and `db:migrate` then fails with `flowpanel: command not found`.
 
 Open [http://localhost:3000](http://localhost:3000) and choose **Open admin**. The Admin / Support switch shows server-enforced role differences: Support loses the pricing field and the disable action.
 

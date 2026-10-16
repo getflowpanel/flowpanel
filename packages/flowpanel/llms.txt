@@ -1,7 +1,8 @@
 # FlowPanel
 
 > A typed admin panel for Next.js. Describe your Drizzle or Prisma tables in a typed config and get lists, forms, record pages and dashboards at /admin. Open source, MIT licensed.
-> Admin panel for Next.js in one package: config builders, Drizzle and Prisma adapters, the App Router runtime, React UI and auth presets.
+
+Admin panel for Next.js in one package: config builders, Drizzle and Prisma adapters, the App Router runtime, React UI and auth presets.
 
 ```bash
 pnpm dlx @flowpanel/cli init
@@ -11,9 +12,9 @@ pnpm dev
 Docs: https://flowpanel.tech/docs · Source: https://github.com/getflowpanel/flowpanel
 
 Generated from the reference documentation. Property tables come from the
-packages' own TypeScript declarations. Code blocks are excerpts from that
-documentation: blocks the docs mark `twoslash` are type-checked in CI,
-`excerpt` blocks are illustrative and may omit surrounding code.
+packages' own TypeScript declarations. Every TypeScript code block compiles
+against them in CI, and every block that builds a whole config also loads.
+A block marked `fragment` is part of a larger file and does not compile alone.
 
 ## defineAdmin
 
@@ -25,7 +26,8 @@ Documented types: defineAdmin, AdminDefinition, AuthConfig, ThemeConfig, ShellCo
 
 `defineAdmin` takes the config object, validates it, fills defaults, and returns
 the `ResolvedAdminConfig` that `createFlowpanel` serves. It does no I/O, so a page,
-script or test can import the config freely.
+script or test can import the config freely, a CommonJS `tsx` script on Node.js 20.19
+or 22.12 and newer included.
 
 ### AdminDefinition
 
@@ -70,7 +72,7 @@ the request being served.
 | `role` | `(session: Session \| null) => string \| Promise<string>` | Maps a session to a role string, which every role-name `access` rule compares against. |
 | `access?` | `AccessRule` | Who may enter the admin at all. Checked on every route and page before anything else runs, so a predicate sees `scope` as `null`. |
 | `signInUrl?` | `string` | Where to send an unauthenticated visitor. Without it they get an inline notice. |
-| `forbiddenUrl?` | `string` | Where to send a signed-in visitor who lacks the role. |
+| `forbiddenUrl?` | `string` | Where to send a signed-in visitor `access` keeps out of the whole admin; a page one role may not open shows its own screen. |
 | `userId?` | `(session: Session \| null) => string \| null` | Extracts the actor id for audit rows and per-user rate limiting. |
 | `allowUnauthenticated?` | `boolean` | Declares this admin reachable without a role gate — fronted by a VPN or authenticating proxy instead. Production refuses to start without `access` unless this is `true` AND the admin is `readOnly`. |
 
@@ -91,9 +93,9 @@ The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
 | Property | Type | Notes |
 | --- | --- | --- |
 | `brand?` | `{ name?: string; logo?: string; href?: string }` | Product name, logo and home link shown in the shell header. |
-| `accent?` | `string` | Accent color as an HSL triplet, e.g. `"220 90% 50%"`. An `hsl(…)` wrapper is unwrapped. Data fills take it too unless `cssVars` sets `--fp-data`. |
+| `accent?` | `string` | Accent color: any CSS colour as hex or a colour function, `oklch(…)` included, or an HSL triplet such as `"220 90% 50%"`. Data fills take it too unless `cssVars` sets `--fp-data`. |
 | `accentDark?` | `string` | Dark-mode accent override, same format as `accent`; a light-tuned accent usually fails WCAG contrast on dark. Dark data fills take it too unless `cssVarsDark` sets `--fp-data`. |
-| `mode?` | `"light" \| "dark" \| "auto"` | Initial color scheme. `"auto"` follows the operating system. |
+| `mode?` | `"light" \| "dark" \| "auto" \| "host"` | Initial color scheme. `"auto"` follows the operating system. `"host"` follows the host app instead: the admin is dark while `<html>` has the class `dark`, as shadcn and next-themes set it, and the palette's theme switch is left out because the host's own switch drives it. |
 | `cssVars?` | `ThemeTokens` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
 | `cssVarsDark?` | `ThemeTokens` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
 | `components?` | `Partial<FlowpanelComponentSlots>` | Replace built-in components. See the styling guide. |
@@ -248,7 +250,7 @@ type RateLimitOptions =
 
 The memory driver counts per process and keeps at most 10,000 keys, dropping
 expired and then the oldest buckets; use Redis with more than one instance. A
-caller over the limit gets `429`. `per: "ip"` keys by `ctx.ip`, so it needs
+caller over the limit gets `429` with `Retry-After`, the window in seconds. `per: "ip"` keys by `ctx.ip`, so it needs
 `security.trustedProxies`; without it `defineAdmin` refuses to start in
 production and warns in development. An app with no proxy in front uses
 `per: "user"` for signed-in operators, or `enabled: false`. A caller with neither
@@ -258,8 +260,12 @@ leaves signed-out visitors unlimited and gets a warning saying so.
 
 ### RealtimeConfig
 
-An alias of `PublisherOptions`. Without it, events reach only the process that
-published them. See [Realtime](/docs/guides/realtime).
+`PublisherOptions` plus `channels`: the channels of your own the stream may
+serve, each with an optional `access` rule and `tenantSafe` flag. The stream
+refuses an undeclared channel, and `defineAdmin` refuses a widget, dashboard or
+list that subscribes to one. Without `realtime`, events reach only the process
+that published them. See [Declare your own channels](/docs/guides/realtime#declare-your-own-channels)
+and [Publisher](/docs/reference/scope-realtime#publisher).
 
 ### LabelsConfig
 
@@ -291,7 +297,7 @@ for the same count.
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `zero?` | `string` |  |
+| `zero?` | `string` | Its locale's `zero` category, and also any count of exactly 0: "Nenhum resultado". |
 | `one?` | `string` |  |
 | `two?` | `string` |  |
 | `few?` | `string` |  |
@@ -303,27 +309,18 @@ for the same count.
 sign-in and access-denied screens shown when `auth.signInUrl` or
 `auth.forbiddenUrl` is not set.
 
-A Russian `formatting.locale` (`"ru"`, `"ru-RU"`) makes `RU_LABELS` the base that
-`labels` merges over, so set only the strings you want different, such as
-`labels: { actions: { new: "Добавить" } }`. Other locales use English. Import
-`RU_LABELS` or `DEFAULT_LABELS` from `@flowpanel/kit`; `labels: DEFAULT_LABELS`
-keeps English under a Russian locale.
-
 `LabelsConfig`
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `noResults?` | `string` | Empty list state — used when a resource list returns 0 rows. |
-| `allOption?` | `string` | Empty filter / select dropdown — the "any/all" sentinel. |
 | `navigation?` | `{ /** The breadcrumb trail above a page heading. */ breadcrumb?: string; /** The tab row of queue boards. */ queueBoards?: string; /** A queue board frame. Use `{label}` for the queue. */ queueBoard?: string; /** The region toasts appear in. */ notifications?: string; /** A toast's close button. */ closeNotification?: string; skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; scrollHint?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; /** The menu holding the nav tabs that do not fit. */ more?: string; }` |  |
 | `table?` | `TableLabels` |  |
-| `dateRange?` | `{ /** Locale for calendar presentation; identical during SSR and hydration. */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
+| `dateRange?` | `{ /** The labels' language: the calendar's locale, and whether a label mid-sentence keeps its capital (German does). */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; last12m?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
 | `savedViews?` | `{ save?: string; saveTrigger?: string; name?: string; current?: string; label?: string; yours?: string; saveCurrent?: string; saved?: string; deleted?: string; delete?: string; storageError?: string; }` |  |
 | `pagination?` | `{ label?: string; previous?: string; next?: string; of?: string; rowsPerPage?: string; /** Accessible page button name. Use `{n}` for the page number. */ page?: string; /** Page-size option. Use `{n}` for the row count. */ pageSize?: string; }` | Pagination chrome. |
-| `filters?` | `{ /** A tag filter's example input. */ tagsPlaceholder?: string; /** A number range filter's lower bound. */ min?: string; max?: string; /** Empties the list search. */ clearSearch?: string; label?: string; clear?: string; yes?: string; no?: string; searchPlaceholder?: string; /** The phone button that opens the filters. Use `{n}` for the active ones; `open` when none are. */ open?: string; openCount?: string; /** Closes the phone filter sheet. */ done?: string; }` |  |
+| `filters?` | `{ /** A select or boolean filter's "any value" choice. */ allOption?: string; /** A tag filter's example input. */ tagsPlaceholder?: string; /** A number range filter's lower bound. */ min?: string; max?: string; /** Empties the list search. */ clearSearch?: string; label?: string; clear?: string; yes?: string; no?: string; searchPlaceholder?: string; /** The phone button that opens the filters. Use `{n}` for the active ones; `open` when none are. */ open?: string; openCount?: string; /** Closes the phone filter sheet. */ done?: string; }` |  |
 | `bulkBar?` | `{ /** The bulk action toolbar. */ label?: string; /** The bulk action picker before a choice. */ choose?: string; /** Clears the selection. */ clearSelection?: string; /** Use `{n}` for the selection count. Default: `"{n} selected"`. */ selected?: string; clear?: string; }` | Bulk action bar. |
 | `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */ events?: PluralLabel; }` | Count templates per `Intl.PluralRules` category; when set, they win over `table.result`/`results` and `bulkBar.selected`. |
-| `searchPlaceholder?` | `string` | Resource search input placeholder. Use `{label}` for the resource's label. |
 | `actions?` | `{ /** A bulk action's confirm title when it names none. Use `{label}`. */ runConfirm?: string; /** A bulk action that succeeded. Use `{label}` and `{n}`. */ ranOn?: string; /** An action that succeeded without a message of its own. Use `{label}`. */ ran?: string; edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; /** The menu holding a record's actions on its page and in its drawer. */ more?: string; /** A bulk delete that stopped part way. Use `{done}` and `{total}`. */ deletedSome?: string; }` | Generic action buttons. |
 | `form?` | `FormLabels` | Generated create and edit form chrome. |
 | `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; /** A widget kind a drawer does not draw. Use `{kind}`. */ unsupported?: string; /** The dialog's name before the record loads. */ title?: string; /** The record could not be loaded. */ loadFailed?: string; /** The record is gone, or the reader may not see it. */ missing?: string; }` | Drawer chrome. |
@@ -331,7 +328,6 @@ keeps English under a Russian locale.
 | `related?` | `{ /** Link from a related tab to the target resource's own list. */ openList?: string; }` | Related detail-tab chrome. |
 | `notFound?` | `NotFoundLabels` | The admin's own not-found page, for a URL no resource or dashboard matches. |
 | `access?` | `AccessLabels` | The screens shown in place of a page when `auth.signInUrl` or `auth.forbiddenUrl` is not set, or the rate limit refuses it. |
-| `formError?` | `string` | Form-level banner shown when a submit fails with no field errors of its own. |
 | `confirm?` | `{ /** The built-in bulk delete's confirm title. */ deleteSelectedTitle?: string; title?: string; ok?: string; cancel?: string; /** Deleting one record. Use `{label}` for the resource's singular label. */ deleteTitle?: string; /** Under `deleteTitle` when the delete is permanent and `delete.confirm` is not set. */ deleteDescription?: string; /** Under `deleteTitle` when the resource soft-deletes and `delete.confirm` is not set. */ softDeleteDescription?: string; }` | Confirm dialog. |
 | `widget?` | `WidgetLabels` | Dashboard and detail-tab widget chrome. |
 | `timeline?` | `TimelineLabels` | `timeline()` chrome. |
@@ -345,7 +341,35 @@ keeps English under a Russian locale.
 | `realtime?` | `RealtimeLabels` | A live list's or widget's connection badge. |
 | `audit?` | `AuditLabels` | The record History tab and the Audit log page. |
 
+#### Language presets
+
+`@flowpanel/kit` exports the whole built-in UI in five languages beside English:
+`DE_LABELS` (German), `FR_LABELS` (French), `ES_LABELS` (Spanish), `PT_BR_LABELS`
+(Brazilian Portuguese) and `RU_LABELS` (Russian). Pass one as `labels`, merged
+with the strings you want different, and set `formatting.locale` to the same
+language so numbers, money and dates follow it:
+
+```ts
+labels: mergeLabels({ actions: { new: "Hinzufügen" } }, DE_LABELS),
+formatting: { locale: "de-DE" },
+```
+
+Each preset's counts take the plural forms its language has. A preset is plain
+data, not code: an admin that imports none ships none of them. A preset sets
+`dateRange.locale` to its language, which also decides whether a resource label
+keeps its capital mid-sentence (German does); set it yourself when you write a
+whole language by hand. Counts pick their plural form by `formatting.locale`.
+A Russian `formatting.locale` (`"ru"`, `"ru-RU"`) makes `RU_LABELS` the
+base by itself, so there `labels` holds only the strings you want different;
+`labels: DEFAULT_LABELS` keeps English under a Russian locale. Field and resource
+labels stay yours: write them in the admin's language, and each field label
+reaches every surface, as [Field labels](/docs/build/resources#field-labels)
+describes.
+
 ### CommandPaletteConfig
+
+Your own commands. The palette also searches records through each resource's
+`search` fields; see [Search, filters and sorting](/docs/build/resources#search-filters-and-sorting).
 
 `CommandPaletteConfig`
 
@@ -590,9 +614,10 @@ export const ordersResource = resource(orders, {
 | `actions?` | `RowAction<Row, any, any>[]` | Per-row actions, rendered inline or in the row's menu. |
 | `bulkActions?` | `BulkAction<Row, any, any>[]` | Actions applied to a selection of rows. |
 | `scope?` | `"bypass" \| ResourceScope` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
+| `scopeOf?` | `(row: Row) => Scope` | The tenant a row belongs to, as `scope` returns it; files `allTenants` staff's audit events under it. |
 | `access?` | `ResourceAccess<Row>` | Canonical operation-level authorization. |
 | `fieldAccess?` | `FieldAccessMap<Row>` | Canonical read/write policy for declared fields. |
-| `export?` | `\| { formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[]; /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */ maxRows?: number; } \| false` | Export button, off unless set: every row matching the list's filters, search and sort, as the user may read them. `formats` defaults to `["csv"]`; `fields` defaults to the columns. |
+| `export?` | `\| { formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[]; /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */ maxRows?: number; /** Who may export, on top of the resource's `read` rule. Everyone who may read by default. */ access?: AccessRule; } \| false` | Export button, off unless set: every row matching the list's filters, search and sort, as the user may read them. `formats` defaults to `["csv"]`; `fields` defaults to the columns. |
 | `import?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Import button. Off unless set; rows are created through the normal write path. |
 | `audit?` | `boolean` | `false` records no audit events for this resource, and its records show no History tab. |
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
@@ -694,9 +719,60 @@ disabled, and declaring any of them (or `import`, or an `editable` column) throw
 
 #### Icons
 
-Resource, dashboard, page, queue, action and command icons take an `IconName`, a
-Lucide icon name such as `users`, `settings`, `database` or `trash-2`. An unknown
-name is a type error. To render one in your own component:
+Resource, dashboard, page, queue, action and command icons take an `IconName`, one
+of these Lucide icon names. Other Lucide names, such as `building-2` or `receipt`,
+are a type error:
+
+```ts
+type IconName =
+  | "activity"
+  | "archive"
+  | "badge-dollar-sign"
+  | "ban"
+  | "bar-chart"
+  | "bell"
+  | "book-open"
+  | "box"
+  | "boxes"
+  | "briefcase"
+  | "calendar"
+  | "check"
+  | "circle-dollar-sign"
+  | "circle-help"
+  | "clipboard-list"
+  | "command"
+  | "credit-card"
+  | "database"
+  | "file-text"
+  | "gauge"
+  | "heart-pulse"
+  | "history"
+  | "home"
+  | "inbox"
+  | "layout-dashboard"
+  | "list"
+  | "lock"
+  | "mail"
+  | "moon"
+  | "package"
+  | "play"
+  | "refresh"
+  | "search"
+  | "settings"
+  | "shield"
+  | "shopping-cart"
+  | "sparkles"
+  | "tags"
+  | "trash-2"
+  | "user"
+  | "user-cog"
+  | "users"
+  | "workflow"
+  | "wrench"
+  | "x";
+```
+
+To render one in your own component:
 
 ```tsx
 import { FlowpanelIcon } from "@flowpanel/kit/react";
@@ -718,13 +794,17 @@ views: [
 ```
 
 A `daterange` filter also takes a preset name (`today`, `yesterday`, `last7d`,
-`last30d`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
+`last30d`, `last12m`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
 fields the list declares in `columns`, `filters` or `search`, with values that
 match the filter type; `defineAdmin` rejects the rest. For "older than N days",
 compute the number in a view and use a `numeric-range` filter. The menu button
 names the view whose filters, sort and search match the list, counting the
 resource's `defaultSort` and filter defaults, so `?f_status=needs_review` reads
 "View: Needs review".
+
+"Save current view…" keeps a person's own views in their browser's `localStorage`
+under `flowpanel:views:<resource>`, so they stay on that browser and do not follow
+the person to another device. Views every operator should see belong in `views`.
 
 ### ColumnDef
 
@@ -736,10 +816,10 @@ An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
 | --- | --- | --- |
 | `field?` | `keyof Row & string` | Row property this column reads. Omit only when `render` supplies the cell. |
 | `secondary?` | `keyof Row & string` | Another field of the row, shown as a muted second line under the cell — the email under a name. It is loaded with the row; sort and search still use `field`. Ignored on a `reference` column. |
-| `label?` | `string` | Header text. Defaults to a humanized `field`. |
+| `label?` | `string` | The field's label: this header and its name on every other surface, see [Field labels](https://flowpanel.tech/docs/build/resources#field-labels). Defaults to a humanized `field`. |
 | `render?` | `(row: Row, ctx: RequestContext) => ReactNode` | Custom cell renderer. Runs on the server; receives the request context. |
 | `sortable?` | `boolean` | Allow clicking the header to sort by this column. |
-| `width?` | `number \| string` | Fixed column width, in px when a number. |
+| `width?` | `number \| string` | Fixed column width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. |
 | `align?` | `"left" \| "center" \| "right"` | Horizontal cell alignment. Defaults to `"left"`. |
 | `className?` | `string` | Extra classes on every cell in this column. |
 | `hidden?` | `boolean` | Keep the column out of the table (still available to export and drawer). |
@@ -767,7 +847,7 @@ type ColumnFormat =
   | "badge" | "money" | "number"
   | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
-  | { kind: "money"; currency?: string; scale?: number }
+  | { kind: "money"; currency?: string; minorUnits?: number; scale?: number }
   | { kind: "number"; tones?: Threshold }
   | { kind: "date"; time?: boolean; calendarDay?: boolean }
   | { kind: "percent"; digits?: number; heat?: boolean; tones?: Threshold }
@@ -775,6 +855,10 @@ type ColumnFormat =
   | { kind: "boolean"; labels?: { true?: string; false?: string } }
   | { kind: "url"; label?: string };
 ```
+
+A money column whose value holds minor units takes `minorUnits`, the same option as a
+`money` field: `{ kind: "money", minorUnits: 2 }` shows `5900` as `$59.00`. `scale`, the
+0.3 name (`scale: 100` is `minorUnits: 2`), still works and is deprecated.
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 The object form of `badge` maps each cell value to a tone:
@@ -888,7 +972,7 @@ when both name the same key.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `name` | `keyof Row & string` | Row property this field writes. |
-| `label?` | `string` | Field label. Defaults to a humanized `name`. |
+| `label?` | `string` | Field label, also shown wherever no column labels this field. Defaults to a humanized `name`. |
 | `help?` | `string` | Hint rendered under the control. |
 | `placeholder?` | `string` | Placeholder text for empty inputs. |
 | `type?` | `FieldType` | Which control to render. Omitted, a declared field renders as `"text"` — or `"reference"` when `reference` is set. The adapter's column type is consulted only by a fully generated form, and only maps number, boolean, date and json. |
@@ -901,7 +985,7 @@ when both name the same key.
 | `readOnly?` | `boolean \| ((values: Partial<Row>) => boolean)` | Render non-editable. Enforced server-side, not just in the UI. |
 | `hidden?` | `boolean \| ((values: Partial<Row>) => boolean)` | Leave the field out of the form entirely. |
 | `validate?` | `\| z.ZodTypeAny \| ((value: unknown, values: Partial<Row>) => string \| null \| Promise<string \| null>)` | Per-field validation, run server-side after the resource schema. |
-| `defaultValue?` | `unknown \| ((ctx: QueryContext) => Promise<unknown>)` | Value used when creating, for keys the operator left empty; a visible field also pre-fills with it. The resource's `create.defaultValues` wins for the same key. |
+| `defaultValue?` | `FieldDefaultValue` | Value used when creating, for keys the operator left empty; a visible field also pre-fills with it. The resource's `create.defaultValues` wins for the same key. |
 | `span?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Width in a 12-column form grid. Defaults to full width. |
 | `group?` | `string` | Fieldset heading this field is grouped under. |
 | `render?` | `(row: Row, ctx: RequestContext) => ReactNode \| Promise<ReactNode>` | Detail pages and drawers only: what the field shows instead of its value — a join or a computed label. |
@@ -935,6 +1019,7 @@ rule; use `access` and `fieldAccess` for that.
 | A resource or a queue | Leaves it out of the navigation and the palette. Its routes still work. |
 | A column | Keeps it out of the table. Export and the drawer still read it. |
 | A filter | Applies the filter, and its `defaultValue`, without a control. |
+| A row action | Deprecated: write `when` with the condition reversed. |
 | A form field, `hidden: true` or a function of the values | Leaves the control out of the form. The server still fills its `defaultValue`. |
 | A form field with `type: "hidden"` | Renders `<input type="hidden">`, which posts its value and which anyone can edit in the page. |
 
@@ -989,7 +1074,11 @@ type FilterType =
 ```
 
 `daterange` and `numeric-range` reach your adapter as a `FilterRangeValue`;
-`multiselect` as a `FilterInValue`. Both are documented under
+`multiselect` as a `FilterInValue`. A `numeric-range` filter on a money column takes
+the amount the column shows: with `minorUnits: 2` on its format, `60` to `90` matches
+`6000` to `9000`, in the list, its URL, the export and the JSON API. A `{ gte, lte }`
+in a `where`, a view, a link's `filter` or a `defaultValue` stays in stored units, and
+its link opens the same rows. Both are documented under
 [Contexts](/docs/reference/contexts#filter-values).
 
 ### Record page
@@ -1202,7 +1291,7 @@ readable fields.
 | `hide?` | `string[]` | Related-tab columns to omit, typically the parent foreign key. |
 | `sort?` | `{ field: string; dir: "asc" \| "desc" }` | Related-tab default sort; falls back to the target's `defaultSort`, then its primary key. |
 | `widgets?` | `WidgetConfig[]` | Dashboard widgets with `ctx.row` set to the record being viewed; with `resource`, above its rows. |
-| `columns?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Grid columns for `widgets`; omitted, 12 when a widget sets `span`. Default: `2`. |
+| `columns?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Grid columns for `widgets`; omitted, 12 when a widget sets `span`, 1 for a single widget, else 2. |
 | `render?` | `(row: Row, ctx: DetailTabContext) => ReactNode` | Render arbitrary content instead of fields, widgets or a related resource. |
 | `emptyState?` | `string` | Shown instead of the generic label when the tab has nothing to show: no related rows, no widgets, or no fields the reader may see. |
 
@@ -1268,7 +1357,7 @@ Every option of row, bulk, dashboard and drawer actions, and what they return.
 
 Docs: https://flowpanel.tech/docs/reference/actions
 
-Documented types: rowAction, RowAction, bulkAction, BulkAction, dashboardAction, DashboardAction, DrawerAction, DrawerFieldFormSpec, ActionResult, ActionContext
+Documented types: rowAction, RowAction, bulkAction, BulkAction, dashboardAction, DashboardAction, DrawerAction, ActionResult, ActionContext
 
 Row, bulk, dashboard and drawer actions share one result type and one guard
 order: the admin role gate, the resource gate, then the action's own
@@ -1287,7 +1376,7 @@ Offered on a single row, inline or in the row menu. `rowAction<Row, Input>()` ty
 both `run` arguments and checks every `form[].name` against `Input`; it returns the
 object unchanged. Add it to a resource's `actions`.
 
-```ts twoslash
+```ts
 import { rowAction } from "@flowpanel/kit";
 
 type User = { id: string; status: "active" | "suspended" };
@@ -1321,15 +1410,17 @@ export const suspendUser = rowAction<User, SuspendInput>({
 | `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
 | `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
 | `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
-| `hidden?` | `(row: Row, ctx: RequestContext) => boolean \| Promise<boolean>` | Hide the action for rows it does not apply to. Evaluated server-side per row. |
+| `hidden?` | `(row: Row, ctx: RequestContext) => boolean \| Promise<boolean>` |  |
 | `disabled?` | `(row: Row) => boolean \| string` | Disable with a reason. A string is shown to the operator. |
 | `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
-| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Server-enforced row condition, evaluated only after a scoped row load. |
+| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
 | `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
 
-`hidden` runs on the server per row; a hidden action's route returns `404` for
-that row.
+`when` runs on the server per row: the menus offer the action only where it
+returns true, and the route returns `404` for any other row. Menus call it with no
+`input`; the route passes the posted input. `hidden` is deprecated: use `when` with
+the condition reversed.
 
 ### BulkAction
 
@@ -1390,7 +1481,8 @@ dashboardAction({ key: "retry", label: "Retry failed runs", emphasis: "primary",
 
 ### DrawerAction
 
-Rendered in the drawer footer. Its `form` uses `DrawerFieldFormSpec`.
+Rendered in the drawer's menu, like a row action, and takes the same options
+except `hidden` and `disabled`. Its `form` is a list of fields, as on a row action.
 
 `DrawerAction`
 
@@ -1398,27 +1490,17 @@ Rendered in the drawer footer. Its `form` uses `DrawerFieldFormSpec`.
 | --- | --- | --- |
 | `key` | `string` | Stable identifier, used in the action's URL. |
 | `label` | `string` |  |
-| `variant?` | `"default" \| "destructive"` | `"destructive"` styles the button as dangerous. |
-| `placement?` | `"inline" \| "menu"` | `"inline"`: a button beside Edit instead of an entry in the record's menu. Default: `"menu"`. |
-| `confirm?` | `string` | Ask for confirmation with this message before running. |
-| `form?` | `DrawerFieldFormSpec[]` | Inputs collected before `run`, passed to it as `formData`. |
-| `palette?` | `boolean` | Also offer the action in the command palette. |
-| `access?` | `AccessRule` | Roles allowed to see and execute this action. |
-| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Server-enforced row condition evaluated after the scoped row load. |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `variant?` | `ActionVariant` | Button styling. |
+| `placement?` | `"inline" \| "menu"` | `"inline"` renders a button in the row; `"menu"` puts it in the row menu. |
+| `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
+| `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
+| `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
+| `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
+| `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
+| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `run` | `( row: Row, formData: Record<string, unknown>, ctx: ActionContext<InferDB>, ) => Promise<ActionResult>` | Server-side handler. Runs only after every guard has passed. |
-
-#### DrawerFieldFormSpec
-
-`DrawerFieldFormSpec`
-
-| Property | Type | Notes |
-| --- | --- | --- |
-| `name` | `string` | Key this input contributes to the action's `formData`. |
-| `type?` | `"text" \| "textarea" \| "select" \| "switch" \| "number"` | Control to render. Defaults to `"text"`. |
-| `options?` | `string[]` | Choices for `select`. |
-| `required?` | `boolean` | Reject an empty value. Enforced server-side. |
-| `validate?` | `\| z.ZodTypeAny \| ((value: unknown, values: Record<string, unknown>) => string \| null \| Promise<string \| null>)` | Per-input validation, run server-side before `run`. |
+| `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
 
 ### ActionResult
 
@@ -1612,8 +1694,7 @@ record page shows. Each runs with the same guards as every action; see
 [DrawerAction](/docs/reference/actions#draweraction). An action the operator cannot
 run, or whose `when` rejects the open row, is left out, and a deleted row offers
 only Restore. `placement: "inline"` keeps an action as a button beside Edit, for
-the one a reviewer clicks on every row. `palette: true` also lists a drawer
-action in ⌘K.
+the one a reviewer clicks on every row.
 
 `DrawerAction`
 
@@ -1621,15 +1702,17 @@ action in ⌘K.
 | --- | --- | --- |
 | `key` | `string` | Stable identifier, used in the action's URL. |
 | `label` | `string` |  |
-| `variant?` | `"default" \| "destructive"` | `"destructive"` styles the button as dangerous. |
-| `placement?` | `"inline" \| "menu"` | `"inline"`: a button beside Edit instead of an entry in the record's menu. Default: `"menu"`. |
-| `confirm?` | `string` | Ask for confirmation with this message before running. |
-| `form?` | `DrawerFieldFormSpec[]` | Inputs collected before `run`, passed to it as `formData`. |
-| `palette?` | `boolean` | Also offer the action in the command palette. |
-| `access?` | `AccessRule` | Roles allowed to see and execute this action. |
-| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Server-enforced row condition evaluated after the scoped row load. |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `variant?` | `ActionVariant` | Button styling. |
+| `placement?` | `"inline" \| "menu"` | `"inline"` renders a button in the row; `"menu"` puts it in the row menu. |
+| `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
+| `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
+| `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
+| `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
+| `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
+| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `run` | `( row: Row, formData: Record<string, unknown>, ctx: ActionContext<InferDB>, ) => Promise<ActionResult>` | Server-side handler. Runs only after every guard has passed. |
+| `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
 
 ### The payload
 
@@ -1648,8 +1731,9 @@ What `GET /api/flowpanel/drawer/<resource>/<id>` returns.
 | `tabs` | `SerializedDrawerTab[] \| null` |  |
 | `actions` | `SerializedDrawerAction[]` |  |
 | `prerendered` | `Record<string, string>` | Field → HTML for fields whose column declares a `render`. |
-| `labels` | `Record<string, string>` | Field → column label, so drawer rows read like their table headers. |
+| `labels` | `Record<string, string>` | Field → the label it shows on every other surface, so drawer rows read like their table headers. |
 | `formats` | `Record<string, ColumnFormat>` | Field → column `format`. Plain data, rendered client-side exactly as the table does. |
+| `references` | `Record<string, { label: string; href: string }>` | Field → the record a `reference` column points at, so a drawer opened from a link reads like one opened from its row. |
 | `detailHref` | `string \| null` | The record's own page, when the resource configures `detail`. |
 | `deleted` | `boolean` | Soft-deleted, shown only to a caller who could restore it. |
 | `deletedTitle?` | `string` | The notice over a deleted row: "This customer was deleted". |
@@ -1666,7 +1750,7 @@ Every widget builder and the options it accepts.
 
 Docs: https://flowpanel.tech/docs/reference/widgets
 
-Documented types: WidgetContext, WidgetFormat, CaptionOptions, Freshness, Threshold, ResourceLink, DashboardLink, metric, MetricOptions, MetricResult, MetricDelta, table, TableWidgetOptions, WidgetColumn, statGroup, StatGroupOptions, StatItem, stat, StatOptions, StatResult, kv, KvOptions, KvItem, KvResult, bars, BarsOptions, BarRow, funnel, FunnelOptions, FunnelStep, list, ListOptions, banner, ListRow, tracker, TrackerOptions, TrackerRow, timeline, TimelineOptions, TimelineSource, TimelineEvent, TimelinePage, heatmap, HeatmapOptions, HeatmapSource, checklist, ChecklistOptions, ChecklistItem, filled, custom, CustomOptions, ChartOptionsBase, areaChart, AreaChartOptions, barChart, BarChartOptions, lineChart, LineChartOptions, pieChart, PieChartOptions, series, SeriesOptions, breakdown, BreakdownOptions, presetRange, previousRange, fillDays, dashboard, page, DashboardConfig, SectionConfig, DateRangeConfig, DashboardFilter, ResolvedDateRange, WidgetDateRange, PageConfig
+Documented types: WidgetContext, WidgetFormat, CaptionOptions, Freshness, Threshold, ResourceLink, DashboardLink, metric, MetricOptions, MetricResult, MetricDelta, table, TableWidgetOptions, WidgetColumn, statGroup, StatGroupOptions, StatItem, stat, StatOptions, StatResult, kv, KvOptions, KvItem, KvResult, bars, BarsOptions, BarRow, funnel, FunnelOptions, FunnelStep, list, ListOptions, banner, ListRow, tracker, TrackerOptions, TrackerRow, timeline, TimelineOptions, TimelineSource, TimelineEvent, TimelinePage, heatmap, HeatmapOptions, HeatmapSource, checklist, ChecklistOptions, ChecklistItem, filled, custom, CustomOptions, ChartOptionsBase, areaChart, AreaChartOptions, barChart, BarChartOptions, lineChart, LineChartOptions, pieChart, PieChartOptions, series, SeriesOptions, breakdown, BreakdownOptions, presetRange, previousRange, fillDays, dashboard, page, DashboardConfig, SectionConfig, DateRangeConfig, DashboardFilter, ResolvedDateRange, WidgetDateRange, PageConfig, PageProps
 
 Widgets fill dashboard sections, record page tabs and drawer tabs. Each builder
 returns a `WidgetConfig`; every `query` runs on the server with a `WidgetContext`.
@@ -1711,6 +1795,7 @@ What every widget `query` receives.
 | --- | --- | --- |
 | `db` | `DB` | Your database client, exactly as handed to the adapter. |
 | `session` | `Session \| null` |  |
+| `role` | `string` | The signed-in role, as `auth.role` returns it. |
 | `dateRange` | `WidgetDateRange` | The picked range, the period before it and the admin's zone, resolved to dates. |
 | `filters` | `Readonly<Record<string, string>>` | The dashboard's active filters by key; `{}` on a record page or with none set. Bind them as parameters. |
 | `req` | `Request` |  |
@@ -1770,13 +1855,15 @@ metric("Paid orders", async (ctx) => ({
 | `dateTime` | `(value: MomentInput) => string` | Day and clock, as a table cell shows a timestamp. |
 | `relative` | `(value: MomentInput, now?: Date) => string` | How long ago — `5 minutes ago`, `yesterday`. `now` defaults to the current time. |
 | `number` | `(value: NumberInput, digits?: number) => string` | A number with the locale's grouping and at most `digits` decimals. |
-| `money` | `(value: NumberInput, options?: { currency?: string; digits?: number; scale?: number }) => string` | An amount divided by `scale`, in `currency` (default `formatting.currency`), `digits` decimals (0). |
+| `money` | `(value: NumberInput, options?: { currency?: string; digits?: number; minorUnits?: number }) => string` | An amount, in minor units when `minorUnits` is set, in `currency` (default `formatting.currency`). `digits` defaults to 0 for a whole amount, else to `minorUnits` or the currency's own: `1999` with `minorUnits: 2` and `19.99` are both `€19.99`. |
 | `percent` | `(value: NumberInput, digits?: number) => string` | A fraction as a percentage — `0.42` is `42%`. |
 | `duration` | `(ms: NumberInput) => string` | Milliseconds as the largest units that fit — `2 hr 5 min`. |
 | `plural` | `(count: number, label: string \| PluralLabel) => string` | A count in the plural form the locale picks; `{n}` is the formatted count. |
 
 `ctx.format` formats with the admin's `locale`, `timeZone` and `currency`, the same
-way table cells do.
+way table cells do. Outside a widget, such as in a `page()` component,
+`bindFormat(formatting)` from `@flowpanel/kit` returns the same formatters for a
+`ResolvedFormatting`.
 
 ```ts
 stat("Latency", async (ctx) => {
@@ -1800,6 +1887,15 @@ columns once a widget sets `span`. On a phone every widget takes the full row.
 Every widget and dashboard accepts `realtime`: a channel name, `{ resource: "orders" }`,
 or a list of them. When one fires, only that widget re-runs.
 
+Every widget accepts `access`, the same rule a dashboard or action takes: a role, a
+list of roles, or a function. A widget the caller's role is refused is left out of
+the dashboard, record page or drawer, and its queries never run. A section left
+with no widget is left out too. `ctx.role` gives a query the caller's role.
+
+```ts
+metric("MRR", (ctx) => mrr(ctx.db, ctx.dateRange), { format: "currency", access: "admin" });
+```
+
 `maxRange`, such as `"30d"`, is for rows your app deletes after that long. The
 widget queries from `max(from, to − N, now − N)` and says so in its caption; a
 range that ended before `now − N` runs no query and shows `—`. `heatmap` and
@@ -1820,6 +1916,7 @@ A failing `freshness.at` is logged and skipped.
 
 | Property | Type | Notes |
 | --- | --- | --- |
+| `access?` | `AccessRule` | Who sees the widget. A refused widget is left out of the page and its queries never run. |
 | `freshness?` | `Freshness` | Say under the title how old the data is. |
 | `coverage?` | `string` | Say under the title that the data is a sample, e.g. "users who accepted analytics". |
 
@@ -1938,6 +2035,7 @@ returns one or `null`.
 | --- | --- | --- |
 | `icon?` | `string` | Rendered as-is next to the label. Any string — an emoji, a ligature. No icon-name lookup exists. |
 | `format?` | `NumericFormat` | How the number is rendered. |
+| `minorUnits?` | `number` | The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `tones` compare the amount shown. |
 | `sublabel?` | `string` | Small caption under the value. |
 | `delta?` | `(ctx: WidgetContext) => Promise<MetricDelta \| null>` | Period-over-period change, queried alongside the value. |
 | `compare?` | `boolean \| { against?: "previous" \| "weekAgo" }` | Query the compared period too and show the change: `previous`, or `against: "weekAgo"` for the same range seven days back. Needs a numeric value; a `delta` the query returns wins. |
@@ -1973,9 +2071,23 @@ both. `drilldown: () => null` removes the link.
 `compare: true` runs the query again with `ctx.dateRange.previous` and shows the
 change; `compare: { against: "weekAgo" }` compares with the same range seven days
 earlier. Set `goodWhen: "down"` for costs and errors. A `delta` from the query wins.
+A value that was 0 in the earlier period reads "new" beside "was 0", since a
+percentage of nothing means nothing; 0 both times reads "No change".
 
 ```ts
 metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
+```
+
+A query that sums a cents column returns minor units: set `minorUnits` with
+`format: "currency"` and the card shows the amount, as a chart's `minorUnits` does.
+`stat()` and `bars()` take it too, and `tones` and `max` read the amount shown.
+
+```ts
+metric("Revenue", (ctx) => revenueCents(ctx.db, ctx.dateRange), {
+  format: "currency",
+  minorUnits: 2,
+  compare: true,
+});
 ```
 
 #### MetricResult
@@ -2123,6 +2235,7 @@ One number with a label, without `metric()`'s delta and sparkline.
 | `tones?` | `Threshold` | Tone the value against a threshold; an explicit `tone` wins. |
 | `goodWhen?` | `GoodWhen` | Which direction is good news; `tones` must agree with it. Default: `"up"`. |
 | `format?` | `NumericFormat` | How a numeric value is rendered. |
+| `minorUnits?` | `number` | The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `tones` compare the amount shown. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
@@ -2249,6 +2362,7 @@ bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), form
 | `filterOnClick?` | `string` | A dashboard filter key: clicking a bar sets it to the row's `key` on the current dashboard. |
 | `query` | `(ctx: WidgetContext) => Promise<BarRow[]>` |  |
 | `format?` | `NumericFormat` | How bar values are rendered. |
+| `minorUnits?` | `number` | The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `max` and `tones` read the amount shown. |
 | `max?` | `number` | The value a full bar stands for — `1` for a rate with `format: "percent"`. Default, and for a value of `0` or less: the largest value in the rows. |
 | `share?` | `boolean` | Show each row's part of the total beside its value: its own `share`, else of the rows' sum. |
 | `goodWhen?` | `"up" \| "down" \| "neutral"` | Which direction is good news; colours each row's change ("neutral" doesn't), and `tones` must agree with it. Default: `"up"`. |
@@ -2264,9 +2378,12 @@ row's `share` itself. A row's `previous` shows its change with the `MetricDelta`
 rules.
 
 `compare: true` (or `{ against: "weekAgo" }`) runs the query for the earlier period
-and fills each row's `previous`, joining by `key`, else `label`. A row missing from
-the earlier period shows no change; `breakdown({ keys })` keeps it at zero. With
-`top`, pass the earlier rows to `breakdown({ previous })` instead.
+and fills each row's `previous`, joining by `key`, else `label`. A row the earlier
+period lacks counts as 0 there, unless those rows fold the rest into "Other", where
+it shows no change. A row that grew from 0 reads "new" instead of a percentage, and
+a row at 0 both times shows no change. A query with a `LIMIT` of its own should fold
+the rest with `breakdown({ top })`, or a row that was just outside it reads "new". With `top`, pass the earlier
+rows to `breakdown({ previous })` instead.
 
 ```ts
 bars({
@@ -2677,6 +2794,7 @@ Your own component in the grid. `props` is a value or a server function. See
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `frame?` | `boolean` | Wrap the component in the standard widget card. Default: `true`. |
 | `label?` | `string` | The card's title when framed, and the name errors and slow-widget timings use. |
+| `minHeight?` | `number` | The height in px the widget keeps, while it loads and after, so the page below it does not jump when it arrives. |
 
 ### Charts
 
@@ -2701,8 +2819,9 @@ Shared by area, bar and line charts.
 | `y?` | `RowKey<R> \| RowKey<R>[]` | Row key(s) plotted on the y-axis; an array draws one series per key. Default: every key of the first row except `x`, in its order — the columns a `series({ by })` returns. |
 | `labels?` | `KeyLabels` | Legend and tooltip name per series key: a map, an `enumOf()` or a function. Default: the key. |
 | `colors?` | `Readonly<Record<string, string>>` | A CSS colour per series key, e.g. `{ paid: "hsl(var(--fp-chart-1))" }`. Default: `--fp-data` for a single series, `--fp-chart-1…7` in `y` order for several. |
-| `height?` | `number` | Chart height in px. Default: `240`. |
+| `height?` | `number` | Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. |
 | `format?` | `NumericFormat` | How y-values are rendered in ticks and tooltips. |
+| `minorUnits?` | `number` | The y-values are minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. |
 | `tooltip?` | `"default" \| "compact" \| false` | `false` omits the `<Tooltip>` entirely. |
 | `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
@@ -2714,7 +2833,8 @@ Shared by area, bar and line charts.
 
 Without `y`, the chart plots every numeric key of its first row except `x`, which
 is what `series({ by })` returns. `labels` names the series. `bucket` only formats
-date ticks; aggregate with `series({ grain })`.
+date ticks; aggregate with `series({ grain })`. For amounts stored in cents, set
+`format: "currency"` and `minorUnits: 2`, and the axis and tooltips show money.
 
 One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
 order. `colors` pins a series to a colour:
@@ -2767,7 +2887,7 @@ unless you pass `showLegend: false`.
 | `value` | `RowKey<R>` | Row key holding each slice's magnitude. |
 | `donut?` | `boolean` | Cut a hole in the middle. |
 | `showLegend?` | `boolean` | Show the slice legend. Default: `true`. |
-| `height?` | `number` | Chart height in px. |
+| `height?` | `number` | Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
@@ -2918,10 +3038,12 @@ stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 | `default?` | `{ from: Date; to: Date }` | Explicit range used when no preset is given. |
 | `presets?` | `DateRangePreset[]` | Presets the picker offers, in order. A URL preset outside the list is ignored, and without `preset` or `default` the first entry is selected. Default: all seven. |
 
-`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD"`.
+`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "last12m" | "MTD" | "QTD" | "YTD"`.
 
 `today`, `yesterday`, `MTD`, `QTD` and `YTD` start at midnight in `formatting.timeZone`
 (UTC when it is not set); `last7d` and `last30d` are the last 7 × 24 and 30 × 24 hours.
+`last12m` starts on the 1st of the month eleven months back, so a monthly chart gets
+twelve buckets, the current month included; it compares with the same range a year back.
 
 `presets` limits the picker's choices; `preset` defaults to the first.
 
@@ -2987,9 +3109,47 @@ dashboard({
 | `label` | `string` | Nav entry and page title. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
 | `navGroup?` | `NavGroupRef` | Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. |
-| `component?` | `ComponentType<Record<string, never>>` | Server or client React component rendered at `<paths.admin><path>`. |
+| `component?` | `ComponentType<PageProps>` | Server or client React component rendered at `<paths.admin><path>`; a failure shows an error card inside the admin. |
 | `href?` | `string` | External href used when `component` is not provided. |
 | `access?` | `AccessRule` | Who may see and open this page. |
+
+A page's `component` gets the request as props: who is signed in, their tenant, the
+admin's formatting and its strings. `session` is what `auth.session` returned, the
+same object `access` rules see; with a provider preset that is the provider's own
+session, tokens included. Write the page as a server component and hand its client
+children only the fields they need. A `"use client"` page component gets
+`session: null` and `scope: null`, so neither reaches the browser. A component that throws shows an error card with Retry inside the
+admin, as a widget does, and the rest of the admin keeps working.
+
+```tsx
+// src/admin/pages/reports.tsx
+import { bindFormat, type PageProps } from "@flowpanel/kit";
+
+export function ReportsPage({ role, scope, formatting, searchParams }: PageProps) {
+  const format = bindFormat(formatting);
+  return (
+    <p>
+      {role} sees {String(scope?.orgId ?? "every tenant")} for {searchParams.year ?? "this year"}:{" "}
+      {format.money(1999, { minorUnits: 2 })}
+    </p>
+  );
+}
+```
+
+Register it with `page({ path: "/reports", label: "Reports", component: ReportsPage })`.
+
+#### PageProps
+
+`PageProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `session` | `Session \| null` | What `auth.session` returned, the session `access` rules see; `null` for a `"use client"` component, so a provider's tokens never reach the browser. |
+| `role` | `string` | The signed-in role, as `auth.role` returns it. |
+| `scope` | `Scope` | The tenant `scope` resolved for this request; `null` without one, and for a `"use client"` component. |
+| `formatting` | `ResolvedFormatting` | Locale, time zone and currency from `formatting`; `bindFormat(formatting)` gives the formatters a widget gets as `ctx.format`. |
+| `labels` | `ResolvedLabels` | The admin's resolved strings, in its locale. |
+| `searchParams` | `Readonly<Record<string, string>>` | The page URL's query string; the last value wins for a repeated key. |
 
 ## queue()
 
@@ -3139,9 +3299,10 @@ Documented types: RequestContext, QueryContext, ListQueryContext, ItemQueryConte
 
 Adapter methods, mutations, actions and option resolvers receive a context that
 extends `RequestContext`, so `session`, `role` and `scope` are there. Widgets and
-record pages get their own: `WidgetContext` has `session` but no `role` or `scope`,
-`DetailTabContext` is a subset of `WidgetContext`, and `DetailHeaderContext` has
-only `format`, `labels` and `link`.
+record pages get their own: `WidgetContext` has `session` and `role` but no `scope`
+(its reads apply the scope for you), `DetailTabContext` is a subset of
+`WidgetContext`, and `DetailHeaderContext` has only `format`, `labels` and `link`. A
+`page()` component gets [`PageProps`](/docs/reference/widgets#pageprops).
 
 ### RequestContext
 
@@ -3300,8 +3461,11 @@ metric("New signups", async (ctx) => {
 });
 ```
 
-Every interpolated value is a bound parameter. A `Date` binds as ISO-8601 text and
-a `bigint` as decimal text. Arrays bind differently per adapter; see
+Every interpolated value is a bound parameter, and a `Date` compares with a
+timestamp column without a cast: Prisma binds it as a timestamp, Drizzle as
+ISO-8601 text the database reads as one. On Prisma, write table and column names as
+Prisma made them, `"Order"."createdAt"`, unless `@@map` and `@map` rename them; see
+[Prisma setup](/docs/introduction/prisma#raw-sql). Arrays bind differently per adapter; see
 [Raw SQL](/docs/reference/adapters#raw-sql). Drizzle `sql` fragments nest:
 
 ```ts
@@ -3560,7 +3724,7 @@ The full @flowpanel/kit/react export surface, grouped by what it's for.
 
 Docs: https://flowpanel.tech/docs/reference/react-components
 
-Documented types: AdminShellProps, DrawerProps, CommandPaletteProps, DataTableProps, AutoFormProps, FormProps, FieldProps, FlowpanelIconProps, DevToolsPanelProps
+Documented types: AdminShellProps, DrawerProps, CommandPaletteProps, DataTableProps, DataTableColumn, AutoFormProps, FormProps, FieldProps, FlowpanelIconProps, DevToolsPanelProps
 
 The components the admin renders with, for custom slots, pages and `"bare"`-shell
 chrome. Import them from `@flowpanel/kit/react`.
@@ -3691,6 +3855,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `onPinnedColumnsChange?` | `(pinned: { left?: string[]; right?: string[] }) => void` |  |
 | `realtime?` | `string \| { channel: string; debounceMs?: number }` | Subscribe to an SSE channel and trigger `router.refresh()` on events. |
 | `rowEndCell?` | `(row: Row, rowIndex: number) => React.ReactNode` |  |
+| `rowEndCellRem?` | `number` | The trailing column's width in rem; the default 3.5 holds the row menu. |
 | `rowEndCellLabel?` | `string` | Accessible label for the trailing column header. Defaults to "Actions". |
 | `onEditRow?` | `(row: Row) => void` | Triggered when the user presses `e` on a focused row. |
 | `onDeleteRow?` | `(row: Row) => void` | Triggered when the user presses `d` on a focused row. |
@@ -3703,6 +3868,27 @@ Not listed here: `@flowpanel/kit/client` holds
 | `importable?` | `{ resource: string; formats: ("csv" \| "json")[] }` |  |
 | `showDensityToggle?` | `boolean` |  |
 | `rowLabel?` | `string` | What one row is, mid-sentence ("run"): phone cards read "Open run 36". |
+
+Each column of a `DataTable` you render yourself is a `DataTableColumn`. Its width follows its kind, `content` and `textRem`, measured against the table's own width, so give the table a width from its parent (`flex-1 min-w-0` in a flex row). Pass `textRem`, the widest value's width in rem, for content-sized columns: a text column then never narrows below its widest value or 13rem, whichever is less. Without it, a text column can narrow to between 7 and 10rem by its kind, or its header.
+
+`DataTableColumn`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `field` | `keyof Row & string` |  |
+| `label?` | `string` |  |
+| `render?` | `(row: Row) => React.ReactNode` |  |
+| `sortable?` | `boolean` |  |
+| `width?` | `number \| string` | Fixed width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. |
+| `align?` | `"left" \| "center" \| "right"` |  |
+| `hidden?` | `boolean` |  |
+| `className?` | `string` |  |
+| `type?` | `"string" \| "number" \| "boolean" \| "date" \| "json" \| "enum" \| "array" \| "reference"` | Adapter introspection hint propagated from `ColumnMeta.type`. |
+| `editable?` | `boolean` |  |
+| `format?` | `ColumnFormat` | Declarative formatter mirrored from `ColumnDef.format`. |
+| `secondary?` | `keyof Row & string` | A field of the row shown as a muted second line under the cell. |
+| `content?` | `"long" \| "email" \| "link"` | What a text column holds, which sizes it: long text and an email get more room, a link a little. Field names no longer decide it; set it yourself. |
+| `textRem?` | `number` | Optional: the widest value in this column, in rem at the table's text size. Its ideal width fits it; without it the column takes its kind's default. |
 
 ### Forms
 
@@ -3766,7 +3952,7 @@ Not listed here: `@flowpanel/kit/client` holds
 
 The table above is exported as `FormField` and `FormFieldProps`. Its `type` accepts:
 
-```ts
+```ts fragment
 "text" | "email" | "password" | "url" | "number" | "date" | "datetime" |
 "datetime-local" | "time" | "color" | "search" | "textarea" | "markdown" |
 "json" | "tags" | "select" | "multiselect" | "radio" | "reference" |
@@ -4127,6 +4313,7 @@ All paths are relative to `/api/flowpanel`.
 | `DELETE` | `/<resource>/<id>` | Delete (JSON API) |
 | `GET` | `/drawer/<resource>/<id>` | Drawer payload for one row |
 | `GET` | `/<resource>/reference/<field>` | Options for a reference picker |
+| `GET` | `/palette/search?q=` | ⌘K record search across the resources with `search` fields ([Search](/docs/build/resources#search-filters-and-sorting)) |
 | `GET` | `/export/<resource>?format=csv` | Every row the list would show for its query string, as CSV or JSON ([Import and export](/docs/build/import-export#export)) |
 | `POST` | `/<resource>/create` | Create form submit |
 | `POST` | `/<resource>/<id>/edit` | Edit form submit |
@@ -4311,7 +4498,7 @@ function makeActions(
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `create` | `(input: unknown) => Promise<unknown>` |  |
+| `create` | `(input: unknown, options?: CreateOptions) => Promise<unknown>` |  |
 | `update` | `(id: string, input: unknown, options?: UpdateOptions) => Promise<unknown>` |  |
 | `delete` | `(id: string) => Promise<void>` |  |
 
@@ -4405,6 +4592,7 @@ through the same auth, access, scope, validation and audit as generated pages.
 
 ```ts
 import {
+  clientMetadata,
   createFlowpanelClient,
   isFlowpanelErrorCode,
   isFlowpanelErrorResult,
@@ -4462,9 +4650,40 @@ export function OrdersPanel({ metadata }: { metadata: FlowpanelClientMetadata })
 }
 ```
 
-`options.fetch` replaces the fetch implementation. Requests use
+`options.fetch` replaces the fetch implementation, `options.baseUrl` puts an origin in
+front of `paths.api`, and `options.headers` go with every request. Requests use
 `credentials: "same-origin"`. `FlowpanelClientMetadata` holds the runtime id, paths
 and protocol version; it is not secret.
+
+### From a script
+
+A Node script, a cron job or a test reaches the API with the same client.
+`clientMetadata(config)` builds the metadata from your config, `baseUrl` says where the
+app runs (with its `basePath`, if any) and `headers` carries the session, such as a
+cookie your auth issued:
+
+```ts
+// scripts/open-orders.ts
+import { clientMetadata, createFlowpanelClient } from "@flowpanel/kit/client";
+import config from "../flowpanel.config";
+
+const client = createFlowpanelClient(clientMetadata(config), {
+  baseUrl: process.env.APP_URL ?? "http://localhost:3000",
+  headers: { cookie: process.env.ADMIN_COOKIE ?? "" },
+});
+
+async function main() {
+  const result = await client.resource("orders").list({ filters: { status: "open" } });
+  console.log(result.ok ? result.data.total : result.error.message);
+}
+
+void main();
+```
+
+Run it with `pnpm tsx --env-file=.env scripts/open-orders.ts`. Every kit subpath a
+config can import loads from a CommonJS script too, which is what a project without
+`"type": "module"`, such as one `create-next-app` makes, runs; it needs Node.js 20.19
+or 22.12 and newer, which load the kit's ES modules from `require`.
 
 ### Resource methods
 
@@ -4698,7 +4917,7 @@ What FlowPanel needs from a database layer, method by method.
 
 Docs: https://flowpanel.tech/docs/reference/adapters
 
-Documented types: Adapter, AuditLogStore, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions, toCsv, toJson
+Documented types: Adapter, AuditLogStore, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions
 
 The adapter is the only part of FlowPanel that queries your database. Implement
 this interface for a data layer without a shipped adapter. Overview:
@@ -4785,7 +5004,9 @@ async function sql<Row>(strings: TemplateStringsArray, ...values: unknown[]) {
 }
 ```
 
-`sanitizeSqlParams` binds a `Date` as ISO-8601 text and a `bigint` as decimal text.
+`sanitizeSqlParams` binds a `Date` as ISO-8601 text and a `bigint` as decimal text,
+as the Drizzle adapter does; the Prisma adapter hands both to `$queryRaw` as they are,
+so Prisma binds a timestamp and a bigint.
 `parseSqlRows` reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s, unless
 `{ parseDates: false }`.
 
@@ -4828,6 +5049,7 @@ Returned by `introspect`. `kind: "view"` makes a resource read-only unless it se
 | `writableOnUpdate?` | `boolean` | Whether update input may contain this column. |
 | `generated?` | `boolean` | Database-computed column that must not be accepted as input. |
 | `hasDefault?` | `boolean` | The database or ORM fills the column when the insert omits it. |
+| `defaultValue?` | `string \| number \| boolean` | That default when it is a plain value, such as an enum's `"draft"`; a generated create form starts there. |
 | `sensitive?` | `boolean` | Adapter-discovered secret. Always excluded from generated read projections. |
 
 `type` and `enumValues` drive a fully generated form (no `create.fields` or
@@ -4902,21 +5124,13 @@ The parts each adapter is built from:
 
 | Package | Also exports |
 | --- | --- |
-| `@flowpanel/kit/drizzle` | `introspect`, `inferSchema`, `toCsv`, `toJson` |
+| `@flowpanel/kit/drizzle` | `introspect`, `inferSchema` |
 | `@flowpanel/kit/prisma` | `introspect`, `inferSchema`, `PrismaDmmf` (type) |
 | `@flowpanel/kit/bullmq` | `BullMQAdapter` (type) |
 
 `introspect(ref)` returns a `ResourceIntrospection`; `inferSchema(ref)` returns the
 `{ create, update, select }` Zod schemas. `PrismaDmmf` is the type of the optional
 `dmmf` option.
-
-### Export helpers
-
-Standalone row serializers from `@flowpanel/kit/drizzle`.
-
-Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines,
-writes `Date`s as ISO, and prefixes a value starting with `=`, `+`, `-`, `@`, a tab
-or a carriage return with `'`, so a spreadsheet does not run it as a formula.
 
 ## Scope & realtime
 
@@ -4955,6 +5169,11 @@ policies, mutations and actions as `ctx.scope`. The adapter receives the
 resource's predicate bound to it as `ctx.boundScope`. Widgets get no `ctx.scope`:
 `ctx.count` and `ctx.read` apply the scope for you, and a `ctx.sql` or `ctx.db`
 query must read the tenant from `ctx.session`.
+
+Return `allTenants` from `@flowpanel/kit` for a user who works across tenants: the
+resource predicates are skipped for that request, and `isAllTenants(scope)` tells
+it apart. A resource's `scopeOf(row)` names the tenant a row belongs to, in the
+shape `scope` returns, so the audit log files that user's changes under it.
 
 #### The opt-out is mandatory
 
@@ -5149,7 +5368,7 @@ name, and `FlowpanelValidationError`, which takes its field errors first.
 
 It carries `fieldErrors`, keyed by field name, as the first constructor argument:
 
-```ts
+```ts fragment
 constructor(fieldErrors: Record<string, string>, message = "Validation failed");
 ```
 
@@ -5237,9 +5456,10 @@ It fires for a required column with no default that neither `create.fields` nor
 
 `FlowpanelAuthError` and `FlowpanelAccessError` thrown during a page render:
 
-- `auth.signInUrl` is set → redirect there.
-- `auth.forbiddenUrl` is set and the visitor is signed in → redirect there.
-- Neither → an inline "Sign in required" or "Access denied" panel.
+- No session and `auth.signInUrl` is set → redirect there.
+- Signed in, but `auth.access` refuses the whole admin, and `auth.forbiddenUrl` is set → redirect there.
+- Signed in and admitted, but one dashboard, page, queue, the Audit log or a resource route refuses the role → the "You don't have access to …" screen inside the admin, with a link to the next page the role can open. `forbiddenUrl` is not used here.
+- Otherwise → an inline "Sign in required" or "You don't have access to this admin" screen.
 
 Other errors reach your Next.js error boundary, except failed adapter reads.
 
@@ -5501,7 +5721,7 @@ What varies:
   own.
 - **Authentication**: for `better-auth`, `next-auth`, `@clerk/nextjs` or `lucia`,
   when the auth module exports the provider's instance rather than `getSession`,
-  `init` writes `server/lib/flowpanel-session.ts` on the matching
+  `init` writes `flowpanel-session.ts` beside that module on the matching
   [preset](/docs/guides/authentication). Otherwise it writes a closed `getSession`
   adapter. `--dev-auth`, or a yes to the wizard question, writes an open development
   identity that warns once per process and refuses to run in production. On an
@@ -5624,10 +5844,12 @@ Runs these checks:
 - `flowpanel.config.ts` evaluates; an error there is a failure with the error as
   its hint. With a `.tsx` config, this check and the one above name that file
 
-Three more checks warn without failing the run: a session module that is still the
+More checks warn without failing the run: a session module that is still the
 closed stub (`getSession` returns `null`) or the open development identity from
-`init --dev-auth`, an empty `resources` array, and a missing `DATABASE_URL` while
-`flowpanel/migrations/` holds SQL files. A warning prints as a yellow `!` line and
+`init --dev-auth`, an empty `resources` array, a missing `DATABASE_URL` while
+`flowpanel/migrations/` holds SQL files, an audit table from 0.3 that lacks the 0.4
+columns (`--fix` writes the `0002` migration), and, with `DATABASE_URL` set, a
+resource whose table the database does not have, counted through the config's adapter. A warning prints as a yellow `!` line and
 carries `"warn": true` in `--json`. A check that crashes is a warning too, with
 `Could not check:` and the first line of the error as its hint.
 
@@ -5751,6 +5973,7 @@ import * as schema from "@/db/schema";
 const Surface = enumOf(schema.activitySurface.enumValues, { web: "Web", tma: "Tma" });
 
 export const userVisit = resource(schema.userVisit, {
+  plural: "User visits",
   hidden: true,
   columns: [
     "id",
@@ -5767,15 +5990,18 @@ export const userVisit = resource(schema.userVisit, {
 and adds it to `admin/config/resources/index.ts`. The first time, it also imports
 that directory's `resources` into `flowpanel.config.ts` and spreads it into the
 array; when the config is shaped differently it prints the line to add. Columns are chosen by type; an
-enum gets an `enumOf` stub; a foreign key becomes a `reference` labelled by the
+enum gets an `enumOf` stub; an integer column whose name ends in `Cents` or `_cents`
+shows as money, `format: { kind: "money", minorUnits: 2 }`; a foreign key becomes a `reference` labelled by the
 target's `name`, `title` or `email` when the target already has a file, which
 also makes it a searchable picker in the generated create and edit forms, so
 scaffold referenced tables first. JSON and long text are left out of the list columns, `name`,
 `title` and `email` become search fields, and the list sorts by `createdAt` or `startedAt`.
-`--hidden` keeps the resource out of the navigation.
+`--hidden` keeps the resource out of the navigation. A table with a singular name,
+such as `user`, gets `plural: "Users"` so the navigation reads as a collection.
 
 Re-running changes nothing; a different existing file stops it. `--dir` is
-Drizzle only. Without `--dir`, a config whose `resources` comes from a `--dir`
+Drizzle only. On Prisma, run `new` without it and move the entry into its own file
+by hand, as [Prisma setup](/docs/introduction/prisma#one-file-per-resource) shows. Without `--dir`, a config whose `resources` comes from a `--dir`
 directory gets the new file there; any other `resources` that is not an array
 literal is left unchanged, and `new` exits `1`.
 
@@ -5797,6 +6023,7 @@ it as a dev dependency; no other kit subpath loads it.
 
 ```sh
 pnpm add -D @playwright/test @axe-core/playwright
+pnpm exec playwright install chromium
 ```
 
 `@axe-core/playwright` runs the accessibility checks: with `a11y: true` and no `@axe-core/playwright`, `smokeAdmin` fails and names the package to install.
@@ -5813,7 +6040,10 @@ test("the admin is healthy", async ({ page }) => {
 ```
 
 The walk starts at `paths.admin`, opens every dashboard and list in the navigation,
-then opens each list's first row as its record page or drawer. On a record page it
+then opens each list's first row as its record page or drawer. It opens a row with
+Enter, as a keyboard user does, so a reference link inside one of its cells is
+never what it follows; at a phone width, where the list is cards, it opens each
+card's own button. On a record page it
 opens every other tab as `?tab=<key>` (`tabs: false` skips them), so a failure
 names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its first tab.
 
@@ -5821,15 +6051,29 @@ names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its
 
 | Assertion | How it fails |
 | --- | --- |
-| Every navigation answers below 400 | `<route>: responded 500` |
+| Every navigation answers below 400 | `<route>: responded 500: <the error page's text>` |
+| No render crashed past the admin into Next's error page | `<route>: rendered Next's error page instead of the admin: <its text>` |
+| Every page shows its `main` within 15 seconds | `<route>: rendered no <main> within 15 s` |
 | Nothing wrote to `console.error` | `console.error: <text>` |
 | No page rendered `[data-fp-error]` | `<route>: rendered a FlowPanel error surface` |
-| Zero WCAG 2.2 AA violations, with `a11y` | `<route>: axe <rule> (<impact>)` |
+| Zero WCAG 2.2 AA violations, with `a11y` | `<route>: axe <rule> (<impact>) at <selectors>` |
 | The navigation has at least one route | `smokeAdmin found no navigation under <paths.admin> …` |
 
 `[data-fp-error]` marks FlowPanel's error cards: a failed widget, a failed read, a
-failed drawer. A walk that finds no routes fails. Pages count as loaded when `main`
-is visible, since realtime pages never reach network idle.
+failed drawer, a `page()` that threw. A walk that finds no routes fails. Pages count
+as loaded when `main` is visible, since realtime pages never reach network idle. A
+route that answers 500 or shows Next's error page fails at once, with the page's text
+and, in development, the server's error among the console errors, instead of waiting
+for the test's timeout.
+
+The accessibility scan leaves out iframes. A `queue()` page embeds bull-board, whose
+markup is not the admin's to fix, so an admin with queues passes `a11y: true` on its
+own pages. Check the board separately if it matters to you.
+
+`smokeAdmin` opens pages and rows; it submits no forms. A test of your own that submits an invalid form sees the browser log `Failed to load resource: … 422` for the rejected request. That line comes from the browser, not from the admin, so filter it out when you assert a clean console after a submit.
+
+`smokeAdmin` uses the page's viewport. To check the phone layout too, call it again
+after `page.setViewportSize({ width: 390, height: 844 })`.
 
 ### Options and report
 
@@ -5840,7 +6084,7 @@ is visible, since realtime pages never reach network idle.
 | `paths?` | `{ admin?: string }` | Where the admin is mounted: the config's `paths.admin`. Default: `"/admin"`. |
 | `cookie?` | `{ name: string; value: string; domain?: string }` | Session cookie added before the walk, for an admin behind authentication. |
 | `resources?` | `string[]` | Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. |
-| `a11y?` | `boolean` | Run axe against every visited route. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package. Default: `false`. |
+| `a11y?` | `boolean` | Run axe against every visited route, leaving out iframes such as a queue's bull-board. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package. Default: `false`. |
 | `maxRows?` | `number` | How many rows of each list the walk opens. Default: `1`. |
 | `tabs?` | `boolean` | On each record page, open every other detail tab as `?tab=<key>` and check it the same way. Default: `true`. |
 
@@ -5859,6 +6103,7 @@ is visible, since realtime pages never reach network idle.
 | `route` | `string` |  |
 | `id` | `string` |  |
 | `impact?` | `string` |  |
+| `targets?` | `string[]` | CSS selectors of the first few failing elements, as axe reports them. |
 
 `smokeAdmin` resolves with the report, or throws an `Error` listing each problem
 and the report as JSON.
@@ -6001,7 +6246,8 @@ The test user needs the role your admin requires.
 
 `cookie` suits a bare session token your own code issues. For better-auth,
 next-auth and other providers that sign sessions, sign in first; `smokeAdmin` reuses
-the page's context.
+the page's context. Wait until the sign-in page has redirected, or the redirect
+aborts the walk's first navigation with `net::ERR_ABORTED`.
 
 ```ts
 import { test } from "@playwright/test";
@@ -6012,6 +6258,7 @@ test("the admin is healthy", async ({ page }) => {
   await page.getByLabel("Email").fill("admin@example.com");
   await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
   await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL((url) => url.pathname !== "/login");
 
   await smokeAdmin(page);
 });
@@ -6043,6 +6290,24 @@ import flowpanel from "@flowpanel/eslint-plugin";
 
 export default [flowpanel.configs.recommended];
 ```
+
+A `create-next-app` project already has an `eslint.config.mjs` that exports an array. Add the preset to that array; on Next.js 16 it reads:
+
+```js
+import flowpanel from "@flowpanel/eslint-plugin";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+import { defineConfig, globalIgnores } from "eslint/config";
+
+export default defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  flowpanel.configs.recommended,
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+]);
+```
+
+On Next.js 15, where the file builds its array with `FlatCompat`, put `flowpanel.configs.recommended` after `...compat.extends(...)` the same way.
 
 `configs.recommended` turns on all five rules. To choose them yourself:
 
@@ -6090,7 +6355,7 @@ In a `"use client"` file, flags imports of:
 Flags an `actions` or `bulkActions` entry with `variant: "destructive"` and no
 `confirm`.
 
-```ts
+```ts fragment
 // bad
 actions: [{ key: "delete", label: "Delete", variant: "destructive", run }];
 

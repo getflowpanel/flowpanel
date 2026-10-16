@@ -1,5 +1,5 @@
 "use client";
-import { formatLabel, type ResolvedLabels } from "@flowpanel/core/labels";
+import { failureMessage, formatLabel, type ResolvedLabels } from "@flowpanel/core/labels";
 import { Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -168,7 +168,7 @@ export function InlineEditCell({
       }}
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        "fp-w-full fp-rounded-sm fp-border fp-border-line-strong fp-bg-surface fp-px-1.5 fp-py-0.5 fp-text-ink focus:fp-border-accent focus:fp-outline-none",
+        "-fp-my-[3px] fp-w-full fp-rounded-sm fp-border fp-border-line-strong fp-bg-surface fp-px-1.5 fp-py-0.5 fp-text-ink focus:fp-border-accent focus:fp-outline-none",
         className,
       )}
     />
@@ -195,7 +195,11 @@ async function sendEdit(
   const result = await readReply(response);
   if (response.ok && result.ok === true) return null;
   const fieldError = isReply(result.fieldErrors) ? textOf(result.fieldErrors[field]) : undefined;
-  return fieldError ?? textOf(result.error) ?? labels.formError;
+  return (
+    fieldError ??
+    failureMessage(labels.errors, result.code, textOf(result.error)) ??
+    labels.form.error
+  );
 }
 
 function inputTypeFor(t: InlineEditCellProps["valueType"]): React.HTMLInputTypeAttribute {

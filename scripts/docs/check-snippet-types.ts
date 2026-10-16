@@ -2,6 +2,13 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import {
+  bootEntries,
+  bootTutorial,
+  projectFiles,
+  TUTORIALS,
+  writeBootProject,
+} from "./check-snippet-boot";
 import { type ClassifiedCodeBlock, classifyCodeBlocks } from "./check-snippets";
 import { walkFiles } from "./files";
 import { GENERATED_DIR } from "./generate-init-snippets";
@@ -14,11 +21,13 @@ const fixtures = join(snippets, "fixtures");
 /** The reader's project: `flowpanel.config.ts` at its root, the app under `src/`, `@/*` mapped to `./src/*`. */
 const project = join(snippets, ".generated");
 const src = join(project, "src");
+const bootRoot = join(project, ".boot");
 
 type Adapter = "drizzle" | "prisma";
 
 export interface DocBlock {
-  page: string;
+  /** The file the block is read from, relative to the repository root. */
+  origin: string;
   /** Line of the opening fence in the page. */
   line: number;
   file: string;
@@ -27,6 +36,8 @@ export interface DocBlock {
   offset: number;
   /** The block is a file the reader creates, named on its first line, so it must compile as written. */
   declared: boolean;
+  /** The block builds a whole config with `defineAdmin(...)`, so it must also load. */
+  boots: boolean;
 }
 
 /** Modules the docs read from the reader's app; a block that names one without importing it gets the import. */
@@ -139,47 +150,109 @@ function writeDocBlocks(docsRoot: string): {
   cpSync(join(fixtures, "src"), src, { recursive: true });
   cpSync(join(GENERATED_DIR, "src"), src, { recursive: true });
   cpSync(join(fixtures, "flowpanel.config.ts"), join(project, "flowpanel.config.ts"));
-  const blocks = walkFiles(docsRoot, ".mdx").flatMap((mdx) => {
+  const pages = walkFiles(docsRoot, ".mdx").map((mdx) => {
     const page = relative(docsRoot, mdx).replaceAll("\\", "/");
-    return classifyCodeBlocks(readFileSync(mdx, "utf8"), page)
-      .blocks.filter((block) => block.kind === "checked" && block.code !== undefined)
+    const origin = `apps/site/content/docs/${page}`;
+    return { origin, blocks: classifyCodeBlocks(readFileSync(mdx, "utf8"), page).blocks };
+  });
+  const sources = docsRoot === DOCS_ROOT ? [...pages, ...examplesOutsideDocs()] : pages;
+  const blocks = sources.flatMap(({ origin, blocks: classified }) =>
+    classified
+      .filter((block) => block.kind === "checked" && block.code !== undefined)
       .map((block) => {
         const path = block.as || block.of ? null : declaredPath(block.code ?? "");
-        return { page, block, path, claims: path !== null && path !== "flowpanel.config.ts" };
-      });
-  });
+        const claims =
+          path !== null && path !== "flowpanel.config.ts" && !existsSync(join(fixtures, path));
+        return { origin, block, path, claims };
+      }),
+  );
   const lastOfPath = new Map(
     blocks.flatMap((entry, index) => (entry.claims ? [[entry.path, index] as const] : [])),
   );
   const cliFiles = keepCliFiles(new Set(lastOfPath.keys()));
-  const stray = blocks.flatMap(({ page, block }) => {
+  const stray = blocks.flatMap(({ origin, block, path }) => {
+    const at = `${origin}:${block.line + 1}:1`;
     const line = strayPathComment(block.code ?? "");
-    if (line === null) return [];
-    const at = `apps/site/content/docs/${page}:${block.line + 1}:1`;
-    return [`${at} "${line}" names a file and says more; put the path alone on the line.`];
+    const drift = path ? fixtureDrift(path, block.code ?? "") : [];
+    return [
+      ...(line === null
+        ? []
+        : [`${at} "${line}" names a file and says more; put the path alone on the line.`]),
+      ...drift.map(
+        (name) => `${at} ${name} differs from ${path} in the docs fixtures; keep them the same.`,
+      ),
+    ];
   });
-  const written = blocks.map(({ page, block, path, claims }, index) => {
-    const ownName = `${page.replace(/\.mdx$/, "").replaceAll("/", "--")}.L${block.line}.${block.language}`;
-    const file =
-      path && claims
-        ? join(
-            project,
-            lastOfPath.get(path) === index ? path : path.replace(/\.(tsx?)$/, `.L${block.line}.$1`),
-          )
-        : join(project, ownName);
+  const written = blocks.map(({ origin, block, path, claims }, index) => {
+    const name = origin.replace(/^apps\/site\/content\/docs\//, "").replace(/\.\w+$/, "");
+    const ownName = `${name.replaceAll("/", "--")}.L${block.line}.${block.language}`;
+    const superseded = claims && lastOfPath.get(path) !== index;
+    const file = path
+      ? join(
+          project,
+          claims && lastOfPath.get(path) === index
+            ? path
+            : path.replace(/\.(tsx?)$/, `.L${block.line}.$1`),
+        )
+      : join(project, ownName);
     mkdirSync(dirname(file), { recursive: true });
     const { text, offset } = wrapped(block);
     writeFileSync(file, text);
     return {
-      page,
+      origin,
       line: block.line,
       file: resolve(file),
       adapter: adapterOf(block),
       offset,
       declared: path !== null,
+      boots: !superseded && !block.as && !block.of && /\bdefineAdmin\(/.test(block.code ?? ""),
     };
   });
   return { blocks: written, cliFiles, stray };
+}
+
+/** Config examples outside the docs pages: the READMEs and the landing page's config. */
+function examplesOutsideDocs(): Array<{ origin: string; blocks: ClassifiedCodeBlock[] }> {
+  const readmes = ["README.md", "packages/flowpanel/README.md"].map((origin) => ({
+    origin,
+    blocks: classifyCodeBlocks(readFileSync(join(root, origin), "utf8"), origin).blocks,
+  }));
+  const landing = "apps/site/src/views/landing/ui/Config.tsx";
+  const source = readFileSync(join(root, landing), "utf8");
+  const match = /const CONFIG = `([^`]*)`;/.exec(source);
+  if (!match) throw new Error(`${landing} no longer holds its config in const CONFIG.`);
+  const line = source.slice(0, match.index).split("\n").length;
+  const config: ClassifiedCodeBlock = {
+    kind: "checked",
+    language: "ts",
+    line: line - 1,
+    code: `${match[1]}\n`,
+  };
+  return [...readmes, { origin: landing, blocks: [config] }];
+}
+
+/** Names a fixture-path block writes differently from the fixture, except names the fixture only declares. */
+function fixtureDrift(path: string, code: string): string[] {
+  const fixture = join(fixtures, path);
+  if (!existsSync(fixture)) return [];
+  const statements = (text: string): Map<string, string> => {
+    const file = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true);
+    const found = new Map<string, string>();
+    for (const statement of file.statements) {
+      if (!ts.isVariableStatement(statement) && !ts.isFunctionDeclaration(statement)) continue;
+      const names = ts.isVariableStatement(statement)
+        ? statement.declarationList.declarations.map((d) => d.name.getText(file))
+        : [statement.name?.text ?? ""];
+      for (const name of names) found.set(name, statement.getText(file));
+    }
+    return found;
+  };
+  const ours = statements(readFileSync(fixture, "utf8"));
+  return [...statements(code)].flatMap(([name, text]) => {
+    const theirs = ours.get(name);
+    if (theirs !== undefined && /^export declare /.test(theirs)) return [];
+    return theirs === text ? [] : [name];
+  });
 }
 
 /** What `init` writes stays in the project to compile; a doc block that replaces a file keeps the CLI's copy beside it. */
@@ -269,7 +342,7 @@ function where(diagnostic: ts.Diagnostic, blocks: Map<string, DocBlock>): string
   const { line, character } = file.getLineAndCharacterOfPosition(diagnostic.start);
   const block = blocks.get(resolve(file.fileName));
   if (block) {
-    return `apps/site/content/docs/${block.page}:${pageLine(block, line)}:${character + 1}`;
+    return `${block.origin}:${pageLine(block, line)}:${character + 1}`;
   }
   const inProject = relative(project, file.fileName);
   const source = [join(GENERATED_DIR, inProject), join(fixtures, inProject)].find(existsSync);
@@ -330,7 +403,23 @@ export function checkDocBlocks(docsRoot = DOCS_ROOT): string[] {
       );
     }
   }
-  return [...new Set(errors)];
+  return [...new Set([...errors, ...bootDocs(docsRoot, blocks)])];
+}
+
+/** Loads every docs block that builds a whole config, and each tutorial step, the way the app would. */
+function bootDocs(docsRoot: string, blocks: readonly DocBlock[]): string[] {
+  const shared = join(bootRoot, "docs");
+  writeBootProject(shared, projectFiles(project, bootRoot));
+  const entries = blocks
+    .filter((block) => block.boots)
+    .map((block) => ({
+      file: relative(project, block.file).replaceAll("\\", "/"),
+      at: `${block.origin}:${block.line + 1}`,
+    }));
+  const tutorials = TUTORIALS.filter((page) => existsSync(join(docsRoot, page))).flatMap((page) =>
+    bootTutorial(page, readFileSync(join(docsRoot, page), "utf8"), bootRoot),
+  );
+  return [...bootEntries(shared, entries), ...tutorials];
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -342,10 +431,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   }
   const errors = checkDocBlocks();
   if (errors.length > 0) {
-    console.error(`✗ ${errors.length} type error(s) in documentation code:\n`);
+    console.error(`✗ ${errors.length} problem(s) in documentation code:\n`);
     for (const error of errors) console.error(`  ${error}`);
     process.exitCode = 1;
   } else {
-    console.log("✔ every TypeScript block in the docs typechecks");
+    console.log("✔ every TypeScript block in the docs typechecks and every full config loads");
   }
 }

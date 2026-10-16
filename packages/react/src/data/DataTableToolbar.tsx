@@ -30,11 +30,10 @@ export interface ExportSetup<Row> {
 /** What the export button offers, or `null` when the table has nothing to export. */
 export function exportSetupOf<Row>(
   exportable: DataTableProps<Row>["exportable"],
-  rowCount: number,
   columns: DataTableColumn<Row>[],
   visible: DataTableColumn<Row>[],
 ): ExportSetup<Row> | null {
-  if (rowCount === 0 || !exportable) return null;
+  if (!exportable) return null;
   const formats: ("csv" | "json")[] =
     exportable === true ? ["csv"] : (exportable.formats ?? ["csv"]);
   const fields = exportable === true ? undefined : exportable.fields;

@@ -77,6 +77,12 @@ export function assertNoRemovedResourceKeys(name: string, options: Record<string
     for (const action of actionsOf(list)) {
       const where = `resource "${name}" ${kind} "${String(action.key)}"`;
       rejectRole(where, action);
+      if (kind === "drawer action" && "palette" in action) {
+        throw new FlowpanelConfigError(
+          `${where} palette`,
+          "palette was removed in 0.4: it never listed the action in ⌘K. Remove it.",
+        );
+      }
       rejectActionFieldRoles(where, action.form);
     }
   }
@@ -110,8 +116,34 @@ export function assertNoAuthRequireRole(adapter: string, options: unknown): void
   if (options && typeof options === "object") rejectRole(adapter, options);
 }
 
+const MOVED_LABELS: Readonly<Record<string, string>> = {
+  noResults: "table.noResults",
+  allOption: "filters.allOption",
+  searchPlaceholder: "table.searchPlaceholder",
+  formError: "form.error",
+};
+
+/** Fails a label that 0.4 moved into a group, so a translation does not quietly fall back to English. */
+function assertNoMovedLabels(labels: Record<string, unknown>): void {
+  for (const [key, moved] of Object.entries(MOVED_LABELS)) {
+    if (key in labels) {
+      throw new FlowpanelConfigError(
+        `labels.${key}`,
+        `labels.${key} moved in 0.4. Name it labels.${moved}.`,
+      );
+    }
+  }
+  if ("queryTitle" in sectionOf(labels.errors)) {
+    throw new FlowpanelConfigError(
+      "labels.errors.queryTitle",
+      "labels.errors.queryTitle was replaced in 0.4. Name it labels.errors.loadTitle, and the record's labels.errors.loadRecordTitle.",
+    );
+  }
+}
+
 /** Fails a config that still uses a top-level key removed in 0.4. */
 export function assertNoRemovedConfigKeys(config: Record<string, unknown>): void {
+  assertNoMovedLabels(sectionOf(config.labels));
   if ("basePath" in config) {
     throw new FlowpanelConfigError(
       "basePath",

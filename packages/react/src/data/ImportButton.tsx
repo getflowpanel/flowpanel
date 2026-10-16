@@ -1,5 +1,5 @@
 "use client";
-import { formatCount, formatLabel } from "@flowpanel/core/labels";
+import { failureMessage, formatCount, formatLabel } from "@flowpanel/core/labels";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useToast } from "../feedback/toast-api";
@@ -95,7 +95,7 @@ export function ImportButton({ resource, formats, label }: ImportButtonProps) {
       }
       const data = await readReply(response);
       if (!response.ok || data.ok !== true) {
-        toast.error(textOf(data.error) ?? importer.failed);
+        toast.error(failureMessage(errors, data.code, textOf(data.error)) ?? importer.failed);
         return;
       }
       const imported = typeof data.imported === "number" ? data.imported : 0;

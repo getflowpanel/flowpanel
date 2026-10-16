@@ -1,4 +1,5 @@
 import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
+import { fromProvider } from "../auth-provider";
 import { assertNoAuthRequireRole } from "../compiler/validate/removed-keys";
 
 export interface NextAuthOptions {
@@ -17,7 +18,7 @@ export interface NextAuthOptions {
 /** First-class NextAuth (Auth.js v5) integration. */
 export function withNextAuth(opts: NextAuthOptions): AuthConfig {
   assertNoAuthRequireRole("withNextAuth", opts);
-  return {
+  return fromProvider("Auth.js", {
     async session(): Promise<Session | null> {
       const s = await opts.auth();
       return (s ?? null) as Session | null;
@@ -37,5 +38,5 @@ export function withNextAuth(opts: NextAuthOptions): AuthConfig {
     ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),
     ...(opts.forbiddenUrl ? { forbiddenUrl: opts.forbiddenUrl } : {}),
-  };
+  });
 }

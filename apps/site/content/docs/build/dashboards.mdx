@@ -68,7 +68,7 @@ const byDay = barChart(
 );
 ```
 
-Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL; `series` buckets in the admin's zone and fills gaps. `keys` keeps a marketplace with no listings in the comparison. Above about 50,000 rows, group by hour in SQL first. `ctx.sql` applies no scope or access rules: add tenant predicates yourself.
+The SQL names a Drizzle schema's snake_case table; on Prisma, use the model's quoted names, such as `from "CrawlHourlyStat" where "hour" >= ...` ([Prisma setup](/docs/introduction/prisma#raw-sql)). Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL; `series` buckets in the admin's zone and fills gaps. `keys` keeps a marketplace with no listings in the comparison. Above about 50,000 rows, group by hour in SQL first. `ctx.sql` applies no scope or access rules: add tenant predicates yourself.
 
 ## Thresholds
 
@@ -116,5 +116,6 @@ Pass `filters: [marketplace]` to the dashboard, bind `ctx.filters.site` in the s
 - `maxRange`, `freshness` and `coverage` add a caption saying how old or complete the numbers are; see [Captions](/docs/reference/widgets#captions).
 - `refresh: "60s"` re-renders the page on an interval while the tab is visible. `realtime` on a widget re-runs only that widget on an event.
 - Dashboard `actions` appear in the page header.
+- `access: "admin"` on a widget shows it only to that role, so one dashboard can serve admins and support; a refused widget runs no query.
 
 Every option: [Widgets reference](/docs/reference/widgets).

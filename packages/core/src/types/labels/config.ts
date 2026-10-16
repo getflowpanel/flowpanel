@@ -1,15 +1,13 @@
 import type {
-  AccessLabels,
   AuditLabels,
-  ErrorLabels,
   FormLabels,
   ImporterLabels,
-  NotFoundLabels,
   RealtimeLabels,
   SavingLabels,
   ShortcutsLabels,
   TableLabels,
 } from "./chrome-labels";
+import type { AccessLabels, ErrorLabels, NotFoundLabels } from "./wall-labels";
 import type { ChecklistLabels, HeatmapLabels, TimelineLabels, WidgetLabels } from "./widget-labels";
 
 /**
@@ -17,6 +15,7 @@ import type { ChecklistLabels, HeatmapLabels, TimelineLabels, WidgetLabels } fro
  * @example { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записи" }
  */
 export interface PluralLabel {
+  /** Its locale's `zero` category, and also any count of exactly 0: "Nenhum resultado". */
   zero?: string;
   one?: string;
   two?: string;
@@ -27,10 +26,6 @@ export interface PluralLabel {
 
 /** Localizable strings for FlowPanel's built-in chrome. */
 export interface LabelsConfig {
-  /** Empty list state — used when a resource list returns 0 rows. */
-  noResults?: string;
-  /** Empty filter / select dropdown — the "any/all" sentinel. */
-  allOption?: string;
   navigation?: {
     /** The breadcrumb trail above a page heading. */
     breadcrumb?: string;
@@ -61,7 +56,7 @@ export interface LabelsConfig {
   };
   table?: TableLabels;
   dateRange?: {
-    /** Locale for calendar presentation; identical during SSR and hydration. */
+    /** The labels' language: the calendar's locale, and whether a label mid-sentence keeps its capital (German does). */
     locale?: string;
     label?: string;
     fieldLabel?: string;
@@ -80,6 +75,7 @@ export interface LabelsConfig {
     yesterday?: string;
     last7d?: string;
     last30d?: string;
+    last12m?: string;
     thisMonth?: string;
     lastMonth?: string;
     MTD?: string;
@@ -112,6 +108,8 @@ export interface LabelsConfig {
     pageSize?: string;
   };
   filters?: {
+    /** A select or boolean filter's "any value" choice. */
+    allOption?: string;
     /** A tag filter's example input. */
     tagsPlaceholder?: string;
     /** A number range filter's lower bound. */
@@ -151,8 +149,6 @@ export interface LabelsConfig {
     /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */
     events?: PluralLabel;
   };
-  /** Resource search input placeholder. Use `{label}` for the resource's label. */
-  searchPlaceholder?: string;
   /** Generic action buttons. */
   actions?: {
     /** A bulk action's confirm title when it names none. Use `{label}`. */
@@ -221,8 +217,6 @@ export interface LabelsConfig {
   notFound?: NotFoundLabels;
   /** The screens shown in place of a page when `auth.signInUrl` or `auth.forbiddenUrl` is not set, or the rate limit refuses it. */
   access?: AccessLabels;
-  /** Form-level banner shown when a submit fails with no field errors of its own. */
-  formError?: string;
   /** Confirm dialog. */
   confirm?: {
     /** The built-in bulk delete's confirm title. */

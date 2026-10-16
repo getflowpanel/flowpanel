@@ -6,11 +6,12 @@ import { AutoForm } from "@flowpanel/react";
 import { writableColumns } from "../actions/field-pipeline";
 import { buildApiHref, buildHref } from "../runtime/href";
 import {
-  columnReferenceFields,
   declaredFormFields,
   deniedFieldWrites,
+  generatedColumnFields,
   hiddenFormFields,
   resolveFormFields,
+  systemTimestamp,
 } from "../runtime/resolve-form-fields";
 import { singularTitle } from "../runtime/resource-title";
 
@@ -57,23 +58,36 @@ export async function buildResourceListCreateAction({
     resource,
     config.adapter.introspect(writeTarget(resource)).columns,
     declared,
-  );
+  ).filter((column) => declared || !systemTimestamp(column));
 
   return (
     <CreateDrawer
       label={labels.actions.new}
-      title={singularTitle(labels.form.createTitle, resource, name)}
+      title={singularTitle(labels.form.createTitle, resource, name, labels.dateRange.locale)}
     >
       <AutoForm
         action={buildApiHref(config, name, "create")}
         columns={offered}
         {...(declared
           ? {}
-          : { columnFields: await columnReferenceFields(config, resource, offered, reqCtx) })}
+          : {
+              columnFields: await generatedColumnFields(
+                config,
+                resource,
+                offered,
+                "create",
+                reqCtx,
+              ),
+            })}
         hide={[...denied]}
         {...(fields ? { fields } : {})}
         submitLabel={labels.actions.create}
-        successMessage={singularTitle(labels.saving.created, resource, name)}
+        successMessage={singularTitle(
+          labels.saving.created,
+          resource,
+          name,
+          labels.dateRange.locale,
+        )}
         redirectTo={buildHref(config, name)}
       />
     </CreateDrawer>

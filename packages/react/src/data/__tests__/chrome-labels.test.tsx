@@ -36,7 +36,7 @@ it("ignores undefined pagination overrides for standalone and provider renderers
 it("keeps select query values and clears to null through the real dropdown", () => {
   const onChange = vi.fn();
   const { rerender } = render(
-    <LabelsProvider value={{ allOption: "Все" }}>
+    <LabelsProvider value={{ filters: { allOption: "Все" } }}>
       <SelectFilter
         value={null}
         onChange={onChange}
@@ -48,7 +48,7 @@ it("keeps select query values and clears to null through the real dropdown", () 
   fireEvent.click(screen.getByRole("option", { name: "Платный" }));
   expect(onChange).toHaveBeenLastCalledWith("paid");
   rerender(
-    <LabelsProvider value={{ allOption: "Все" }}>
+    <LabelsProvider value={{ filters: { allOption: "Все" } }}>
       <SelectFilter
         value="paid"
         onChange={onChange}
@@ -64,7 +64,7 @@ it("keeps select query values and clears to null through the real dropdown", () 
 it("uses configured filter chrome while preserving empty placeholders", () => {
   const onClear = vi.fn();
   render(
-    <LabelsProvider value={{ allOption: "Все", filters: { label: "Фильтры", clear: "Сбросить" } }}>
+    <LabelsProvider value={{ filters: { allOption: "Все", label: "Фильтры", clear: "Сбросить" } }}>
       <FilterBar
         filters={[
           { field: "platform", type: "select", options: [] },

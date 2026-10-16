@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Card, CardContent } from "../layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
+import { INLINE_LINK } from "../lib/label-text";
 import { toneTextClass } from "../lib/tone-classes";
 import { barWidthClass } from "./bar-width";
 import { CardHeading } from "./CardHeading";
@@ -69,7 +70,7 @@ function Item({ item, steps }: { item: ChecklistCardItem; steps: boolean }) {
           )}
         >
           {item.href ? (
-            <a href={item.href} className="hover:fp-underline">
+            <a href={item.href} className={INLINE_LINK}>
               {item.label}
             </a>
           ) : (

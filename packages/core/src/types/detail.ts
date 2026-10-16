@@ -64,9 +64,7 @@ export interface DetailTab<Row> {
   sort?: { field: string; dir: "asc" | "desc" };
   /** Dashboard widgets with `ctx.row` set to the record being viewed; with `resource`, above its rows. */
   widgets?: WidgetConfig[];
-  /** Grid columns for `widgets`; omitted, 12 when a widget sets `span`.
-   * @defaultValue 2
-   */
+  /** Grid columns for `widgets`; omitted, 12 when a widget sets `span`, 1 for a single widget, else 2. */
   columns?: 1 | 2 | 3 | 4 | 6 | 12;
   /** Render arbitrary content instead of fields, widgets or a related resource. */
   render?: (row: Row, ctx: DetailTabContext) => ReactNode;

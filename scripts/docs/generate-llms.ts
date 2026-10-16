@@ -40,7 +40,7 @@ export interface DocsPage {
 function fenceLanguage(line: string): string {
   const match = /^([ \t]*)(```+|~~~+)[ \t]*([A-Za-z0-9]+)?([^\n]*)$/.exec(line);
   if (!match) return line;
-  const marker = /\b(twoslash|excerpt)\b/.exec(match[4] ?? "")?.[1];
+  const marker = /(?:^|\s)(fragment)\b/.exec(match[4] ?? "")?.[1];
   return `${match[1] ?? ""}${match[2]}${match[3] ?? ""}${marker ? ` ${marker}` : ""}`;
 }
 
@@ -245,8 +245,8 @@ export function header(root: string, source = "the reference documentation"): st
     `# ${siteConfig.name}`,
     "",
     `> ${siteConfig.seo.description}`,
-    ...(description ? [`> ${description}.`] : []),
     "",
+    ...(description ? [`${description}.`, ""] : []),
     "```bash",
     ...INSTALL,
     "```",
@@ -254,9 +254,9 @@ export function header(root: string, source = "the reference documentation"): st
     `Docs: ${siteConfig.url}/docs · Source: ${siteConfig.repo.url}`,
     "",
     `Generated from ${source}. Property tables come from the`,
-    "packages' own TypeScript declarations. Code blocks are excerpts from that",
-    "documentation: blocks the docs mark `twoslash` are type-checked in CI,",
-    "`excerpt` blocks are illustrative and may omit surrounding code.",
+    "packages' own TypeScript declarations. Every TypeScript code block compiles",
+    "against them in CI, and every block that builds a whole config also loads.",
+    "A block marked `fragment` is part of a larger file and does not compile alone.",
     "",
   ].join("\n");
 }

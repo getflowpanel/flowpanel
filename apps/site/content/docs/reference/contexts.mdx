@@ -6,9 +6,10 @@ kind: reference
 
 Adapter methods, mutations, actions and option resolvers receive a context that
 extends `RequestContext`, so `session`, `role` and `scope` are there. Widgets and
-record pages get their own: `WidgetContext` has `session` but no `role` or `scope`,
-`DetailTabContext` is a subset of `WidgetContext`, and `DetailHeaderContext` has
-only `format`, `labels` and `link`.
+record pages get their own: `WidgetContext` has `session` and `role` but no `scope`
+(its reads apply the scope for you), `DetailTabContext` is a subset of
+`WidgetContext`, and `DetailHeaderContext` has only `format`, `labels` and `link`. A
+`page()` component gets [`PageProps`](/docs/reference/widgets#pageprops).
 
 ## RequestContext
 
@@ -107,8 +108,11 @@ metric("New signups", async (ctx) => {
 });
 ```
 
-Every interpolated value is a bound parameter. A `Date` binds as ISO-8601 text and
-a `bigint` as decimal text. Arrays bind differently per adapter; see
+Every interpolated value is a bound parameter, and a `Date` compares with a
+timestamp column without a cast: Prisma binds it as a timestamp, Drizzle as
+ISO-8601 text the database reads as one. On Prisma, write table and column names as
+Prisma made them, `"Order"."createdAt"`, unless `@@map` and `@map` rename them; see
+[Prisma setup](/docs/introduction/prisma#raw-sql). Arrays bind differently per adapter; see
 [Raw SQL](/docs/reference/adapters#raw-sql). Drizzle `sql` fragments nest:
 
 ```ts

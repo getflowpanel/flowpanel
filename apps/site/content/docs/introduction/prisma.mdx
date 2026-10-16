@@ -35,6 +35,48 @@ Columns with `@default(...)` or `@updatedAt` are optional in the create form, an
 
 Pagination is offset-based and integer primary keys are coerced from the URL. Search uses Prisma's `contains`; the provider and collation decide case sensitivity. Soft delete works with a nullable field such as `deletedAt`.
 
+## Packages you did not ask for
+
+npm and pnpm install `drizzle-orm` and `drizzle-zod` next to the kit in a Prisma project too: the kit depends on `drizzle-zod` for its Drizzle adapter, and `drizzle-zod` asks for `drizzle-orm`. A Prisma admin never loads either, so they add nothing to your bundles.
+
+## One file per resource
+
+`flowpanel new --dir` writes Drizzle resource files only. On Prisma, run `flowpanel new Order` and move the entry it adds into its own file, then spread a list of them into `resources`:
+
+```ts
+// src/admin/models/orders.ts
+import { resource } from "@flowpanel/kit";
+
+export const orders = resource("Order", {
+  name: "orders",
+  columns: ["id", "number", "status", "createdAt"],
+});
+```
+
+```ts
+// src/admin/models/index.ts
+import { orders } from "./orders";
+
+export const resources = [orders];
+```
+
+The config then reads `resources: [...resources]`, and `new` without `--dir` keeps adding entries to the config itself.
+
+## Raw SQL
+
+`ctx.sql` runs through `$queryRaw`, every value a bound parameter. A `Date` binds as a timestamp, so a dashboard compares `ctx.dateRange` with a `DateTime` field directly. Prisma names a table after its model and a column after its field unless `@@map` or `@map` renames them, and PostgreSQL needs quotes around names with capitals. The docs' examples use snake_case tables; on a Prisma schema the same widget reads:
+
+```ts
+metric("Orders in the period", async (ctx) => {
+  const [row] = await ctx.sql<{ n: number }>`
+    select count(*)::int as n
+    from "Order"
+    where "createdAt" >= ${ctx.dateRange.from} and "createdAt" < ${ctx.dateRange.to}
+  `;
+  return row?.n ?? 0;
+});
+```
+
 ## Views
 
 A Prisma `view` model reads like any model. The adapter does not report it as a view, so FlowPanel cannot make it read-only: set [`writeTo`](/docs/reference/resources#reading-a-view) to the model that holds the rows, or disable `create`, `update` and `delete`.

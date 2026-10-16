@@ -222,6 +222,17 @@ describe("sanitizeFilterValues", () => {
     expect(sanitizeFilterValues({ confidence: "abc:xyz" }, specs)).toEqual({});
   });
 
+  it("numeric-range filter on a money column: reads major units as the stored minor units", () => {
+    const specs = [{ field: "amountCents", type: "numeric-range" as const }];
+    const factors = new Map([["amountCents", 100]]);
+    expect(sanitizeFilterValues({ amountCents: "60:90.5" }, specs, "UTC", factors)).toEqual({
+      amountCents: { op: "range", gte: 6000, lte: 9050 },
+    });
+    expect(sanitizeFilterValues({ amountCents: "0.07:" }, specs, "UTC", factors)).toEqual({
+      amountCents: { op: "range", gte: 7 },
+    });
+  });
+
   it("daterange filter: decodes to a structured FilterRangeValue, `to` inclusive of the whole day", () => {
     const specs = [{ field: "createdAt", type: "daterange" as const }];
     const out = sanitizeFilterValues({ createdAt: "2024-01-01:2024-01-31" }, specs);

@@ -158,7 +158,10 @@ describe("sqlAuditLog visibility", () => {
     const { statements, sql, executor } = recorder();
     const store = sqlAuditLog("postgresql", executor);
     await store.list({
-      visible: { resources: ["orders", "users"], actions: [dashboardActionAudit("sync").action] },
+      visible: {
+        resources: ["orders", "users"],
+        actions: [dashboardActionAudit("/", "sync").action],
+      },
       limit: 10,
       offset: 0,
     });
@@ -170,7 +173,7 @@ describe("sqlAuditLog visibility", () => {
       "orders",
       "users",
       "dashboard",
-      "dashboard.action.sync",
+      "dashboard.action._root_.sync",
     ]);
 
     statements.length = 0;

@@ -63,12 +63,16 @@ export function FilterBar({ filters, values, onChange, onClear, className }: Fil
             return null;
         }
       })}
-      {hasAny && onClear ? (
-        // A text link, not a button: resetting is a quiet escape hatch, not competing for attention.
+      {onClear ? (
+        // Kept in place while no filter is set, so setting one does not move the row.
         <button
           type="button"
           onClick={onClear}
-          className="fp-press fp-ml-1 fp-rounded-sm fp-px-1 fp-text-sm fp-text-soft fp-underline fp-underline-offset-4 fp-transition-colors hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
+          {...(hasAny ? {} : { "aria-hidden": true, tabIndex: -1 })}
+          className={cn(
+            !hasAny && "fp-invisible",
+            "fp-press -fp-my-0.5 fp-ml-1 fp-rounded-sm fp-px-1 fp-py-0.5 fp-text-sm fp-text-soft fp-underline fp-underline-offset-4 fp-transition-colors hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+          )}
         >
           {labels.filters.clear}
         </button>

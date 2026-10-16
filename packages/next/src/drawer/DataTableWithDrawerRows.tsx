@@ -1,4 +1,5 @@
 "use client";
+import { textWidthEm } from "@flowpanel/core/format";
 import {
   DataTable,
   type DataTableColumn,
@@ -19,6 +20,23 @@ import type { SerializedRowAction } from "../actions/row-action";
 import { useListNavigation } from "../pages/list-navigation";
 import { rowIdentity } from "../runtime/row-identity";
 import { rememberRowCells } from "./table-cells";
+
+/** The trailing column's rem when a row shows actions inline: its padding, each button, and the menu beside them. */
+export function rowEndRem(
+  lists: ReadonlyArray<ReadonlyArray<SerializedRowAction> | undefined>,
+): number {
+  let widest = 0;
+  for (const actions of lists) {
+    const inline = actions?.filter((action) => action.placement === "inline") ?? [];
+    const menu = inline.length < (actions?.length ?? 0) ? 2 : 0;
+    const rem = inline.reduce(
+      (sum, action) => sum + (textWidthEm(action.label) * 14) / 16 + (action.icon ? 3.25 : 1.75),
+      2 + menu,
+    );
+    if (inline.length > 0) widest = Math.max(widest, rem);
+  }
+  return widest;
+}
 
 /** Thin wrapper around `<DataTable>` that wires realtime refresh and row-click drawer interaction. */
 export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown>> {
@@ -109,6 +127,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
   const hasBulkActions = bulkActions && bulkActions.length > 0;
   const deletedRowKeySet = deletedRowKeys && deletedRowKeys.length > 0 ? deletedRowKeys : undefined;
   const hasRestore = !!deletedRowKeySet;
+  const inlineRem = rowEndRem([rowActions, ...Object.values(rowActionsById ?? {})]);
 
   const [selection, setSelection] = React.useState<string[]>([]);
 
@@ -132,14 +151,6 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
           <span className="fp-pending-bar fp-absolute fp-inset-x-2 fp-top-0 fp-z-10 fp-h-[2px] fp-rounded-full" />
         ) : null}
       </div>
-      {hasBulkActions ? (
-        <BulkActionsBar
-          resource={resource}
-          selection={selection}
-          onClear={() => setSelection([])}
-          actions={bulkActions as SerializedBulkAction[]}
-        />
-      ) : null}
       <DataTable
         {...rest}
         rows={rows}
@@ -179,6 +190,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
           : {})}
         {...(hasBulkActions ? { selection, onSelectionChange: setSelection } : {})}
         {...(onRowClick ? { onRowClick } : {})}
+        {...(inlineRem > 0 ? { rowEndCellRem: inlineRem } : {})}
         {...(hasRowActions || hasRestore
           ? {
               rowEndCell: (row: Row) => {
@@ -193,7 +205,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
                   return <RowActionsMenu resource={resource} id={idStr} actions={acts} />;
                 }
                 return (
-                  <div className="fp-flex fp-items-center fp-justify-end fp-gap-1">
+                  <div className="-fp-my-1.5 fp-flex fp-items-center fp-justify-end fp-gap-1">
                     <RestoreButton resource={resource} id={idStr} />
                     {acts.length > 0 ? (
                       <RowActionsMenu resource={resource} id={idStr} actions={acts} />
@@ -204,6 +216,16 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
             }
           : {})}
       />
+      {hasBulkActions ? (
+        <BulkActionsBar
+          resource={resource}
+          selection={
+            deletedRowKeySet ? selection.filter((id) => !deletedRowKeySet.includes(id)) : selection
+          }
+          onClear={() => setSelection([])}
+          actions={bulkActions as SerializedBulkAction[]}
+        />
+      ) : null}
     </>
   );
 }

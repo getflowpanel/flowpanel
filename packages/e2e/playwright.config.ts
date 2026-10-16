@@ -6,7 +6,7 @@ const PORT = new URL(BASE_URL).port || "3100";
 
 export default defineConfig({
   testDir: "./tests",
-  testIgnore: ["demo-readonly.spec.ts", "ru-locale.spec.mts"],
+  testIgnore: ["demo-readonly.spec.ts", "locale.spec.mts"],
   fullyParallel: false,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
@@ -14,6 +14,8 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
+    // A missing element fails with its own locator message, not the test timeout.
+    actionTimeout: 15_000,
   },
   projects: [
     {

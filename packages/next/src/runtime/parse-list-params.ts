@@ -79,6 +79,7 @@ export async function resolveFilterSpecs<Row>(
   reqCtx: RequestContext,
   timeZone = "UTC",
   searchParams: URLSearchParams = new URLSearchParams(),
+  moneyFactors: ReadonlyMap<string, number> = new Map(),
 ): Promise<ResolvedFilterSpec[]> {
   if (!defs || defs.length === 0) return [];
   const queryCtx: QueryContext = {
@@ -101,7 +102,8 @@ export async function resolveFilterSpecs<Row>(
     } else if (Array.isArray(def.options)) {
       options = toWireOptions(def.options);
     }
-    const defaultValue = encodeFilterValue(def.defaultValue, timeZone);
+    const factor = moneyFactors.get(String(def.field)) ?? 1;
+    const defaultValue = encodeFilterValue(def.defaultValue, timeZone, factor);
     out.push({
       field: String(def.field),
       type: def.type,
@@ -133,10 +135,10 @@ const FILTER_NULL_SENTINELS = new Set(["__null__", "__notnull__"]);
 /** Strict `YYYY-MM-DD` — what `<input type="date">` (`DateRangeFilter`) emits. */
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Parse one side of a `numeric-range` value; `undefined` if empty or not a finite number. */
-function decodeNumericBound(raw: string): number | undefined {
+/** Parse one side of a `numeric-range` value, in stored units; `undefined` if empty or not a finite number. */
+function decodeNumericBound(raw: string, factor: number): number | undefined {
   if (raw === "" || !Number.isFinite(Number(raw))) return undefined;
-  return Number(raw);
+  return factor === 1 ? Number(raw) : Number((Number(raw) * factor).toPrecision(15));
 }
 
 /** Parse one side of a `daterange` value; `undefined` if empty or not a valid `YYYY-MM-DD`. */
@@ -158,6 +160,7 @@ function sanitizeFilterValue(
   value: string,
   spec: ResolvedFilterSpec | undefined,
   timeZone: string,
+  factor: number,
 ): unknown {
   if (value === "") return undefined;
   if (FILTER_NULL_SENTINELS.has(value)) return value;
@@ -186,8 +189,8 @@ function sanitizeFilterValue(
       return value === "true" || value === "false" ? value : undefined;
     case "numeric-range": {
       const [minRaw = "", maxRaw = ""] = value.split(":");
-      const gte = decodeNumericBound(minRaw);
-      const lte = decodeNumericBound(maxRaw);
+      const gte = decodeNumericBound(minRaw, factor);
+      const lte = decodeNumericBound(maxRaw, factor);
       if (gte === undefined && lte === undefined) return undefined;
       return {
         op: "range",
@@ -216,10 +219,12 @@ function sanitizeFilterValue(
   }
 }
 
+/** Each filter's value decoded; a money column's range is typed in major units and read in stored ones. */
 export function sanitizeFilterValues(
   filters: Record<string, unknown>,
   specs: ReadonlyArray<ResolvedFilterSpec>,
   timeZone = "UTC",
+  moneyFactors: ReadonlyMap<string, number> = new Map(),
 ): Record<string, unknown> {
   const byField = new Map(specs.map((s) => [s.field, s]));
   const out: Record<string, unknown> = {};
@@ -228,7 +233,12 @@ export function sanitizeFilterValues(
       out[field] = raw;
       continue;
     }
-    const kept = sanitizeFilterValue(raw, byField.get(field), timeZone);
+    const kept = sanitizeFilterValue(
+      raw,
+      byField.get(field),
+      timeZone,
+      moneyFactors.get(field) ?? 1,
+    );
     if (kept !== undefined) out[field] = kept;
   }
   return out;

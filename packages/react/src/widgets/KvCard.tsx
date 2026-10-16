@@ -4,7 +4,7 @@ import { LocalTime } from "../atoms/LocalTime";
 import { Card, CardContent } from "../layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
-import { LABEL_TEXT, QUIET_LINK } from "../lib/label-text";
+import { INLINE_LINK, LABEL_TEXT, QUIET_LINK } from "../lib/label-text";
 import { toneTextClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
 import { type CardDate, isCardDate } from "./card-date";
@@ -36,7 +36,7 @@ export interface KvCardProps {
 function Value({ item }: { item: KvCardItem }) {
   const value = isCardDate(item.value) ? <LocalTime date={item.value.iso} /> : item.value;
   return item.href ? (
-    <a href={item.href} className="hover:fp-underline">
+    <a href={item.href} className={INLINE_LINK}>
       {value}
     </a>
   ) : (

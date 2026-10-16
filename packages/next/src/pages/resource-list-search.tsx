@@ -69,13 +69,15 @@ export function ResourceListSearch({ placeholder }: ResourceListSearchProps) {
   }, [draft, navigate]);
 
   return (
-    <div className="fp-relative fp-min-w-0 fp-flex-1 sm:fp-w-56 sm:fp-flex-none">
+    <div className="fp-relative fp-min-w-0 fp-flex-1 sm:fp-w-auto sm:fp-min-w-56 sm:fp-max-w-96 sm:fp-flex-none">
       <SearchIcon className="fp-pointer-events-none fp-absolute fp-left-3 fp-top-1/2 fp-h-3.5 fp-w-3.5 -fp-translate-y-1/2 fp-text-faint" />
       <input
         type="search"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder ?? filters.searchPlaceholder}
+        // As wide as its placeholder, so a long one such as "Rechnungen durchsuchen" is not cut.
+        size={(placeholder ?? filters.searchPlaceholder).length + 4}
         className="fp-h-11 fp-w-full fp-rounded-full fp-border fp-border-line fp-bg-surface fp-pl-9 fp-pr-8 fp-text-sm fp-text-ink fp-shadow-xs fp-transition-colors placeholder:fp-text-faint hover:fp-border-line-strong focus:fp-border-focus focus:fp-outline-none focus:fp-ring-2 focus:fp-ring-focus/25 sm:fp-h-9 [&::-webkit-search-cancel-button]:fp-hidden"
       />
       {draft ? (
@@ -83,7 +85,7 @@ export function ResourceListSearch({ placeholder }: ResourceListSearchProps) {
           type="button"
           aria-label={filters.clearSearch}
           onClick={() => setDraft("")}
-          className="fp-absolute fp-right-2 fp-top-1/2 -fp-translate-y-1/2 fp-rounded-sm fp-p-1 fp-text-faint fp-transition-colors hover:fp-bg-fill/70 hover:fp-text-ink"
+          className="fp-absolute fp-right-1.5 fp-top-1/2 -fp-translate-y-1/2 fp-rounded-sm fp-p-1.5 fp-text-faint fp-transition-colors hover:fp-bg-fill/70 hover:fp-text-ink"
         >
           <XIcon className="fp-h-3 fp-w-3" />
         </button>

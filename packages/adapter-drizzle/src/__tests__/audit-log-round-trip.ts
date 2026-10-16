@@ -80,7 +80,7 @@ export async function expectAuditLogRoundTrip(store: AuditLogStore | undefined):
   });
   const bulk = await store.list({ actorId: "u3", limit: 1, offset: 0 });
   expect(bulk.total).toBe(10_000);
-  const sync = dashboardActionAudit("sync");
+  const sync = dashboardActionAudit("/", "sync");
   await store.append({ actorId: "u4", ...sync, at: later });
   await store.append({ actorId: "u4", action: "session.signin", at: later });
   const none = { resources: [], actions: [] };

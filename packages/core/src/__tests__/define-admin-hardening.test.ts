@@ -519,4 +519,24 @@ describe("money field options", () => {
     expect(admin({ currency: "dollars" })).toThrow(/ISO 4217/);
     expect(admin({ minorUnits: 8, currency: "BTC" })).not.toThrow();
   });
+
+  it("checks a money column's format the same way, and refuses minorUnits beside scale", () => {
+    const column = (format: Record<string, unknown>) => () =>
+      defineAdmin({
+        adapter: makeAdapter(() => ({
+          name: "orders",
+          columns: [meta("id"), meta("total")],
+          primaryKey: "id",
+        })),
+        auth: { session: async () => null, role: () => "admin" },
+        resources: [
+          resource("orders", {
+            columns: [{ field: "total", format: { kind: "money", ...format } }],
+          }),
+        ],
+      });
+    expect(column({ minorUnits: 9 })).toThrow(/columns "total" format: minorUnits is 9/);
+    expect(column({ minorUnits: 2, scale: 100 })).toThrow(/both minorUnits and scale/);
+    expect(column({ minorUnits: 2 })).not.toThrow();
+  });
 });

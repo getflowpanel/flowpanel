@@ -46,6 +46,7 @@
     "README.md"
   ],
   "devDependencies": {
+    "@flowpanel/core": "workspace:*",
     "@types/node": "catalog:",
     "@types/semver": "^7.8.0",
     "tsup": "catalog:",

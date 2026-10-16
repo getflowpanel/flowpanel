@@ -9,6 +9,7 @@ through the same auth, access, scope, validation and audit as generated pages.
 
 ```ts
 import {
+  clientMetadata,
   createFlowpanelClient,
   isFlowpanelErrorCode,
   isFlowpanelErrorResult,
@@ -68,9 +69,40 @@ export function OrdersPanel({ metadata }: { metadata: FlowpanelClientMetadata })
 }
 ```
 
-`options.fetch` replaces the fetch implementation. Requests use
+`options.fetch` replaces the fetch implementation, `options.baseUrl` puts an origin in
+front of `paths.api`, and `options.headers` go with every request. Requests use
 `credentials: "same-origin"`. `FlowpanelClientMetadata` holds the runtime id, paths
 and protocol version; it is not secret.
+
+## From a script
+
+A Node script, a cron job or a test reaches the API with the same client.
+`clientMetadata(config)` builds the metadata from your config, `baseUrl` says where the
+app runs (with its `basePath`, if any) and `headers` carries the session, such as a
+cookie your auth issued:
+
+```ts
+// scripts/open-orders.ts
+import { clientMetadata, createFlowpanelClient } from "@flowpanel/kit/client";
+import config from "../flowpanel.config";
+
+const client = createFlowpanelClient(clientMetadata(config), {
+  baseUrl: process.env.APP_URL ?? "http://localhost:3000",
+  headers: { cookie: process.env.ADMIN_COOKIE ?? "" },
+});
+
+async function main() {
+  const result = await client.resource("orders").list({ filters: { status: "open" } });
+  console.log(result.ok ? result.data.total : result.error.message);
+}
+
+void main();
+```
+
+Run it with `pnpm tsx --env-file=.env scripts/open-orders.ts`. Every kit subpath a
+config can import loads from a CommonJS script too, which is what a project without
+`"type": "module"`, such as one `create-next-app` makes, runs; it needs Node.js 20.19
+or 22.12 and newer, which load the kit's ES modules from `require`.
 
 ## Resource methods
 

@@ -785,6 +785,29 @@ describe("init end to end", () => {
     expect(adminLayout).not.toContain("<html");
   });
 
+  it("suggests the tabs shell when the root layout renders a header", async () => {
+    const withHeader = [
+      "export default function RootLayout({ children }: { children: React.ReactNode }) {",
+      "  return (",
+      '    <html lang="en">',
+      "      <body>",
+      '        <header className="h-14">Acme</header>',
+      "        {children}",
+      "      </body>",
+      "    </html>",
+      "  );",
+      "}",
+      "",
+    ].join("\n");
+    await fs.writeFile(path.join(project, "src/app/layout.tsx"), withHeader);
+
+    const result = await initRun({ FP_FAKE_KIT: CLI_VERSION, FP_FAKE_CLI: CLI_VERSION });
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout).warnings).toContainEqual(
+      expect.stringContaining('Set shell: "tabs" in flowpanel.config.ts'),
+    );
+  });
+
   it("leaves an already-patched root layout alone and reports it unchanged", async () => {
     const alreadyPatched = [
       "export default function RootLayout({ children }: { children: React.ReactNode }) {",

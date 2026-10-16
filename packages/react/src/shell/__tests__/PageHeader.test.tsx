@@ -85,6 +85,7 @@ describe("PageHeader badges", () => {
     expect(screen.getByRole("link", { name: "Pro" }).getAttribute("href")).toBe(
       "/admin/user?f_plan=pro",
     );
+    expect(screen.getByRole("link", { name: "Pro" }).className).toContain("fp-inline-flex");
   });
 
   it("still renders a single badge", () => {

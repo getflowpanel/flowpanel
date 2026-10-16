@@ -33,7 +33,7 @@ const PAGE = [
   "",
   "<Callout>A widget query runs on the server.</Callout>",
   "",
-  "```ts excerpt",
+  '```ts fragment="part of a dashboard"',
   'import { metric } from "@flowpanel/kit";',
   "",
   'metric("MRR", async ({ db }) => mrr(db));',
@@ -108,7 +108,8 @@ describe("llms.txt generation", () => {
     const text = generateLlmsText(fixtureRoot());
 
     expect(text.split("\n")[0]?.startsWith("# ")).toBe(true);
-    expect(text).toContain("> A fixture kit.");
+    expect(text).toContain("\nA fixture kit.\n");
+    expect(text.match(/^> /gm)).toHaveLength(1);
     expect(text).toContain("pnpm dlx @flowpanel/cli init");
   });
 
@@ -138,8 +139,8 @@ describe("llms.txt generation", () => {
   it("says which code blocks are type-checked, and keeps the marker that decides it", () => {
     const text = generateLlmsText(fixtureRoot());
 
-    expect(text).toContain("blocks the docs mark `twoslash` are type-checked in CI");
-    expect(text).toContain("```ts excerpt");
+    expect(text).toContain("Every TypeScript code block compiles");
+    expect(text).toContain("```ts fragment\n");
   });
 
   it("strips MDX imports and components while keeping headings and fenced code", () => {

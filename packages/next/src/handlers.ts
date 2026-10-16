@@ -13,6 +13,7 @@ import { recordSearchRoute } from "./command/record-search";
 import { createResourceController } from "./controllers/resource-controller";
 import { drawerActionRoute } from "./drawer/drawer-action-route";
 import { drawerRoute } from "./drawer/drawer-route";
+import { columnMoneyFactors } from "./runtime/money-field";
 import {
   declaredFieldSet,
   resolveFilterSpecs,
@@ -184,7 +185,14 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
         }
         const readableFilterDefs = filterReadableDeclarations(listed.options.filters, readable);
         const timeZone = resolveFormatting(config.formatting).timeZone;
-        const specs = await resolveFilterSpecs(readableFilterDefs, ctx, timeZone, url.searchParams);
+        const factors = columnMoneyFactors(listed);
+        const specs = await resolveFilterSpecs(
+          readableFilterDefs,
+          ctx,
+          timeZone,
+          url.searchParams,
+          factors,
+        );
         const readableSearchFields = (listed.options.search ?? [])
           .map(String)
           .filter((field) => readable.has(field));
@@ -193,7 +201,7 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
             page: Number(url.searchParams.get("page") ?? 1),
             pageSize: Number(url.searchParams.get("pageSize") ?? 20),
             search: readableSearchFields.length > 0 ? (url.searchParams.get("search") ?? "") : "",
-            filters: sanitizeFilterValues(withFilterDefaults(raw, specs), specs, timeZone),
+            filters: sanitizeFilterValues(withFilterDefaults(raw, specs), specs, timeZone, factors),
           }),
         );
       });

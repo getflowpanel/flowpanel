@@ -46,6 +46,8 @@ export function listEmptyProps(
   plural: string,
   narrowed: {
     filtered: boolean;
+    /** Only a search narrowed the list, no filter. */
+    searchOnly?: boolean;
     params: URLSearchParams;
     search?: string;
     defaulted?: ReadonlyArray<{ field: string }>;
@@ -56,12 +58,16 @@ export function listEmptyProps(
   const labels = mergeLabels(config.labels);
   if (narrowed.filtered) {
     const query = narrowed.search ?? "";
-    const title = (query && empty?.searched) || empty?.filtered || labels.widget.filtered;
+    const searchOnly = narrowed.searchOnly === true && query !== "";
+    const title =
+      (query && empty?.searched) ||
+      empty?.filtered ||
+      (searchOnly ? labels.table.noSearchMatch : labels.widget.filtered);
     return {
       emptyTitle: formatLabel(title, { query }),
       emptyAction: linkButton(
         clearedHref(config, name, narrowed.params, narrowed.defaulted ?? []),
-        labels.filters.clear,
+        searchOnly ? labels.filters.clearSearch : labels.filters.clear,
         "outline",
       ),
     };
@@ -70,15 +76,18 @@ export function listEmptyProps(
   const action = empty?.action ? (
     linkButton(empty.action.href, empty.action.label)
   ) : creatable ? (
-    <CreateDrawerTrigger label={singularTitle(labels.table.createFirst, resource, name)} />
+    <CreateDrawerTrigger
+      label={singularTitle(labels.table.createFirst, resource, name, labels.dateRange.locale)}
+    />
   ) : null;
   return {
-    emptyTitle: empty?.title ?? fillLabel(labels.table.empty, plural),
+    emptyTitle: empty?.title ?? fillLabel(labels.table.empty, plural, labels.dateRange.locale),
     emptyDescription:
       empty?.description ??
       fillLabel(
         creatable ? labels.table.emptyDescription : labels.table.emptyReadOnlyDescription,
         plural,
+        labels.dateRange.locale,
       ),
     ...(empty?.icon
       ? { emptyIcon: <FlowpanelIcon name={empty.icon} className="fp-h-6 fp-w-6" /> }

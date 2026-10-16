@@ -276,6 +276,7 @@ describe("serializeWidget — error & unknown", () => {
       },
       options: {},
     } as never;
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const out = await serializeWidget(widget, mkConfig(), reqCtx, widgetCtx);
     expect(out).toEqual({
       kind: "unsupported",
@@ -283,6 +284,11 @@ describe("serializeWidget — error & unknown", () => {
       reason: "Try again in a moment.",
       failed: true,
     });
+    expect(logged).toHaveBeenCalledWith(
+      expect.stringContaining("drawer widget «Boom» (metric) failed"),
+      expect.objectContaining({ message: "db down: postgres://user:pw@host/db" }),
+    );
+    logged.mockRestore();
   });
 });
 

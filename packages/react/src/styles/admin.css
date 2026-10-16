@@ -80,10 +80,13 @@
   --fp-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-html[data-flowpanel-theme="dark"] [data-flowpanel-root],
-html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
-[data-flowpanel-root][data-theme="dark"],
-[data-flowpanel-portal][data-theme="dark"] {
+/* Dark by FlowPanel's own choice, or by the host's `.dark` on <html> when `theme.mode` is "host". */
+html[data-flowpanel-theme="dark"] [data-flowpanel-root]:not([data-scheme="host"]),
+html[data-flowpanel-theme="dark"]:not(:has([data-scheme="host"])) [data-flowpanel-portal],
+[data-flowpanel-root][data-theme="dark"]:not([data-scheme="host"]),
+[data-flowpanel-portal][data-theme="dark"],
+html[class~="dark"] [data-flowpanel-root][data-scheme="host"],
+html[class~="dark"]:has([data-scheme="host"]) [data-flowpanel-portal] {
   color-scheme: dark;
 
   /* The page is the darkest plane; surfaces sit one step up and fills above them. */
@@ -558,6 +561,12 @@ tr.fp-row-enter > td {
 }
 .fp-scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* A table frame whose column widths are measured against its own width with `cqw`; the gutter keeps that width steady. */
+.fp-width-container {
+  container-type: inline-size;
+  scrollbar-gutter: stable;
 }
 
 /* Fades the clipped edges of a horizontal scroller so cut-off tabs read as "there is more", not a rendering glitch. */

@@ -6,7 +6,7 @@ vi.mock("../../lib/trigger-download", () => ({
   triggerDownload: (...args: unknown[]) => triggerDownload(...args),
 }));
 
-import { ExportButton } from "../csv-export";
+import { cappedMessage, ExportButton } from "../csv-export";
 import type { DataTableColumn } from "../data-table-types";
 
 afterEach(() => {
@@ -22,7 +22,7 @@ const columns: DataTableColumn<Row>[] = [
 const rows: Row[] = [{ id: "1", name: "Alice", age: 30 }];
 
 describe("ExportButton", () => {
-  it("a single configured format renders a plain button that downloads immediately", () => {
+  it("a single configured format renders a plain button that downloads immediately", async () => {
     render(
       <ExportButton
         columns={columns}
@@ -33,7 +33,7 @@ describe("ExportButton", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
-    expect(triggerDownload).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(triggerDownload).toHaveBeenCalledTimes(1));
     const call = triggerDownload.mock.calls[0]?.[0] as { mime: string; filename: string };
     expect(call.mime).toBe("text/csv;charset=utf-8");
     expect(call.filename).toBe("users-1-rows.csv");
@@ -54,7 +54,7 @@ describe("ExportButton", () => {
     fireEvent.keyDown(trigger, { key: "Enter" });
     const jsonItem = await screen.findByRole("menuitem", { name: /export as json/i });
     fireEvent.click(jsonItem);
-    expect(triggerDownload).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(triggerDownload).toHaveBeenCalledTimes(1));
     const call = triggerDownload.mock.calls[0]?.[0] as {
       mime: string;
       filename: string;
@@ -65,7 +65,7 @@ describe("ExportButton", () => {
     expect(JSON.parse(call.data)).toEqual([{ name: "Alice", age: 30 }]);
   });
 
-  it("only exports the columns it's given, regardless of the full row shape", () => {
+  it("only exports the columns it's given, regardless of the full row shape", async () => {
     // Emulates the caller (DataTable) already restricting columns to the
     // resource's `export.fields` whitelist before rendering this button.
     render(
@@ -78,6 +78,7 @@ describe("ExportButton", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await vi.waitFor(() => expect(triggerDownload).toHaveBeenCalled());
     const call = triggerDownload.mock.calls[0]?.[0] as { data: string };
     expect(JSON.parse(call.data)).toEqual([{ name: "Alice" }]);
   });
@@ -120,5 +121,12 @@ describe("ExportButton with a resource", () => {
       filename: "users-filtered-2026-10-09.csv",
     });
     vi.unstubAllGlobals();
+  });
+});
+
+describe("the capped-export warning", () => {
+  it("writes the row count the way the admin's locale groups numbers", async () => {
+    expect(cappedMessage("first {n} rows", "10000", "ru-RU")).toBe("first 10\u00a0000 rows");
+    expect(cappedMessage("first {n} rows", "10000", "en-US")).toBe("first 10,000 rows");
   });
 });

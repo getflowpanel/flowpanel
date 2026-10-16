@@ -9,13 +9,14 @@ import type {
   WidgetContext,
   WidgetDateRange,
 } from "@flowpanel/core";
-import { mergeLabels, resolveFormatting } from "@flowpanel/core";
-import { bindFormat, encodeFilters } from "@flowpanel/core/internal";
+import { bindFormat, mergeLabels, resolveFormatting } from "@flowpanel/core";
+import { encodeFilters } from "@flowpanel/core/internal";
 import { previousRangeFor, shiftRange } from "./date-range";
 import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
 import { buildHref } from "./href";
 import { countKey, readKey } from "./memo-key";
 import { memoQuery } from "./memo-query";
+import { columnMoneyFactors } from "./money-field";
 import { bindViewedRecord } from "./record-scope";
 import { frameworkHref, resolveLink } from "./resolve-link";
 import { rowIdentity } from "./row-identity";
@@ -35,7 +36,9 @@ export function widgetHref(
   const base =
     id === undefined ? buildHref(config, resource) : buildHref(config, resource, String(id));
   const params = new URLSearchParams();
-  for (const [field, value] of Object.entries(encodeFilters(opts?.filter, timeZone))) {
+  const target = config.resourcesByName.get(resource);
+  const factors = target ? columnMoneyFactors(target) : new Map<string, number>();
+  for (const [field, value] of Object.entries(encodeFilters(opts?.filter, timeZone, factors))) {
     params.set(`f_${field}`, value);
   }
   if (opts?.tab) params.set("tab", opts.tab);
@@ -156,6 +159,7 @@ export function buildWidgetContext(
     const ctx: WidgetContext = {
       db: config.adapter.db,
       session: reqCtx.session,
+      role: reqCtx.role,
       dateRange: widgetDateRange(range, timeZone, retainedSince),
       filters,
       req,

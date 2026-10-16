@@ -27,7 +27,7 @@ function HeaderPill({ label, tone = "default", href }: Pill) {
   return (
     <a
       href={href}
-      className="fp-rounded-full hover:fp-opacity-80 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
+      className="-fp-my-px fp-inline-flex fp-rounded-full fp-py-px hover:fp-opacity-80 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
     >
       {badge}
     </a>

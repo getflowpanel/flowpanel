@@ -70,7 +70,7 @@ export function RelatedTabTable<Row extends Record<string, unknown>>({
           <Link
             href={openListHref}
             prefetch={false}
-            className="fp-text-sm fp-text-soft fp-underline-offset-4 hover:fp-text-ink hover:fp-underline focus-visible:fp-underline"
+            className="-fp-my-1 fp-py-1 fp-text-sm fp-text-soft fp-underline-offset-4 hover:fp-text-ink hover:fp-underline focus-visible:fp-underline"
           >
             {openListLabel}
           </Link>

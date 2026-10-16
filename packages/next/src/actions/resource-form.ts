@@ -1,9 +1,13 @@
-import type { ResolvedAdminConfig, ResolvedLabels, ResourceConfig } from "@flowpanel/core";
+import type {
+  FieldDef,
+  ResolvedAdminConfig,
+  ResolvedLabels,
+  ResourceConfig,
+} from "@flowpanel/core";
 import {
   FlowpanelError,
   FlowpanelValidationError,
   formatLabel,
-  humanize,
   mergeLabels,
   resolveFormatting,
 } from "@flowpanel/core";
@@ -11,18 +15,36 @@ import { moneyDecimals, parseMoney } from "@flowpanel/core/format";
 import { writeTarget } from "@flowpanel/core/internal";
 import { actionFailure } from "../runtime/action-failure";
 import { coerceRowByColumns } from "../runtime/coerce-values";
+import { fieldLabels } from "../runtime/field-labels";
 import { moneyExample, moneyShape } from "../runtime/money-field";
 import {
   type RequestBodyError,
   readRequestFormData,
   requestBodyErrorResponse,
 } from "../runtime/request-body";
-import { declaredFormFields } from "../runtime/resolve-form-fields";
+import { declaredFormFields, generatedFormFields } from "../runtime/resolve-form-fields";
 import { rowKeyOf } from "../runtime/row-identity";
 import { guardedRoute, lookupResource } from "../runtime/write-pipeline";
 import { declaredWriteFields } from "./field-pipeline";
 import { type FormFieldShape, readFormValues } from "./form-values";
 import { type FormActionResult, makeActions } from "./resource-actions";
+
+/** The fields this form declares, or the ones it generates from the columns it may write. */
+function formFieldDefs(
+  resource: ResourceConfig,
+  config: ResolvedAdminConfig,
+  mode: "create" | "update",
+): FieldDef<Record<string, unknown>>[] {
+  const declared = declaredFormFields(resource, mode);
+  if (declared) return declared;
+  const writable = new Set(declaredWriteFields(resource, undefined));
+  const { columns } = config.adapter.introspect(writeTarget(resource));
+  return generatedFormFields(
+    resource,
+    columns.filter((column) => writable.has(column.name)),
+    mode,
+  );
+}
 
 /**
  * The controls this form renders, as the shapes `readFormValues` decodes.
@@ -38,11 +60,14 @@ function renderedFieldShapes(
   const byName = new Map(columns.map((c) => [c.name, c]));
   const formatting = resolveFormatting(config.formatting);
   const declared = declaredFormFields(resource, mode);
-  const writable = new Set(declaredWriteFields(resource, declared));
   if (!declared) {
-    return [...booleanColumns]
-      .filter((name) => writable.has(name))
-      .map((name) => ({ name, type: "boolean" }));
+    return formFieldDefs(resource, config, mode)
+      .filter((f) => f.type === "checkbox" || f.type === "money")
+      .map((f) => ({
+        name: f.name,
+        type: f.type,
+        ...(f.type === "money" ? moneyShape(f, byName.get(f.name), formatting) : {}),
+      }));
   }
   return declared
     .filter((f) => f.hidden === undefined || f.hidden === false)
@@ -65,7 +90,9 @@ function moneyErrors(
   const formatting = resolveFormatting(config.formatting);
   const { columns } = config.adapter.introspect(writeTarget(resource));
   const errors: Record<string, string> = {};
-  for (const field of declaredFormFields(resource, mode) ?? []) {
+  const fields = formFieldDefs(resource, config, mode);
+  const labelOf = fieldLabels(resource, fields);
+  for (const field of fields) {
     if (field.type !== "money") continue;
     const raw = fd.get(field.name);
     if (typeof raw !== "string" || raw.trim() === "") continue;
@@ -81,7 +108,7 @@ function moneyErrors(
         ? labels.form.moneyTooPrecise
         : labels.form.invalidMoney;
     errors[field.name] = formatLabel(message, {
-      label: field.label ?? humanize(field.name),
+      label: labelOf(field.name),
       example: moneyExample(shape, formatting.locale),
     });
     delete values[field.name];
@@ -110,6 +137,7 @@ function coerceFormData(
     raw,
     labels,
     resolveFormatting(config.formatting).timeZone,
+    fieldLabels(resource, declaredFormFields(resource, mode)),
   );
   const values = coerced.values;
   const fieldErrors = { ...coerced.fieldErrors, ...invalidMoney };
@@ -162,11 +190,9 @@ export function resourceCreateRoute(config: ResolvedAdminConfig) {
       const parsed = await parseFormBody(req, resource, config, "create");
       if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
       try {
-        if (Object.keys(parsed.fieldErrors).length > 0) {
-          throw new FlowpanelValidationError(parsed.fieldErrors);
-        }
         const created = await makeActions(config, resource, { reqCtx, fromForm: true }).create(
           parsed.values,
+          { decodeErrors: parsed.fieldErrors },
         );
         const key =
           created && typeof created === "object"
@@ -191,10 +217,9 @@ export function resourceUpdateRoute(config: ResolvedAdminConfig) {
       const parsed = await parseFormBody(req, resource, config, "update");
       if (!parsed.ok) return requestBodyErrorResponse(parsed.reason);
       try {
-        if (Object.keys(parsed.fieldErrors).length > 0) {
-          throw new FlowpanelValidationError(parsed.fieldErrors);
-        }
-        await makeActions(config, resource, { reqCtx, fromForm: true }).update(id, parsed.values);
+        await makeActions(config, resource, { reqCtx, fromForm: true }).update(id, parsed.values, {
+          decodeErrors: parsed.fieldErrors,
+        });
         return Response.json({ ok: true } satisfies FormActionResult);
       } catch (err) {
         return formActionError(err);

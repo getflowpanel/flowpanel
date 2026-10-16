@@ -19,13 +19,14 @@ export function coerceRowByColumns(
   row: Record<string, unknown>,
   labels: ResolvedLabels,
   wallTimeZone?: string,
+  labelOf: (name: string) => string = humanize,
 ): CoerceRowResult {
   const columnsByName = new Map(columns.map((c) => [c.name, c]));
   const values: Record<string, unknown> = { ...row };
   const fieldErrors: Record<string, string> = {};
 
   const invalid = (key: string, template: string): void => {
-    fieldErrors[key] = formatLabel(template, { label: humanize(key) });
+    fieldErrors[key] = formatLabel(template, { label: labelOf(key) });
   };
 
   for (const [key, raw] of Object.entries(row)) {

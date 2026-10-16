@@ -44,9 +44,14 @@ describe("the browser chrome colour", () => {
     expect(dark?.media).toBe("all");
   });
 
-  it("passes a page colour that is not an HSL triplet through as it is", () => {
+  it("reads a page colour written as any CSS colour", () => {
     const [light] = metas({ cssVars: { "--fp-bg-2": "#fafafa" } });
-    expect(light?.content).toBe("#fafafa");
+    expect(light?.content).toBe("hsl(0 0% 98%)");
+  });
+
+  it("passes a page colour it cannot read through as it is", () => {
+    const [light] = metas({ cssVars: { "--fp-bg-2": "var(--page)" } });
+    expect(light?.content).toBe("var(--page)");
   });
 
   it("matches the stylesheet's own page tokens", () => {

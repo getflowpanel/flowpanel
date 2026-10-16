@@ -9,7 +9,7 @@ import type { DetailOptions } from "./detail";
 import type { DrawerConfig } from "./drawer";
 import type { IconName } from "./icon";
 import type { PluralLabel } from "./labels";
-import type { FieldAccessMap, ResourceAccess } from "./policy";
+import type { AccessRule, FieldAccessMap, ResourceAccess } from "./policy";
 import type { ReferenceSpec } from "./registry";
 import type { Scope } from "./session";
 import type { Threshold } from "./threshold";
@@ -43,7 +43,14 @@ export type ColumnFormat =
       /** Display text per raw value, e.g. `{ admin: "Админ" }`; tones stay keyed by the raw value. */
       labels?: Record<string, string>;
     }
-  | { kind: "money"; currency?: string; scale?: number }
+  | {
+      kind: "money";
+      currency?: string;
+      /** The value holds minor units with this many digits, as on a `money` field: `2` shows `5900` as 59.00. */
+      minorUnits?: number;
+      /** @deprecated Use `minorUnits`; `scale: 100` is `minorUnits: 2`. */
+      scale?: number;
+    }
   | {
       kind: "number";
       /** Colour the cell by value. */
@@ -99,13 +106,13 @@ export interface ColumnDef<Row> {
    * It is loaded with the row; sort and search still use `field`. Ignored on a `reference` column.
    */
   secondary?: keyof Row & string;
-  /** Header text. Defaults to a humanized `field`. */
+  /** The field's label: this header and its name on every other surface, see [Field labels](https://flowpanel.tech/docs/build/resources#field-labels). Defaults to a humanized `field`. */
   label?: string;
   /** Custom cell renderer. Runs on the server; receives the request context. */
   render?: (row: Row, ctx: RequestContext) => ReactNode;
   /** Allow clicking the header to sort by this column. */
   sortable?: boolean;
-  /** Fixed column width, in px when a number. */
+  /** Fixed column width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. */
   width?: number | string;
   /** Horizontal cell alignment. Defaults to `"left"`. */
   align?: "left" | "center" | "right";
@@ -151,6 +158,17 @@ export interface FilterDef<Row> {
   hidden?: boolean;
 }
 
+/** A form field's starting value, or a function of the request that resolves to one; `ctx` is typed without an annotation. */
+export type FieldDefaultValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | null
+  | undefined
+  | object
+  | ((ctx: QueryContext) => unknown);
+
 export type FieldType =
   | "text"
   | "textarea"
@@ -178,7 +196,7 @@ export type FieldType =
 export interface FieldDef<Row> {
   /** Row property this field writes. */
   name: keyof Row & string;
-  /** Field label. Defaults to a humanized `name`. */
+  /** Field label, also shown wherever no column labels this field. Defaults to a humanized `name`. */
   label?: string;
   /** Hint rendered under the control. */
   help?: string;
@@ -225,7 +243,7 @@ export interface FieldDef<Row> {
    * Value used when creating, for keys the operator left empty; a visible field also pre-fills with it.
    * The resource's `create.defaultValues` wins for the same key.
    */
-  defaultValue?: unknown | ((ctx: QueryContext) => Promise<unknown>);
+  defaultValue?: FieldDefaultValue;
   /** Width in a 12-column form grid. Defaults to full width. */
   span?: 1 | 2 | 3 | 4 | 6 | 12;
   /** Fieldset heading this field is grouped under. */
@@ -353,6 +371,8 @@ export interface ResourceOptions<Row> {
 
   /** How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. */
   scope?: "bypass" | ResourceScope;
+  /** The tenant a row belongs to, as `scope` returns it; files `allTenants` staff's audit events under it. */
+  scopeOf?: (row: Row) => Scope;
   /** Canonical operation-level authorization. */
   access?: ResourceAccess<Row>;
   /** Canonical read/write policy for declared fields. */
@@ -368,6 +388,8 @@ export interface ResourceOptions<Row> {
         fields?: (keyof Row & string)[];
         /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */
         maxRows?: number;
+        /** Who may export, on top of the resource's `read` rule. Everyone who may read by default. */
+        access?: AccessRule;
       }
     | false;
   /** Import button. Off unless set; rows are created through the normal write path. */

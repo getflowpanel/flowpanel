@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
@@ -13,6 +13,23 @@ import { DataTable } from "../DataTable";
 import { MobileCardList } from "../MobileCardList";
 
 afterEach(cleanup);
+
+// The inline editor loads on first use; load it once so each test below renders it at once.
+beforeAll(async () => {
+  render(
+    <DataTable
+      columns={[{ field: "name", editable: true }]}
+      rows={[{ id: "1", name: "a" }]}
+      rowKey="id"
+      total={1}
+      page={1}
+      pageSize={10}
+      inlineEditResource="user"
+    />,
+  );
+  await screen.findByRole("button", { name: "Edit Name" });
+  cleanup();
+});
 
 /** A projection that could not include the key column, next to one that could. */
 const rows = [{ id: "u1", name: "a" }, { name: "b" }] as Array<Record<string, unknown>>;

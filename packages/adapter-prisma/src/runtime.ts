@@ -166,10 +166,20 @@ export function inTransaction<T>(
   return db.$transaction ? db.$transaction(run) : run(db);
 }
 
-export const MIGRATIONS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
+const MIGRATIONS_TABLE = `_flowpanel_migrations (
   id varchar(255) NOT NULL PRIMARY KEY,
   applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 )`;
+
+/** The bookkeeping table's DDL; on PostgreSQL a guarded block, so an existing table raises no NOTICE. */
+export function migrationsTableDdl(provider: string): string {
+  if (provider !== "postgresql") return `CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE}`;
+  return `DO $$ BEGIN
+  IF to_regclass('_flowpanel_migrations') IS NULL THEN
+    CREATE TABLE ${MIGRATIONS_TABLE};
+  END IF;
+END $$`;
+}
 
 export function loadDmmf(): PrismaDmmf {
   let dmmf: unknown;

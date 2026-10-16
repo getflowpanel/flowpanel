@@ -3,6 +3,7 @@ import * as React from "react";
 import { cn } from "../lib/cn";
 import { useLabels } from "../provider/LabelsContext";
 import { Button } from "../ui/button";
+import { INVALID_CLASS } from "../ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 export interface AsyncSelectOption {
@@ -152,14 +153,18 @@ export function AsyncSelect({
       <PopoverTrigger asChild>
         <Button
           id={id}
-          variant="ghost"
+          variant="outline"
           role="combobox"
           aria-expanded={open}
           {...(hasLabel ? {} : { "aria-label": placeholder })}
           aria-invalid={ariaInvalid}
           {...(describedBy ? { "aria-describedby": describedBy } : {})}
           {...(ariaRequired ? { "aria-required": true as const } : {})}
-          className={cn("fp-w-full fp-justify-between fp-border fp-border-line", className)}
+          className={cn(
+            "fp-w-full fp-justify-between fp-border-line fp-px-3 fp-font-normal hover:fp-bg-surface",
+            INVALID_CLASS,
+            className,
+          )}
         >
           <span className={label || value ? "fp-text-ink" : "fp-text-faint"}>
             {label ?? value ?? placeholder}

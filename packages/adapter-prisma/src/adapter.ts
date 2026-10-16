@@ -5,7 +5,6 @@ import {
   type ListResult,
   type MutationContext,
   parseSqlRows,
-  sanitizeSqlParams,
 } from "@flowpanel/core";
 import { searchedFields } from "@flowpanel/core/internal";
 import { prismaAuditLog } from "./audit-log";
@@ -43,7 +42,7 @@ export interface PrismaAdapterOptions<P = unknown> {
   parseDates?: boolean;
 }
 
-export { MIGRATIONS_TABLE_DDL } from "./runtime";
+export { migrationsTableDdl } from "./runtime";
 export type { PrismaProvider } from "./sql-statements";
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
@@ -265,7 +264,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       strings: TemplateStringsArray,
       ...values: unknown[]
     ): Promise<Row[]> {
-      const rows = await prisma.$queryRaw(strings, ...sanitizeSqlParams(values));
+      const rows = await prisma.$queryRaw(strings, ...values);
       return parseSqlRows<Row>(rows as Array<Record<string, unknown>>, {
         parseDates: opts.parseDates ?? true,
       });

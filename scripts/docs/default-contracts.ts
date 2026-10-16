@@ -39,8 +39,8 @@ export const DEFAULT_DOC_CONTRACTS = [
     typeName: "BulkAction",
     member: "max",
     value: "1000",
-    consumerFile: "packages/next/src/actions/bulk-action.ts",
-    consumerExpression: "const MAX_BULK = 1000;",
+    consumerFile: "packages/next/src/actions/bulk-selection.ts",
+    consumerExpression: "export const MAX_BULK = 1000;",
   },
   {
     typeName: "SectionConfig",
@@ -62,13 +62,6 @@ export const DEFAULT_DOC_CONTRACTS = [
     value: "true",
     consumerFile: "packages/next/src/runtime/render-widget.tsx",
     consumerExpression: "widget.options.frame === false ? inner : card",
-  },
-  {
-    typeName: "ChartOptionsBase",
-    member: "height",
-    value: "240",
-    consumerFile: "packages/charts/src/runtime/defaults.ts",
-    consumerExpression: "export const DEFAULT_CHART_HEIGHT = 240;",
   },
   {
     typeName: "PieChartOptions",

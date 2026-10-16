@@ -227,6 +227,17 @@ describe("stream() — limits", () => {
     vi.useRealTimers();
   });
 
+  it("tells a rate-limited reader when to retry", async () => {
+    const config = makeConfig({
+      auth: { session: async () => ({ id: "limited" }), role: () => "admin" },
+      rateLimit: { driver: "memory", limit: 1, windowMs: 30_000 },
+    } as Partial<ResolvedAdminConfig>);
+    await stream(config)(new Request("http://localhost/stream"));
+    const refused = await stream(config)(new Request("http://localhost/stream"));
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("retry-after")).toBe("30");
+  });
+
   it("refuses a user's eleventh open stream with 429 and frees a slot on close", async () => {
     const config = makeConfig({
       auth: { session: async () => ({ id: "capped" }), role: () => "admin" },
@@ -235,7 +246,9 @@ describe("stream() — limits", () => {
       Array.from({ length: 10 }, () => stream(config)(new Request("http://localhost/stream"))),
     );
     expect(open.every((res) => res.status === 200)).toBe(true);
-    expect((await stream(config)(new Request("http://localhost/stream"))).status).toBe(429);
+    const refused = await stream(config)(new Request("http://localhost/stream"));
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("retry-after")).toBeNull();
     await open[0]?.body?.cancel();
     const again = await stream(config)(new Request("http://localhost/stream"));
     expect(again.status).toBe(200);

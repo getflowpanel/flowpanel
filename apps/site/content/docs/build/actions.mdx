@@ -36,6 +36,8 @@ resource(schema.users, { columns: ["email", "status"], actions: [suspend] });
 
 `rowAction<Row, Input>` types the row and checks every form field name against `Input`. `ctx` carries the session, scope, actor and the publish helper. Query through your own client, or declare `unsafe: ["db"]` to receive the adapter's client as `ctx.unsafe.db`.
 
+A form field takes the same options as a resource form field. A `defaultValue` that is a plain value pre-fills its control when the dialog opens; a `money` default is in stored units, as on a resource form, so `1999` shows as `19.99`. A `defaultValue` function is not run for an action form.
+
 ## Placement
 
 - A row action receives one row.
@@ -47,7 +49,18 @@ Actions render as secondary buttons. A dashboard action takes `emphasis: "primar
 
 ## Authorization
 
-The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `hidden` removes an action for a row, and its route rejects that row; `disabled` shows the action with a reason. An action without its own `access` runs under the resource's `update` rule.
+The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `when` offers an action only on the rows it accepts, and its route rejects the others. It receives `{ current, input, session, role, scope }`, where `current` is the loaded row:
+
+```ts
+rowAction<{ id: number; status: string }>({
+  key: "escalate",
+  label: "Escalate",
+  when: ({ current }) => current?.status !== "escalated",
+  run: async (row) => ({ ok: true, message: `Escalated ${row.id}` }),
+});
+```
+
+`disabled` shows the action with a reason. `hidden` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`, so a `when` that reads the posted input decides only on the route. An action without its own `access` runs under the resource's `update` rule.
 
 ## Results
 

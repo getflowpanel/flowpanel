@@ -1,14 +1,25 @@
 import type { ComponentType } from "react";
 import type { EnumDef } from "../builders/enum-of";
 import type { DashboardAction } from "./action";
+import type { ResolvedFormatting } from "./formatting";
 import type { IconName } from "./icon";
+import type { ResolvedLabels } from "./labels";
 import type { AccessRule } from "./policy";
 import type { RealtimeOption } from "./realtime";
 import type { SelectOption } from "./resource";
+import type { Scope, Session } from "./session";
 import type { WidgetConfig } from "./widget";
 import type { WidgetContext } from "./widget-context";
 
-export type DateRangePreset = "today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD";
+export type DateRangePreset =
+  | "today"
+  | "yesterday"
+  | "last7d"
+  | "last30d"
+  | "last12m"
+  | "MTD"
+  | "QTD"
+  | "YTD";
 
 /**
  * The sidebar group an entry joins: its label, or `{ label, collapsed: true }` for a
@@ -109,6 +120,22 @@ export interface DashboardConfig {
   access?: AccessRule;
 }
 
+/** What a `page()` component receives: the request's reader and the admin's formatting and strings. */
+export interface PageProps {
+  /** What `auth.session` returned, the session `access` rules see; `null` for a `"use client"` component, so a provider's tokens never reach the browser. */
+  session: Session | null;
+  /** The signed-in role, as `auth.role` returns it. */
+  role: string;
+  /** The tenant `scope` resolved for this request; `null` without one, and for a `"use client"` component. */
+  scope: Scope;
+  /** Locale, time zone and currency from `formatting`; `bindFormat(formatting)` gives the formatters a widget gets as `ctx.format`. */
+  formatting: ResolvedFormatting;
+  /** The admin's resolved strings, in its locale. */
+  labels: ResolvedLabels;
+  /** The page URL's query string; the last value wins for a repeated key. */
+  searchParams: Readonly<Record<string, string>>;
+}
+
 /** User page registered under `<paths.admin><path>` with a sidebar nav entry. */
 export interface PageConfig {
   /** Path under `paths.admin`. */
@@ -119,8 +146,8 @@ export interface PageConfig {
   icon?: IconName;
   /** Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. */
   navGroup?: NavGroupRef;
-  /** Server or client React component rendered at `<paths.admin><path>`. */
-  component?: ComponentType<Record<string, never>>;
+  /** Server or client React component rendered at `<paths.admin><path>`; a failure shows an error card inside the admin. */
+  component?: ComponentType<PageProps>;
   /** External href used when `component` is not provided. */
   href?: string;
   /** Who may see and open this page. */

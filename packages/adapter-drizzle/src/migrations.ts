@@ -8,10 +8,14 @@ import type { SQL } from "drizzle-orm";
 import type { DrizzleDialect } from "./dialect";
 
 const DDL: Record<DrizzleDialect, string> = {
-  pg: `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
-  id text PRIMARY KEY,
-  applied_at timestamptz NOT NULL DEFAULT now()
-)`,
+  pg: `DO $$ BEGIN
+  IF to_regclass('_flowpanel_migrations') IS NULL THEN
+    CREATE TABLE _flowpanel_migrations (
+      id text PRIMARY KEY,
+      applied_at timestamptz NOT NULL DEFAULT now()
+    );
+  END IF;
+END $$`,
   mysql: `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
   id varchar(255) NOT NULL PRIMARY KEY,
   applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP

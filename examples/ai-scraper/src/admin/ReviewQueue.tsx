@@ -15,7 +15,7 @@ export function ReviewQueue({ pending, href, outcomes }: ReviewQueueProps) {
   return (
     <section
       aria-labelledby="review-queue-title"
-      className="flex h-full flex-col overflow-hidden rounded-fp-xl border border-fp-border-1 bg-fp-bg-1 shadow-fp-sm"
+      className="flex h-full flex-col overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-sm"
     >
       <header className="px-5 pt-5 pb-3">
         <h2 id="review-queue-title" className="text-sm font-semibold text-fp-text-1">

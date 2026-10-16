@@ -31,11 +31,11 @@ Override tokens on the FlowPanel root:
 }
 ```
 
-Or set them in config with `theme.cssVars` and `theme.cssVarsDark`, typed as `ThemeTokens`. Colours are HSL triplets.
+Or set them in config with `theme.cssVars` and `theme.cssVarsDark`, typed as `ThemeTokens`. In config, `theme.accent`, `theme.accentDark` and colour tokens take a CSS colour written as hex, a colour name or a colour function, such as `#10b981`, `teal`, `rgb(16 185 129)` or a shadcn `oklch(0.52 0.2 160)`, or an HSL triplet such as `220 90% 50%`; FlowPanel converts them to the HSL triplets its stylesheet reads. `var()` and `color-mix()` are not accepted in config, because the value is converted on the server; FlowPanel warns in development when it cannot read a colour. A token you set in your own CSS, as above, must be a triplet.
 
 `--fp-accent` paints primary buttons, the focus ring and selected controls. `--fp-data` paints bars, funnels, sparklines, heat cells and single-series charts, and follows `--fp-chart-1`: set `--fp-chart-1` to recolour both, or `--fp-data` alone to separate them. With `theme.accent` set and no `--fp-data`, data uses the accent. `tone: "accent"` badges use `--fp-accent-badge-text`.
 
-The default palette meets 4.5:1 for text and 3:1 for borders, chart colours and the focus ring, in both schemes. The full token list is in the package stylesheet.
+The default palette meets 4.5:1 for text and 3:1 for borders, chart colours and the focus ring, in both schemes. In development, FlowPanel warns once when `theme.accent` or `theme.accentDark` gives the text on a primary button less than 4.5:1; darken or lighten the accent, or set `--fp-accent-text`. The full token list is in the package stylesheet.
 
 ## Set the typeface
 
@@ -56,7 +56,55 @@ export default defineAdmin({
 
 ## Dark mode
 
-`theme.mode` is `light`, `dark` or `auto`. FlowPanel sets its own `data-flowpanel-theme` attribute and leaves the host's `.dark` class alone. Use `theme.accentDark` and `theme.cssVarsDark` for dark-only values. The admin renders a `theme-color` meta per scheme from `--fp-bg-2`.
+`theme.mode` is `light`, `dark`, `auto` or `host`. With the first three, FlowPanel keeps a scheme of its own: it sets its own `data-flowpanel-theme` attribute, remembers the reader's choice from the palette, and leaves the host's `.dark` class alone. With `host`, the admin is dark exactly while `<html>` has the class `dark`, as shadcn and next-themes set it; FlowPanel stores no choice of its own and leaves the theme switch out of the palette, so your own switch drives both. Use `theme.accentDark` and `theme.cssVarsDark` for dark-only values. The admin renders a `theme-color` meta per scheme from `--fp-bg-2`.
+
+### Follow a shadcn and next-themes host
+
+A shadcn app with next-themes needs three changes: the scheme follows the host, the accent is the host's primary colour, and the font is the host's. The host's root layout stays as shadcn writes it:
+
+```tsx
+import { ThemeProvider } from "next-themes";
+import { Manrope } from "next/font/google";
+import "./globals.css";
+
+const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope" });
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={manrope.variable} suppressHydrationWarning>
+      <body>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+The admin config follows it:
+
+```ts
+export default defineAdmin({
+  adapter,
+  auth: flowpanelAuth,
+  theme: {
+    mode: "host",
+    accent: "oklch(0.52 0.2 160)",
+    accentDark: "oklch(0.7 0.17 160)",
+    cssVars: { "--fp-font-sans": "var(--font-manrope)" },
+  },
+  shell: { mode: "tabs" },
+  resources,
+});
+```
+
+- `mode: "host"` reads the `dark` class next-themes puts on `<html>`, before and after hydration, with no script of your own and no hydration warning. `suppressHydrationWarning` on `<html>` is the one next-themes and `init` already ask for. The admin layout's `ThemeScript` is harmless in this mode but no longer needed, and the admin leaves the browser's `theme-color` to the host.
+- `accent` and `accentDark` take the same `oklch()` values as shadcn's `--primary`; copy them from `globals.css`.
+- `shell: { mode: "tabs" }` puts the admin under your own header instead of beside a sidebar of its own.
+- The admin's content is at most 1600 px wide on every page. In the tabs shell, give your own header `max-width: 103rem`, `margin-inline: auto` and `padding-inline: 1.5rem` to line up with it.
+
+`host` reads only the class `dark` on `<html>`. With next-themes' `attribute="data-theme"` or another class, keep `mode: "auto"`, and the admin keeps a scheme of its own.
 
 ### Initialize the theme under CSP
 
@@ -79,7 +127,7 @@ Place it in the document head with the same default mode as the config. A stored
 
 ## Use FlowPanel tokens in your own Tailwind classes
 
-A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. In the CSS file that imports Tailwind, such as `app/globals.css`, import the token bridge after Tailwind and point `@source` at your admin code, relative to that file:
+A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as `bg-fp-bg-2`, `text-fp-err-text`, `border-fp-border-1` and `rounded-fp-lg`. Put the Tailwind entry in the admin's own stylesheet, the `styles/admin.css` that `init` wrote and the admin layout imports, in place of its one import. The admin then loads FlowPanel's styles once, and your other pages never load them. Point `@source` at your admin code, relative to that file:
 
 ```css
 @layer theme, base, components, utilities;
@@ -90,9 +138,15 @@ A custom widget written with Tailwind v4 can use FlowPanel's utilities, such as 
 @source "../admin";
 ```
 
+Restart `next dev` after adding these lines: Turbopack keeps the stylesheet it built first, so the new utilities appear only after a restart. If you put the lines in your root stylesheet, such as `app/globals.css`, instead, remove the admin layout's own stylesheet import, or the admin loads FlowPanel's styles twice.
+
+Importing `admin.css` next to Tailwind is safe, unlike the plain import above: the `@layer` line fixes the layer order before any import, so FlowPanel's element defaults still sit in `components`, between Tailwind's base layer and your utilities. With `@import "tailwindcss";` first, Tailwind declares the same order.
+
 The bridge is an `@theme inline` block generated from FlowPanel's stylesheet. `inline` is required because the `--fp-*` values live on the FlowPanel root, not `:root`. An app that already imports all of Tailwind keeps `@import "tailwindcss";` first and adds the two FlowPanel imports after it.
 
 FlowPanel renders its root, `[data-flowpanel-root]`, around the admin pages, and the `--fp-*` values these utilities read exist only inside it. Keep your app's header, layout and other pages outside that root, styled with your own classes; [`examples/ai-scraper`](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper) wraps the admin in its own header that way.
+
+Inside the admin, including custom widgets, colour text with FlowPanel's tokens, such as `text-fp-text-2` for secondary text. A host token such as shadcn's `text-muted-foreground` is tuned for a white page and falls under 4.5:1 contrast on the admin's grey background.
 
 FlowPanel's own classes all start with `fp-`, such as `fp-px-4`, so they never share a name with yours. Inside the root your classes and their variants work as your build defines them, and a class you pass to a FlowPanel component through `className` replaces the FlowPanel class it conflicts with.
 
@@ -134,7 +188,26 @@ export default defineAdmin({
 
 <ThemeSlots />
 
-`EmptyState` also replaces an empty list, on a phone too, and receives the list's `empty.icon` as `icon`. `SkeletonTable` replaces a loading list and receives its `rows` and `columns`.
+`EmptyState` also replaces an empty list, on a phone too, and receives the list's `empty.icon` as `icon`, a rendered node rather than an `IconName`. When FlowPanel marks the state as a failure it passes `data-fp-error`; put it on your slot's root element, or `smokeAdmin` stops seeing that failure:
+
+```tsx
+// src/admin/ui/MyEmptyState.tsx
+"use client";
+import type { EmptyStateProps } from "@flowpanel/kit/react";
+
+export function MyEmptyState({ title, description, action, icon, ...marks }: EmptyStateProps) {
+  return (
+    <div {...marks} className="py-16 text-center">
+      {icon}
+      <p>{title}</p>
+      {description ? <p>{description}</p> : null}
+      {action}
+    </div>
+  );
+}
+```
+
+`SkeletonTable` replaces a loading list and receives its `rows` and `columns`.
 
 `FlowpanelComponentSlots` can be augmented with your own keys for custom widgets; FlowPanel's own UI reads only the keys above.
 

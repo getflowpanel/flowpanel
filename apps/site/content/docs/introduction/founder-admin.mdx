@@ -4,30 +4,229 @@ description: From an empty Next.js app to a deployed admin with dashboards, a re
 kind: tutorial
 ---
 
-This tutorial builds the admin a founder opens every morning, using the domain of the [ScrapeAI example](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper): customers set up monitors, monitors produce runs, and runs find listings on marketplaces. It assumes a Next.js 16 app created by `create-next-app` with a `src/` directory, a Drizzle schema and better-auth. Imports use that app's default alias, `@/*` for `./src/*`, so `@/db/schema` is `src/db/schema.ts`. Each step ends with what you should see.
+This tutorial builds the admin a founder opens every morning, using the domain of the [ScrapeAI example](https://github.com/getflowpanel/flowpanel/tree/main/examples/ai-scraper): customers set up monitors, monitors produce runs, and runs find listings on marketplaces. It starts from an empty Next.js 16 app and a PostgreSQL database, and gives every file it uses. Imports use the app's default alias, `@/*` for `./src/*`, so `@/db/schema` is `src/db/schema.ts`. Each step ends with what you should see.
+
+## Before you start
+
+Create the app with a `src/` directory and add Drizzle:
+
+```bash
+pnpm create next-app@latest scrapeai --src-dir --yes
+cd scrapeai
+pnpm add drizzle-orm pg
+pnpm add -D drizzle-kit tsx @types/pg
+```
+
+The tables the admin shows:
+
+```ts
+// src/db/schema.ts
+import {
+  boolean,
+  doublePrecision,
+  integer,
+  pgEnum,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
+
+export const planTier = pgEnum("plan_tier", ["free", "starter", "pro", "business"]);
+export const accountStatus = pgEnum("account_status", [
+  "active",
+  "trialing",
+  "past_due",
+  "canceled",
+]);
+export const monitorStatus = pgEnum("monitor_status", ["active", "paused", "error"]);
+export const runStatus = pgEnum("run_status", ["queued", "running", "success", "failed"]);
+export const invoiceStatus = pgEnum("invoice_status", ["open", "paid", "void", "refunded"]);
+
+export const customers = pgTable("customers", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  name: text("name"),
+  company: text("company"),
+  plan: planTier("plan").notNull().default("free"),
+  status: accountStatus("status").notNull().default("trialing"),
+  mrr: integer("mrr").notNull().default(0),
+  churned: boolean("churned").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at"),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const monitors = pgTable("monitors", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => customers.id),
+  name: text("name").notNull(),
+  targetUrl: text("target_url").notNull(),
+  status: monitorStatus("status").notNull().default("active"),
+  errorRate: doublePrecision("error_rate"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastRunAt: timestamp("last_run_at"),
+});
+
+export const runs = pgTable("runs", {
+  id: serial("id").primaryKey(),
+  monitorId: integer("monitor_id")
+    .notNull()
+    .references(() => monitors.id),
+  status: runStatus("status").notNull().default("queued"),
+  pagesCrawled: integer("pages_crawled").notNull().default(0),
+  durationMs: integer("duration_ms"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  finishedAt: timestamp("finished_at"),
+  error: text("error"),
+});
+
+export const listings = pgTable("listings", {
+  id: serial("id").primaryKey(),
+  monitorId: integer("monitor_id")
+    .notNull()
+    .references(() => monitors.id),
+  runId: integer("run_id").references(() => runs.id),
+  site: text("site").notNull(),
+  title: text("title").notNull(),
+  priceCents: integer("price_cents").notNull(),
+  rating: doublePrecision("rating"),
+  scrapedAt: timestamp("scraped_at").notNull().defaultNow(),
+});
+
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id")
+    .notNull()
+    .references(() => customers.id),
+  amountCents: integer("amount_cents").notNull(),
+  status: invoiceStatus("status").notNull().default("open"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+```
+
+The database client:
+
+```ts
+// src/db/index.ts
+import { drizzle } from "drizzle-orm/node-postgres";
+import * as schema from "./schema";
+
+export const db = drizzle(process.env.DATABASE_URL!, { schema });
+```
+
+Put `DATABASE_URL=postgres://…` in `.env`, and tell drizzle-kit where the schema is. It reads `.env` itself:
+
+```ts
+// drizzle.config.ts
+import { defineConfig } from "drizzle-kit";
+
+export default defineConfig({
+  dialect: "postgresql",
+  schema: "./src/db/schema.ts",
+  dbCredentials: { url: process.env.DATABASE_URL! },
+});
+```
+
+A few rows, so each step has something to show:
+
+```ts
+// src/db/seed.ts
+import { db } from "./index";
+import { customers, invoices, listings, monitors, runs } from "./schema";
+
+const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000);
+const THIS_WEEK = ["amazon", "amazon", "amazon", "amazon", "ebay", "ebay", "walmart", "best_buy"];
+const WEEK_BEFORE = ["amazon", "ebay", "ebay", "walmart", "walmart", "best_buy"];
+
+async function seed(): Promise<void> {
+  const [acme, globex] = await db
+    .insert(customers)
+    .values([
+      {
+        email: "ada@acme.test",
+        name: "Ada",
+        company: "Acme",
+        plan: "pro",
+        status: "active",
+        createdAt: hoursAgo(24 * 20),
+        lastSeenAt: hoursAgo(1),
+      },
+      { email: "bo@globex.test", name: "Bo", plan: "starter", status: "trialing", createdAt: hoursAgo(3) },
+    ])
+    .returning();
+  const [laptops, phones] = await db
+    .insert(monitors)
+    .values([
+      { customerId: acme.id, name: "Laptops", targetUrl: "https://example.com/laptops" },
+      { customerId: globex.id, name: "Phones", targetUrl: "https://example.com/phones" },
+    ])
+    .returning();
+  const [run] = await db
+    .insert(runs)
+    .values([
+      { monitorId: laptops.id, status: "success", pagesCrawled: 40, durationMs: 5200, startedAt: hoursAgo(2) },
+      { monitorId: laptops.id, status: "failed", pagesCrawled: 3, error: "timeout", startedAt: hoursAgo(1) },
+      { monitorId: phones.id, status: "running", pagesCrawled: 10, startedAt: hoursAgo(0.2) },
+    ])
+    .returning();
+  const listing = (site: string, hours: number, i: number) => ({
+    monitorId: laptops.id,
+    runId: run.id,
+    site,
+    title: `Laptop ${i + 1}`,
+    priceCents: 50_000 + i * 1_000,
+    scrapedAt: hoursAgo(hours),
+  });
+  await db.insert(listings).values([
+    ...Array.from({ length: 600 }, (_, i) => listing(THIS_WEEK[i % THIS_WEEK.length], i * 0.08, i)),
+    ...Array.from({ length: 300 }, (_, i) =>
+      listing(WEEK_BEFORE[i % WEEK_BEFORE.length], 24 * 8 + i * 0.4, i),
+    ),
+  ]);
+  await db.insert(invoices).values([
+    { customerId: acme.id, amountCents: 4_900, status: "paid", paidAt: hoursAgo(24 * 3) },
+    { customerId: acme.id, amountCents: 4_900, status: "open" },
+  ]);
+}
+
+seed().then(() => process.exit(0));
+```
+
+Create the tables, then add the rows once:
+
+```bash
+pnpm drizzle-kit push
+pnpm tsx --env-file=.env src/db/seed.ts
+```
 
 ## 1. Install
 
 ```bash
-pnpm dlx @flowpanel/cli init
+pnpm dlx @flowpanel/cli init --dev-auth
 pnpm dev
 ```
 
-You should see a sign-in screen at `/admin`. Sign in as a user whose `role` is `"admin"` (better-auth's admin plugin, or a `role` additional field), and `/admin` shows an empty navigation.
+`--dev-auth` signs every request in as an admin, so you can work before you add sign-in. It refuses to run in production; step 12 replaces it. If your app already uses better-auth, Auth.js, Clerk or Lucia, leave out `--dev-auth`: `init` writes that provider's preset instead (see [Authentication](/docs/guides/authentication)), and the rest of the tutorial is the same.
 
-## 2. Types from your schema and your auth
+You should see `/admin` with an empty navigation.
 
-`init` wrote `flowpanel.config.ts`, which registers your database and schema:
+## 2. Types from your schema
 
-<include>../../snippets/generated/init/better-auth-config.ts</include>
+`init` wrote `flowpanel.config.ts`, which registers your database, your schema and your session:
 
-Your auth module exports a better-auth instance and no `getSession`, so `init` also wrote `src/server/lib/flowpanel-session.ts`, which registers the session and wraps the instance in the better-auth preset:
+<include>../../snippets/generated/init/dev-auth-config.ts</include>
 
-<include>../../snippets/generated/src/server/lib/flowpanel-session.ts</include>
+The session comes from `src/server/lib/auth.ts`, the development identity:
 
-The config takes its `auth` from `flowpanelAuth`. The preset reads the role from `session.user.role` and the audit actor from `session.user.id`. Every resource name, row and `ctx.session` is typed.
+<include>../../snippets/generated/init/dev-session.ts</include>
 
-You should see a type error if you put `resource(schema.nope, {})` in `resources`, because your schema has no `nope` table. Remove it again.
+Every resource name, row and `ctx.session` is typed.
+
+You should see a type error if you add `resource` to the `@flowpanel/kit` import and put `resource(schema.nope, {})` in `resources`, because your schema has no `nope` table. Remove it again.
 
 ## 3. One resource per file
 
@@ -39,7 +238,7 @@ mv flowpanel.config.ts src/admin/config/index.ts
 echo 'export { default } from "./src/admin/config";' > flowpanel.config.ts
 ```
 
-Fix any relative imports in the moved file. Then write one file per table, starting with the tables others point at:
+Then write one file per table, starting with the tables others point at:
 
 ```bash
 pnpm flowpanel new customers --dir src/admin/config/resources
@@ -48,7 +247,7 @@ pnpm flowpanel new runs --dir src/admin/config/resources
 pnpm flowpanel new invoices --dir src/admin/config/resources --hidden
 ```
 
-Each command reads the table, picks columns by type, and adds the export to `src/admin/config/resources/index.ts`. A foreign key becomes a `reference` labelled by the target's `name`, `title` or `email`, and a picker in the create and edit form, once the target has its own file, which is why `customers` goes first. `--hidden` keeps invoices out of the navigation; they appear on the customer's page.
+Each command reads the table, picks columns by type, and adds the export to `src/admin/config/resources/index.ts`. A foreign key becomes a `reference` labelled by the target's `name`, `title` or `email`, and a picker in the create and edit form, once the target has its own file, which is why `customers` goes first. `--hidden` keeps invoices out of the navigation; they appear on the customer's page. `/admin/invoices` still opens for anyone who may read invoices, so a link from a customer page works; to close it, set `access` on the resource.
 
 The first `new --dir` wired the directory into the config, so `src/admin/config/index.ts` now reads:
 
@@ -95,7 +294,7 @@ export const Site = enumOf({
 });
 ```
 
-For a database enum, a value missing from the map is a compile error. `listings.site` is a text column, so `Site` lists its values itself. Replace the `enumOf` stub `flowpanel new` wrote in each resource file with the shared enum. The runs file becomes:
+For a database enum, a value missing from the map is a compile error. `listings.site` is a text column, so `Site` lists its values itself. Replace the `enumOf` stub `flowpanel new` wrote in the runs and customers files with the shared enum, and give each a `daterange` filter on its main date, which step 5 uses:
 
 ```ts
 // src/admin/config/resources/runs.ts
@@ -114,12 +313,44 @@ export const runs = resource(schema.runs, {
     { field: "finishedAt", format: { kind: "date", time: true } },
     "error",
   ],
-  filters: [{ field: "status", type: "multiselect" }],
+  filters: [
+    { field: "status", type: "multiselect" },
+    { field: "startedAt", type: "daterange" },
+  ],
   defaultSort: { field: "startedAt", dir: "desc" },
 });
 ```
 
-Do the same with `Plan` and `AccountStatus` in `customers.ts`. A select filter on an enum-formatted column lists the enum's labels, so it needs no `options`.
+```ts
+// src/admin/config/resources/customers.ts
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+import { AccountStatus, Plan } from "../enums";
+
+export const customers = resource(schema.customers, {
+  columns: [
+    "id",
+    "email",
+    "name",
+    "company",
+    { field: "plan", format: Plan.format },
+    { field: "status", format: AccountStatus.format },
+    "mrr",
+    { field: "churned", format: "boolean" },
+    { field: "createdAt", format: { kind: "date", time: true } },
+    { field: "lastSeenAt", format: { kind: "date", time: true } },
+  ],
+  search: ["email", "name"],
+  filters: [
+    { field: "plan", type: "select" },
+    { field: "status", type: "select" },
+    { field: "createdAt", type: "daterange" },
+  ],
+  defaultSort: { field: "createdAt", dir: "desc" },
+});
+```
+
+A select filter on an enum-formatted column lists the enum's labels, so it needs no `options`.
 
 You should see coloured status badges and a status filter with four labels.
 
@@ -164,27 +395,70 @@ export const overview = dashboard({
 });
 ```
 
-Import `overview` into `src/admin/config/index.ts` and add `dashboards: [overview]` to `defineAdmin`. Each number links to the rows it counted, for the same period, through a `daterange` filter on the counted date. Give each resource one; in `runs.ts`:
+List the dashboards in one file, the way `new --dir` lists resources:
 
-```ts as="ResourceOptions<RowOf<'runs'>>"
-filters: [
-  { field: "status", type: "multiselect" },
-  { field: "startedAt", type: "daterange" },
-],
+```ts
+// src/admin/config/dashboards/index.ts
+import { overview } from "./overview";
+
+export const dashboards = [overview] as const;
 ```
 
-Do the same for `createdAt` on customers and `paidAt` on invoices. `defineAdmin` names a missing one.
+Add them to the config:
+
+```ts
+// src/admin/config/index.ts
+import { defineAdmin } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { db } from "@/db";
+import * as schema from "@/db/schema";
+import { getSession } from "@/server/lib/auth";
+import { dashboards } from "@/admin/config/dashboards";
+import { resources } from "@/admin/config/resources";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+    schema: typeof schema;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
+  }
+}
+
+export default defineAdmin({
+  paths: { admin: "/admin", api: "/api/flowpanel" },
+  adapter: drizzleAdapter({ db, schema }),
+
+  auth: {
+    session: getSession,
+    role: (s) => s?.user.role ?? "guest",
+    access: "admin",
+  },
+
+  realtime: { driver: "memory" },
+
+  theme: {
+    brand: { name: "scrapeai" },
+    mode: "auto",
+  },
+
+  resources: [...resources],
+  dashboards: [...dashboards],
+});
+```
+
+Each number links to the rows it counted, for the same period, through the `daterange` filter on the counted date that step 4 added. `defineAdmin` names a missing one.
 
 You should see three numbers in one band, each with its change and a link to its rows.
 
+"Today" starts at midnight in `formatting.timeZone`, which is UTC until you set it, so in another zone the band can show yesterday's numbers. Add `formatting: { timeZone: "Europe/Berlin" }`, with your own zone, next to `paths` in the config: "Today", the date filters and every time in the lists then follow your clock.
+
 ## 6. One SQL statement, several widgets
 
-Write the statement once and let FlowPanel bucket and rank it:
+Write the statement once, in its own file, so every widget that needs it can import it:
 
 ```ts
-// src/admin/config/dashboards/marketplaces.ts
-import { bars, breakdown, dashboard, lineChart, series, type WidgetContext } from "@flowpanel/kit";
-import { Site } from "../enums";
+// src/admin/config/dashboards/listings-found.ts
+import type { WidgetContext } from "@flowpanel/kit";
 
 export const listingsFound = (c: WidgetContext) =>
   c.sql<{ at: Date; site: string }>`
@@ -192,6 +466,15 @@ export const listingsFound = (c: WidgetContext) =>
     from listings l
     where l.scraped_at >= ${c.dateRange.from} and l.scraped_at < ${c.dateRange.to}
       and (${c.filters.site ?? null}::text is null or l.site = ${c.filters.site ?? null})`;
+```
+
+Then let FlowPanel bucket and rank it:
+
+```ts
+// src/admin/config/dashboards/marketplaces.ts
+import { bars, breakdown, dashboard, lineChart, series } from "@flowpanel/kit";
+import { Site } from "../enums";
+import { listingsFound } from "./listings-found";
 
 const marketplace = { key: "site", label: "Marketplace", options: Site };
 
@@ -223,9 +506,19 @@ export const marketplaces = dashboard({
 });
 ```
 
-Import `marketplaces` into the config and add it to `dashboards`. `c.query(listingsFound)` runs the statement once per request, plus once for the previous period `compare` asks for. `series` buckets rows by day in the admin's time zone and fills gaps; `breakdown` ranks them with shares. `ctx.sql` applies no scope, so a multi-tenant admin adds its tenant predicate to the statement.
+Add it to the list:
 
-You should see bars with shares and changes, and a line per marketplace. Clicking a bar narrows the whole page to that marketplace.
+```ts
+// src/admin/config/dashboards/index.ts
+import { marketplaces } from "./marketplaces";
+import { overview } from "./overview";
+
+export const dashboards = [overview, marketplaces] as const;
+```
+
+`c.query(listingsFound)` runs the statement once per request, plus once for the previous period `compare` asks for. `series` buckets rows by day in the admin's time zone and fills gaps; `breakdown` ranks them with shares. `ctx.sql` applies no scope, so a multi-tenant admin adds its tenant predicate to the statement.
+
+You should see bars with shares and changes against the week before, and a line per marketplace. Clicking a bar narrows the whole page to that marketplace.
 
 ## 7. Status at a glance
 
@@ -235,7 +528,7 @@ A tracker shows one row per marketplace and one block per hour. Put it in its ow
 // src/admin/config/dashboards/listings-by-hour.ts
 import { type Threshold, tracker } from "@flowpanel/kit";
 import { Site } from "../enums";
-import { listingsFound } from "./marketplaces";
+import { listingsFound } from "./listings-found";
 
 const QUIET: Threshold = { warn: 5, err: 1 };
 
@@ -252,7 +545,47 @@ export const listingsByHour = tracker({
 });
 ```
 
-In `marketplaces.ts`, add `listingsByHour` to the first section's `widgets` after the line chart. The tracker always shows the last 24 hours. `keys: Site.values` keeps a marketplace on the board when it found nothing. `warn` above `err` means fewer is worse: 5 listings or fewer is a warning, 1 is an error, and an hour with none stays grey.
+Add it to the marketplaces dashboard after the line chart:
+
+```ts
+// src/admin/config/dashboards/marketplaces.ts
+import { bars, breakdown, dashboard, lineChart, series } from "@flowpanel/kit";
+import { Site } from "../enums";
+import { listingsByHour } from "./listings-by-hour";
+import { listingsFound } from "./listings-found";
+
+const marketplace = { key: "site", label: "Marketplace", options: Site };
+
+export const marketplaces = dashboard({
+  path: "/marketplaces",
+  label: "Marketplaces",
+  dateRange: { preset: "last7d", presets: ["today", "last7d", "last30d"] },
+  filters: [marketplace],
+  sections: [
+    {
+      widgets: [
+        bars({
+          label: "Listings by marketplace",
+          query: async (c) => breakdown(await c.query(listingsFound), { by: "site", labels: Site }),
+          share: true,
+          compare: true,
+          filterOnClick: "site",
+          span: 4,
+        }),
+        lineChart(
+          "Listings per day",
+          async (c) =>
+            series(await c.query(listingsFound), c.dateRange, { at: "at", by: "site", grain: "day" }),
+          { x: "date", labels: Site, span: 8 },
+        ),
+        listingsByHour,
+      ],
+    },
+  ],
+});
+```
+
+The tracker always shows the last 24 hours. `keys: Site.values` keeps a marketplace on the board when it found nothing. `warn` above `err` means fewer is worse: 5 listings or fewer is a warning, 1 is an error, and an hour with none stays grey.
 
 You should see 24 hourly blocks per marketplace, coloured by how many listings each hour found.
 
@@ -320,7 +653,7 @@ export const customerCard = {
             timeline.source("invoices", {
               kind: "paid",
               at: "paidAt",
-              title: (i, _refs, c) => c.format.money(i.amountCents, { scale: 100 }),
+              title: (i, _refs, c) => c.format.money(i.amountCents, { minorUnits: 2 }),
             }),
           ],
         }),
@@ -332,7 +665,67 @@ export const customerCard = {
 } satisfies DetailOptions<RowOf<"customers">>;
 ```
 
-Pass it as `detail: customerCard` on the customers resource. The strip and the side column stay on every tab. The related tabs find their filter from the `customerId` reference and show row counts in their labels. `paidInvoices` is exported so a unit test can import it (step 11).
+Pass it as `detail` on the customers resource:
+
+```ts
+// src/admin/config/resources/customers.ts
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+import { AccountStatus, Plan } from "../enums";
+import { customerCard } from "./customer-card";
+
+export const customers = resource(schema.customers, {
+  columns: [
+    "id",
+    "email",
+    "name",
+    "company",
+    { field: "plan", format: Plan.format },
+    { field: "status", format: AccountStatus.format },
+    "mrr",
+    { field: "churned", format: "boolean" },
+    { field: "createdAt", format: { kind: "date", time: true } },
+    { field: "lastSeenAt", format: { kind: "date", time: true } },
+  ],
+  search: ["email", "name"],
+  filters: [
+    { field: "plan", type: "select" },
+    { field: "status", type: "select" },
+    { field: "createdAt", type: "daterange" },
+  ],
+  defaultSort: { field: "createdAt", dir: "desc" },
+  detail: customerCard,
+});
+```
+
+`paidInvoices` counts invoices by `paidAt`, so invoices need a `daterange` filter on it:
+
+```ts
+// src/admin/config/resources/invoices.ts
+import { enumOf, resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+
+const Status = enumOf(schema.invoiceStatus.enumValues, { open: "Open", paid: "Paid", void: "Void", refunded: "Refunded" });
+
+export const invoices = resource(schema.invoices, {
+  hidden: true,
+  columns: [
+    "id",
+    { field: "customerId", label: "Customer", reference: { resource: "customers", labelField: "email" } },
+    { field: "amountCents", format: { kind: "money", minorUnits: 2 } },
+    { field: "status", format: Status.format },
+    { field: "paidAt", format: { kind: "date", time: true } },
+    { field: "createdAt", format: { kind: "date", time: true } },
+  ],
+  filters: [
+    { field: "status", type: "select" },
+    { field: "paidAt", type: "daterange" },
+  ],
+  defaultSort: { field: "createdAt", dir: "desc" },
+});
+```
+
+The strip and the side column stay on every tab. The related tabs find their filter from the `customerId` reference and show row counts in their labels. `paidInvoices` is exported so a unit test can import it (step 11).
 
 You should see status and plan badges, the monitor count, the invoices paid in the picked period, account facts beside the tabs, and an activity feed grouped by day. See [Record pages and drawers](/docs/build/detail-cards).
 
@@ -358,7 +751,16 @@ export function CrawlQueue({ waiting, failed }: { waiting: number; failed: numbe
 }
 ```
 
-`custom()` places it in a section. `queueCounts` is your own function in `src/server/lib/queue.ts` returning `{ waiting, failed }`:
+Its numbers come from your queue. Until you connect one, return numbers that change on every read, so you can watch the card refresh in step 10:
+
+```ts
+// src/server/lib/queue.ts
+export async function queueCounts(): Promise<{ waiting: number; failed: number }> {
+  return { waiting: new Date().getSeconds(), failed: 0 };
+}
+```
+
+`custom()` places the component in a section:
 
 ```ts
 // src/admin/config/dashboards/crawl-queue.ts
@@ -368,18 +770,45 @@ import { CrawlQueue } from "../../ui/CrawlQueue";
 
 export const crawlQueue = custom(CrawlQueue, (c) => c.query(queueCounts), {
   label: "Crawl queue",
-  realtime: "pipeline",
   span: 4,
 });
 ```
 
-In `overview.ts`, import `crawlQueue` and add `{ widgets: [crawlQueue] }` to `sections`.
+Add it to the overview as a second section:
+
+```ts
+// src/admin/config/dashboards/overview.ts
+import { dashboard, metric } from "@flowpanel/kit";
+import { crawlQueue } from "./crawl-queue";
+
+export const overview = dashboard({
+  path: "/",
+  label: "Overview",
+  dateRange: { preset: "today", presets: ["today", "yesterday", "last7d", "last30d"] },
+  refresh: "60s",
+  sections: [
+    {
+      variant: "strip",
+      widgets: [
+        metric("Runs", { count: "runs", range: "startedAt" }, { compare: true }),
+        metric(
+          "Failed runs",
+          { count: "runs", where: { status: "failed" }, range: "startedAt" },
+          { compare: true, goodWhen: "down" },
+        ),
+        metric("New customers", { count: "customers", range: "createdAt" }, { compare: true }),
+      ],
+    },
+    { widgets: [crawlQueue] },
+  ],
+});
+```
 
 You should see a "Crawl queue" card that matches its neighbours. See [Build a custom widget](/docs/customization/custom-widgets).
 
 ## 10. Live updates from the worker
 
-Install `ioredis` with `pnpm add ioredis`. Keep the realtime options in one module that the admin config and the worker both import:
+Install `ioredis` with `pnpm add ioredis` and put `REDIS_URL=redis://…` in `.env`. Keep the realtime options in one module that the admin config and the worker both import:
 
 ```ts
 // src/shared/realtime.ts
@@ -388,11 +817,13 @@ import type { PublisherOptions } from "@flowpanel/kit";
 export const realtime = {
   driver: "redis",
   url: process.env.REDIS_URL!,
-  keyPrefix: `scrapeai-${process.env.NODE_ENV}`,
+  keyPrefix: "scrapeai",
 } satisfies PublisherOptions;
 ```
 
-Pass it to `defineAdmin` with the channel the crawl-queue card subscribes to, `realtime: { ...realtime, channels: { pipeline: {} } }`. Then publish from the worker:
+The prefix is a fixed string. A worker started with `tsx` or `node` has no `NODE_ENV`, so a prefix built from it would differ between the app and the worker, and the worker's events would reach no one. When staging and production share one Redis, set the prefix from a variable both processes read.
+
+Publish from the worker:
 
 ```ts
 // src/worker/admin-events.ts
@@ -408,13 +839,64 @@ export async function runSaved(run: { id: number }): Promise<void> {
 }
 ```
 
-A Redis error never fails the crawl. Subscribe the runs list to those events in `runs.ts`:
+A Redis error never fails the crawl. Call `runSaved` where your crawler saves a run. Until it does, a script stands in for one crawl:
 
-```ts as="ResourceOptions<RowOf<'runs'>>"
-realtime: true,
+```ts
+// scripts/crawl.ts
+import { adminEvents, runSaved } from "@/worker/admin-events";
+
+async function crawl(): Promise<void> {
+  await runSaved({ id: 1 });
+  await adminEvents.close();
+}
+
+void crawl();
 ```
 
-`realtime: true` on the runs resource refreshes its list, and the crawl queue card listens on `"pipeline"`. With both dashboards and the shared realtime options, the config reads:
+The crawl queue card subscribes to `"pipeline"`, a channel of your own, so the config must declare it. The card:
+
+```ts
+// src/admin/config/dashboards/crawl-queue.ts
+import { custom } from "@flowpanel/kit";
+import { queueCounts } from "@/server/lib/queue";
+import { CrawlQueue } from "../../ui/CrawlQueue";
+
+export const crawlQueue = custom(CrawlQueue, (c) => c.query(queueCounts), {
+  label: "Crawl queue",
+  realtime: "pipeline",
+  span: 4,
+});
+```
+
+The runs list refreshes on the `runs` events with `realtime: true`:
+
+```ts
+// src/admin/config/resources/runs.ts
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+import { RunStatus } from "../enums";
+
+export const runs = resource(schema.runs, {
+  columns: [
+    "id",
+    { field: "monitorId", label: "Monitor", reference: { resource: "monitors", labelField: "name" } },
+    { field: "status", format: RunStatus.format },
+    "pagesCrawled",
+    "durationMs",
+    { field: "startedAt", format: { kind: "date", time: true } },
+    { field: "finishedAt", format: { kind: "date", time: true } },
+    "error",
+  ],
+  filters: [
+    { field: "status", type: "multiselect" },
+    { field: "startedAt", type: "daterange" },
+  ],
+  defaultSort: { field: "startedAt", dir: "desc" },
+  realtime: true,
+});
+```
+
+The config takes the shared options and declares the channel. `defineAdmin` refuses a widget that subscribes to an undeclared one:
 
 ```ts
 // src/admin/config/index.ts
@@ -422,39 +904,54 @@ import { defineAdmin } from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { resources } from "@/admin/config/resources";
-import { flowpanelAuth } from "@/server/lib/flowpanel-session";
+import { getSession } from "@/server/lib/auth";
 import { realtime } from "@/shared/realtime";
-import { marketplaces } from "./dashboards/marketplaces";
-import { overview } from "./dashboards/overview";
+import { dashboards } from "@/admin/config/dashboards";
+import { resources } from "@/admin/config/resources";
 
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
     schema: typeof schema;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
   }
 }
 
 export default defineAdmin({
   paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: drizzleAdapter({ db, schema }),
-  auth: flowpanelAuth,
-  realtime,
+
+  auth: {
+    session: getSession,
+    role: (s) => s?.user.role ?? "guest",
+    access: "admin",
+  },
+
+  realtime: { ...realtime, channels: { pipeline: {} } },
+
   theme: {
     brand: { name: "scrapeai" },
     mode: "auto",
   },
+
   resources: [...resources],
-  dashboards: [overview, marketplaces],
+  dashboards: [...dashboards],
 });
 ```
 
-You should see the runs list and the crawl queue card update during a crawl, without a reload. See [Realtime](/docs/guides/realtime#publish-from-a-worker).
+With `pnpm dev` running and the admin open, run the script in a second terminal:
+
+```bash
+pnpm tsx --env-file=.env scripts/crawl.ts
+```
+
+You should see the runs list and the crawl queue card refresh each time the script runs, without a reload: the card's "waiting" number changes, since the stand-in `queueCounts` returns the current second. See [Realtime](/docs/guides/realtime#publish-from-a-worker).
 
 ## 11. Test the admin
 
 ```bash
 pnpm add -D @playwright/test @axe-core/playwright
+pnpm exec playwright install chromium
 ```
 
 `smokeAdmin` navigates with `page.goto(paths.admin)`, so Playwright needs a `baseURL` and a `webServer`:
@@ -470,7 +967,7 @@ export default defineConfig({
 });
 ```
 
-better-auth issues a signed session through its sign-in endpoint, so sign in first and let `smokeAdmin` reuse the context. The user must have the `admin` role:
+The development identity signs the test in, so the spec only walks the admin:
 
 ```ts
 // e2e/admin.spec.ts
@@ -478,20 +975,17 @@ import { test } from "@playwright/test";
 import { smokeAdmin } from "@flowpanel/kit/test";
 
 test("the admin is healthy", async ({ page }) => {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(process.env.E2E_EMAIL ?? "");
-  await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
-  await page.getByRole("button", { name: "Sign in" }).click();
-
   await smokeAdmin(page, { paths: { admin: "/admin" } });
 });
 ```
 
-The walk opens every dashboard, every list, the first record of each and every tab of that record, and fails on an error card, a console error or a 4xx/5xx. To unit-test one number such as `paidInvoices`, see [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).
+Run it with `pnpm exec playwright test`. The walk opens every dashboard, every list, the first record of each and every tab of that record, and fails on an error card, a console error or a 4xx/5xx. To unit-test one number such as `paidInvoices`, see [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).
 
-You should see a green run. The walk opens the first tab at the record's own URL and every other tab as `?tab=<key>`, so break the invoices query and the failure names `/admin/customers/1?tab=invoices`.
+You should see a green run. The walk opens the first tab at the record's own URL and every other tab as `?tab=<key>`, so break the invoices query and the failure names `/admin/customers/2?tab=invoices`, the newest customer.
 
 ## 12. Ship
+
+The development identity refuses to run in production. Replace `getSession` in `src/server/lib/auth.ts` with your provider's session, or add a provider and use its preset; see [Authentication](/docs/guides/authentication). The smoke spec then signs in first, as in [Testing](/docs/reference/testing#authentication).
 
 Work through [Production readiness](/docs/guides/production-readiness), then deploy the app as usual: the admin is a route of it.
 

@@ -1,12 +1,25 @@
 // @vitest-environment happy-dom
 
 import { cleanup, render, screen } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { BooleanFilter } from "../BooleanFilter";
 import { SelectFilter } from "../SelectFilter";
 
 afterEach(() => cleanup());
 
 describe("SelectFilter", () => {
+  it("renders its value on the server, so the toolbar does not change after hydration", () => {
+    const options = [{ label: "Pro", value: "pro" }];
+    expect(
+      renderToString(<SelectFilter value={null} onChange={vi.fn()} options={options} />),
+    ).toContain(">All<");
+    expect(
+      renderToString(<SelectFilter value="pro" onChange={vi.fn()} options={options} />),
+    ).toContain(">Pro<");
+    expect(renderToString(<BooleanFilter value="false" onChange={vi.fn()} />)).toContain(">No<");
+  });
+
   it("keeps the actual mobile trigger at least 44px tall", () => {
     render(
       <SelectFilter value={null} onChange={vi.fn()} options={[{ label: "Pro", value: "pro" }]} />,

@@ -46,7 +46,7 @@ describe("ReferencePicker", () => {
 
   it("uses noResults from LabelsProvider when emptyText prop is omitted", async () => {
     render(
-      <LabelsProvider value={{ noResults: "Aucun résultat" }}>
+      <LabelsProvider value={{ table: { noResults: "Aucun résultat" } }}>
         <ReferencePicker value={null} onChange={vi.fn()} search={async () => []} />
       </LabelsProvider>,
     );

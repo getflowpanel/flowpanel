@@ -80,6 +80,7 @@ export function previousRangeFor(range: ResolvedDateRange, timeZone: string): Sp
     case "QTD":
       return shiftRange(range, timeZone, { months: -3 });
     case "YTD":
+    case "last12m":
       return shiftRange(range, timeZone, { months: -12 });
     default:
       return previousRange(range);

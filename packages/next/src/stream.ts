@@ -12,6 +12,7 @@ import { actorIdFromSession } from "./runtime/action-helpers";
 import { bindPublisher, subscribe } from "./runtime/publish";
 import { CHANNEL_PATTERN, channelResource } from "./runtime/realtime-channels";
 import { buildRequestContext } from "./runtime/request-setup";
+import { withRetryAfter } from "./runtime/retry-after";
 
 const HEARTBEAT_MS = 15_000;
 const MAX_CHANNELS = 25;
@@ -135,7 +136,7 @@ export function stream(
     const failed = async (err: unknown, requestId: string): Promise<Response> => {
       await report(err, requestId);
       const status = err instanceof FlowpanelError ? err.status : 500;
-      return Response.json(errorResult(err, requestId), { status });
+      return withRetryAfter(Response.json(errorResult(err, requestId), { status }), config);
     };
 
     let reqCtx: RequestContext;

@@ -10,6 +10,8 @@ export interface StandaloneFormFieldsProps {
   names: readonly string[];
   /** Server-reported message per field name, rendered exactly like a validation error. */
   errors?: Record<string, string>;
+  /** A value per field name that its control starts with; `true` checks a checkbox or switch. */
+  defaults?: Record<string, string | number | boolean>;
   children: React.ReactNode;
 }
 
@@ -30,6 +32,7 @@ export function StandaloneFormFields({
   formId,
   names,
   errors,
+  defaults,
   children,
 }: StandaloneFormFieldsProps) {
   const value = React.useMemo<FormContextValue>(() => {
@@ -37,20 +40,23 @@ export function StandaloneFormFields({
     for (const name of names) {
       const id = `${formId}-${name}`;
       const message = errors?.[name];
+      const start = defaults?.[name];
+      const initial =
+        start === true ? "on" : start === false || start === undefined ? "" : String(start);
       const meta: StandaloneFieldMetadata = {
         id,
         name,
         formId,
         errorId: `${id}-error`,
         key: undefined,
-        value: "",
-        initialValue: "",
+        value: initial,
+        initialValue: initial,
         ...(message !== undefined ? { errors: [message] } : {}),
       };
       fields[name] = meta as unknown as FieldMetadata<unknown>;
     }
     return { form: {} as FormContextValue["form"], fields, isSubmitting: false };
-  }, [formId, names, errors]);
+  }, [formId, names, errors, defaults]);
 
   return <FormContext.Provider value={value}>{children}</FormContext.Provider>;
 }

@@ -68,14 +68,19 @@ export const overview = dashboard({
             running: await c.count("runs", { status: "running" }),
             tracked: await c.count("listings"),
           }),
-          { span: 12, frame: false, label: "Live operations" },
+          { span: 12, frame: false, label: "Live operations", minHeight: 437 },
         ),
       ],
     },
     {
       columns: 12,
       widgets: [
-        custom(ReviewQueue, reviewQueue, { span: 4, frame: false, label: "Review queue" }),
+        custom(ReviewQueue, reviewQueue, {
+          span: 4,
+          frame: false,
+          label: "Review queue",
+          minHeight: 357,
+        }),
         table<RowOf<"runs">>({
           label: "Recent runs",
           resource: "runs",

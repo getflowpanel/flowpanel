@@ -1,5 +1,5 @@
 import { DEFAULT_FORMATTING } from "@flowpanel/core/format";
-import { isValidElement, type ReactElement } from "react";
+import { type CSSProperties, isValidElement, type ReactElement, Suspense } from "react";
 import { Legend } from "recharts";
 import { describe, expect, it, vi } from "vitest";
 
@@ -62,31 +62,47 @@ describe("PieChart legend", () => {
 });
 
 describe("chartBody", () => {
-  it("renders a skeleton of the chart's height until the chart mounts", () => {
+  it("renders a skeleton of the chart's set height until the chart mounts", () => {
     const body = chartBody(
       { kind: "pieChart", options: { category: "status", value: "count", height: 320 }, data },
       false,
     );
     expect(isValidElement(body)).toBe(true);
-    const el = body as { type: unknown; props: { height?: number } };
+    const el = body as { type: unknown; props: { style?: CSSProperties } };
     expect(el.type).toBe(ChartSkeleton);
-    expect(el.props.height).toBe(320);
+    expect(el.props.style).toEqual({ height: 320 });
   });
 
-  it("falls back to the shared default height", () => {
+  it("without a set height, takes 2/7 of its width within 240 to 320 px", () => {
     const body = chartBody(
       { kind: "barChart", options: { x: "status", y: "count" }, data },
       false,
-    ) as { props: { height?: number } };
-    expect(body.props.height).toBe(240);
+    ) as { props: { style?: CSSProperties } };
+    expect(body.props.style).toEqual({
+      width: "100%",
+      aspectRatio: "7 / 2",
+      minHeight: 240,
+      maxHeight: 320,
+    });
   });
 
-  it("renders the chart once mounted", () => {
-    const body = chartBody(
-      { kind: "pieChart", options: { category: "status", value: "count" }, data },
-      true,
-    ) as { type: unknown };
-    expect(body.type).toBe(PieChart);
+  it("once mounted, hands the rows to the frame that measures the box", () => {
+    const props = { kind: "barChart" as const, options: { x: "status", y: "count" }, data };
+    const body = chartBody(props, true) as ReactElement<typeof props>;
+    expect(body.type).not.toBe(Suspense);
+    expect(body.props).toEqual(props);
+  });
+
+  it("draws an empty chart's message without holding the box", async () => {
+    const props = {
+      kind: "pieChart" as const,
+      options: { category: "status", value: "count" },
+      data: [],
+    };
+    const body = chartBody(props, true) as ReactElement<{ children: ReactElement }>;
+    expect(body.type).toBe(Suspense);
+    const { default: ChartBody } = await import("../chart-body");
+    expect(ChartBody({ ...props, data })?.type).toBe(PieChart);
   });
 });
 

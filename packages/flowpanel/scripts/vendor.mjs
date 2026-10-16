@@ -164,7 +164,7 @@ function cjsTargets() {
   return targets;
 }
 
-function copyInternal(directory, keepCjs) {
+function copyInternal(directory) {
   const source = resolve(KIT, "..", directory, "dist");
   if (!existsSync(source)) throw new Error(`packages/${directory}/dist is missing; build it first`);
   const target = join(DIST, directory);
@@ -172,12 +172,36 @@ function copyInternal(directory, keepCjs) {
   const copied = [];
   for (const file of walk(source)) {
     const destination = join(target, relative(source, file));
-    if (CJS.test(file) && !keepCjs.has(destination)) continue;
     mkdirSync(dirname(destination), { recursive: true });
     copyFileSync(file, destination);
     copied.push({ source: file, destination });
   }
   return copied;
+}
+
+/** The CommonJS files a `require` export reaches through relative imports; the rest are deleted. */
+function pruneCjs() {
+  const reached = new Set();
+  const queue = [...cjsTargets()];
+  while (queue.length) {
+    const file = queue.pop();
+    if (reached.has(file) || !existsSync(file)) continue;
+    reached.add(file);
+    if (!file.endsWith(".d.cts")) queue.push(file.replace(/\.cjs$/, ".d.cts"));
+    for (const { name } of specifiers(readFileSync(file, "utf8"))) {
+      if (!name.startsWith(".")) continue;
+      const target = resolve(dirname(file), name);
+      queue.push(isTypes(file) ? target.replace(/\.cjs$/, ".d.cts") : target);
+    }
+  }
+  const removed = new Set();
+  for (const file of walk(DIST)) {
+    if (CJS.test(file) && !reached.has(file)) {
+      rmSync(file);
+      removed.add(file);
+    }
+  }
+  return removed;
 }
 
 /** One `dist/<entry>.js` and `.d.ts` per kit export, each the re-export lines of `src/<entry>.ts`. */
@@ -299,6 +323,40 @@ export function verify(copied = [], entries = []) {
       );
     }
   }
+  problems.push(...browserProblems());
+  return problems;
+}
+
+/** The kit entries a browser loads, besides every `"use client"` module. */
+const BROWSER_ENTRIES = ["client.js", "react.js", "charts.js"];
+
+/** Each Node built-in a browser bundle would reach: from a browser entry or a `"use client"` module, through relative imports. */
+export function browserProblems(dist = DIST) {
+  const builtins = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
+  const code = walk(dist).filter((file) => /\.m?js$/.test(file) && !CJS.test(file));
+  const from = new Map();
+  const queue = code.filter((file) => {
+    if (BROWSER_ENTRIES.includes(posix(relative(dist, file)))) return true;
+    return /["']use client["']/.test(directivePrologue(readFileSync(file, "utf8")));
+  });
+  for (const root of queue) from.set(root, null);
+  const problems = [];
+  for (let index = 0; index < queue.length; index++) {
+    const file = queue[index];
+    for (const { name } of specifiers(readFileSync(file, "utf8"))) {
+      if (builtins.has(name) || name.startsWith("node:")) {
+        const chain = [];
+        for (let at = file; at; at = from.get(at)) chain.unshift(posix(relative(KIT, at)));
+        problems.push(`${chain.join(" → ")}: a browser bundle would import "${name}"`);
+      } else if (name.startsWith(".")) {
+        const target = resolve(dirname(file), name);
+        if (existsSync(target) && !from.has(target)) {
+          from.set(target, file);
+          queue.push(target);
+        }
+      }
+    }
+  }
   return problems;
 }
 
@@ -306,19 +364,21 @@ export function verify(copied = [], entries = []) {
 export function vendor() {
   rmSync(DIST, { recursive: true, force: true });
   mkdirSync(DIST, { recursive: true });
-  const keepCjs = cjsTargets();
-  const copied = INTERNAL_PACKAGES.flatMap((directory) => copyInternal(directory, keepCjs));
+  const all = INTERNAL_PACKAGES.flatMap((directory) => copyInternal(directory));
   const { written, problems } = writeEntries();
-  if (problems.length) return { copied, problems };
+  if (problems.length) return { copied: all, problems };
   const packages = packageMap();
-  const errors = [];
+  const errors = new Map();
   for (const file of walk(DIST)) {
     if (!CODE.test(file)) continue;
     const text = readFileSync(file, "utf8");
     const { output, errors: found } = rewriteFile(text, file, packages);
-    errors.push(...found);
+    if (found.length) errors.set(file, found);
     if (output !== text) writeFileSync(file, output);
   }
-  if (errors.length) return { copied, problems: errors };
+  const removed = pruneCjs();
+  const kept = [...errors].filter(([file]) => !removed.has(file)).flatMap(([, found]) => found);
+  if (kept.length) return { copied: all, problems: kept };
+  const copied = all.filter(({ destination }) => !removed.has(destination));
   return { copied, problems: verify(copied, written) };
 }

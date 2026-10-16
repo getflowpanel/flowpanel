@@ -25,6 +25,7 @@ function mkPayload(detailHref: string | null): DrawerPayload {
     prerendered: {},
     labels: { email: "Email" },
     formats: {},
+    references: {},
     detailHref,
     deleted: false,
     restorable: false,

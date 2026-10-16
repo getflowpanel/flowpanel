@@ -24,7 +24,7 @@ Generated creates, updates and deletes publish on their resource automatically. 
 
 The stream serves `resource.<name>` channels to whoever may read that resource. Every other channel must be declared, with who may subscribe:
 
-```ts excerpt
+```ts
 import type { RealtimeConfig } from "@flowpanel/kit";
 
 export const realtime = {
@@ -78,9 +78,11 @@ import type { PublisherOptions } from "@flowpanel/kit";
 export const realtime = {
   driver: "redis",
   url: process.env.REDIS_URL!,
-  keyPrefix: `myapp-${process.env.NODE_ENV}`,
+  keyPrefix: "myapp",
 } satisfies PublisherOptions;
 ```
+
+Do not build the prefix from `NODE_ENV`. A worker started with `tsx` or `node` leaves it unset, so it would publish under `myapp-undefined` while the app listens under `myapp-development`, and FlowPanel warns about a prefix that contains `undefined`. When staging and production share one Redis, read the prefix from a variable that both the app and the worker set.
 
 ```ts
 // worker/admin-events.ts
@@ -98,9 +100,11 @@ export async function orderShipped(order: { id: number }): Promise<void> {
 }
 ```
 
+Run the worker with `tsx`, `node` or your job runner as it is. `@flowpanel/kit/publish` loads both as an ES module and through `require`, so a project without `"type": "module"`, such as a fresh `create-next-app`, needs no `.mts` file.
+
 `resource(name, { id })` refreshes that resource's lists and the widgets subscribed to it; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.
 
-A Redis error never fails the job: the call resolves and the error goes to `onError`, or is logged once per error kind. Create the publisher once per process and `close()` it on shutdown. To reuse a configured `ioredis` client, pass it instead of a URL: `createPublisher({ redis, keyPrefix })`.
+A Redis error never fails the job: the call resolves and the error goes to `onError`, or is logged once per error kind. With Redis down, a publish over a connection made from `url` gives up after one reconnect, in a second or two rather than a minute. A client you pass in keeps its own options; set `maxRetriesPerRequest: 1` on it for the same. Create the publisher once per process and `close()` it on shutdown. To reuse a configured `ioredis` client, pass it instead of a URL: `createPublisher({ redis, keyPrefix })`.
 
 ## Production
 

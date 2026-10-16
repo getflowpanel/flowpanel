@@ -13,6 +13,7 @@ const users = sqliteTable("users_mig", { id: text("id").primaryKey() });
 describe("migrationsTableDdl", () => {
   it("uses postgres types on pg", () => {
     expect(migrationsTableDdl("pg")).toMatch(/applied_at timestamptz NOT NULL DEFAULT now\(\)/);
+    expect(migrationsTableDdl("pg")).toContain("IF to_regclass('_flowpanel_migrations') IS NULL");
   });
 
   it("uses a keyed varchar and CURRENT_TIMESTAMP on mysql", () => {

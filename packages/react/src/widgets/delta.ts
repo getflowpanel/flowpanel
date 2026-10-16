@@ -24,6 +24,8 @@ export interface DeltaView {
   mood: DeltaMood;
   /** Large enough to colour: a relative change of at least `MATERIAL`. */
   material: boolean;
+  /** A change from nothing, which has no comparison to name. */
+  fresh?: true;
 }
 
 /** How a change's numbers print: a value in its own format, a fraction, percentage points. */
@@ -31,6 +33,8 @@ export interface DeltaPrint {
   value: (n: number) => string;
   percent: (fraction: number) => string;
   points: (points: number) => string;
+  /** A change from nothing: `labels.widget.fresh`. */
+  fresh: string;
 }
 
 /** A relative change inside this fraction reads as no change. */
@@ -45,12 +49,14 @@ export function deltaPrint(
   format: NumericFormat | undefined,
   formatting: ResolvedFormatting = DEFAULT_FORMATTING,
   pointsLabel: string = DEFAULT_LABELS.widget.points,
+  freshLabel: string = DEFAULT_LABELS.widget.fresh,
 ): DeltaPrint {
   const onePlace = new Intl.NumberFormat(formatting.locale, { maximumFractionDigits: 1 });
   return {
     value: (n) => formatNumber(n, format, formatting),
     percent: (fraction) => formatPercentValue(fraction, formatting, 1),
     points: (n) => formatLabel(pointsLabel, { value: onePlace.format(n) }),
+    fresh: freshLabel,
   };
 }
 
@@ -63,19 +69,24 @@ function differenceText(
 ): string | null {
   if (typeof current !== "number" || previous === undefined) return null;
   if (format === "percent") return `${sign}${print.points(Math.abs(current - previous) * 100)}`;
-  if (previous === 0) return `${sign}${print.value(Math.abs(current))}`;
   const count = (format === undefined || format === "number") && Number.isInteger(previous);
   if (!count || Math.abs(previous) >= SMALL_BASE) return null;
   return `${sign}${print.value(Math.abs(current - previous))}`;
 }
 
-/** How a change reads: its signed text, whether it is good news, and whether it is large enough to say so. */
+/** How a change reads, whether it is good news and worth colouring; from 0 it is "new", 0 to 0 is nothing. */
 export function describeDelta(
   delta: { value: number; previous?: number | undefined; goodWhen?: GoodWhen | undefined },
   current: number | string,
   format: NumericFormat | undefined,
   print: DeltaPrint,
-): DeltaView {
+): DeltaView | null {
+  if (delta.previous === 0 && typeof current === "number" && format !== "percent") {
+    if (current === 0) return null;
+    const good = delta.goodWhen === "down" ? current < 0 : current > 0;
+    const mood = delta.goodWhen === "neutral" ? "flat" : good ? "good" : "bad";
+    return { text: print.fresh, mood, material: true, fresh: true };
+  }
   const flat = Math.abs(delta.value) < NEUTRAL_BAND;
   const sign = flat ? "" : delta.value > 0 ? "+" : "−";
   const text =

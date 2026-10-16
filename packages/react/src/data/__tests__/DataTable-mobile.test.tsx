@@ -36,6 +36,26 @@ describe("DataTable mobile card view", () => {
     vi.unstubAllGlobals();
   });
 
+  it("shows card placeholders while it loads on a phone, as the loaded list does", () => {
+    const { container } = render(
+      <DataTable
+        columns={[
+          { field: "name", label: "Name" },
+          { field: "email", label: "Email" },
+        ]}
+        rows={[]}
+        total={0}
+        page={1}
+        pageSize={20}
+        rowKey="id"
+        loading
+      />,
+    );
+    expect(container.querySelector("table")).toBeNull();
+    expect(container.querySelectorAll("li")).toHaveLength(5);
+    expect(screen.getAllByText("Email")).toHaveLength(5);
+  });
+
   it("still renders pagination on mobile, not just the card list", () => {
     // Regression: the mobile branch used to early-return only <MobileCardList/>,
     // making rows past page 1 unreachable on a phone.

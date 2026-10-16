@@ -83,7 +83,9 @@ metric("Paid orders", async (ctx) => ({
 <AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="WidgetFormat" />
 
 `ctx.format` formats with the admin's `locale`, `timeZone` and `currency`, the same
-way table cells do.
+way table cells do. Outside a widget, such as in a `page()` component,
+`bindFormat(formatting)` from `@flowpanel/kit` returns the same formatters for a
+`ResolvedFormatting`.
 
 ```ts
 stat("Latency", async (ctx) => {
@@ -106,6 +108,15 @@ columns once a widget sets `span`. On a phone every widget takes the full row.
 
 Every widget and dashboard accepts `realtime`: a channel name, `{ resource: "orders" }`,
 or a list of them. When one fires, only that widget re-runs.
+
+Every widget accepts `access`, the same rule a dashboard or action takes: a role, a
+list of roles, or a function. A widget the caller's role is refused is left out of
+the dashboard, record page or drawer, and its queries never run. A section left
+with no widget is left out too. `ctx.role` gives a query the caller's role.
+
+```ts
+metric("MRR", (ctx) => mrr(ctx.db, ctx.dateRange), { format: "currency", access: "admin" });
+```
 
 `maxRange`, such as `"30d"`, is for rows your app deletes after that long. The
 widget queries from `max(from, to − N, now − N)` and says so in its caption; a
@@ -234,9 +245,23 @@ both. `drilldown: () => null` removes the link.
 `compare: true` runs the query again with `ctx.dateRange.previous` and shows the
 change; `compare: { against: "weekAgo" }` compares with the same range seven days
 earlier. Set `goodWhen: "down"` for costs and errors. A `delta` from the query wins.
+A value that was 0 in the earlier period reads "new" beside "was 0", since a
+percentage of nothing means nothing; 0 both times reads "No change".
 
 ```ts
 metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
+```
+
+A query that sums a cents column returns minor units: set `minorUnits` with
+`format: "currency"` and the card shows the amount, as a chart's `minorUnits` does.
+`stat()` and `bars()` take it too, and `tones` and `max` read the amount shown.
+
+```ts
+metric("Revenue", (ctx) => revenueCents(ctx.db, ctx.dateRange), {
+  format: "currency",
+  minorUnits: 2,
+  compare: true,
+});
 ```
 
 ### MetricResult
@@ -415,9 +440,12 @@ row's `share` itself. A row's `previous` shows its change with the `MetricDelta`
 rules.
 
 `compare: true` (or `{ against: "weekAgo" }`) runs the query for the earlier period
-and fills each row's `previous`, joining by `key`, else `label`. A row missing from
-the earlier period shows no change; `breakdown({ keys })` keeps it at zero. With
-`top`, pass the earlier rows to `breakdown({ previous })` instead.
+and fills each row's `previous`, joining by `key`, else `label`. A row the earlier
+period lacks counts as 0 there, unless those rows fold the rest into "Other", where
+it shows no change. A row that grew from 0 reads "new" instead of a percentage, and
+a row at 0 both times shows no change. A query with a `LIMIT` of its own should fold
+the rest with `breakdown({ top })`, or a row that was just outside it reads "new". With `top`, pass the earlier
+rows to `breakdown({ previous })` instead.
 
 ```ts
 bars({
@@ -688,7 +716,8 @@ Shared by area, bar and line charts.
 
 Without `y`, the chart plots every numeric key of its first row except `x`, which
 is what `series({ by })` returns. `labels` names the series. `bucket` only formats
-date ticks; aggregate with `series({ grain })`.
+date ticks; aggregate with `series({ grain })`. For amounts stored in cents, set
+`format: "currency"` and `minorUnits: 2`, and the axis and tooltips show money.
 
 One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
 order. `colors` pins a series to a colour:
@@ -835,10 +864,12 @@ stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DateRangeConfig" />
 
-`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD"`.
+`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "last12m" | "MTD" | "QTD" | "YTD"`.
 
 `today`, `yesterday`, `MTD`, `QTD` and `YTD` start at midnight in `formatting.timeZone`
 (UTC when it is not set); `last7d` and `last30d` are the last 7 × 24 and 30 × 24 hours.
+`last12m` starts on the 1st of the month eleven months back, so a monthly chart gets
+twelve buckets, the current month included; it compares with the same range a year back.
 
 `presets` limits the picker's choices; `preset` defaults to the first.
 
@@ -880,3 +911,32 @@ dashboard({
 ### PageConfig
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="PageConfig" />
+
+A page's `component` gets the request as props: who is signed in, their tenant, the
+admin's formatting and its strings. `session` is what `auth.session` returned, the
+same object `access` rules see; with a provider preset that is the provider's own
+session, tokens included. Write the page as a server component and hand its client
+children only the fields they need. A `"use client"` page component gets
+`session: null` and `scope: null`, so neither reaches the browser. A component that throws shows an error card with Retry inside the
+admin, as a widget does, and the rest of the admin keeps working.
+
+```tsx
+// src/admin/pages/reports.tsx
+import { bindFormat, type PageProps } from "@flowpanel/kit";
+
+export function ReportsPage({ role, scope, formatting, searchParams }: PageProps) {
+  const format = bindFormat(formatting);
+  return (
+    <p>
+      {role} sees {String(scope?.orgId ?? "every tenant")} for {searchParams.year ?? "this year"}:{" "}
+      {format.money(1999, { minorUnits: 2 })}
+    </p>
+  );
+}
+```
+
+Register it with `page({ path: "/reports", label: "Reports", component: ReportsPage })`.
+
+### PageProps
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="PageProps" />

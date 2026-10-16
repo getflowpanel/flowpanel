@@ -77,6 +77,7 @@ describe("a render that returns a client component", () => {
               labels: {},
               ...RECORD_DEFAULTS,
               formats: {},
+              references: {},
               tabs: [],
               row: { id: "27", model: "gpt" },
             }),

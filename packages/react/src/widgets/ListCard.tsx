@@ -3,7 +3,7 @@ import type * as React from "react";
 import { Card, CardContent } from "../layout/Card";
 import { cn } from "../lib/cn";
 import type { Tone } from "../lib/format";
-import { QUIET_LINK } from "../lib/label-text";
+import { INLINE_LINK, QUIET_LINK } from "../lib/label-text";
 import { toneFillClass } from "../lib/tone-classes";
 import { CardHeading } from "./CardHeading";
 import { EmptyLine } from "./EmptyLine";
@@ -71,12 +71,15 @@ export function ListCard(props: ListCardProps) {
                   ) : null}
                   <ToneWord tone={row.tone} />
                   <span
-                    className={cn(TWO_LINES, "fp-min-w-0 fp-text-sm fp-text-ink")}
+                    className={cn(
+                      row.href ? undefined : TWO_LINES,
+                      "fp-min-w-0 fp-text-sm fp-text-ink",
+                    )}
                     {...fullTextTitle(row.text)}
                   >
                     {row.href ? (
-                      <a href={row.href} className="hover:fp-underline">
-                        {row.text}
+                      <a href={row.href} className={cn(INLINE_LINK, "fp-block")}>
+                        <span className={TWO_LINES}>{row.text}</span>
                       </a>
                     ) : (
                       row.text

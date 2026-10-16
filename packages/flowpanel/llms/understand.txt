@@ -44,7 +44,7 @@ The config, database client and secrets never reach the browser. Do not import `
 5. Run the adapter or the action's `run`.
 6. After commit, emit audit, realtime and revalidation.
 
-A failure in step 6 returns a warning and leaves the write committed. Generated pages, API calls, forms, actions, imports and drawers all use this pipeline. Your own pages, queries and workers do not: apply scope and policies there yourself.
+A failure in step 6 is logged on the server and leaves the write committed; the response reports the write as done ([post-commit effects](/docs/reference/runtime-contracts#post-commit-effects)). Generated pages, API calls, forms, actions, imports and drawers all use this pipeline. Your own pages, queries and workers do not: apply scope and policies there yourself.
 
 ## Adapters and introspection
 

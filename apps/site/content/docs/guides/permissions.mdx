@@ -21,7 +21,7 @@ auth: {
 
 ## A dashboard, page or queue
 
-`access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`.
+`access` on any of them hides it from the navigation and rejects its direct route. A dashboard's `access` also gates its actions, on top of each action's own `access`. A role that opens a refused URL, from a bookmark or a pasted link, sees "You don't have access to …" inside the admin with a link to the next page it can open.
 
 ```ts
 dashboard({ path: "/finance", label: "Finance", access: "admin", sections });
@@ -31,7 +31,7 @@ queue(emailQueue, { label: "Emails", boardUrl, access: "admin" });
 
 ## A resource or action
 
-`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. A resource the caller may not `read` leaves the navigation and rejects its routes.
+`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. A resource the caller may not `read` leaves the navigation and rejects its routes. New and Import show only to a role that may `create`, Edit only to one that may `update`, and opening the list, record, create or edit URL without the rule shows the same in-admin screen.
 
 An action with its own `access` runs under that rule alone, the same one that shows it in the UI. An action without one runs under the resource's `update` rule.
 
@@ -56,7 +56,7 @@ resource(users, {
 
 ## Rows
 
-A row action's `when` is a server-side row condition: it runs on the loaded row, and the route answers 404 when it returns false. `hidden(row)` removes the action for that row and its route also answers 404; `disabled(row)` shows it with a reason and its route answers 409. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
+A row action's `when` is a server-side row condition: it runs on the loaded row, the menus leave the action out for that row, and the route answers 404 when it returns false. `disabled(row)` shows the action with a reason and its route answers 409. `hidden(row)` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`; only the route sees the posted input. For tenant isolation use [scope](/docs/guides/multi-tenant-scope), which applies to every read and write by ID.
 
 ## Read-only mode
 

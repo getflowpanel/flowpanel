@@ -36,7 +36,7 @@ export function restoreRoute(config: ResolvedAdminConfig) {
       }
       const column = String(softDelete);
       const existing = await readRow(config, resource, id, reqCtx);
-      if (!existing) return rowNotFound();
+      if (!existing || existing[column] == null) return rowNotFound();
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
@@ -58,6 +58,7 @@ export function restoreRoute(config: ResolvedAdminConfig) {
             auditDiff(config, resource, existing, { ...existing, [column]: null }, reqCtx, [
               column,
             ]),
+          rows: new Map([[id, existing]]),
         },
         resourceAudit: resource.options.audit,
         publish: { resourceName: name, pathname: buildHref(config, name) },

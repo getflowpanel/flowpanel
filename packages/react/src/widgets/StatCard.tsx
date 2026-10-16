@@ -8,7 +8,7 @@ import { toneTextClass } from "../lib/tone-classes";
 import { useFormatting } from "../provider/FormattingContext";
 import { CaptionLine } from "./CaptionLine";
 import { type CardDate, isCardDate } from "./card-date";
-import { FIGURE } from "./figure";
+import { FIGURE, figureSize } from "./figure";
 import { fullTextTitle, TWO_LINES } from "./wrap-text";
 
 export interface StatCardProps {
@@ -48,12 +48,14 @@ export function StatCard({
   );
   const content = (
     <CardContent>
-      <div className="fp-space-y-1">
+      <div className="fp-width-container fp-space-y-1">
         <div className={cn("fp-text-sm fp-text-soft", TWO_LINES)} {...fullTextTitle(label)}>
           {label}
         </div>
         <CaptionLine caption={caption} />
-        <div className={cn("fp-truncate", FIGURE, toneTextClass[tone])}>{display}</div>
+        <div className={cn("fp-truncate", FIGURE, toneTextClass[tone])} style={figureSize(display)}>
+          {display}
+        </div>
       </div>
       {hint ? (
         <div

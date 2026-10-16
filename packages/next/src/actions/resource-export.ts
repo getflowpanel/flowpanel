@@ -4,13 +4,15 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
-import { humanize, reportUnexpectedError } from "@flowpanel/core";
-import { csvField } from "@flowpanel/core/internal";
+import { reportUnexpectedError, resolveFormatting } from "@flowpanel/core";
+import { csvLine, dayKeyIn } from "@flowpanel/core/internal";
 import { actionFailure } from "../runtime/action-failure";
+import { exportTarget } from "../runtime/action-gate";
 import { actorIdFromSession, buildAuditEvent, maybeEmitAudit } from "../runtime/action-helpers";
-import { columnDefs } from "../runtime/column-defs";
+import { fieldLabels } from "../runtime/field-labels";
 import { listRequestFromParams } from "../runtime/list-request";
 import { type ListRowsPage, type ListRowsQuery, listRows } from "../runtime/list-rows";
+import { majorAmount, moneyDigits } from "../runtime/money-field";
 import { resourceNavName } from "../runtime/nav";
 import { declaredFieldName } from "../runtime/readable-fields";
 import { guardedRoute, lookupResource } from "../runtime/write-pipeline";
@@ -22,19 +24,16 @@ const BATCH = 500;
 type Format = "csv" | "json";
 type Row = Record<string, unknown>;
 
-function cellText(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  if (value instanceof Date) return value.toISOString();
-  return typeof value === "object" ? JSON.stringify(value) : String(value);
-}
-
-/** Header text per field: the column's label, else the field humanized. */
-function headers(resource: ResourceConfig, fields: readonly string[]): string[] {
-  const labels = new Map<string, string>();
-  for (const column of columnDefs(resource)) {
-    if (column.field && column.label) labels.set(column.field, column.label);
-  }
-  return fields.map((field) => labels.get(field) ?? humanize(field));
+/** Header text per field: its label, or its name where an earlier column has that label; import reads it back. */
+function exportHeaders(resource: ResourceConfig, fields: readonly string[]): string[] {
+  const labelOf = fieldLabels(resource);
+  const seen = new Set<string>();
+  return fields.map((field) => {
+    const label = labelOf(field);
+    const header = seen.has(label.toLowerCase()) ? field : label;
+    seen.add(header.toLowerCase());
+    return header;
+  });
 }
 
 /** The columns, in table order, unless `export.fields` names its own. */
@@ -58,26 +57,47 @@ function fileName(
   capped: number | null,
   format: Format,
   now: Date,
+  timeZone: string,
 ): string {
   const parts = [
     name,
     filtered ? "filtered" : "all",
     ...(capped === null ? [] : [`first-${capped}`]),
-    now.toISOString().slice(0, 10),
+    dayKeyIn(now, timeZone),
   ];
   return `${parts.join("-").replace(/[^A-Za-z0-9._-]+/g, "-")}.${format}`;
 }
 
-function encodeRows(format: Format, fields: readonly string[], rows: Row[], first: boolean) {
+/** A cell as the file holds it: a money amount in major units, `59.00`, anything else as stored. */
+function cell(row: Row, field: string, money: ReadonlyMap<string, number>): unknown {
+  const digits = money.get(field);
+  return digits === undefined ? row[field] : majorAmount(row[field], digits);
+}
+
+function encodeRows(
+  format: Format,
+  fields: readonly string[],
+  rows: Row[],
+  first: boolean,
+  money: ReadonlyMap<string, number>,
+) {
   if (format === "csv") {
     return rows
-      .map((row) => `${fields.map((field) => csvField(cellText(row[field]))).join(",")}\r\n`)
+      .map((row) => `${csvLine(fields.map((field) => cell(row, field, money)))}\r\n`)
       .join("");
   }
   return rows
     .map((row, index) => {
       const item = Object.fromEntries(
-        fields.map((field) => [field, toWireValue(row[field] ?? null, field)]),
+        fields.map((field) => {
+          const value = cell(row, field, money);
+          return [
+            field,
+            money.has(field) && typeof value === "string"
+              ? Number(value)
+              : toWireValue(value ?? null, field),
+          ];
+        }),
       );
       return `${first && index === 0 ? "" : ","}\n${JSON.stringify(item)}`;
     })
@@ -107,7 +127,7 @@ export function exportRoute(config: ResolvedAdminConfig) {
     resolve: (params) => {
       const resource = lookupResource(config, params.resource);
       if (resource instanceof Response) return resource;
-      return { spec: { resource, operation: "read" }, target: resource };
+      return { spec: exportTarget(resource), target: resource };
     },
     handle: async ({ req, reqCtx, target: resource }) => {
       const options = resource.options.export;
@@ -133,6 +153,7 @@ export function exportRoute(config: ResolvedAdminConfig) {
         pageSize: Math.min(BATCH, maxRows),
       });
       const capped = firstPage.total > maxRows ? maxRows : null;
+      const money = moneyDigits(config, resource);
       const name = resourceNavName(resource);
       const filtered =
         listing.search !== "" || Object.keys(listing.filters).length > 0 || !!query.includeDeleted;
@@ -153,7 +174,7 @@ export function exportRoute(config: ResolvedAdminConfig) {
         start(controller) {
           controller.enqueue(
             encoder.encode(
-              format === "csv" ? `${headers(resource, fields).map(csvField).join(",")}\r\n` : "[",
+              format === "csv" ? `${csvLine(exportHeaders(resource, fields))}\r\n` : "[",
             ),
           );
         },
@@ -161,7 +182,7 @@ export function exportRoute(config: ResolvedAdminConfig) {
           try {
             page ??= await listRows(config, resource, reqCtx, { ...query, page: index, pageSize });
             const rows = page.rows.slice(0, maxRows - sent);
-            controller.enqueue(encoder.encode(encodeRows(format, fields, rows, sent === 0)));
+            controller.enqueue(encoder.encode(encodeRows(format, fields, rows, sent === 0, money)));
             sent += rows.length;
             const done =
               rows.length === 0 ||
@@ -188,7 +209,7 @@ export function exportRoute(config: ResolvedAdminConfig) {
         headers: {
           "content-type":
             format === "csv" ? "text/csv; charset=utf-8" : "application/json; charset=utf-8",
-          "content-disposition": `attachment; filename="${fileName(name, filtered, capped, format, new Date())}"`,
+          "content-disposition": `attachment; filename="${fileName(name, filtered, capped, format, new Date(), resolveFormatting(config.formatting).timeZone)}"`,
           "cache-control": "no-store",
           ...(capped === null ? {} : { "x-flowpanel-export-capped": String(capped) }),
         },

@@ -23,12 +23,12 @@ export interface ChartOptionsBase<R = unknown> extends CaptionOptions {
    * for a single series, `--fp-chart-1…7` in `y` order for several.
    */
   colors?: Readonly<Record<string, string>>;
-  /** Chart height in px.
-   * @defaultValue 240
-   */
+  /** Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. */
   height?: number;
   /** How y-values are rendered in ticks and tooltips. */
   format?: NumericFormat;
+  /** The y-values are minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. */
+  minorUnits?: number;
   /** `false` omits the `<Tooltip>` entirely. */
   tooltip?: "default" | "compact" | false;
   /** Turns the whole card into a link — a path, a named target, or one computed from the context. */
@@ -72,7 +72,7 @@ export interface PieChartOptions<R = unknown> extends CaptionOptions {
    * @defaultValue true
    */
   showLegend?: boolean;
-  /** Chart height in px. */
+  /** Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. */
   height?: number;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;

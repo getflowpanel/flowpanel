@@ -23,13 +23,22 @@ const TabsList = /* @__PURE__ */ named(
   TabsPrimitive.List,
 );
 
+/** `focusVisible` is in every engine but not yet in TypeScript's `FocusOptions`. */
+const POINTER_FOCUS = { preventScroll: false, focusVisible: false };
+
 const TabsTrigger = /* @__PURE__ */ named(
   /* @__PURE__ */ React.forwardRef<
     React.ElementRef<typeof TabsPrimitive.Trigger>,
     React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
-  >(({ className, ...props }, ref) => (
+  >(({ className, onMouseDown, ...props }, ref) => (
     <TabsPrimitive.Trigger
       ref={ref}
+      onMouseDown={(event) => {
+        onMouseDown?.(event);
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || props.disabled) return;
+        // Focus first without the ring; Radix's own focus() then finds the tab focused and draws none.
+        event.currentTarget.focus(POINTER_FOCUS);
+      }}
       className={cn(
         "fp-inline-flex fp-min-h-11 fp-items-center fp-justify-center fp-whitespace-nowrap fp-rounded fp-px-3 fp-py-1 fp-text-sm sm:fp-min-h-0 fp-font-medium fp-transition-all hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 disabled:fp-pointer-events-none disabled:fp-opacity-50 data-[state=active]:fp-bg-surface data-[state=active]:fp-text-ink data-[state=active]:fp-shadow-sm",
         className,

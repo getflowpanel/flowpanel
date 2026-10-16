@@ -8,6 +8,7 @@ import type {
 import { mergeLabels, resolveFormatting } from "@flowpanel/core";
 import { RelatedTabTable } from "@flowpanel/next/client";
 import type { ReactNode } from "react";
+import { fieldLabels } from "../../runtime/field-labels";
 import { declaredFieldSet, parsePage } from "../../runtime/parse-list-params";
 import { prerenderResourceCells } from "../../runtime/prerender-cells";
 import { projectRowFields } from "../../runtime/project-row";
@@ -139,7 +140,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   if (!result) {
     return (
       <div className="fp-px-2 fp-py-6 fp-text-sm fp-text-faint">
-        {tab.emptyState ?? labels.noResults}
+        {tab.emptyState ?? labels.table.noResults}
       </div>
     );
   }
@@ -152,6 +153,8 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
     reqCtx,
     {
       metaByField,
+      formatting: resolveFormatting(config.formatting),
+      labelOf: fieldLabels(target),
     },
   );
   for (const column of columns) column.sortable = sortable.has(column.field);

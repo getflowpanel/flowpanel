@@ -80,6 +80,7 @@ Your own component in the grid. `props` is a value or a server function. See
 | `realtime?` | `RealtimeOption` | Re-run the query when any of these fire: a channel name, or `{ resource }` for that resource's own changes. |
 | `frame?` | `boolean` | Wrap the component in the standard widget card. Default: `true`. |
 | `label?` | `string` | The card's title when framed, and the name errors and slow-widget timings use. |
+| `minHeight?` | `number` | The height in px the widget keeps, while it loads and after, so the page below it does not jump when it arrives. |
 
 ### Charts
 
@@ -104,8 +105,9 @@ Shared by area, bar and line charts.
 | `y?` | `RowKey<R> \| RowKey<R>[]` | Row key(s) plotted on the y-axis; an array draws one series per key. Default: every key of the first row except `x`, in its order — the columns a `series({ by })` returns. |
 | `labels?` | `KeyLabels` | Legend and tooltip name per series key: a map, an `enumOf()` or a function. Default: the key. |
 | `colors?` | `Readonly<Record<string, string>>` | A CSS colour per series key, e.g. `{ paid: "hsl(var(--fp-chart-1))" }`. Default: `--fp-data` for a single series, `--fp-chart-1…7` in `y` order for several. |
-| `height?` | `number` | Chart height in px. Default: `240`. |
+| `height?` | `number` | Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. |
 | `format?` | `NumericFormat` | How y-values are rendered in ticks and tooltips. |
+| `minorUnits?` | `number` | The y-values are minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. |
 | `tooltip?` | `"default" \| "compact" \| false` | `false` omits the `<Tooltip>` entirely. |
 | `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
@@ -117,7 +119,8 @@ Shared by area, bar and line charts.
 
 Without `y`, the chart plots every numeric key of its first row except `x`, which
 is what `series({ by })` returns. `labels` names the series. `bucket` only formats
-date ticks; aggregate with `series({ grain })`.
+date ticks; aggregate with `series({ grain })`. For amounts stored in cents, set
+`format: "currency"` and `minorUnits: 2`, and the axis and tooltips show money.
 
 One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
 order. `colors` pins a series to a colour:
@@ -170,7 +173,7 @@ unless you pass `showLegend: false`.
 | `value` | `RowKey<R>` | Row key holding each slice's magnitude. |
 | `donut?` | `boolean` | Cut a hole in the middle. |
 | `showLegend?` | `boolean` | Show the slice legend. Default: `true`. |
-| `height?` | `number` | Chart height in px. |
+| `height?` | `number` | Chart height in px. Unset, it is 2/7 of the card's width, between 240 and 320. |
 | `span?` | `Span` | Width in the dashboard's 12-column grid. |
 | `maxRange?` | `RangeLimit` | Cap the date range at its last N days — `"30d"` — for data kept only that long. |
 | `drilldown?` | `Link` | Turns the whole card into a link — a path, a named target, or one computed from the context. |
@@ -321,10 +324,12 @@ stretch to the row; `align: "start"` or `"stretch"` sets it for all.
 | `default?` | `{ from: Date; to: Date }` | Explicit range used when no preset is given. |
 | `presets?` | `DateRangePreset[]` | Presets the picker offers, in order. A URL preset outside the list is ignored, and without `preset` or `default` the first entry is selected. Default: all seven. |
 
-`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD"`.
+`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "last12m" | "MTD" | "QTD" | "YTD"`.
 
 `today`, `yesterday`, `MTD`, `QTD` and `YTD` start at midnight in `formatting.timeZone`
 (UTC when it is not set); `last7d` and `last30d` are the last 7 × 24 and 30 × 24 hours.
+`last12m` starts on the 1st of the month eleven months back, so a monthly chart gets
+twelve buckets, the current month included; it compares with the same range a year back.
 
 `presets` limits the picker's choices; `preset` defaults to the first.
 
@@ -390,6 +395,44 @@ dashboard({
 | `label` | `string` | Nav entry and page title. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
 | `navGroup?` | `NavGroupRef` | Sidebar group for this entry. Default: the kind's own group — Dashboards or Pages. |
-| `component?` | `ComponentType<Record<string, never>>` | Server or client React component rendered at `<paths.admin><path>`. |
+| `component?` | `ComponentType<PageProps>` | Server or client React component rendered at `<paths.admin><path>`; a failure shows an error card inside the admin. |
 | `href?` | `string` | External href used when `component` is not provided. |
 | `access?` | `AccessRule` | Who may see and open this page. |
+
+A page's `component` gets the request as props: who is signed in, their tenant, the
+admin's formatting and its strings. `session` is what `auth.session` returned, the
+same object `access` rules see; with a provider preset that is the provider's own
+session, tokens included. Write the page as a server component and hand its client
+children only the fields they need. A `"use client"` page component gets
+`session: null` and `scope: null`, so neither reaches the browser. A component that throws shows an error card with Retry inside the
+admin, as a widget does, and the rest of the admin keeps working.
+
+```tsx
+// src/admin/pages/reports.tsx
+import { bindFormat, type PageProps } from "@flowpanel/kit";
+
+export function ReportsPage({ role, scope, formatting, searchParams }: PageProps) {
+  const format = bindFormat(formatting);
+  return (
+    <p>
+      {role} sees {String(scope?.orgId ?? "every tenant")} for {searchParams.year ?? "this year"}:{" "}
+      {format.money(1999, { minorUnits: 2 })}
+    </p>
+  );
+}
+```
+
+Register it with `page({ path: "/reports", label: "Reports", component: ReportsPage })`.
+
+#### PageProps
+
+`PageProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `session` | `Session \| null` | What `auth.session` returned, the session `access` rules see; `null` for a `"use client"` component, so a provider's tokens never reach the browser. |
+| `role` | `string` | The signed-in role, as `auth.role` returns it. |
+| `scope` | `Scope` | The tenant `scope` resolved for this request; `null` without one, and for a `"use client"` component. |
+| `formatting` | `ResolvedFormatting` | Locale, time zone and currency from `formatting`; `bindFormat(formatting)` gives the formatters a widget gets as `ctx.format`. |
+| `labels` | `ResolvedLabels` | The admin's resolved strings, in its locale. |
+| `searchParams` | `Readonly<Record<string, string>>` | The page URL's query string; the last value wins for a repeated key. |

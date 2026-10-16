@@ -10,6 +10,7 @@ import type {
 } from "@flowpanel/core";
 import { ReferenceCell } from "@flowpanel/react";
 import type * as React from "react";
+import { fieldLabels } from "../../runtime/field-labels";
 import { formatFieldValue } from "../../runtime/format-field-value";
 import { buildHref } from "../../runtime/href";
 import { prerenderResourceCells } from "../../runtime/prerender-cells";
@@ -31,7 +32,9 @@ export function buildDetailCells<Row extends Record<string, unknown>>(
   const out = new Map<string, DetailCell>();
   const defs = resource.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>> | undefined;
   if (!defs || defs.length === 0) return out;
-  const { columns, prerenderedCells } = prerenderResourceCells<Row>(defs, [row], reqCtx);
+  const { columns, prerenderedCells } = prerenderResourceCells<Row>(defs, [row], reqCtx, {
+    labelOf: fieldLabels(resource),
+  });
   columns.forEach((c, i) => {
     const cell: DetailCell = {};
     if (c.label !== undefined) cell.label = c.label;

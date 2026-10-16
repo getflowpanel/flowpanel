@@ -5,6 +5,7 @@ import {
   defineAdmin,
   FlowpanelAccessError,
   FlowpanelAuthError,
+  FlowpanelConfigError,
   FlowpanelRateLimitError,
   resource,
 } from "@flowpanel/core";
@@ -18,6 +19,7 @@ vi.mock("next/navigation", async (importOriginal) => ({
 }));
 
 import { handleRenderError } from "../flowpanel-page";
+import { sessionFailedWall } from "../runtime/walls";
 
 afterEach(cleanup);
 
@@ -170,5 +172,32 @@ describe("a refused page leaves a way out", () => {
     cleanup();
     await refusal(new FlowpanelRateLimitError(), admin({ formatting: { locale: "ru-RU" } }, true));
     expect(screen.getByRole("heading", { level: 1, name: "Слишком много запросов" })).toBeTruthy();
+  });
+});
+
+describe("a session provider that throws", () => {
+  it("shows a readable screen with the request id instead of Next's bare error page", () => {
+    const config = admin({}, true);
+    vi.stubEnv("NODE_ENV", "production");
+    render(sessionFailedWall(config, "req-42", new Error("connect ECONNREFUSED 10.0.0.5:5432")));
+    expect(screen.getByRole("heading", { level: 1, name: "Something went wrong" })).toBeTruthy();
+    expect(screen.getByText("req-42", { exact: false })).toBeTruthy();
+    expect(screen.queryByText(/ECONNREFUSED/)).toBeNull();
+    vi.unstubAllEnvs();
+  });
+
+  it("says what FlowPanel itself refused, such as the development stub in production", () => {
+    const config = admin({}, true);
+    vi.stubEnv("NODE_ENV", "production");
+    const refusal = new FlowpanelConfigError(
+      "auth.session",
+      "the stub refuses to run in production.",
+    );
+    render(sessionFailedWall(config, "req-43", refusal));
+    expect(screen.getByText(refusal.message)).toBeTruthy();
+    cleanup();
+    render(sessionFailedWall(config, "req-44", new Error("[flowpanel] /srv/app/lib/auth.ts: no")));
+    expect(screen.queryByText(/srv\/app/)).toBeNull();
+    vi.unstubAllEnvs();
   });
 });

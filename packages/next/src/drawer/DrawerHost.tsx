@@ -69,7 +69,9 @@ export function DrawerHost() {
         if (res.status === 404) throw new Error(labels.drawer.missing);
         if (!res.ok) {
           const body: unknown = await res.json().catch(() => ({ error: res.statusText }));
-          throw new Error(readActionFailure(body).message ?? labels.drawer.loadFailed);
+          throw new Error(
+            readActionFailure(body, labels.errors).message ?? labels.drawer.loadFailed,
+          );
         }
         return (await res.json()) as DrawerPayload;
       })

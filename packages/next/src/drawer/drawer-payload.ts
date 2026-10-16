@@ -10,13 +10,16 @@ import type {
 } from "@flowpanel/core";
 import { mergeLabels } from "@flowpanel/core";
 import { isColumnDef } from "../runtime/column-defs";
+import { fieldLabels } from "../runtime/field-labels";
 import { buildHref } from "../runtime/href";
 import { projectRowFields } from "../runtime/project-row";
 import { filterColumnsByReadableFields, resolveReadableColumns } from "../runtime/readable-fields";
 import { type RecordActions, recordActions } from "../runtime/record-actions";
 import { readRelatedRows } from "../runtime/require-authorized";
+import { resolveReferences } from "../runtime/resolve-references";
 import { singularLabel, singularTitle } from "../runtime/resource-title";
 import { rowKeyOf } from "../runtime/row-identity";
+import { visibleWidgets } from "../runtime/widget-access";
 import { buildWidgetContext } from "../runtime/widget-context";
 import type { SerializedDrawerAction } from "./drawer-action";
 import { prerenderDrawerCells } from "./prerender";
@@ -34,6 +37,8 @@ export type SerializedDrawerTab =
       resource: string;
       rows: Record<string, unknown>[];
       columns: string[];
+      /** Column → its header, as the related list labels it. */
+      columnLabels: Record<string, string>;
     }
   | {
       kind: "widgets";
@@ -55,10 +60,12 @@ export interface DrawerPayload extends Omit<RecordActions, "drawerActions"> {
   actions: SerializedDrawerAction[];
   /** Field → HTML for fields whose column declares a `render`. */
   prerendered: Record<string, string>;
-  /** Field → column label, so drawer rows read like their table headers. */
+  /** Field → the label it shows on every other surface, so drawer rows read like their table headers. */
   labels: Record<string, string>;
   /** Field → column `format`. Plain data, rendered client-side exactly as the table does. */
   formats: Record<string, ColumnFormat>;
+  /** Field → the record a `reference` column points at, so a drawer opened from a link reads like one opened from its row. */
+  references: Record<string, { label: string; href: string }>;
   /** The record's own page, when the resource configures `detail`. */
   detailHref: string | null;
   /** Soft-deleted, shown only to a caller who could restore it. */
@@ -67,6 +74,28 @@ export interface DrawerPayload extends Omit<RecordActions, "drawerActions"> {
   deletedTitle?: string;
   /** A deleted row whose resource takes updates, so Restore can bring it back. */
   restorable: boolean;
+}
+
+/** Field → label and link of each `reference` column's record, through the target's own read rules. */
+async function referenceLinks(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  columns: ReadonlyArray<keyof Record<string, unknown> | ColumnDef<Record<string, unknown>>>,
+  row: Record<string, unknown>,
+): Promise<Record<string, { label: string; href: string }>> {
+  const labels = await resolveReferences(config, reqCtx, columns, [row]);
+  const out: Record<string, { label: string; href: string }> = {};
+  for (const column of columns.filter(isColumnDef)) {
+    const field = String(column.field ?? "");
+    const id = row[field];
+    const label = labels.get(field)?.get(String(id));
+    if (!column.reference || id === null || id === undefined || label === undefined) continue;
+    out[field] = {
+      label: String(label),
+      href: buildHref(config, column.reference.resource, String(id)),
+    };
+  }
+  return out;
 }
 
 /** Map of field → column `format`, so drawer rows format like their table cells. */
@@ -78,13 +107,13 @@ function buildFieldFormats(columns: ReadonlyArray<unknown>): Record<string, Colu
   return out;
 }
 
-/** Map of field → column `label`, for fields whose column sets one. */
-function buildFieldLabels(columns: ReadonlyArray<unknown>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const col of columns.filter(isColumnDef)) {
-    if (col.field && col.label) out[col.field] = col.label;
-  }
-  return out;
+/** Field → the label it shows everywhere else, for each field the reader may see. */
+function buildFieldLabels(
+  resource: ResourceConfig,
+  row: Record<string, unknown>,
+): Record<string, string> {
+  const labelOf = fieldLabels(resource);
+  return Object.fromEntries(Object.keys(row).map((field) => [field, labelOf(field)]));
 }
 
 async function serializeTab(
@@ -116,7 +145,7 @@ async function serializeTab(
       resource,
     );
     const widgets: SerializedWidget[] = [];
-    for (const w of tab.widgets) {
+    for (const w of await visibleWidgets(tab.widgets, reqCtx)) {
       widgets.push(await serializeWidget(w, config, reqCtx, widgetCtx));
     }
     return { kind: "widgets", key: tab.key, label: tab.label, widgets };
@@ -136,6 +165,7 @@ async function serializeTab(
       resource: tab.resource,
       rows: [],
       columns: [],
+      columnLabels: {},
     };
   }
   const readableColumns = await resolveReadableColumns(
@@ -148,13 +178,16 @@ async function serializeTab(
     const col = c as { field?: string };
     return String(col.field ?? "");
   });
+  const shown = columns.filter((c) => c);
+  const labelOf = fieldLabels(target);
   return {
     kind: "resource",
     key: tab.key,
     label: tab.label,
     resource: tab.resource,
     rows,
-    columns: columns.filter((c) => c),
+    columns: shown,
+    columnLabels: Object.fromEntries(shown.map((c) => [c, labelOf(c)])),
   };
 }
 
@@ -169,6 +202,11 @@ export interface DrawerPayloadArgs {
   reqCtx: RequestContext;
   req: Request;
   deleted?: boolean;
+}
+
+function deletedTitle(config: ResolvedAdminConfig, resource: ResourceConfig, name: string): string {
+  const labels = mergeLabels(config.labels);
+  return singularTitle(labels.detail.deleted, resource, name, labels.dateRange.locale);
 }
 
 /** Everything the drawer shows for one row, built from fields the caller may read. */
@@ -232,13 +270,12 @@ export async function buildDrawerPayload({
       projectedRow,
       reqCtx,
     ),
-    labels: buildFieldLabels(columns),
+    labels: buildFieldLabels(resource, projectedRow),
     formats: buildFieldFormats(columns),
+    references: await referenceLinks(config, reqCtx, columns, projectedRow),
     detailHref: resource.options.detail ? buildHref(config, name, id) : null,
     deleted,
-    ...(deleted
-      ? { deletedTitle: singularTitle(mergeLabels(config.labels).detail.deleted, resource, name) }
-      : {}),
+    ...(deleted ? { deletedTitle: deletedTitle(config, resource, name) } : {}),
     restorable: deleted && !resource.options.update?.disabled,
     ...menu,
   };

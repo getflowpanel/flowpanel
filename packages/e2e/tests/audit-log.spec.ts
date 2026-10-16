@@ -47,7 +47,7 @@ test("a record's History tab and the Audit log show who changed what, per sandbo
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Audit log");
     const logged = page.locator("[data-fp-audit-event]").filter({ hasText: title });
     await expect(logged).toHaveCount(1);
-    await logged.getByRole("link", { name: `Product ${id}` }).click();
+    await logged.getByRole("link", { name: title }).click();
     await expect(page).toHaveURL(new RegExp(`/admin/products/${id}$`));
 
     await page.goto("/admin/audit-log?resource=customers");

@@ -83,3 +83,45 @@ test("demo persona makes the field-level policy visible", async ({ page }) => {
   await page.goto("/admin/products");
   await expect(page.getByRole("columnheader", { name: "Our price" })).toBeVisible();
 });
+
+test("the overview, a list and a record page share one 1600 px frame and header edge", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1920, height: 900 });
+  const edges = () =>
+    page.evaluate(() => {
+      const inner = (selector: string) => {
+        const el = document.querySelector(selector);
+        if (!el) return null;
+        const box = el.getBoundingClientRect();
+        const style = getComputedStyle(el);
+        return [
+          Math.round(box.left + Number.parseFloat(style.paddingLeft)),
+          Math.round(box.right - Number.parseFloat(style.paddingRight)),
+        ];
+      };
+      const heading = document.querySelector("main h1")?.getBoundingClientRect();
+      return {
+        main: inner("main"),
+        tabs: inner("nav[data-flowpanel-nav] > div"),
+        heading: heading ? Math.round(heading.left) : null,
+      };
+    });
+
+  await page.goto("/admin/customers");
+  await page.locator("tbody tr").first().click();
+  await expect(page).toHaveURL(/drawer=customers(?::|%3A)/);
+  const customer = new URL(page.url()).searchParams.get("drawer")?.split(":")[1];
+  expect(customer).toBeTruthy();
+
+  for (const path of ["/admin", "/admin/listings", `/admin/customers/${customer}`]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    expect(await edges(), path).toEqual({ main: [160, 1760], tabs: [160, 1760], heading: 160 });
+  }
+  await expect(page).toHaveURL(new RegExp(`/admin/customers/${customer}$`));
+  const record = await page.locator("main > div").first().boundingBox();
+  expect(record).not.toBeNull();
+  expect(Math.round(record?.x ?? 0)).toBe(160);
+  expect(Math.round((record?.x ?? 0) + (record?.width ?? 0))).toBe(160 + 77 * 16);
+});

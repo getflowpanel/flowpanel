@@ -62,6 +62,7 @@ export type {
   DateRangePreset,
   NavGroupRef,
   PageConfig,
+  PageProps,
   ResolvedDateRange,
   SectionConfig,
   WidgetDateRange,
@@ -70,7 +71,6 @@ export type { DetailBadge, DetailHeaderContext, DetailOptions } from "./detail";
 export type {
   DrawerAction,
   DrawerConfig,
-  DrawerFieldFormSpec,
   DrawerFieldList,
   DrawerTab,
   DrawerTabFields,
@@ -112,6 +112,7 @@ export type {
   DetailTab,
   DetailTabContext,
   FieldDef,
+  FieldDefaultValue,
   FieldType,
   FilterDef,
   FilterType,

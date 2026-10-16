@@ -135,8 +135,15 @@ const STARTER_MODULES: Record<MissingModule["kind"], string[]> = {
   ],
 };
 
+const USERS_TABLE =
+  "CREATE TABLE users (id text PRIMARY KEY, email text NOT NULL, created_at timestamp NOT NULL DEFAULT now());";
+
 /** What to do when the modules init guessed do not exist: starting files, or the flags that point at yours. */
-export function missingModuleMessage(missing: readonly MissingModule[], pmc: PmCommands): string {
+export function missingModuleMessage(
+  missing: readonly MissingModule[],
+  pmc: PmCommands,
+  installed: { pg: boolean } = { pg: false },
+): string {
   const names = missing.map((entry) => MODULE_NAMES[entry.kind]).join(" and ");
   const flags = missing.map((entry) => `${entry.flag} <module>`).join(" and ");
   return [
@@ -146,8 +153,15 @@ export function missingModuleMessage(missing: readonly MissingModule[], pmc: PmC
       "",
       `  ${entry.file}`,
       ...STARTER_MODULES[entry.kind].map((line) => (line ? `    ${line}` : "")),
-      ...(entry.kind === "db"
+      ...(entry.kind === "db" && !installed.pg
         ? ["", `  It needs the pg driver: ${pmc.addDisplay("pg", false)}`]
+        : []),
+      ...(entry.kind === "schema"
+        ? [
+            "",
+            "  Then create its table in your database, for example with psql:",
+            `    ${USERS_TABLE}`,
+          ]
         : []),
     ]),
     "",

@@ -49,8 +49,10 @@ describe("long widget text wraps to two lines", () => {
 
   it("wraps a list row's text and meta", () => {
     render(<ListCard rows={[{ text: LONG, meta: LONG, href: "/admin/x" }]} />);
-    const [text, meta] = screen.getAllByTitle(LONG);
-    expectWrapped(text as HTMLElement);
+    const [, meta] = screen.getAllByTitle(LONG);
+    // A linked text is clamped inside its link, so the link's padding stays a whole 24 px target.
+    expect(screen.getByRole("link").querySelector("span")?.className).toContain("fp-line-clamp-2");
+    expect(screen.getByRole("link").parentElement?.getAttribute("title")).toBe(LONG);
     expectWrapped(meta as HTMLElement);
     expect(screen.getByRole("link").textContent).toBe(LONG);
   });

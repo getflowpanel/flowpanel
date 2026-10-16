@@ -1,5 +1,5 @@
 "use client";
-import { moneyMinorUnits } from "@flowpanel/core/format";
+import { majorUnitsInput, moneyMinorUnits } from "@flowpanel/core/format";
 import {
   Button,
   Dialog,
@@ -48,6 +48,27 @@ export function ActionFormDialog({
   const [fieldErrors, setFieldErrors] = React.useState<ActionFormFieldErrors | null>(null);
   const [pending, setPending] = React.useState(false);
   const names = React.useMemo(() => fields.map((f) => f.name), [fields]);
+  const defaults = React.useMemo(() => {
+    const separator =
+      new Intl.NumberFormat(formatting.locale)
+        .formatToParts(1.1)
+        .find((part) => part.type === "decimal")?.value ?? ".";
+    // A money default is in stored units, as on a resource form, so the control shows major units.
+    const shown = (f: ActionFormField) =>
+      f.type === "money"
+        ? majorUnitsInput(f.defaultValue, {
+            minorUnits: moneyMinorUnits(f.minorUnits, f.currency ?? formatting.currency),
+            storage: f.storage ?? "minor",
+            decimalSeparator: separator,
+          })
+        : f.defaultValue;
+    return Object.fromEntries(
+      fields.flatMap((f) => {
+        const start = shown(f);
+        return start === undefined ? [] : [[f.name, start]];
+      }),
+    );
+  }, [fields, formatting]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -96,6 +117,7 @@ export function ActionFormDialog({
             <StandaloneFormFields
               formId={formId}
               names={names}
+              defaults={defaults}
               {...(fieldErrors ? { errors: fieldErrors } : {})}
             >
               {fields.map((f) => (

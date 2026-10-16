@@ -9,7 +9,14 @@ import {
 import { resolveFormatting } from "../types/formatting";
 
 describe("formatColumnValue", () => {
-  it("formats money from integer cents via scale", () => {
+  it("formats money from integer cents via minorUnits, as a money field does", () => {
+    expect(formatColumnValue(16065, { kind: "money", minorUnits: 2 })).toBe("$160.65");
+    expect(formatColumnValue(1500, { kind: "money", currency: "JPY", minorUnits: 0 })).toBe(
+      "¥1,500",
+    );
+  });
+
+  it("still reads the deprecated scale", () => {
     expect(formatColumnValue(16065, { kind: "money", scale: 100 })).toBe("$160.65");
   });
 

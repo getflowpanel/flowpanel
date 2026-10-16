@@ -60,13 +60,13 @@ export interface RowAction<Row, Input extends ActionInput = ActionInput, Output 
   inputSchema?: z.ZodType<Input>;
   /** Required before arbitrary `data` may cross the client boundary. */
   outputSchema?: z.ZodType<Output>;
-  /** Hide the action for rows it does not apply to. Evaluated server-side per row. */
+  /** @deprecated Use `when` with the condition reversed. */
   hidden?: (row: Row, ctx: RequestContext) => boolean | Promise<boolean>;
   /** Disable with a reason. A string is shown to the operator. */
   disabled?: (row: Row) => boolean | string;
   /** Restrict the action to a role. Enforced before `run`. */
   access?: AccessRule;
-  /** Server-enforced row condition, evaluated only after a scoped row load. */
+  /** Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. */
   when?: (context: FieldWriteContext<Row>) => boolean | Promise<boolean>;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];

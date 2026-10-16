@@ -19,6 +19,8 @@ export interface WidgetLabels {
   previous?: string;
   /** A rate's change in percentage points. Use `{value}`. */
   points?: string;
+  /** A change from nothing in the compared period, where a percentage has no base. */
+  fresh?: string;
   /** A metric's change too small to show, before what it is compared with. */
   noChange?: string;
   /** What a compared metric's change is measured against. */

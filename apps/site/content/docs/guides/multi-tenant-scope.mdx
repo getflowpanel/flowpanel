@@ -64,11 +64,54 @@ The predicate applies to lists, lookups, updates, deletes, restores, references 
 - On update, both adapters refuse a change that would move the row out of the scope, through the JSON API, forms and inline edits alike. The request fails with `403` and the row stays as it was. Drizzle checks inside a transaction on PostgreSQL and MySQL and inside the `UPDATE` itself on SQLite.
 - A driver without interactive transactions, such as `drizzle-orm/neon-http`, gets the same guarantee from a check that runs just before the write, as on SQLite; Prisma uses `$transaction`.
 
+The New button follows `access.create`, not the scope, so it cannot know that a write would land outside the tenant. On the tenants table itself, where a bound user's new row never matches their scope, limit create to your staff role: `access: { create: "admin" }`.
+
 ## Fail closed
 
 With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither, or whose predicate adds no constraint, throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
 
 `ctx.sql`, `ctx.db` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself, reading the tenant from `ctx.session`.
+
+## Staff who work across tenants
+
+Platform staff often need every tenant at once. Return `allTenants` for them, and a tenant for everyone else:
+
+```ts
+import { allTenants } from "@flowpanel/kit";
+
+export default defineAdmin({
+  adapter,
+  auth: flowpanelAuth,
+  scope: async ({ session }) => {
+    if (session?.user?.role === "admin") return allTenants;
+    const tenantId = session?.user?.tenantId;
+    if (!tenantId) throw new Error("No tenant selected");
+    return { tenantId };
+  },
+  resources,
+});
+```
+
+For a request with `allTenants`, FlowPanel skips the resource predicates, so lists, lookups and writes reach every tenant's rows. Every other check stays: access rules, field rules, and the fail-closed check for a user who has a tenant. Do not return a predicate that adds no condition, such as `sql\`true\``: FlowPanel refuses it.
+
+`ctx.scope` is `allTenants` in that request, so a hidden tenant field whose `defaultValue` reads `ctx.scope?.tenantId` gets nothing. Give such staff a visible tenant field on create, or leave create to the tenant's own users.
+
+So that a tenant's audit history includes what staff did to its rows, tell each tenant-owned resource which tenant a row belongs to, in the shape `scope` returns:
+
+```ts
+import { eq, type SQL } from "drizzle-orm";
+
+resource(schema.orders, {
+  columns: ["number", "status", "total"],
+  scope: (scope, query: { where(condition: SQL): unknown }) =>
+    query.where(eq(schema.orders.tenantId, scope?.tenantId as string)),
+  scopeOf: (row) => ({ tenantId: String(row.tenantId) }),
+})
+```
+
+`scopeOf` must return the same keys and value types as `scope`: `{ tenantId: 1 }` and `{ tenantId: "1" }` are two tenants, so a tenant's History would miss the staff changes. Convert the column's value to the type `scope` uses, as `String()` does above.
+
+An event by `allTenants` staff is then filed under the tenant of the row it changed, and a bulk action across tenants records one event per tenant. Without `scopeOf`, the event has no tenant and only `allTenants` staff see it. `allTenants` staff see every tenant's events. See [Audit log](/docs/guides/audit-log#tenants).
 
 ## Verify isolation
 
@@ -79,6 +122,10 @@ With fixtures for two tenants, check that:
 3. update, delete, restore and row actions cannot reach the other tenant;
 4. create cannot set another tenant ID;
 5. references and related tabs stay scoped;
-6. dashboard queries that use `ctx.sql` or `ctx.db` filter by the tenant from `ctx.session`.
+6. dashboard queries that use `ctx.sql` or `ctx.db` filter by the tenant from `ctx.session`;
+7. your own [realtime channels](/docs/guides/realtime) send their payload only when declared `tenantSafe`, and a tenant-scoped resource's events carry only the action;
+8. the [Audit log page and each History tab](/docs/guides/audit-log#tenants) show only the tenant's own events;
+9. an [export](/docs/build/import-export) holds only the tenant's rows;
+10. a change by `allTenants` staff to a tenant's row shows in that tenant's History.
 
 Every option: [Scope reference](/docs/reference/scope-realtime#scope).

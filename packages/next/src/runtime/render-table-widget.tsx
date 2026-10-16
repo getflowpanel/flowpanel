@@ -7,6 +7,7 @@ import type {
   WidgetColumn,
   WidgetContext,
 } from "@flowpanel/core";
+import { resolveFormatting } from "@flowpanel/core";
 import { TableWidget as TableWidgetRenderer } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { filterHref } from "./dashboard-filters";
@@ -52,6 +53,8 @@ function toWidgetColumn(c: PrerenderedColumn<WidgetRow>): PrerenderedColumn<Widg
   if (c.className !== undefined) out.className = c.className;
   if (c.type !== undefined) out.type = c.type;
   if (c.format !== undefined) out.format = c.format;
+  if (c.content !== undefined) out.content = c.content;
+  if (c.textRem !== undefined) out.textRem = c.textRem;
   return out;
 }
 
@@ -131,6 +134,7 @@ export async function renderTableWidget(
       const prerendered = prerenderResourceCells<WidgetRow>(defs, rows, reqCtx, {
         dropHidden: !wanted || wanted.length === 0,
         metaByField,
+        formatting: resolveFormatting(config.formatting),
       });
       columns = prerendered.columns.map(toWidgetColumn);
       prerenderedCells = await withReferenceCells<WidgetRow>(

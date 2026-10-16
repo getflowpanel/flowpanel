@@ -6,7 +6,7 @@ The full @flowpanel/kit/react export surface, grouped by what it's for.
 
 Docs: https://flowpanel.tech/docs/reference/react-components
 
-Documented types: AdminShellProps, DrawerProps, CommandPaletteProps, DataTableProps, AutoFormProps, FormProps, FieldProps, FlowpanelIconProps, DevToolsPanelProps
+Documented types: AdminShellProps, DrawerProps, CommandPaletteProps, DataTableProps, DataTableColumn, AutoFormProps, FormProps, FieldProps, FlowpanelIconProps, DevToolsPanelProps
 
 The components the admin renders with, for custom slots, pages and `"bare"`-shell
 chrome. Import them from `@flowpanel/kit/react`.
@@ -137,6 +137,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `onPinnedColumnsChange?` | `(pinned: { left?: string[]; right?: string[] }) => void` |  |
 | `realtime?` | `string \| { channel: string; debounceMs?: number }` | Subscribe to an SSE channel and trigger `router.refresh()` on events. |
 | `rowEndCell?` | `(row: Row, rowIndex: number) => React.ReactNode` |  |
+| `rowEndCellRem?` | `number` | The trailing column's width in rem; the default 3.5 holds the row menu. |
 | `rowEndCellLabel?` | `string` | Accessible label for the trailing column header. Defaults to "Actions". |
 | `onEditRow?` | `(row: Row) => void` | Triggered when the user presses `e` on a focused row. |
 | `onDeleteRow?` | `(row: Row) => void` | Triggered when the user presses `d` on a focused row. |
@@ -149,6 +150,27 @@ Not listed here: `@flowpanel/kit/client` holds
 | `importable?` | `{ resource: string; formats: ("csv" \| "json")[] }` |  |
 | `showDensityToggle?` | `boolean` |  |
 | `rowLabel?` | `string` | What one row is, mid-sentence ("run"): phone cards read "Open run 36". |
+
+Each column of a `DataTable` you render yourself is a `DataTableColumn`. Its width follows its kind, `content` and `textRem`, measured against the table's own width, so give the table a width from its parent (`flex-1 min-w-0` in a flex row). Pass `textRem`, the widest value's width in rem, for content-sized columns: a text column then never narrows below its widest value or 13rem, whichever is less. Without it, a text column can narrow to between 7 and 10rem by its kind, or its header.
+
+`DataTableColumn`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `field` | `keyof Row & string` |  |
+| `label?` | `string` |  |
+| `render?` | `(row: Row) => React.ReactNode` |  |
+| `sortable?` | `boolean` |  |
+| `width?` | `number \| string` | Fixed width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. |
+| `align?` | `"left" \| "center" \| "right"` |  |
+| `hidden?` | `boolean` |  |
+| `className?` | `string` |  |
+| `type?` | `"string" \| "number" \| "boolean" \| "date" \| "json" \| "enum" \| "array" \| "reference"` | Adapter introspection hint propagated from `ColumnMeta.type`. |
+| `editable?` | `boolean` |  |
+| `format?` | `ColumnFormat` | Declarative formatter mirrored from `ColumnDef.format`. |
+| `secondary?` | `keyof Row & string` | A field of the row shown as a muted second line under the cell. |
+| `content?` | `"long" \| "email" \| "link"` | What a text column holds, which sizes it: long text and an email get more room, a link a little. Field names no longer decide it; set it yourself. |
+| `textRem?` | `number` | Optional: the widest value in this column, in rem at the table's text size. Its ideal width fits it; without it the column takes its kind's default. |
 
 ### Forms
 
@@ -212,7 +234,7 @@ Not listed here: `@flowpanel/kit/client` holds
 
 The table above is exported as `FormField` and `FormFieldProps`. Its `type` accepts:
 
-```ts
+```ts fragment
 "text" | "email" | "password" | "url" | "number" | "date" | "datetime" |
 "datetime-local" | "time" | "color" | "search" | "textarea" | "markdown" |
 "json" | "tags" | "select" | "multiselect" | "radio" | "reference" |

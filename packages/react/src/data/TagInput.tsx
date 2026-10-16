@@ -3,7 +3,7 @@ import { formatLabel } from "@flowpanel/core/labels";
 import * as React from "react";
 import { cn } from "../lib/cn";
 import { useLabels } from "../provider/LabelsContext";
-import { Input } from "../ui/input";
+import { INVALID_WITHIN, Input } from "../ui/input";
 
 export interface TagInputProps {
   value: string[];
@@ -47,6 +47,7 @@ export function TagInput({
     <div
       className={cn(
         "fp-flex fp-flex-wrap fp-items-center fp-gap-1.5 fp-rounded fp-border fp-border-line fp-bg-surface fp-p-1.5 fp-shadow-xs fp-transition-colors focus-within:fp-border-focus focus-within:fp-ring-2 focus-within:fp-ring-focus/25",
+        INVALID_WITHIN,
         className,
       )}
     >

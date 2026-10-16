@@ -63,6 +63,7 @@ describe("drawer cells", () => {
       row: { id: "27" },
       ...RECORD_DEFAULTS,
       formats: {},
+      references: {},
       tabs: [
         {
           kind: "widgets",
@@ -79,5 +80,19 @@ describe("drawer cells", () => {
       ],
     });
     await vi.waitFor(() => expect(screen.getByText("2 ч 5 мин")).toBeTruthy());
+  });
+
+  it("show a reference as the record it points at when the drawer opens from a link", async () => {
+    openDrawer({
+      row: { id: "27", customerId: 4 },
+      tabs: [],
+      ...RECORD_DEFAULTS,
+      formats: {},
+      references: { customerId: { label: "Acme client 1", href: "/admin/customers/4" } },
+    });
+    await vi.waitFor(() => expect(screen.getByText("Acme client 1")).toBeTruthy());
+    expect(screen.getByText("Acme client 1").closest("a")?.getAttribute("href")).toBe(
+      "/admin/customers/4",
+    );
   });
 });

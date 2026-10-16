@@ -1,25 +1,18 @@
-import type {
-  AccessRule,
-  ErrorContext,
-  RequestContext,
-  ResolvedAdminConfig,
-  ResourceConfig,
-  ResourceOperation,
-} from "@flowpanel/core";
+import type { ErrorContext, RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
 import {
   errorResult as coreErrorResult,
   FlowpanelAccessError,
   FlowpanelError,
   FlowpanelOperationDisabledError,
   reportUnexpectedError,
-  resolveOperationAccess,
 } from "@flowpanel/core";
 import { actionFailure, withRequestId } from "./action-failure";
+import { requireTargetRules, type TargetAccess } from "./action-gate";
 import { actorIdFromSession } from "./action-helpers";
 import { browserOrigin } from "./request-origin";
 import { buildRequestContext, requestIdFrom } from "./request-setup";
-import { requireAccessIfSet } from "./require-access";
 import { requireAuthorized } from "./require-authorized";
+import { withRetryAfter } from "./retry-after";
 
 export interface GuardFrame {
   route?: string | undefined;
@@ -33,12 +26,7 @@ export interface GuardFrame {
 }
 
 /** The rules a route's target sets, checked after the caller is identified. */
-export interface GuardSpec extends GuardFrame {
-  resource?: ResourceConfig | undefined;
-  pageAccess?: AccessRule | undefined;
-  actionAccess?: AccessRule | undefined;
-  operation?: ResourceOperation | undefined;
-}
+export interface GuardSpec extends GuardFrame, TargetAccess {}
 
 function errorResponse(
   err: unknown,
@@ -105,6 +93,16 @@ export async function withResolvedGuards<Target>(
   resolve: (reqCtx: RequestContext) => { spec: GuardSpec; target: Target } | Response,
   handler: (reqCtx: RequestContext, target: Target) => Promise<Response>,
 ): Promise<Response> {
+  return withRetryAfter(await guarded(config, req, frame, resolve, handler), config);
+}
+
+async function guarded<Target>(
+  config: ResolvedAdminConfig,
+  req: Request,
+  frame: GuardFrame,
+  resolve: (reqCtx: RequestContext) => { spec: GuardSpec; target: Target } | Response,
+  handler: (reqCtx: RequestContext, target: Target) => Promise<Response>,
+): Promise<Response> {
   const requestId = requestIdFrom(req);
   if (frame.write !== false) {
     const originGuard = guardSameOrigin(config, req, requestId, frame.envelope);
@@ -155,19 +153,8 @@ async function requireTargetAccess(
   spec: GuardSpec,
   reqCtx: RequestContext,
 ): Promise<void> {
-  if (spec.resource) {
-    requireAuthorized(config, spec.resource);
-    // An action with its own rule is governed by it; one without inherits the resource's write rule instead of running ungated.
-    const operation = spec.operation ?? (spec.actionAccess !== undefined ? undefined : "update");
-    if (operation) {
-      await requireAccessIfSet(
-        resolveOperationAccess(spec.resource.options.access, operation),
-        reqCtx,
-      );
-    }
-  }
-  if (spec.pageAccess !== undefined) await requireAccessIfSet(spec.pageAccess, reqCtx);
-  if (spec.actionAccess !== undefined) await requireAccessIfSet(spec.actionAccess, reqCtx);
+  if (spec.resource) requireAuthorized(config, spec.resource);
+  await requireTargetRules(spec, reqCtx);
 }
 
 export function withGuards(

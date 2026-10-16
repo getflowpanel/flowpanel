@@ -5,9 +5,10 @@ import type {
   ResolvedFormatting,
   ResourceConfig,
 } from "@flowpanel/core";
-import { mergeLabels, resolveFieldLabel, resolveFormatting } from "@flowpanel/core";
+import { mergeLabels, resolveFormatting } from "@flowpanel/core";
 import { KV, KVRow, Section } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { fieldLabels } from "../../runtime/field-labels";
 import {
   buildDetailCells,
   type DetailCell,
@@ -25,6 +26,7 @@ interface BlockArgs<Row> {
   formatting: ResolvedFormatting;
   rendered: Map<string, ReactNode>;
   emptyState: string;
+  labelOf: (name: string) => string;
 }
 
 /** Inline, not a component, so the server hands the page a resolved KV block. */
@@ -35,9 +37,10 @@ function fieldsBlock<Row extends Record<string, unknown>>({
   formatting,
   rendered,
   emptyState,
+  labelOf,
 }: BlockArgs<Row>): ReactNode {
   return (
-    <div className="fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
+    <div className="fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-6">
       {fields.length === 0 ? (
         <p className="fp-text-sm fp-text-faint">{emptyState}</p>
       ) : (
@@ -45,7 +48,7 @@ function fieldsBlock<Row extends Record<string, unknown>>({
           {fields.map(({ name, label }) => (
             <KVRow
               key={name}
-              label={resolveFieldLabel(label ?? cells.get(name)?.label, name)}
+              label={label ?? labelOf(name)}
               value={
                 rendered.has(name)
                   ? rendered.get(name)
@@ -92,7 +95,15 @@ export async function renderFieldsTab<Row extends Record<string, unknown>>(
     renderDetailFields(row, shown, reqCtx),
   ]);
   const block = (fields: DetailField[]) =>
-    fieldsBlock<Row>({ row, fields, cells, formatting, rendered, emptyState });
+    fieldsBlock<Row>({
+      row,
+      fields,
+      cells,
+      formatting,
+      rendered,
+      emptyState,
+      labelOf: fieldLabels(resource),
+    });
 
   if (sections) {
     return (

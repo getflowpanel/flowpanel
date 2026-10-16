@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { drizzleAdapter } from "@flowpanel/adapter-drizzle";
 import {
   type AuditEvent,
+  DEFAULT_LABELS,
   dashboard,
   defineAdmin,
   type ErrorContext,
@@ -24,8 +25,14 @@ import { eq, type SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { handlers } from "../handlers";
+import { resolveResourceListActions } from "../pages/resource-list-actions";
+import { buildResourceListCreateAction } from "../pages/resource-list-create-action";
+import { listEmptyProps } from "../pages/resource-list-empty";
+import { offeredDashboardActions } from "../runtime/action-gate";
 import { auditReadFilter } from "../runtime/audit-view";
 import { publish, publishResource } from "../runtime/publish";
+import { recordActions } from "../runtime/record-actions";
+import { buildRequestContext } from "../runtime/request-setup";
 
 const customers = sqliteTable("customers", {
   id: text("id").primaryKey(),
@@ -170,6 +177,18 @@ function buildAdmin(variant: Variant) {
             },
           },
           {
+            key: "resend",
+            label: "Resend",
+            run: async () => ({ ok: true }),
+          },
+          {
+            key: "reopen",
+            label: "Reopen",
+            access: ["admin", "support"],
+            when: ({ current }) => current?.status === "shipped",
+            run: async () => ({ ok: true }),
+          },
+          {
             key: "ship",
             label: "Ship",
             access: "admin",
@@ -184,6 +203,7 @@ function buildAdmin(variant: Variant) {
           },
         ],
         bulkActions: [
+          { key: "tag", label: "Tag", run: async () => ({ ok: true }) },
           {
             key: "archive",
             label: "Archive",
@@ -245,7 +265,7 @@ function admin(variant: Variant) {
   return built;
 }
 
-beforeEach(() => {
+function resetTables(): void {
   sqlite.exec("DROP TABLE IF EXISTS orders; DROP TABLE IF EXISTS customers;");
   sqlite.exec("CREATE TABLE customers (id TEXT PRIMARY KEY, name TEXT NOT NULL, tenant_id TEXT)");
   sqlite.exec(
@@ -259,6 +279,10 @@ beforeEach(() => {
       "('o-a', 'A-1', 'open', NULL, NULL, 'X1', 'c-a', 't1', 'A', NULL), " +
       "('o-b', 'B-1', 'open', NULL, NULL, 'X2', 'c-b', 't2', 'B', NULL)",
   );
+}
+
+beforeEach(() => {
+  resetTables();
   audited.length = 0;
   errors.length = 0;
   vi.mocked(publish).mockClear();
@@ -368,6 +392,8 @@ interface Case {
   input?: Record<string, unknown>;
   /** For `STRIP`: the stored column that must not take the submitted value. */
   guarded?: string;
+  /** Whether the row is soft-deleted; Restore's row is unless the case says otherwise. */
+  deleted?: boolean;
 }
 
 const CASES: Record<string, Case> = {
@@ -393,6 +419,8 @@ const CASES: Record<string, Case> = {
   "field validator rejects the value": { values: { note: "bad" } },
   "required field is emptied": { values: { number: "" } },
   "action choice is not offered": { input: { plan: "enterprise" } },
+  "row is soft-deleted": { deleted: true },
+  "row is not deleted": { deleted: false },
 };
 
 // biome-ignore format: the contract reads as a table
@@ -416,6 +444,8 @@ const EXPECTED: Record<keyof typeof CASES, Outcome[]> = {
   "field validator rejects the value":          [422,       422,       422,       422,       NA,        NA,       NA,        NA,        422,   NA,     NA,          NA,             ROW,   NA],
   "required field is emptied":                  [422,       422,       422,       422,       NA,        NA,       NA,        NA,        422,   NA,     NA,          NA,             ROW,   NA],
   "action choice is not offered":               [NA,        NA,        NA,        NA,        NA,        422,      422,       NA,        NA,    NA,     422,         422,            NA,    NA],
+  "row is soft-deleted":                        [NA,        404,       NA,        404,       404,       404,      404,       404,       404,   OK,     404,         NA,             NA,    NA],
+  "row is not deleted":                         [NA,        NA,        NA,        NA,        NA,        NA,       NA,        NA,        NA,    404,    NA,          NA,             NA,    NA],
 };
 
 const BASE_VALUES = { number: "A-9", status: "shipped" };
@@ -426,9 +456,13 @@ async function run(
 ): Promise<{ res: Response; before: unknown[] }> {
   const spec = CASES[name] ?? {};
   actor = spec.actor === undefined ? ADMIN : spec.actor;
+  const id = spec.id ?? "o-a";
+  if (spec.deleted ?? entry === "restore") {
+    sqlRun("UPDATE orders SET deleted_at = 1700000000 WHERE id = ?", id);
+  }
   const before = snapshot();
   const call: Call = {
-    id: spec.id ?? "o-a",
+    id,
     values: { ...BASE_VALUES, ...spec.values },
     field: Object.keys(spec.values ?? {})[0] ?? "status",
     input: spec.input ?? {},
@@ -597,5 +631,167 @@ describe("every audited write shows to the readers who may see it", () => {
       expect(await seenBy(VIEWER)).toBe(runsDashboard ? 0 : all);
       expect(await seenBy(GUEST)).toBe(0);
     });
+  }
+});
+
+describe("a menu offers an action exactly when its route lets the caller run it", () => {
+  type RowState = "open" | "shipped" | "deleted";
+  const config = () => admin("default");
+  const orderResource = () => {
+    const found = config().resourcesByName.get("orders");
+    if (!found) throw new Error("fixture: orders not registered");
+    return found;
+  };
+  const call = (id: string): Call => ({
+    id,
+    values: { ...BASE_VALUES },
+    field: "status",
+    input: {},
+    origin: "http://localhost",
+  });
+
+  function prepare(state: RowState): void {
+    resetTables();
+    if (state === "shipped") sqlRun("UPDATE orders SET status = 'shipped' WHERE id = 'o-a'");
+    if (state === "deleted") sqlRun("UPDATE orders SET deleted_at = 1700000000 WHERE id = 'o-a'");
+  }
+
+  async function menus(state: RowState) {
+    prepare(state);
+    const reqCtx = await buildRequestContext({
+      req: new Request("http://localhost/admin/orders"),
+      config: config(),
+    });
+    const row = { id: "o-a", status: state === "shipped" ? "shipped" : "open" };
+    const deleted = state === "deleted";
+    const listed = await resolveResourceListActions(
+      orderResource(),
+      [row],
+      "id",
+      reqCtx,
+      DEFAULT_LABELS,
+      new Set(deleted ? ["o-a"] : []),
+    );
+    const record = await recordActions(
+      config(),
+      orderResource(),
+      "orders",
+      "o-a",
+      row,
+      reqCtx,
+      deleted,
+    );
+    const home = config().dashboardsByPath.get("/");
+    if (!home) throw new Error("fixture: no overview");
+    return {
+      row: (listed.rowActionsById?.["o-a"] ?? listed.rowActions).map((a) => a.key),
+      recordRow: record.rowActions.map((a) => a.key),
+      bulk: deleted ? [] : listed.bulkActions.map((a) => a.key),
+      drawer: record.drawerActions.map((a) => a.key),
+      dashboard: (await offeredDashboardActions(home, reqCtx)).map((a) => a.key),
+      edit: record.editHref !== null,
+      delete: record.delete !== null,
+    };
+  }
+
+  async function allowed(
+    state: RowState,
+    send: (h: ReturnType<typeof handlers>) => Promise<Response>,
+  ) {
+    prepare(state);
+    const res = await send(handlers(config()));
+    return res.status !== 403 && res.status !== 404;
+  }
+
+  const rowKeys = ["explode", "resend", "reopen", "ship"];
+  const bulkKeys = ["tag", "archive", "delete"];
+
+  for (const reader of [ADMIN, SUPPORT, VIEWER]) {
+    for (const state of ["open", "shipped", "deleted"] as const) {
+      it(`${reader.role}, ${state} row`, async () => {
+        actor = reader;
+        const offered = await menus(state);
+        expect(offered.recordRow).toEqual(offered.row);
+        const h = (key: string) => (handler: ReturnType<typeof handlers>) =>
+          handler.POST(json(call("o-a"), "POST", {}), route("orders", "o-a", "actions", key));
+        for (const key of rowKeys) {
+          expect(await allowed(state, h(key)), `row action ${key}`).toBe(offered.row.includes(key));
+        }
+        for (const key of bulkKeys) {
+          const send = (handler: ReturnType<typeof handlers>) =>
+            handler.POST(
+              json(call("o-a"), "POST", { ids: ["o-a"] }),
+              route("orders", "bulk-actions", key),
+            );
+          expect(await allowed(state, send), `bulk action ${key}`).toBe(offered.bulk.includes(key));
+        }
+        const flag = (handler: ReturnType<typeof handlers>) =>
+          handler.POST(
+            json(call("o-a"), "POST", {}),
+            route("drawer", "orders", "o-a", "actions", "flag"),
+          );
+        expect(await allowed(state, flag), "drawer action flag").toBe(
+          offered.drawer.includes("flag"),
+        );
+        const reset = (handler: ReturnType<typeof handlers>) =>
+          handler.POST(
+            json(call("o-a"), "POST", {}),
+            route("dashboards", "_root_", "actions", "reset"),
+          );
+        expect(await allowed(state, reset), "dashboard action reset").toBe(
+          offered.dashboard.includes("reset"),
+        );
+        expect(
+          await allowed(state, (handler) => ENTRY_POINTS.jsonUpdate(handler, call("o-a"))),
+          "Edit",
+        ).toBe(offered.edit);
+        expect(
+          await allowed(state, (handler) => ENTRY_POINTS.jsonDelete(handler, call("o-a"))),
+          "Delete",
+        ).toBe(offered.delete);
+      });
+    }
+  }
+});
+
+describe("New and the empty list's create button show exactly when create runs", () => {
+  for (const variant of ["default", "readOnly", "createDisabled"] as const) {
+    for (const reader of [ADMIN, SUPPORT, VIEWER]) {
+      it(`${reader.role}, ${variant}`, async () => {
+        actor = reader;
+        const config = admin(variant);
+        const orders = config.resourcesByName.get("orders");
+        if (!orders) throw new Error("fixture: orders not registered");
+        const reqCtx = await buildRequestContext({
+          req: new Request("http://localhost/admin/orders"),
+          config,
+        });
+        const button = await buildResourceListCreateAction({
+          config,
+          resource: orders,
+          name: "orders",
+          reqCtx,
+        });
+        const empty = listEmptyProps(config, orders, "orders", "Orders", {
+          filtered: false,
+          params: new URLSearchParams(),
+          creatable: button !== undefined,
+        });
+        const call: Call = {
+          id: "o-a",
+          values: { ...BASE_VALUES },
+          field: "status",
+          input: {},
+          origin: "http://localhost",
+        };
+        for (const send of [ENTRY_POINTS.jsonCreate, ENTRY_POINTS.formCreate]) {
+          resetTables();
+          const res = await send(handlers(config), call);
+          const runs = res.status !== 403 && res.status !== 404;
+          expect(button !== undefined, `New (${res.status})`).toBe(runs);
+          expect(empty.emptyAction !== undefined, `empty state (${res.status})`).toBe(runs);
+        }
+      });
+    }
   }
 });

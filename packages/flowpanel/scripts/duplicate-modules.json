@@ -1,4 +1,6 @@
 [
+  "core/src/all-tenants.ts",
+  "core/src/auth-provider.ts",
   "core/src/auth/dev.ts",
   "core/src/builders/enum-of.ts",
   "core/src/compiler/builtin-bulk-delete.ts",
@@ -39,7 +41,6 @@
   "next/src/runtime/failure-card.tsx",
   "next/src/runtime/format-field-value.tsx",
   "next/src/runtime/row-identity.ts",
-  "next/src/runtime/select-options.ts",
   "next/src/runtime/timeline-pages.ts",
   "next/src/utils/cn.ts"
 ]

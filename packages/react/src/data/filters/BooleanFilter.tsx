@@ -25,13 +25,19 @@ export function BooleanFilter({
   placeholder,
 }: BooleanFilterProps) {
   const labels = useLabels();
-  const allOption = placeholder ?? labels.allOption;
+  const allOption = placeholder ?? labels.filters.allOption;
   const id = React.useId();
   return (
     <FilterField label={label} htmlFor={id} active={Boolean(value)}>
       <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
         <SelectTrigger id={id} className={cn(BARE_CONTROL, "fp-w-auto fp-justify-start")}>
-          <SelectValue placeholder={allOption} />
+          <SelectValue placeholder={allOption}>
+            {value === "true"
+              ? (trueLabel ?? labels.filters.yes)
+              : value === "false"
+                ? (falseLabel ?? labels.filters.no)
+                : allOption}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>{allOption}</SelectItem>

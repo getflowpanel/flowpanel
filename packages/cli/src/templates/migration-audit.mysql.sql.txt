@@ -1,0 +1,7 @@
+-- The audit log columns and indexes FlowPanel 0.4 reads, for a table that 0.3's 0001_init.sql created.
+
+ALTER TABLE flowpanel_audit_log
+  ADD COLUMN actor_name varchar(255),
+  ADD COLUMN scope_key text,
+  ADD INDEX flowpanel_audit_log_target_idx (resource(191), target_id(191), at DESC),
+  ADD INDEX flowpanel_audit_log_scope_idx (scope_key(255), at DESC);

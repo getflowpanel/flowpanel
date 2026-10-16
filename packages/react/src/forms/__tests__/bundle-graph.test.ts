@@ -60,11 +60,24 @@ function reachablePackages(entries: string[]): Set<string> {
 }
 
 describe("the UI budget graph", () => {
+  it("never asks zod for its locales, so only English messages can reach the browser", () => {
+    const sources = fs
+      .readdirSync(SRC, { recursive: true, encoding: "utf8" })
+      .filter((file) => /\.tsx?$/.test(file) && !file.includes("__tests__"))
+      .map((file) => fs.readFileSync(path.join(SRC, file), "utf8"));
+    for (const source of sources) {
+      expect(source).not.toMatch(/["']zod(?:\/v4)?\/locales|\bz\.(?:config|locales)\b/);
+    }
+  });
+
   it("never reaches cmdk from the four components size-limit measures", () => {
     const packages = reachablePackages(BUDGET_ENTRIES.map((entry) => path.join(SRC, entry)));
     expect(packages.has("cmdk")).toBe(false);
-    // The dependency is still installed — the ⌘K palette is its one consumer.
-    expect(reachablePackages([path.join(SRC, "shell/CommandPalette.tsx")]).has("cmdk")).toBe(true);
+    // The ⌘K dialog is cmdk's one consumer, and the palette loads it only when it opens.
+    expect(reachablePackages([path.join(SRC, "shell/CommandPalette.tsx")]).has("cmdk")).toBe(false);
+    expect(reachablePackages([path.join(SRC, "shell/CommandPaletteDialog.tsx")]).has("cmdk")).toBe(
+      true,
+    );
   });
 
   const built = ["forms/Form.mjs", "forms/AutoForm.mjs", "forms/field-controls.mjs"].map((entry) =>

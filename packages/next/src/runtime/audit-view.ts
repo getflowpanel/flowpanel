@@ -12,12 +12,13 @@ import {
   filterReadableProjection,
   formatLabel,
   humanize,
+  isAllTenants,
   resolveOperationAccess,
 } from "@flowpanel/core";
 import {
   auditScopeKey,
+  DASHBOARD_ACTION_PREFIX,
   dashboardActionAudit,
-  dashboardActionKey,
   isBuiltinBulkDelete,
 } from "@flowpanel/core/internal";
 
@@ -68,7 +69,7 @@ export async function auditVisibility(
     if (!(await accessAllows(dashboard.access, reqCtx))) continue;
     for (const action of dashboard.actions ?? []) {
       if (await accessAllows(action.access, reqCtx)) {
-        actions.push(dashboardActionAudit(action.key).action);
+        actions.push(dashboardActionAudit(dashboard.path, action.key).action);
       }
     }
   }
@@ -82,7 +83,9 @@ export async function auditReadFilter(
 ): Promise<Pick<AuditLogQuery, "scope" | "visible">> {
   return {
     visible: await auditVisibility(config, reqCtx),
-    ...(config.scope ? { scope: { key: auditScopeKey(reqCtx.scope) } } : {}),
+    ...(config.scope && !isAllTenants(reqCtx.scope)
+      ? { scope: { key: auditScopeKey(reqCtx.scope) } }
+      : {}),
   };
 }
 
@@ -153,10 +156,15 @@ export function describeAuditAction(
   labels: ResolvedLabels["audit"],
 ): string {
   const ran = (label: string) => formatLabel(labels.ran, { action: label });
-  const dashboardKey = dashboardActionKey(entry.action);
-  if (dashboardKey !== null) {
-    const actions = [...config.dashboardsByPath.values()].flatMap((d) => d.actions ?? []);
-    return ran(actionLabel(actions, dashboardKey));
+  if (entry.action.startsWith(DASHBOARD_ACTION_PREFIX)) {
+    for (const dashboard of config.dashboardsByPath.values()) {
+      for (const action of dashboard.actions ?? []) {
+        if (dashboardActionAudit(dashboard.path, action.key).action === entry.action) {
+          return ran(action.label);
+        }
+      }
+    }
+    return ran(humanize(entry.action.slice(entry.action.lastIndexOf(".") + 1)));
   }
   const resource = entry.resource ? config.resourcesByName.get(entry.resource) : undefined;
   const prefix = `${entry.resource ?? ""}.`;

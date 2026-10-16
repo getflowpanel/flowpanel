@@ -6,17 +6,14 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import {
-  FlowpanelAccessError,
   FlowpanelNotFoundError,
   FlowpanelOperationDisabledError,
-  FlowpanelValidationError,
   mergeLabels,
   resolveFormatting,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
-import type { z } from "zod";
 import { buildServerRequest } from "../runtime/build-server-request";
 import { explainWrite } from "../runtime/constraint-error";
 import { deleteRow } from "../runtime/delete-row";
@@ -25,7 +22,7 @@ import { buildHref } from "../runtime/href";
 import { keepUntouchedMoney, moneyShapes } from "../runtime/money-field";
 import { resourceNavName } from "../runtime/nav";
 import { bindPublisher } from "../runtime/publish";
-import { readRow } from "../runtime/read-row";
+import { readLiveRow, readRow } from "../runtime/read-row";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAccessIfSet } from "../runtime/require-access";
 import { requireAuthorized } from "../runtime/require-authorized";
@@ -36,21 +33,24 @@ import { auditDiff, commitEffects, type WriteEffects } from "../runtime/write-pi
 import {
   applyFieldDefaults,
   assertResourceWritableInput,
-  fieldRuleErrors,
   formInput,
-  friendlyFieldErrors,
-  missingRequiredErrors,
   pickSchema,
   schemasFor,
 } from "./field-pipeline";
+import { checkedValues } from "./field-validation";
 
-export interface UpdateOptions {
+export interface CreateOptions {
+  /** Fields the form or file decoding refused, reported with every other field error. */
+  decodeErrors?: Readonly<Record<string, string>>;
+}
+
+export interface UpdateOptions extends CreateOptions {
   /** An inline edit of this one column: it need not be a form field, and only it is validated. */
   inline?: string;
 }
 
 export interface ResourceActions {
-  create: (input: unknown) => Promise<unknown>;
+  create: (input: unknown, options?: CreateOptions) => Promise<unknown>;
   update: (id: string, input: unknown, options?: UpdateOptions) => Promise<unknown>;
   delete: (id: string) => Promise<void>;
 }
@@ -106,7 +106,7 @@ export function makeActions(
   ): Promise<void> {
     requireAuthorized(config, resource);
     await requireAccessIfSet(resolveOperationAccess(resource.options.access, operation), reqCtx);
-    if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
+    if (config.readOnly) throw new FlowpanelOperationDisabledError("This admin is read-only.");
     if (resource.options[operation]?.disabled) {
       throw new FlowpanelOperationDisabledError(DISABLED[operation]);
     }
@@ -131,7 +131,7 @@ export function makeActions(
   }
 
   return {
-    async create(input) {
+    async create(input, options = {}) {
       const reqCtx = await ctxFor(buildHref(config, name, "new"));
       await guard(reqCtx, "create");
 
@@ -141,12 +141,16 @@ export function makeActions(
       const safe = await assertResourceWritableInput(resource, fields, submitted, null, reqCtx);
       const withDefaults = await applyFieldDefaults(resource, fields, safe, reqCtx);
       const values = await checkedValues(
+        config,
+        resource,
+        labels,
         schemas.create,
         fields,
         withDefaults,
         null,
         reqCtx,
         denied,
+        options.decodeErrors,
       );
 
       const mctx: MutationContext<Record<string, unknown>> = {
@@ -166,6 +170,7 @@ export function makeActions(
         {
           action: `${name}.create`,
           ...(id !== undefined ? { targetId: id } : {}),
+          ...(id !== undefined && row ? { rows: new Map([[id, row]]) } : {}),
           diff: () => auditDiff(config, resource, null, row ?? values, reqCtx, Object.keys(values)),
         },
         [buildHref(config, name)],
@@ -178,7 +183,7 @@ export function makeActions(
       await guard(reqCtx, "update");
 
       const fields = updateFields(resource, options.inline);
-      const current = await readRow(config, resource, id, reqCtx);
+      const current = await readLiveRow(config, resource, id, reqCtx);
       if (!current) throw new FlowpanelNotFoundError();
       const denied = await deniedFieldWrites(resource, reqCtx, current);
       const submitted = opts.fromForm
@@ -199,7 +204,18 @@ export function makeActions(
       const safe = await assertResourceWritableInput(resource, fields, submitted, current, reqCtx);
       const schema =
         options.inline === undefined ? schemas.update : pickSchema(schemas.update, options.inline);
-      const values = await checkedValues(schema, fields, safe, current, reqCtx, denied);
+      const values = await checkedValues(
+        config,
+        resource,
+        labels,
+        schema,
+        fields,
+        safe,
+        current,
+        reqCtx,
+        denied,
+        options.decodeErrors,
+      );
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
@@ -222,6 +238,7 @@ export function makeActions(
         {
           action: options.inline === undefined ? `${name}.update` : `${name}.inline-update`,
           targetId: id,
+          rows: new Map([[id, current]]),
           diff: () =>
             auditDiff(
               config,
@@ -241,7 +258,7 @@ export function makeActions(
       const reqCtx = await ctxFor(buildHref(config, name, id));
       await guard(reqCtx, "delete");
 
-      const current = await readRow(config, resource, id, reqCtx);
+      const current = await readLiveRow(config, resource, id, reqCtx);
       if (!current) throw new FlowpanelNotFoundError();
 
       await deleteRow(config, resource, id, reqCtx);
@@ -252,45 +269,12 @@ export function makeActions(
           action: `${name}.delete`,
           targetId: id,
           diff: () => auditDiff(config, resource, current, null, reqCtx),
+          rows: new Map([[id, current]]),
         },
         [buildHref(config, name)],
       );
     },
   };
-
-  /** Schema, `required`, validators, choices and references: every field error at once, or the values to write. */
-  async function checkedValues(
-    schema: z.ZodTypeAny | undefined,
-    fields: Field[] | undefined,
-    values: Record<string, unknown>,
-    current: Record<string, unknown> | null,
-    reqCtx: RequestContext,
-    denied: ReadonlySet<string>,
-  ): Promise<Record<string, unknown>> {
-    const missing = missingRequiredErrors(fields, values, current, labels, denied);
-    // An adapter without a usable schema leaves the values to the field rules and the database.
-    const parsed =
-      typeof schema?.safeParse === "function"
-        ? schema.safeParse(values)
-        : { success: true as const, data: values };
-    if (!parsed.success) {
-      const fieldErrors = friendlyFieldErrors(fields, values, parsed.error, labels);
-      throw new FlowpanelValidationError({ ...fieldErrors, ...missing });
-    }
-    if (Object.keys(missing).length > 0) throw new FlowpanelValidationError(missing);
-    const data = parsed.data as Record<string, unknown>;
-    const ruleErrors = await fieldRuleErrors(
-      config,
-      resource,
-      fields,
-      data,
-      current,
-      reqCtx,
-      labels,
-    );
-    if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
-    return data;
-  }
 }
 
 const DISABLED = {

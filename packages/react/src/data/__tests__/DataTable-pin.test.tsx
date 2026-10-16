@@ -81,4 +81,40 @@ describe("DataTable column pin", () => {
     fireEvent.click(trigger);
     expect(onSortChange).not.toHaveBeenCalled();
   });
+
+  it("starts the second pinned column where the first one ends, pin button included", () => {
+    const { container } = render(
+      <DataTable
+        {...baseProps}
+        columns={[
+          { field: "a", label: "A rather long header", type: "boolean", sortable: true },
+          { field: "b", label: "B", type: "number" },
+          { field: "c", label: "C" },
+        ]}
+        pinnedColumns={{ left: ["a", "b"] }}
+        onPinnedColumnsChange={() => undefined}
+      />,
+    );
+    const head = (field: string) =>
+      container.querySelector<HTMLElement>(`thead th[data-fp-col="${field}"]`);
+    const first = Number.parseFloat(head("a")?.style.width ?? "") * 16;
+    expect(first).toBeGreaterThan(0);
+    expect(head("b")?.style.getPropertyValue("--fp-col-pin-left")).toBe(`${first}px`);
+  });
+
+  it("keeps the sort arrow out of the padding when a pin button follows it", () => {
+    const sortable = baseProps.columns.map((c) => ({ ...c, sortable: true }));
+    const sortButton = (props: { onPinnedColumnsChange?: () => void }) => {
+      const { container, unmount } = render(
+        <DataTable {...baseProps} columns={sortable} {...props} />,
+      );
+      const className = container.querySelector("thead th[data-fp-col] button")?.className ?? "";
+      unmount();
+      return className;
+    };
+    expect(sortButton({})).toContain("-fp-mr-4");
+    const pinned = sortButton({ onPinnedColumnsChange: () => undefined });
+    expect(pinned).not.toContain("-fp-mr-4");
+    expect(pinned).toContain("fp-max-w-full");
+  });
 });

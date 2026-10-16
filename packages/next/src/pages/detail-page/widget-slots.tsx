@@ -9,6 +9,7 @@ import { ErrorCard } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import { isControlFlow } from "../../runtime/query-error";
 import { renderWidget, type WidgetFrame } from "../../runtime/render-widget";
+import { visibleWidgets } from "../../runtime/widget-access";
 import {
   describeOwner,
   pageTimer,
@@ -36,9 +37,10 @@ export async function renderSlots(
   where: string,
   frame: WidgetFrame = {},
 ): Promise<RenderedSlot[]> {
-  const timer = pageTimer(where, widgets.length);
+  const shown = await visibleWidgets(widgets, reqCtx);
+  const timer = pageTimer(where, shown.length);
   return Promise.all(
-    widgets.map(async (widget, index) => {
+    shown.map(async (widget, index) => {
       const owner = widgetOwner(widget, where, `widget ${index + 1}`);
       const className = widgetSlotClassName(widget);
       try {

@@ -16,8 +16,8 @@ pnpm dev
 import { defineAdmin, resource } from "@flowpanel/kit";
 import { withClerk } from "@flowpanel/kit/auth";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
-import { db } from "@/server/lib/db";
-import * as schema from "@/server/lib/db/schema";
+import { db } from "@/db";
+import * as schema from "@/db/schema";
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),

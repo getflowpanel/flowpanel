@@ -1,4 +1,4 @@
-import { csvField, parseCsvRows } from "@flowpanel/core/internal";
+import { csvLine, csvRecords } from "@flowpanel/core/internal";
 
 export type ImportFormat = "csv" | "json";
 
@@ -40,16 +40,8 @@ export function readImportFile(
     const header = [...new Set(records.flatMap((record) => Object.keys(record)))];
     return { name, format, content, rowCount: records.length, header, records };
   }
-  const [header = [], ...rows] = parseCsvRows(content);
-  const records = rows.map((cells) =>
-    Object.fromEntries(header.map((key, index) => [key, cells[index] ?? ""])),
-  );
+  const { header, records } = csvRecords(content);
   return { name, format, content, rowCount: records.length, header, records };
-}
-
-function cellText(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  return typeof value === "object" ? JSON.stringify(value) : String(value);
 }
 
 /** The refused rows as CSV, each with the server's reason in a last `error` column. */
@@ -58,10 +50,9 @@ export function failedRowsCsv(
   failed: FailedImportRow[],
   errorColumn: string,
 ): string {
-  const header = [...file.header, errorColumn];
   const lines = failed.map(({ row, error }) => {
     const record = file.records[row - 1] ?? {};
-    return [...file.header.map((key) => cellText(record[key])), error].map(csvField).join(",");
+    return csvLine([...file.header.map((key) => record[key]), error]);
   });
-  return [header.map(csvField).join(","), ...lines].join("\r\n");
+  return [csvLine([...file.header, errorColumn]), ...lines].join("\r\n");
 }

@@ -2,12 +2,13 @@ import { defineAdmin } from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { flowpanelAuth } from "@/server/lib/flowpanel-session";
+import { getSession } from "@/server/lib/auth";
 
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
     schema: typeof schema;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
   }
 }
 
@@ -15,7 +16,11 @@ export default defineAdmin({
   paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: drizzleAdapter({ db, schema }),
 
-  auth: flowpanelAuth,
+  auth: {
+    session: getSession,
+    role: (s) => s?.user.role ?? "guest",
+    access: "admin",
+  },
 
   realtime: { driver: "memory" },
 

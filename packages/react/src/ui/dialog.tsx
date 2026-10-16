@@ -37,7 +37,7 @@ const DialogContent = /* @__PURE__ */ named(
         data-flowpanel-portal=""
         ref={ref}
         className={cn(
-          "fp-anim-dialog fp-fixed fp-left-[50%] fp-top-[50%] fp-z-50 fp-grid fp-w-full fp-max-w-lg fp-translate-x-[-50%] fp-translate-y-[-50%] fp-gap-4 fp-border fp-border-line fp-bg-surface fp-p-6 fp-shadow-lg sm:fp-rounded-xl",
+          "fp-anim-dialog fp-fixed fp-left-[50%] fp-top-[50%] fp-z-50 fp-grid fp-w-full fp-max-w-lg fp-translate-x-[-50%] fp-translate-y-[-50%] fp-gap-4 fp-border fp-border-line fp-bg-surface fp-p-6 fp-shadow-lg sm:fp-rounded-lg",
           className,
         )}
         {...props}
@@ -93,7 +93,7 @@ const DialogTitle = /* @__PURE__ */ named(
     <DialogPrimitive.Title
       ref={ref}
       className={cn(
-        "fp-text-lg fp-font-semibold fp-leading-none fp-tracking-tight fp-text-ink",
+        "fp-text-base fp-font-semibold fp-leading-none fp-tracking-tight fp-text-ink",
         className,
       )}
       {...props}

@@ -7,4 +7,5 @@ export const RECORD_DEFAULTS = {
   rowActions: [],
   editHref: null,
   delete: null,
+  references: {},
 } satisfies Partial<DrawerPayload>;

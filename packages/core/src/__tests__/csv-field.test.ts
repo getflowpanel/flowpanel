@@ -6,6 +6,8 @@ describe("csvField", () => {
     expect(csvField("=SUM(A1)")).toBe("'=SUM(A1)");
     expect(csvField("+1")).toBe("'+1");
     expect(csvField("-1,5")).toBe(`"'-1,5"`);
+    expect(csvField("-123.45")).toBe("-123.45");
+    expect(csvField("-1+cmd|' /C calc'!A0")).toBe(`'-1+cmd|' /C calc'!A0`);
     expect(csvField("@x")).toBe("'@x");
     expect(csvField("\tx")).toBe("'\tx");
   });

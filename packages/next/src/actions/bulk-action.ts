@@ -3,7 +3,6 @@ import type {
   BulkAction,
   IconName,
   PluralLabel,
-  RequestContext,
   ResolvedAdminConfig,
   ResolvedLabels,
   ResourceConfig,
@@ -17,16 +16,10 @@ import {
 } from "@flowpanel/core";
 import { isBuiltinBulkDelete } from "@flowpanel/core/internal";
 import { actionFailure } from "../runtime/action-failure";
-import { invalidJsonResponse } from "../runtime/action-helpers";
-import { deleteRow } from "../runtime/delete-row";
+import { resourceActionTarget } from "../runtime/action-gate";
+import { auditTargets } from "../runtime/audit-tenant";
 import { buildHref } from "../runtime/href";
-import { readRow } from "../runtime/read-row";
-import {
-  formDataObject,
-  type RequestBodyError,
-  readJsonObject,
-  readRequestFormData,
-} from "../runtime/request-body";
+import { readLiveRow } from "../runtime/read-row";
 import {
   commitEffects,
   guardedRoute,
@@ -36,6 +29,14 @@ import {
   parseDeclaredInput,
 } from "../runtime/write-pipeline";
 import type { ActionFormField } from "./action-form-field";
+import {
+  bulkBodyFailure,
+  deleteSelection,
+  EXISTENCE_CHECKS_AT_ONCE,
+  eachLimited,
+  MAX_BULK,
+  parseBulkBody,
+} from "./bulk-selection";
 import { serializeActionForm } from "./serialize-action-field";
 
 /** Wire-safe shape of `BulkAction`. */
@@ -94,117 +95,6 @@ export function serializeBulkAction<Row>(
   return out;
 }
 
-type BulkBody =
-  | { ok: true; ids: string[]; input: Record<string, unknown> }
-  | { ok: false; reason: RequestBodyError | "ids" | "input" };
-
-/** Parses the incoming request body for the array of selected IDs. */
-async function parseBulkBody(req: Request): Promise<BulkBody> {
-  const contentType = req.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    const payload = await readJsonObject(req);
-    if (!payload.ok) return payload;
-    const obj = payload.value as { ids?: unknown; input?: unknown };
-    if (!Array.isArray(obj.ids)) return { ok: false, reason: "ids" };
-    const ids = obj.ids.filter((v): v is string => typeof v === "string");
-    if (ids.length === 0) return { ok: false, reason: "ids" };
-    const input = obj.input ?? {};
-    if (typeof input !== "object" || input === null || Array.isArray(input)) {
-      return { ok: false, reason: "input" };
-    }
-    return { ok: true, ids, input: input as Record<string, unknown> };
-  }
-  const parsedForm = await readRequestFormData(req);
-  if (!parsedForm.ok) return parsedForm;
-  const form = parsedForm.value;
-  const raw = form.getAll("ids");
-  const ids: string[] = [];
-  for (const v of raw) {
-    if (typeof v !== "string") continue;
-    if (v.includes(","))
-      ids.push(
-        ...v
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-      );
-    else if (v) ids.push(v);
-  }
-  if (ids.length === 0) return { ok: false, reason: "ids" };
-  const input = formDataObject(form);
-  delete input.ids;
-  return { ok: true, ids, input };
-}
-
-/** Hard cap on the number of ids a single bulk action may target. */
-const MAX_BULK = 1000;
-const EXISTENCE_CHECKS_AT_ONCE = 16;
-
-/** Runs `check` over `ids` with at most `limit` in flight; the first rejection rejects the run. */
-async function eachLimited(
-  ids: readonly string[],
-  limit: number,
-  check: (id: string) => Promise<void>,
-): Promise<void> {
-  let next = 0;
-  let failed = false;
-  const worker = async (): Promise<void> => {
-    for (let id = ids[next++]; id !== undefined && !failed; id = ids[next++]) {
-      try {
-        await check(id);
-      } catch (err) {
-        failed = true;
-        throw err;
-      }
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(limit, ids.length) }, worker));
-}
-
-function bulkBodyFailure(reason: Exclude<BulkBody, { ok: true }>["reason"]): Response {
-  if (reason === "input") return actionFailure("bad_request", "input must be an object");
-  if (reason === "ids") {
-    return actionFailure("bad_request", "ids must be a non-empty array of strings");
-  }
-  return invalidJsonResponse(reason);
-}
-
-function auditTargets(ids: readonly string[]): string {
-  return ids.slice(0, 10).join(",") + (ids.length > 10 ? "…" : "");
-}
-
-/** The whole selection in one transaction where the driver holds one, else row by row up to the first failure. */
-async function deleteSelection(
-  config: ResolvedAdminConfig,
-  resource: ResourceConfig,
-  ids: readonly string[],
-  reqCtx: RequestContext,
-): Promise<{ deleted: string[]; failure?: unknown }> {
-  const transaction = config.adapter.transaction;
-  if (transaction) {
-    let started = false;
-    try {
-      await transaction.call(config.adapter, async (db) => {
-        started = true;
-        for (const id of ids) await deleteRow(config, resource, id, reqCtx, db);
-      });
-      return { deleted: [...ids] };
-    } catch (err) {
-      if (started || err instanceof FlowpanelError) throw err;
-    }
-  }
-  const deleted: string[] = [];
-  for (const id of ids) {
-    try {
-      await deleteRow(config, resource, id, reqCtx);
-    } catch (failure) {
-      return { deleted, failure };
-    }
-    deleted.push(id);
-  }
-  return { deleted };
-}
-
 export function bulkActionRoute(config: ResolvedAdminConfig) {
   return guardedRoute<
     { resource: string; action: string },
@@ -224,11 +114,7 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
       if (action instanceof Response) return action;
       const builtinDelete = isBuiltinBulkDelete(action);
       return {
-        spec: {
-          resource,
-          actionAccess: action.access,
-          ...(builtinDelete ? { operation: "delete" as const } : {}),
-        },
+        spec: resourceActionTarget(resource, action),
         target: { resource, action, builtinDelete },
       };
     },
@@ -239,7 +125,11 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
       const ids = [...new Set(body.ids)];
       const max = action.max ?? MAX_BULK;
       if (ids.length > max) {
-        return actionFailure("validation_failed", `too many ids (max ${max})`);
+        const labels = mergeLabels(config.labels);
+        return actionFailure(
+          "validation_failed",
+          formatLabel(labels.errors.tooManySelected, { max }),
+        );
       }
 
       const input = builtinDelete
@@ -247,9 +137,11 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
         : await parseDeclaredInput(config, reqCtx, action, body.input);
       if (input instanceof Response) return input;
 
+      const rows = new Map<string, Record<string, unknown>>();
       await eachLimited(ids, EXISTENCE_CHECKS_AT_ONCE, async (id) => {
-        const row = await readRow(config, resource, id, reqCtx);
+        const row = await readLiveRow(config, resource, id, reqCtx);
         if (!row) throw new FlowpanelNotFoundError();
+        rows.set(id, row);
       });
 
       const effects = {
@@ -258,6 +150,7 @@ export function bulkActionRoute(config: ResolvedAdminConfig) {
           resource: name,
           targetId: auditTargets(ids),
           targetIds: ids,
+          rows,
         },
         resourceAudit: resource.options.audit,
         publish: {

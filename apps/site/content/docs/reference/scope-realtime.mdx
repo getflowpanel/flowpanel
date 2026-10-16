@@ -29,6 +29,11 @@ resource's predicate bound to it as `ctx.boundScope`. Widgets get no `ctx.scope`
 `ctx.count` and `ctx.read` apply the scope for you, and a `ctx.sql` or `ctx.db`
 query must read the tenant from `ctx.session`.
 
+Return `allTenants` from `@flowpanel/kit` for a user who works across tenants: the
+resource predicates are skipped for that request, and `isAllTenants(scope)` tells
+it apart. A resource's `scopeOf(row)` names the tenant a row belongs to, in the
+shape `scope` returns, so the audit log files that user's changes under it.
+
 ### The opt-out is mandatory
 
 With a global `scope`, every resource declares its own `scope` or

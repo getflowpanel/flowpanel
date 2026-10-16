@@ -3,6 +3,8 @@ export interface A11yViolation {
   route: string;
   id: string;
   impact?: string;
+  /** CSS selectors of the first few failing elements, as axe reports them. */
+  targets?: string[];
 }
 
 export interface SmokeAdminOptions {
@@ -16,7 +18,7 @@ export interface SmokeAdminOptions {
   /** Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. */
   resources?: string[];
   /**
-   * Run axe against every visited route. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package.
+   * Run axe against every visited route, leaving out iframes such as a queue's bull-board. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package.
    * @defaultValue false
    */
   a11y?: boolean;

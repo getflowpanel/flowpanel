@@ -58,6 +58,14 @@ afterEach(() => {
 });
 
 describe("createPublisher — a worker's publisher", () => {
+  it("warns when the key prefix was built from a variable the process does not set", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    createPublisher({ redis: workingClient(), keyPrefix: `app-${undefined}` });
+    createPublisher({ redis: workingClient(), keyPrefix: "app-production" });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain('"app-undefined"');
+  });
+
   it("resolves on a Redis error and hands it to onError with the channel", async () => {
     const onError = vi.fn();
     const events = createPublisher({ redis: failingClient(), onError });
@@ -114,6 +122,24 @@ describe("createPublisher — a worker's publisher", () => {
     );
     await events.close();
     expect(constructed[0]?.quit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("close() while Redis is down", () => {
+  it("drops the connection instead of waiting for it to come back", async () => {
+    const onError = vi.fn();
+    const events = createPublisher({ driver: "redis", url: "redis://down:6379", onError });
+    await events.publish("pipeline");
+    const connection = constructed[0] as MockConnection & {
+      status: string;
+      disconnect: () => void;
+    };
+    connection.status = "reconnecting";
+    connection.quit.mockImplementation(() => new Promise(() => {}));
+    connection.disconnect = vi.fn();
+    await events.close();
+    expect(connection.quit).not.toHaveBeenCalled();
+    expect(connection.disconnect).toHaveBeenCalledTimes(1);
   });
 });
 

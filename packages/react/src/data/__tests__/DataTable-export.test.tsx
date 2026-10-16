@@ -32,7 +32,7 @@ const columns = [
 ];
 
 describe("DataTable export config (formats / fields)", () => {
-  it("`exportable: true` is CSV-only, all visible columns", () => {
+  it("`exportable: true` is CSV-only, all visible columns", async () => {
     render(
       <DataTable
         columns={columns}
@@ -45,12 +45,13 @@ describe("DataTable export config (formats / fields)", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await vi.waitFor(() => expect(triggerDownload).toHaveBeenCalled());
     const call = triggerDownload.mock.calls[0]?.[0] as { mime: string; data: string };
     expect(call.mime).toBe("text/csv;charset=utf-8");
     expect(call.data).toContain("SSN");
   });
 
-  it("`exportable.fields` restricts the exported columns", () => {
+  it("`exportable.fields` restricts the exported columns", async () => {
     render(
       <DataTable
         columns={columns}
@@ -63,13 +64,14 @@ describe("DataTable export config (formats / fields)", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await vi.waitFor(() => expect(triggerDownload).toHaveBeenCalled());
     const call = triggerDownload.mock.calls[0]?.[0] as { data: string };
     expect(call.data).toContain("Email");
     expect(call.data).toContain("Name");
     expect(call.data).not.toContain("SSN");
   });
 
-  it("`exportable.fields` includes a field that is not a displayed column (e.g. the row key) in CSV output", () => {
+  it("`exportable.fields` includes a field that is not a displayed column (e.g. the row key) in CSV output", async () => {
     render(
       <DataTable
         columns={columns}
@@ -82,6 +84,7 @@ describe("DataTable export config (formats / fields)", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Export" }));
+    await vi.waitFor(() => expect(triggerDownload).toHaveBeenCalled());
     const call = triggerDownload.mock.calls[0]?.[0] as { data: string };
     const [header, ...body] = call.data.split("\r\n");
     // `id` isn't a `columns` entry (only email/name/ssn are), but it's still
@@ -106,6 +109,7 @@ describe("DataTable export config (formats / fields)", () => {
     const trigger = screen.getByRole("button", { name: "Export" });
     fireEvent.keyDown(trigger, { key: "Enter" });
     fireEvent.click(await screen.findByRole("menuitem", { name: /export as json/i }));
+    await vi.waitFor(() => expect(triggerDownload).toHaveBeenCalled());
     const call = triggerDownload.mock.calls[0]?.[0] as { data: string };
     expect(JSON.parse(call.data)).toEqual([{ id: "1", email: "a@b.co" }]);
   });

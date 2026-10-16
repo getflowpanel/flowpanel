@@ -64,11 +64,14 @@ describe("ResourceListPage — row projection", () => {
     { labels: undefined, expected: "Search пользователи…" },
     // JavaScript consumers and optional translation maps can supply an explicit undefined.
     {
-      labels: { searchPlaceholder: undefined } as unknown as LabelsConfig,
+      labels: { table: { searchPlaceholder: undefined } } as unknown as LabelsConfig,
       expected: "Search пользователи…",
     },
-    { labels: { searchPlaceholder: "Поиск: {label}…" }, expected: "Поиск: Пользователи…" },
-    { labels: { searchPlaceholder: "" }, expected: "" },
+    {
+      labels: { table: { searchPlaceholder: "Поиск: {label}…" } },
+      expected: "Поиск: Пользователи…",
+    },
+    { labels: { table: { searchPlaceholder: "" } }, expected: "" },
   ])("uses the configured search label: $labels", async ({ labels, expected }) => {
     const config = defineAdmin({
       adapter: fakeAdapter,

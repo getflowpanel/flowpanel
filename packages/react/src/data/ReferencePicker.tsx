@@ -40,7 +40,7 @@ export function ReferencePicker({
       onChange={onChange}
       loadOptions={loadOptions}
       placeholder={placeholder ?? labels.form.referencePlaceholder}
-      emptyText={emptyText ?? labels.noResults}
+      emptyText={emptyText ?? labels.table.noResults}
       debounceMs={debounceMs}
       {...(className ? { className } : {})}
     />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TableDescription } from "../describe-schema";
-import { columnKind, fileBaseOf, renderResourceFile } from "../render-resource";
+import { columnKind, fileBaseOf, renderResourceFile, scaffoldPlural } from "../render-resource";
 
 const USER_VISIT: TableDescription = {
   exportName: "userVisit",
@@ -53,6 +53,7 @@ describe("renderResourceFile", () => {
         'const Surface = enumOf(schema.activitySurface.enumValues, { web: "Web", tma: "Tma" });',
         "",
         "export const userVisit = resource(schema.userVisit, {",
+        '  plural: "User visits",',
         "  hidden: true,",
         "  columns: [",
         '    "id",',
@@ -78,6 +79,7 @@ describe("renderResourceFile", () => {
         'import * as schema from "../../db/schema";',
         "",
         "export const user = resource(schema.user, {",
+        '  plural: "Users",',
         "  columns: [",
         '    "id",',
         '    "name",',
@@ -192,10 +194,63 @@ describe("columnKind", () => {
   });
 });
 
+describe("money columns", () => {
+  const column = (key: string, columnType: string, dataType = "number") => ({
+    key,
+    dataType,
+    columnType,
+    primary: false,
+  });
+
+  it("formats an integer column named in cents as money, in every dialect and in Prisma", () => {
+    for (const [key, type, data] of [
+      ["amountCents", "PgInteger", "number"],
+      ["mrr_cents", "PgBigInt53", "number"],
+      ["totalCents", "PgBigInt64", "bigint"],
+      ["feeCents", "SQLiteInteger", "number"],
+      ["priceCents", "MySqlInt", "number"],
+      ["amountCents", "PrismaInt", "number"],
+    ] as const) {
+      expect(columnKind(column(key, type, data)), `${key} ${type}`).toBe("money");
+    }
+    const out = renderResourceFile(
+      {
+        exportName: "invoice",
+        tableName: "invoice",
+        columns: [column("amountCents", "PgInteger")],
+      },
+      { hidden: false, schemaImport: "@/db/schema" },
+    );
+    expect(out).toContain('{ field: "amountCents", format: { kind: "money", minorUnits: 2 } },');
+  });
+
+  it("leaves a decimal, a text or an unrelated integer as it is", () => {
+    expect(columnKind(column("amountCents", "PgNumeric"))).toBe("plain");
+    expect(columnKind(column("amountCents", "PgText", "string"))).toBe("plain");
+    expect(columnKind(column("percents", "PgInteger"))).toBe("plain");
+  });
+});
+
 describe("fileBaseOf", () => {
   it("kebab-cases the schema export", () => {
     expect(fileBaseOf("userVisit")).toBe("user-visit");
     expect(fileBaseOf("onboardingStepEvent")).toBe("onboarding-step-event");
     expect(fileBaseOf("user")).toBe("user");
+  });
+});
+
+describe("scaffoldPlural", () => {
+  it.each([
+    ["user", "Users"],
+    ["user_visit", "User visits"],
+    ["category", "Categories"],
+    ["box", "Boxes"],
+    ["sku", "SKUs"],
+    ["api_key", "API keys"],
+    ["orders", null],
+    ["ai_usage", null],
+    ["audit", null],
+  ])("labels %s as %s", (table, plural) => {
+    expect(scaffoldPlural(table)).toBe(plural);
   });
 });

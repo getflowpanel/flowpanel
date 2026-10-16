@@ -16,12 +16,14 @@ export interface BarTrailProps {
   formatting: ResolvedFormatting;
   /** `labels.widget.points`, for a `percent` row's change. */
   pointsLabel: string;
+  /** `labels.widget.fresh`, for a row the compared period did not have. */
+  freshLabel: string;
 }
 
 /** The right-hand side of a bar row: its value, its share and its change. */
 export function BarTrail(props: BarTrailProps) {
-  const { value, previous, share, format, goodWhen, formatting, pointsLabel } = props;
-  const print = deltaPrint(format, formatting, pointsLabel);
+  const { value, previous, share, format, goodWhen, formatting, pointsLabel, freshLabel } = props;
+  const print = deltaPrint(format, formatting, pointsLabel, freshLabel);
   const change =
     previous === undefined
       ? null

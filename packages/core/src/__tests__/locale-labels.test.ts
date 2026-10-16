@@ -35,7 +35,7 @@ describe("chrome labels follow formatting.locale", () => {
     const labels = labelsFor("ru-RU", { actions: { new: "Добавить" } });
     expect(labels.actions.new).toBe("Добавить");
     expect(labels.actions.cancel).toBe(RU_LABELS.actions.cancel);
-    expect(labels.noResults).toBe(RU_LABELS.noResults);
+    expect(labels.table.noResults).toBe(RU_LABELS.table.noResults);
   });
 
   it("keeps English under a Russian locale when the host passes DEFAULT_LABELS", () => {

@@ -6,7 +6,7 @@ Every option of row, bulk, dashboard and drawer actions, and what they return.
 
 Docs: https://flowpanel.tech/docs/reference/actions
 
-Documented types: rowAction, RowAction, bulkAction, BulkAction, dashboardAction, DashboardAction, DrawerAction, DrawerFieldFormSpec, ActionResult, ActionContext
+Documented types: rowAction, RowAction, bulkAction, BulkAction, dashboardAction, DashboardAction, DrawerAction, ActionResult, ActionContext
 
 Row, bulk, dashboard and drawer actions share one result type and one guard
 order: the admin role gate, the resource gate, then the action's own
@@ -25,7 +25,7 @@ Offered on a single row, inline or in the row menu. `rowAction<Row, Input>()` ty
 both `run` arguments and checks every `form[].name` against `Input`; it returns the
 object unchanged. Add it to a resource's `actions`.
 
-```ts twoslash
+```ts
 import { rowAction } from "@flowpanel/kit";
 
 type User = { id: string; status: "active" | "suspended" };
@@ -59,15 +59,17 @@ export const suspendUser = rowAction<User, SuspendInput>({
 | `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
 | `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
 | `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
-| `hidden?` | `(row: Row, ctx: RequestContext) => boolean \| Promise<boolean>` | Hide the action for rows it does not apply to. Evaluated server-side per row. |
+| `hidden?` | `(row: Row, ctx: RequestContext) => boolean \| Promise<boolean>` |  |
 | `disabled?` | `(row: Row) => boolean \| string` | Disable with a reason. A string is shown to the operator. |
 | `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
-| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Server-enforced row condition, evaluated only after a scoped row load. |
+| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
 | `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
 
-`hidden` runs on the server per row; a hidden action's route returns `404` for
-that row.
+`when` runs on the server per row: the menus offer the action only where it
+returns true, and the route returns `404` for any other row. Menus call it with no
+`input`; the route passes the posted input. `hidden` is deprecated: use `when` with
+the condition reversed.
 
 ### BulkAction
 
@@ -128,7 +130,8 @@ dashboardAction({ key: "retry", label: "Retry failed runs", emphasis: "primary",
 
 ### DrawerAction
 
-Rendered in the drawer footer. Its `form` uses `DrawerFieldFormSpec`.
+Rendered in the drawer's menu, like a row action, and takes the same options
+except `hidden` and `disabled`. Its `form` is a list of fields, as on a row action.
 
 `DrawerAction`
 
@@ -136,27 +139,17 @@ Rendered in the drawer footer. Its `form` uses `DrawerFieldFormSpec`.
 | --- | --- | --- |
 | `key` | `string` | Stable identifier, used in the action's URL. |
 | `label` | `string` |  |
-| `variant?` | `"default" \| "destructive"` | `"destructive"` styles the button as dangerous. |
-| `placement?` | `"inline" \| "menu"` | `"inline"`: a button beside Edit instead of an entry in the record's menu. Default: `"menu"`. |
-| `confirm?` | `string` | Ask for confirmation with this message before running. |
-| `form?` | `DrawerFieldFormSpec[]` | Inputs collected before `run`, passed to it as `formData`. |
-| `palette?` | `boolean` | Also offer the action in the command palette. |
-| `access?` | `AccessRule` | Roles allowed to see and execute this action. |
-| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Server-enforced row condition evaluated after the scoped row load. |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `variant?` | `ActionVariant` | Button styling. |
+| `placement?` | `"inline" \| "menu"` | `"inline"` renders a button in the row; `"menu"` puts it in the row menu. |
+| `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
+| `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
+| `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
+| `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
+| `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
+| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. |
 | `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
-| `run` | `( row: Row, formData: Record<string, unknown>, ctx: ActionContext<InferDB>, ) => Promise<ActionResult>` | Server-side handler. Runs only after every guard has passed. |
-
-#### DrawerFieldFormSpec
-
-`DrawerFieldFormSpec`
-
-| Property | Type | Notes |
-| --- | --- | --- |
-| `name` | `string` | Key this input contributes to the action's `formData`. |
-| `type?` | `"text" \| "textarea" \| "select" \| "switch" \| "number"` | Control to render. Defaults to `"text"`. |
-| `options?` | `string[]` | Choices for `select`. |
-| `required?` | `boolean` | Reject an empty value. Enforced server-side. |
-| `validate?` | `\| z.ZodTypeAny \| ((value: unknown, values: Record<string, unknown>) => string \| null \| Promise<string \| null>)` | Per-input validation, run server-side before `run`. |
+| `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
 
 ### ActionResult
 

@@ -123,7 +123,7 @@ describe("importRoute", () => {
     expect(body.failed).toHaveLength(1);
     expect(body.failed[0]?.row).toBe(2);
     // Not the generic "Validation failed" — the failing field and its message.
-    expect(body.failed[0]?.error).toMatch(/^email: /);
+    expect(body.failed[0]?.error).toMatch(/^Email: /);
   });
 
   it("consumes one rate-limit token per import, not one per row", async () => {

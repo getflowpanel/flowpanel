@@ -59,16 +59,14 @@ describe("serializeActionFormField", () => {
     });
   });
 
-  it("drops non-serializable members (validate, defaultValue)", () => {
+  it("drops what a browser cannot run: validate and a defaultValue function", () => {
     const wire = serializeActionFormField({
       name: "reason",
       required: true,
       validate: () => null,
-      defaultValue: "n/a",
+      defaultValue: async () => "n/a",
     });
     expect(wire).toEqual({ name: "reason", required: true });
-    expect("validate" in wire).toBe(false);
-    expect("defaultValue" in wire).toBe(false);
   });
 
   it("normalizes string[] options shorthand to {label, value} pairs", () => {
@@ -108,5 +106,19 @@ describe("serializeActionForm", () => {
       { name: "a", type: "text" },
       { name: "b", type: "number", required: true },
     ]);
+  });
+});
+
+describe("an action form field's default", () => {
+  it("travels to the dialog when it is a value, and stays on the server when it is a function", () => {
+    expect(serializeActionFormField({ name: "channel", defaultValue: "email" }).defaultValue).toBe(
+      "email",
+    );
+    expect(serializeActionFormField({ name: "urgent", defaultValue: false }).defaultValue).toBe(
+      false,
+    );
+    expect(
+      serializeActionFormField({ name: "owner", defaultValue: async () => "u1" }),
+    ).not.toHaveProperty("defaultValue");
   });
 });

@@ -68,6 +68,8 @@ export interface StatOptions extends CaptionOptions {
   goodWhen?: GoodWhen;
   /** How a numeric value is rendered. */
   format?: NumericFormat;
+  /** The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `tones` compare the amount shown. */
+  minorUnits?: number;
   /** Width in the dashboard's 12-column grid. */
   span?: Span;
   /** Cap the date range at its last N days — `"30d"` — for data kept only that long. */
@@ -176,6 +178,8 @@ export interface BarsOptions extends CaptionOptions {
   query: (ctx: WidgetContext) => Promise<BarRow[]>;
   /** How bar values are rendered. */
   format?: NumericFormat;
+  /** The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `max` and `tones` read the amount shown. */
+  minorUnits?: number;
   /**
    * The value a full bar stands for — `1` for a rate with `format: "percent"`.
    * Default, and for a value of `0` or less: the largest value in the rows.

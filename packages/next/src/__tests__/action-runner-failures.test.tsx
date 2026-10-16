@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type { Adapter } from "@flowpanel/core";
-import { defineAdmin, FlowpanelValidationError, resource } from "@flowpanel/core";
+import { DEFAULT_LABELS, defineAdmin, FlowpanelValidationError, resource } from "@flowpanel/core";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -68,14 +68,14 @@ afterEach(() => {
 });
 
 describe("useActionRunner reads every failure body as text", () => {
-  it("toasts the message of a 404 from a stale tab, never an object", async () => {
+  it("toasts a 404 from a stale tab in the admin's words, never an object", async () => {
     answer(
       rowActionRoute(config)(new Request("http://localhost/x", { method: "POST", body: "{}" }), {
         params: Promise.resolve({ resource: "users", id: "u1", action: "gone" }),
       }),
     );
     expect(await run()).toBeNull();
-    expect(ui.toast.error).toHaveBeenCalledWith("action not found");
+    expect(ui.toast.error).toHaveBeenCalledWith(DEFAULT_LABELS.errors.notFound);
   });
 
   it("returns a guard's validation errors as field errors for the form", async () => {
@@ -92,12 +92,12 @@ describe("useActionRunner reads every failure body as text", () => {
     answer(
       Promise.resolve(
         Response.json(
-          { ok: false, error: { code: "not_found", message: "action not found" } },
-          { status: 404 },
+          { ok: false, error: { code: "conflict", message: "Already shipped" } },
+          { status: 409 },
         ),
       ),
     );
     await run();
-    expect(ui.toast.error).toHaveBeenCalledWith("action not found");
+    expect(ui.toast.error).toHaveBeenCalledWith("Already shipped");
   });
 });

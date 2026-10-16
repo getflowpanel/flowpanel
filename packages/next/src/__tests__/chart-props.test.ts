@@ -1,7 +1,7 @@
 import type { BarChartWidget, LineChartWidget, PieChartWidget } from "@flowpanel/core";
 import { DEFAULT_LABELS, enumOf, OTHER_KEY } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
-import { chartProps } from "../runtime/chart-props";
+import { chartProps, chartRows } from "../runtime/chart-props";
 
 const byDay = [{ date: "2026-09-01", kwork: 3, fl: 1, [OTHER_KEY]: 2 }];
 
@@ -63,5 +63,22 @@ describe("chartProps with captions", () => {
       options: { x: "date", y: "value", coverage: "sample", freshness: { at: async () => null } },
     };
     expect(chartProps(widget, [], DEFAULT_LABELS).options).toEqual({ x: "date", y: "value" });
+  });
+});
+
+describe("a chart of minor units", () => {
+  it("draws the amount, and keeps access and minorUnits on the server", () => {
+    const widget: BarChartWidget = {
+      kind: "barChart",
+      label: "New MRR",
+      query: async () => [],
+      options: { x: "month", format: "currency", minorUnits: 2, access: "admin" },
+    };
+    const rows = [{ month: "2026-09", mrr: 260000, plan: "pro" }];
+    const { options } = chartProps(widget, rows, DEFAULT_LABELS);
+    expect(options).toEqual({ x: "month", format: "currency", y: ["mrr"] });
+    expect(chartRows(widget, rows, options)).toEqual([
+      { month: "2026-09", mrr: 2600, plan: "pro" },
+    ]);
   });
 });

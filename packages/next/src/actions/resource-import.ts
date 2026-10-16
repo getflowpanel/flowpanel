@@ -9,15 +9,39 @@ import { actionFailure } from "../runtime/action-failure";
 import { safeErrorMessage } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { coerceRowByColumns } from "../runtime/coerce-values";
+import { fieldLabels } from "../runtime/field-labels";
 import { buildHref } from "../runtime/href";
+import { decodeMoneyCells, moneyDigits } from "../runtime/money-field";
 import { resourceNavName } from "../runtime/nav";
 import { parseImport } from "../runtime/parse-import";
+import { declaredFormFields } from "../runtime/resolve-form-fields";
 import { guardedRoute, lookupResource } from "../runtime/write-pipeline";
 import { makeActions } from "./resource-actions";
 
 function pick(row: Record<string, unknown>, keys: string[]): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const k of keys) if (k in row) out[k] = row[k];
+  return out;
+}
+
+/** Each cell under its field's name, so a header may be the name, the export's header or the form's label, in any case. */
+function byFieldName(
+  row: Record<string, unknown>,
+  fields: readonly string[],
+  labelsOf: ReadonlyArray<(name: string) => string>,
+): Record<string, unknown> {
+  const fieldOf = new Map<string, string>();
+  const key = (text: string) => text.trim().toLowerCase();
+  for (const labelOf of labelsOf) {
+    for (const field of fields)
+      if (!fieldOf.has(key(labelOf(field)))) fieldOf.set(key(labelOf(field)), field);
+  }
+  for (const field of fields) fieldOf.set(key(field), field);
+  const out: Record<string, unknown> = {};
+  for (const [header, value] of Object.entries(row)) {
+    const field = fieldOf.get(key(header)) ?? header;
+    if (!(field in out) || field === header) out[field] = value;
+  }
   return out;
 }
 
@@ -50,11 +74,14 @@ async function readBodyCapped(req: Request, maxBytes: number): Promise<string> {
   return new TextDecoder().decode(out);
 }
 
-/** Per-row failure message. */
-function rowErrorMessage(err: unknown): string {
+/** Per-row failure message: each field's, in the form's words, named by the field's label. */
+function rowErrorMessage(err: unknown, labelOf: (name: string) => string): string {
   if (err instanceof FlowpanelValidationError) {
     const details = Object.entries(err.fieldErrors)
-      .map(([field, msg]) => `${field}: ${msg}`)
+      .map(([field, msg]) => {
+        const label = labelOf(field);
+        return msg.includes(label) ? msg : `${label}: ${msg}`;
+      })
       .join("; ");
     if (details) return details;
   }
@@ -130,6 +157,14 @@ export function importRoute(config: ResolvedAdminConfig) {
       const allowed = importOpt.fields as string[] | undefined;
       const { columns } = config.adapter.introspect(writeTarget(resource));
       const labels = mergeLabels(config.labels);
+      const labelOf = fieldLabels(resource, declaredFormFields(resource, "create"));
+      const named =
+        allowed ??
+        columns
+          .filter((column) => !column.primaryKey && column.writableOnCreate !== false)
+          .map((column) => column.name);
+      const headerLabels = [fieldLabels(resource), labelOf];
+      const digits = moneyDigits(config, resource);
       const actions = makeActions(config, resource, { reqCtx, publish: false });
       let imported = 0;
       const failed: { row: number; error: string }[] = [];
@@ -139,13 +174,16 @@ export function importRoute(config: ResolvedAdminConfig) {
           continue;
         }
         try {
-          const picked = allowed ? pick(rawRow, allowed) : rawRow;
-          const { values, fieldErrors } = coerceRowByColumns(columns, picked, labels);
-          if (Object.keys(fieldErrors).length > 0) throw new FlowpanelValidationError(fieldErrors);
-          await actions.create(values);
+          const keyed = byFieldName(rawRow, named, headerLabels);
+          const picked = allowed || columns.length > 0 ? pick(keyed, named) : keyed;
+          const money = decodeMoneyCells(picked, digits, labelOf, labels);
+          const coerced = coerceRowByColumns(columns, money.values, labels, undefined, labelOf);
+          await actions.create(coerced.values, {
+            decodeErrors: { ...coerced.fieldErrors, ...money.fieldErrors },
+          });
           imported++;
         } catch (e) {
-          failed.push({ row: index + 1, error: rowErrorMessage(e) });
+          failed.push({ row: index + 1, error: rowErrorMessage(e, labelOf) });
         }
       }
       if (imported > 0) {

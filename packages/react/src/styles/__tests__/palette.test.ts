@@ -15,7 +15,10 @@ function block(selectorStart: string): Record<string, string> {
 }
 
 const light = block("[data-flowpanel-root],\n[data-flowpanel-portal] {");
-const dark = { ...light, ...block('html[data-flowpanel-theme="dark"] [data-flowpanel-root],') };
+const dark = {
+  ...light,
+  ...block('html[data-flowpanel-theme="dark"] [data-flowpanel-root]:not([data-scheme="host"]),'),
+};
 
 type Rgb = [number, number, number];
 

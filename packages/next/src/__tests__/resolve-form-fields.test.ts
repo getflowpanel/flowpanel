@@ -32,12 +32,28 @@ describe("declaredFormFields", () => {
 
   it("returns create.fields for create mode", () => {
     const r = resourceWith({ columns: [], create: { fields: createFields } });
-    expect(declaredFormFields(r, "create")).toBe(createFields);
+    expect(declaredFormFields(r, "create")).toEqual([{ name: "title", label: "Title" }]);
   });
 
   it("update mode falls back to create.fields when update.fields is omitted", () => {
     const r = resourceWith({ columns: [], create: { fields: createFields } });
-    expect(declaredFormFields(r, "update")).toBe(createFields);
+    expect(declaredFormFields(r, "update")).toEqual([{ name: "title", label: "Title" }]);
+  });
+
+  it("labels a field as its column does when the field sets no label", () => {
+    const r = resourceWith({
+      columns: [{ field: "sku", label: "Article no." }],
+      create: {
+        fields: [
+          { name: "sku" },
+          { name: "customerId", reference: { resource: "customers", labelField: "name" } },
+        ],
+      },
+    });
+    expect(declaredFormFields(r, "create")?.map((f) => f.label)).toEqual([
+      "Article no.",
+      "Customer",
+    ]);
   });
 
   it("update mode prefers its own fields when declared", () => {
@@ -46,7 +62,7 @@ describe("declaredFormFields", () => {
       create: { fields: createFields },
       update: { fields: updateFields },
     });
-    expect(declaredFormFields(r, "update")).toBe(updateFields);
+    expect(declaredFormFields(r, "update")).toEqual([{ name: "status", label: "Status" }]);
   });
 
   it("returns undefined when neither is declared", () => {
@@ -188,6 +204,17 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
     const resolved = await resolveFormFields(cfg, fields, ctx("admin"));
     expect(resolved[0]?.options).toEqual([]);
     expect(list).not.toHaveBeenCalled();
+  });
+
+  it("labels a create form's default by the record it points to, as an edit form does", async () => {
+    const { config: cfg } = configWith({});
+    const resolved = await resolveFormFields(
+      cfg,
+      [{ ...fields[0], name: "ownerId", defaultValue: async () => "u42" }],
+      ctx("admin"),
+    );
+    expect(resolved[0]?.defaultValue).toBe("u42");
+    expect(resolved[0]?.options).toEqual([{ value: "u42", label: "owner@x.com" }]);
   });
 
   it("returns no options when the referenced row no longer exists", async () => {

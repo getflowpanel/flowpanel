@@ -50,7 +50,9 @@ describe("flowpanel new on a Drizzle config", () => {
     expect(result.exit).toBeNull();
     const config = result.contents["flowpanel.config.ts"] ?? "";
     expect(config).toContain('import { defineAdmin, resource } from "@flowpanel/kit";');
-    expect(config).toContain("    resource(schema.user, {\n      columns: [\n");
+    expect(config).toContain(
+      '    resource(schema.user, {\n      plural: "Users",\n      columns: [\n',
+    );
     expect(config).toContain('      search: ["email", "name"],');
     expect(config).toContain('      defaultSort: { field: "createdAt", dir: "desc" },');
     expect(config).toContain("    }),\n  ],");

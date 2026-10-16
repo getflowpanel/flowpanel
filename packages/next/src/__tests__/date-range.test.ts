@@ -180,6 +180,13 @@ describe("previousRangeFor", () => {
     });
   });
 
+  it("reads the last 12 months as whole months from the 1st, eleven months back, and compares a year back", () => {
+    expect(previousOf("last12m", "2026-09-23T07:00:00Z")).toEqual({
+      from: "2024-09-30T21:00:00.000Z",
+      to: "2025-09-23T07:00:00.000Z",
+    });
+  });
+
   it("clamps month to date to the length of the shorter month before it", () => {
     expect(previousOf("MTD", "2026-03-31T07:00:00Z")).toEqual({
       from: "2026-01-31T21:00:00.000Z",

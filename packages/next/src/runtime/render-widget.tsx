@@ -7,7 +7,7 @@ import type {
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { OTHER_KEY, resolveFormatting } from "@flowpanel/core";
+import { accessAllows, OTHER_KEY, resolveFormatting } from "@flowpanel/core";
 import {
   BarsCard,
   ExpiredCard,
@@ -24,6 +24,7 @@ import { barRows } from "./bar-rows";
 import { withFilterHrefs } from "./dashboard-filters";
 import { filteredEmptyState } from "./filtered-empty";
 import { listCardData } from "./list-card-data";
+import { inAmount } from "./minor-units";
 import { realtimeChannels } from "./realtime-channels";
 import { scopedCountMetric } from "./record-scope";
 import { renderChartWidget } from "./render-chart-widget";
@@ -66,6 +67,7 @@ export async function renderWidget(
   reqCtx: RequestContext,
   frame: WidgetFrame = {},
 ): Promise<ReactNode> {
+  if (!(await accessAllows(widget.options.access, reqCtx))) return null;
   const kept = retainedRange(widget, pickedCtx);
   if (kept.expired) {
     const title = widgetLabel(widget);
@@ -110,7 +112,7 @@ export async function renderWidget(
       );
     }
     case "stat": {
-      const result = await resolveItem(widget.value, ctx);
+      const result = inAmount(await resolveItem(widget.value, ctx), widget.options.minorUnits);
       const hint = result.hint ?? widget.options.hint;
       const href = resolveLink(config, ctx, result.href ?? widget.options.href);
       const tone = valueTone(result, widget.options);
@@ -221,7 +223,18 @@ export async function renderWidget(
         </ServerCard>
       );
       const framed = widget.options.frame === false ? inner : card;
-      return withRealtime(framed, widget.options.realtime);
+      const held =
+        widget.options.minHeight === undefined ? (
+          framed
+        ) : (
+          <div
+            className="fp-flex fp-flex-col [&>*]:fp-flex-1"
+            style={{ minHeight: widget.options.minHeight }}
+          >
+            {framed}
+          </div>
+        );
+      return withRealtime(held, widget.options.realtime);
     }
     case "timeline":
       return withRealtime(

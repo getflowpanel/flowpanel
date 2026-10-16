@@ -51,7 +51,7 @@ const admin = defineAdmin({
       fieldAccess: { note: { read: "admin" }, apiKey: { sensitive: true } },
       scope: (scope, query: { where(condition: SQL): unknown }) =>
         query.where(eq(customers.tenantId, (scope as { tenantId: string }).tenantId)),
-      export: { formats: ["csv", "json"], maxRows: 3 },
+      export: { formats: ["csv", "json"], maxRows: 3, access: ["admin", "support"] },
     }),
   ],
 });
@@ -112,6 +112,19 @@ describe("the server export", () => {
     expect(audited).toMatchObject([{ action: "customers.export", actorId: "u1" }]);
     expect(audited[0]).not.toHaveProperty("targetId");
     expect((await exported("format=xml")).headers.get("content-type")).toContain("text/csv");
+  });
+});
+
+describe("export.access", () => {
+  it("refuses a role it leaves out, though that role may read the list", async () => {
+    role = "viewer";
+    const before = audited.length;
+    try {
+      expect((await exported("format=csv")).status).toBe(403);
+      expect(audited).toHaveLength(before);
+    } finally {
+      role = "admin";
+    }
   });
 });
 
@@ -212,5 +225,20 @@ describe("the server export of a composite-key table", () => {
     ).text();
     expect(listed.mock.calls[0]?.[1].tiebreak).toEqual([]);
     db.close();
+  });
+});
+
+describe("the export file's name", () => {
+  it("carries the day on the admin's clock, not UTC's", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-13T21:00:00Z"));
+    const local = defineAdmin({ ...admin, formatting: { timeZone: "Asia/Bangkok" } });
+    role = "admin";
+    const res = await handlers(local).GET(
+      new Request("http://localhost/api/flowpanel/export/customers?format=csv"),
+      { params: Promise.resolve({ route: ["export", "customers"] }) },
+    );
+    vi.useRealTimers();
+    expect(res.headers.get("content-disposition")).toContain("-2026-10-14.csv");
   });
 });

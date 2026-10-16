@@ -1,5 +1,5 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
-import { accessAllows, mergeLabels } from "@flowpanel/core";
+import { accessAllows, mergeLabels, resolveOperationAccess } from "@flowpanel/core";
 import { notFound } from "next/navigation";
 import type * as React from "react";
 import { AuditLogPage } from "../pages/audit/audit-log-page";
@@ -47,7 +47,7 @@ export async function renderContent(
   const userPage = matchPage(slug, config);
   if (userPage) {
     await requireAccessIfSet(userPage.access, requestContext);
-    return <UserPage page={userPage} />;
+    return <UserPage page={userPage} config={config} reqCtx={requestContext} searchParams={sp} />;
   }
 
   if (slug.length === 0) {
@@ -111,7 +111,11 @@ export async function renderContent(
   if (!resource) notFound();
   const name = resourceNavName(resource);
 
+  const allow = (operation: "read" | "create" | "update") =>
+    requireAccessIfSet(resolveOperationAccess(resource.options.access, operation), requestContext);
+
   if (slug.length === 1) {
+    await allow("read");
     return (
       <ResourceListPage
         config={config}
@@ -126,6 +130,7 @@ export async function renderContent(
   const id = slug[1];
   if (!id) notFound();
   if (slug.length === 2 && id === "new") {
+    await allow("create");
     return (
       <ResourceCreatePage
         config={config}
@@ -137,6 +142,7 @@ export async function renderContent(
     );
   }
   if (slug.length === 2) {
+    await allow("read");
     return (
       <ResourceDetailPage
         config={config}
@@ -149,6 +155,7 @@ export async function renderContent(
     );
   }
   if (slug.length === 3 && slug[2] === "edit") {
+    await allow("update");
     return (
       <ResourceEditPage
         config={config}

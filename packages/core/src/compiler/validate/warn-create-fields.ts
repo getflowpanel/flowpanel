@@ -1,4 +1,5 @@
 import { declaredWriteFields } from "../../internal/write-fields";
+import { resolveOperationAccess } from "../../policy/access";
 import type { ColumnMeta, ResourceIntrospection } from "../../types/adapter";
 import type { ResourceConfig } from "../../types/resource";
 
@@ -28,6 +29,7 @@ export function createFieldWarnings(
   introspection: ResourceIntrospection,
 ): string[] {
   if (resource.options.create?.disabled === true) return [];
+  if (resolveOperationAccess(resource.options.access, "create") === false) return [];
   const filled = filledOnCreate(resource);
   return introspection.columns
     .filter((column) => isRequiredInput(column) && !filled.has(column.name))

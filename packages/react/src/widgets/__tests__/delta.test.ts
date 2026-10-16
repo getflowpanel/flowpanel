@@ -9,6 +9,7 @@ function printIn(locale: string): DeltaPrint {
     value: (n) => String(n),
     percent: (fraction) => formatPercentValue(fraction, formatting, 1),
     points: (n) => `${onePlace.format(n)} pp`,
+    fresh: "new",
   };
 }
 
@@ -26,7 +27,7 @@ describe("describeDelta", () => {
       mood: "bad",
       material: true,
     });
-    expect(describeDelta({ value: -0.2 }, 60, undefined, en).text).toBe("−20%");
+    expect(describeDelta({ value: -0.2 }, 60, undefined, en)?.text).toBe("−20%");
   });
 
   it("calls a change under 5% immaterial, so the card leaves it uncoloured", () => {
@@ -38,7 +39,7 @@ describe("describeDelta", () => {
   });
 
   it("prints the percentage in the admin's locale", () => {
-    expect(describeDelta({ value: 0.123 }, 112, undefined, printIn("ru-RU")).text).toMatch(
+    expect(describeDelta({ value: 0.123 }, 112, undefined, printIn("ru-RU"))?.text).toMatch(
       /^\+12,3\s%$/,
     );
   });
@@ -62,18 +63,26 @@ describe("describeDelta", () => {
       mood: "bad",
       material: true,
     });
-    expect(describeDelta({ value: 0, previous: 0 }, 0, undefined, en)).toEqual({
-      text: "0",
-      mood: "flat",
-      material: false,
+  });
+
+  it("reads a change from zero as new, and zero to zero as nothing to show", () => {
+    expect(describeDelta({ value: 1, previous: 0 }, 7, undefined, en)).toEqual({
+      text: "new",
+      mood: "good",
+      material: true,
+      fresh: true,
     });
+    expect(
+      describeDelta({ value: 1, previous: 0, goodWhen: "down" }, 7, "currency", en)?.mood,
+    ).toBe("bad");
+    expect(describeDelta({ value: 0, previous: 0 }, 0, undefined, en)).toBeNull();
   });
 
   it("keeps the percentage for a base of 20 or more, a fractional base, money or text", () => {
-    expect(describeDelta({ value: 0.5, previous: 20 }, 30, undefined, en).text).toBe("+50%");
-    expect(describeDelta({ value: 0.5, previous: 2.5 }, 3.75, undefined, en).text).toBe("+50%");
-    expect(describeDelta({ value: 1.5, previous: 2 }, 5, "currency", en).text).toBe("+150%");
-    expect(describeDelta({ value: 0.5, previous: 2 }, "3 ₽", undefined, en).text).toBe("+50%");
+    expect(describeDelta({ value: 0.5, previous: 20 }, 30, undefined, en)?.text).toBe("+50%");
+    expect(describeDelta({ value: 0.5, previous: 2.5 }, 3.75, undefined, en)?.text).toBe("+50%");
+    expect(describeDelta({ value: 1.5, previous: 2 }, 5, "currency", en)?.text).toBe("+150%");
+    expect(describeDelta({ value: 0.5, previous: 2 }, "3 ₽", undefined, en)?.text).toBe("+50%");
   });
 
   it("reads a rate's change in percentage points, and a tiny one as flat", () => {
@@ -90,7 +99,7 @@ describe("describeDelta", () => {
   });
 
   it("never colours a neutral metric", () => {
-    expect(describeDelta({ value: 0.4, goodWhen: "neutral" }, 140, undefined, en).mood).toBe(
+    expect(describeDelta({ value: 0.4, goodWhen: "neutral" }, 140, undefined, en)?.mood).toBe(
       "flat",
     );
   });

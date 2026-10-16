@@ -56,26 +56,34 @@ describe("humanizeSingular", () => {
 describe("singularTitle", () => {
   it("puts the label mid-sentence after a word and as written elsewhere", () => {
     const users = withOptions({});
-    expect(singularTitle("New {label}", users, "users")).toBe("New user");
-    expect(singularTitle("Edit {label}", withOptions({ labelOne: "API key" }), "keys")).toBe(
-      "Edit API key",
-    );
-    expect(singularTitle("{label} bearbeiten", users, "users")).toBe("User bearbeiten");
-    expect(singularTitle("Новая запись: {label}", withOptions({ labelOne: "Клиент" }), "c")).toBe(
-      "Новая запись: Клиент",
-    );
+    expect(singularTitle("New {label}", users, "users", "en-US")).toBe("New user");
+    expect(
+      singularTitle("Edit {label}", withOptions({ labelOne: "API key" }), "keys", "en-US"),
+    ).toBe("Edit API key");
+    expect(singularTitle("{label} bearbeiten", users, "users", "de-DE")).toBe("User bearbeiten");
+    expect(
+      singularTitle("Новая запись: {label}", withOptions({ labelOne: "Клиент" }), "c", "ru-RU"),
+    ).toBe("Новая запись: Клиент");
   });
 });
 
 describe("labelInSentence", () => {
   it("lowercases a capitalised word so it reads inside a sentence", () => {
-    expect(labelInSentence("Customers")).toBe("customers");
-    expect(labelInSentence("Team members")).toBe("team members");
+    expect(labelInSentence("Customers", "en-US")).toBe("customers");
+    expect(labelInSentence("Team members", "en-US")).toBe("team members");
+  });
+
+  it("keeps a German noun's capital, as German writes every noun", () => {
+    expect(labelInSentence("Rechnungen", "de-DE")).toBe("Rechnungen");
+    expect(singularTitle("Keine {label}", withOptions({ labelOne: "Rechnung" }), "r", "de")).toBe(
+      "Keine Rechnung",
+    );
+    expect(labelInSentence("Factures", "fr-FR")).toBe("factures");
   });
 
   it("keeps acronyms and already lowercase names as written", () => {
-    expect(labelInSentence("API keys")).toBe("API keys");
-    expect(labelInSentence("SKUs")).toBe("SKUs");
-    expect(labelInSentence("people")).toBe("people");
+    expect(labelInSentence("API keys", "en-US")).toBe("API keys");
+    expect(labelInSentence("SKUs", "en-US")).toBe("SKUs");
+    expect(labelInSentence("people", "en-US")).toBe("people");
   });
 });

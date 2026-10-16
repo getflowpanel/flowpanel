@@ -138,7 +138,7 @@ export async function AuditLogPage({
           actions={actions}
         />
         {items.length === 0 ? (
-          <div className="fp-rounded fp-border fp-border-line fp-bg-surface fp-p-6">
+          <div className="fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-6">
             <p className="fp-text-sm fp-text-faint">
               {filtered ? labels.emptyFiltered : labels.empty}
             </p>

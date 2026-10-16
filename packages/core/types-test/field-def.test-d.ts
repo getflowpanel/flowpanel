@@ -9,3 +9,11 @@ expectAssignable<FieldDef<Job>>({
   render: async (row) => `Category ${row.categoryId}`,
 });
 expectNotAssignable<FieldDef<Job>>({ name: "categoryId", render: "text" });
+
+expectAssignable<FieldDef<Job>>({
+  name: "categoryId",
+  defaultValue: async (ctx) => (ctx.role === "admin" ? "all" : ctx.scope?.categoryId),
+});
+expectAssignable<FieldDef<Job>>({ name: "categoryId", defaultValue: "general" });
+expectAssignable<FieldDef<Job>>({ name: "categoryId", defaultValue: new Map([["a", 1]]) });
+expectAssignable<FieldDef<Job>>({ name: "categoryId", defaultValue: ["a", "b"] });

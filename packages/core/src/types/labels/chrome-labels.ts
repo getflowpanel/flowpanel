@@ -71,79 +71,6 @@ export interface RealtimeLabels {
   offline?: string;
 }
 
-/** FlowPanel's own failure surfaces, shown in place of the data that did not load. */
-export interface ErrorLabels {
-  /** `ErrorState` without a title. */
-  title?: string;
-  /** A list or related tab that could not load. Use `{label}` for the resource's name. */
-  loadTitle?: string;
-  /** A record that could not load. Use `{label}` for the resource's singular name. */
-  loadRecordTitle?: string;
-  /** What a developer checks after a failed page read, shown outside production only. */
-  queryHint?: string;
-  /** What a developer checks when the database refused the connection, shown outside production only. */
-  connectionHint?: string;
-  /** What a failed list or record read asks the reader to do. */
-  loadHint?: string;
-  /** Under a failure that carries a request ID: who to send it to. */
-  reportHint?: string;
-  /** A widget failure's ID, the digest the server log prints. Use `{id}`. */
-  digest?: string;
-  /** An action the server refused or never answered. Use `{label}` for the action. */
-  actionFailed?: string;
-  /** The button that copies a failure's request ID. */
-  copyId?: string;
-  /** Said once the ID is on the clipboard. */
-  copied?: string;
-  /** Correlation line tying the card to the server log. Use `{id}`. */
-  requestId?: string;
-  /** Failed widget, shown in the widget's own frame. */
-  widgetTitle?: string;
-  widgetHint?: string;
-  /** Button that re-runs a failed widget. */
-  retry?: string;
-  /** Disclosure holding the error's own message, outside production only. */
-  details?: string;
-  /** A request the browser could not send because it is offline. */
-  offline?: string;
-  /** A request that never reached the server. */
-  network?: string;
-}
-
-/** The admin's own not-found page, for a URL no resource or dashboard matches. */
-export interface NotFoundLabels {
-  title?: string;
-  description?: string;
-  back?: string;
-  /** The way back to a list. Use `{label}` for its name. */
-  backTo?: string;
-  /** A record URL whose row is gone. Use `{label}` for the resource's singular label. */
-  record?: string;
-  recordDescription?: string;
-}
-
-/** The screens shown in place of a page when `auth.signInUrl` or `auth.forbiddenUrl` is not set, or the rate limit refuses it. */
-export interface AccessLabels {
-  /** No session: the reader has to sign in. */
-  signInTitle?: string;
-  signInDescription?: string;
-  /** A session whose role the admin does not allow. */
-  deniedTitle?: string;
-  deniedDescription?: string;
-  /** One dashboard, page, queue or resource the role may not open. Use `{label}` for its name. */
-  deniedSectionTitle?: string;
-  deniedSectionDescription?: string;
-  /** The way out of a refused page. Use `{label}` for where it leads. */
-  back?: string;
-  /** Sends a refused reader to `auth.signInUrl` to sign in as someone else. */
-  switchAccount?: string;
-  /** Reloads the page after the reader signed in elsewhere. */
-  reload?: string;
-  /** `rateLimit` refused the page. */
-  rateLimitedTitle?: string;
-  rateLimitedDescription?: string;
-}
-
 /** The record History tab and the Audit log page. */
 export interface AuditLabels {
   /** Under a list that stopped counting. Use `{n}`. */
@@ -184,6 +111,10 @@ export interface AuditLabels {
 
 /** The list table's chrome. */
 export interface TableLabels {
+  /** A list, related tab or picker with no rows. */
+  noResults?: string;
+  /** The list's search box. Use `{label}` for the resource's label. */
+  searchPlaceholder?: string;
   /** A column's resize handle. */
   resizeColumn?: string;
   /** The column visibility menu. */
@@ -222,6 +153,8 @@ export interface TableLabels {
   emptyDescription?: string;
   /** Under `empty` when nobody creates rows here. Use `{label}` for the plural label. */
   emptyReadOnlyDescription?: string;
+  /** A list a search alone left empty; `{query}` is the search. */
+  noSearchMatch?: string;
   /** The empty list's create button. Use `{label}` for the singular label. */
   createFirst?: string;
   /** The pencil on an editable cell. Use `{label}` for the column label. */
@@ -240,6 +173,8 @@ export interface TableLabels {
 
 /** Generated create and edit form chrome. */
 export interface FormLabels {
+  /** The banner when a submit fails with no field error of its own. */
+  error?: string;
   /** A reference picker before a choice. */
   referencePlaceholder?: string;
   /** A tags control's input. */

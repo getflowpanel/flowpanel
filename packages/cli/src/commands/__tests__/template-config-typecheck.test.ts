@@ -41,6 +41,9 @@ export declare function defineAdmin(config: {
   [key: string]: unknown;
 }): unknown;
 export declare function resource(ref: unknown, options?: unknown): unknown;
+export declare class FlowpanelConfigError extends Error {
+  constructor(where: string, problem: string);
+}
 `;
 
 const KIT_AUTH_STUB = `
@@ -60,7 +63,7 @@ export type {
   ResourceName,
   Session,
 } from "./core/index.js";
-export { defineAdmin, resource } from "./core/index.js";
+export { defineAdmin, FlowpanelConfigError, resource } from "./core/index.js";
 `;
 
 /**

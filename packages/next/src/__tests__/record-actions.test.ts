@@ -29,7 +29,7 @@ function adminWith(
           labelOne: "User",
           columns: ["id", "email"],
           access: { read: true, update: "admin", delete: "admin" },
-          delete: { softDelete: "email", confirm: "Gone for good after 30 days." },
+          delete: { softDelete: "deletedAt", confirm: "Gone for good after 30 days." },
           actions: [
             { key: "retry", label: "Retry", run },
             { key: "promote", label: "Promote", access: "admin", run },
@@ -117,7 +117,10 @@ describe("a record's header menu", () => {
       (await menuFor(role, { plan })).rowActions.map((action) => action.key);
     expect(await keys("admin", "pro")).toEqual(["retry", "promote", "only-pro"]);
     expect(await keys("admin", "free")).toEqual(["retry", "promote"]);
-    expect(await keys("support", "pro")).toEqual(["retry", "only-pro"]);
+  });
+
+  it("leaves out an action without its own `access` for a role the resource's update rule refuses", async () => {
+    expect((await menuFor("support", { plan: "pro" })).rowActions).toEqual([]);
   });
 
   it("offers Edit and Delete only to a role that may, with the resource's own confirm", async () => {
@@ -166,7 +169,7 @@ describe("the record page's menu", () => {
       drawerActions?: { key: string; placement?: string }[];
     };
     expect(menu.drawerActions).toEqual([
-      { key: "disable", label: "Disable user", placement: "inline" },
+      { key: "disable", label: "Disable user", placement: "inline", hasForm: false },
     ]);
   });
 });

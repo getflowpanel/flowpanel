@@ -1,0 +1,186 @@
+# FlowPanel — Getting started — Build a complete admin (part 2)
+
+### 10. Live updates from the worker
+
+Install `ioredis` with `pnpm add ioredis` and put `REDIS_URL=redis://…` in `.env`. Keep the realtime options in one module that the admin config and the worker both import:
+
+```ts
+// src/shared/realtime.ts
+import type { PublisherOptions } from "@flowpanel/kit";
+
+export const realtime = {
+  driver: "redis",
+  url: process.env.REDIS_URL!,
+  keyPrefix: "scrapeai",
+} satisfies PublisherOptions;
+```
+
+The prefix is a fixed string. A worker started with `tsx` or `node` has no `NODE_ENV`, so a prefix built from it would differ between the app and the worker, and the worker's events would reach no one. When staging and production share one Redis, set the prefix from a variable both processes read.
+
+Publish from the worker:
+
+```ts
+// src/worker/admin-events.ts
+import { createPublisher } from "@flowpanel/kit/publish";
+import { realtime } from "@/shared/realtime";
+
+export const adminEvents = createPublisher(realtime);
+
+/** Call it when the crawler saves a run. */
+export async function runSaved(run: { id: number }): Promise<void> {
+  await adminEvents.resource("runs", { id: run.id });
+  await adminEvents.publish("pipeline");
+}
+```
+
+A Redis error never fails the crawl. Call `runSaved` where your crawler saves a run. Until it does, a script stands in for one crawl:
+
+```ts
+// scripts/crawl.ts
+import { adminEvents, runSaved } from "@/worker/admin-events";
+
+async function crawl(): Promise<void> {
+  await runSaved({ id: 1 });
+  await adminEvents.close();
+}
+
+void crawl();
+```
+
+The crawl queue card subscribes to `"pipeline"`, a channel of your own, so the config must declare it. The card:
+
+```ts
+// src/admin/config/dashboards/crawl-queue.ts
+import { custom } from "@flowpanel/kit";
+import { queueCounts } from "@/server/lib/queue";
+import { CrawlQueue } from "../../ui/CrawlQueue";
+
+export const crawlQueue = custom(CrawlQueue, (c) => c.query(queueCounts), {
+  label: "Crawl queue",
+  realtime: "pipeline",
+  span: 4,
+});
+```
+
+The runs list refreshes on the `runs` events with `realtime: true`:
+
+```ts
+// src/admin/config/resources/runs.ts
+import { resource } from "@flowpanel/kit";
+import * as schema from "@/db/schema";
+import { RunStatus } from "../enums";
+
+export const runs = resource(schema.runs, {
+  columns: [
+    "id",
+    { field: "monitorId", label: "Monitor", reference: { resource: "monitors", labelField: "name" } },
+    { field: "status", format: RunStatus.format },
+    "pagesCrawled",
+    "durationMs",
+    { field: "startedAt", format: { kind: "date", time: true } },
+    { field: "finishedAt", format: { kind: "date", time: true } },
+    "error",
+  ],
+  filters: [
+    { field: "status", type: "multiselect" },
+    { field: "startedAt", type: "daterange" },
+  ],
+  defaultSort: { field: "startedAt", dir: "desc" },
+  realtime: true,
+});
+```
+
+The config takes the shared options and declares the channel. `defineAdmin` refuses a widget that subscribes to an undeclared one:
+
+```ts
+// src/admin/config/index.ts
+import { defineAdmin } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { db } from "@/db";
+import * as schema from "@/db/schema";
+import { getSession } from "@/server/lib/auth";
+import { realtime } from "@/shared/realtime";
+import { dashboards } from "@/admin/config/dashboards";
+import { resources } from "@/admin/config/resources";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+    schema: typeof schema;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
+  }
+}
+
+export default defineAdmin({
+  paths: { admin: "/admin", api: "/api/flowpanel" },
+  adapter: drizzleAdapter({ db, schema }),
+
+  auth: {
+    session: getSession,
+    role: (s) => s?.user.role ?? "guest",
+    access: "admin",
+  },
+
+  realtime: { ...realtime, channels: { pipeline: {} } },
+
+  theme: {
+    brand: { name: "scrapeai" },
+    mode: "auto",
+  },
+
+  resources: [...resources],
+  dashboards: [...dashboards],
+});
+```
+
+With `pnpm dev` running and the admin open, run the script in a second terminal:
+
+```bash
+pnpm tsx --env-file=.env scripts/crawl.ts
+```
+
+You should see the runs list and the crawl queue card refresh each time the script runs, without a reload: the card's "waiting" number changes, since the stand-in `queueCounts` returns the current second. See [Realtime](/docs/guides/realtime#publish-from-a-worker).
+
+### 11. Test the admin
+
+```bash
+pnpm add -D @playwright/test @axe-core/playwright
+pnpm exec playwright install chromium
+```
+
+`smokeAdmin` navigates with `page.goto(paths.admin)`, so Playwright needs a `baseURL` and a `webServer`:
+
+```ts
+// playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./e2e",
+  use: { baseURL: "http://localhost:3000" },
+  webServer: { command: "pnpm dev", url: "http://localhost:3000", reuseExistingServer: true },
+});
+```
+
+The development identity signs the test in, so the spec only walks the admin:
+
+```ts
+// e2e/admin.spec.ts
+import { test } from "@playwright/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
+
+test("the admin is healthy", async ({ page }) => {
+  await smokeAdmin(page, { paths: { admin: "/admin" } });
+});
+```
+
+Run it with `pnpm exec playwright test`. The walk opens every dashboard, every list, the first record of each and every tab of that record, and fails on an error card, a console error or a 4xx/5xx. To unit-test one number such as `paidInvoices`, see [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).
+
+You should see a green run. The walk opens the first tab at the record's own URL and every other tab as `?tab=<key>`, so break the invoices query and the failure names `/admin/customers/2?tab=invoices`, the newest customer.
+
+### 12. Ship
+
+The development identity refuses to run in production. Replace `getSession` in `src/server/lib/auth.ts` with your provider's session, or add a provider and use its preset; see [Authentication](/docs/guides/authentication). The smoke spec then signs in first, as in [Testing](/docs/reference/testing#authentication).
+
+Work through [Production readiness](/docs/guides/production-readiness), then deploy the app as usual: the admin is a route of it.
+
+You should see the admin at `/admin` on the deployed URL behind your sign-in, and `smokeAdmin` green against that URL.

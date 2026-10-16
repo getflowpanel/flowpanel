@@ -29,7 +29,10 @@ describe("bindFormat", () => {
   it("prints numbers, money, percents and durations the admin's way", () => {
     expect(ru.number(1774.5, 0)).toMatch(/^1\s775$/);
     expect(ru.money(1500)).toMatch(/^1\s500\s₽$/);
-    expect(ru.money(150_000, { scale: 100 })).toMatch(/^1\s500\s₽$/);
+    expect(ru.money(150_000, { minorUnits: 2 })).toMatch(/^1\s500\s₽$/);
+    expect(en.money(1999, { currency: "EUR", minorUnits: 2 })).toBe("€19.99");
+    expect(en.money(19.99, { currency: "EUR" })).toBe("€19.99");
+    expect(en.money(1500, { currency: "JPY" })).toBe("¥1,500");
     expect(en.money(12.5, { currency: "EUR", digits: 2 })).toBe("€12.50");
     expect(ru.percent(0.423)).toMatch(/^42,3\s%$/);
     expect(ru.duration(7_500_000)).toBe("2 ч 5 мин");

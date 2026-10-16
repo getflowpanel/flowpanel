@@ -81,6 +81,8 @@ export function formatCount(
   const form =
     typeof label === "string"
       ? label
-      : (label[new Intl.PluralRules(locale).select(count) as keyof PluralLabel] ?? label.other);
+      : count === 0 && label.zero !== undefined
+        ? label.zero
+        : (label[new Intl.PluralRules(locale).select(count) as keyof PluralLabel] ?? label.other);
   return formatLabel(form, { n: display });
 }

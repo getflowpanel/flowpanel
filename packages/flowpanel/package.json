@@ -25,47 +25,63 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./next": {
       "types": "./dist/next.d.ts",
-      "import": "./dist/next.js"
+      "import": "./dist/next.js",
+      "default": "./dist/next.js"
     },
     "./drizzle": {
       "types": "./dist/drizzle.d.ts",
-      "import": "./dist/drizzle.js"
+      "import": "./dist/drizzle.js",
+      "default": "./dist/drizzle.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
+      "import": "./dist/react.js",
+      "default": "./dist/react.js"
     },
     "./client": {
       "types": "./dist/client.d.ts",
-      "import": "./dist/client.js"
+      "import": "./dist/client.js",
+      "default": "./dist/client.js"
     },
     "./bullmq": {
       "types": "./dist/bullmq.d.ts",
-      "import": "./dist/bullmq.js"
+      "import": "./dist/bullmq.js",
+      "default": "./dist/bullmq.js"
     },
     "./bullmq/board": {
       "types": "./dist/bullmq-board.d.ts",
-      "import": "./dist/bullmq-board.js"
+      "import": "./dist/bullmq-board.js",
+      "default": "./dist/bullmq-board.js"
     },
     "./publish": {
-      "types": "./dist/publish.d.ts",
-      "import": "./dist/publish.js"
+      "import": {
+        "types": "./dist/publish.d.ts",
+        "default": "./dist/publish.js"
+      },
+      "require": {
+        "types": "./dist/core/publish.d.cts",
+        "default": "./dist/core/publish.cjs"
+      }
     },
     "./charts": {
       "types": "./dist/charts.d.ts",
-      "import": "./dist/charts.js"
+      "import": "./dist/charts.js",
+      "default": "./dist/charts.js"
     },
     "./prisma": {
       "types": "./dist/prisma.d.ts",
-      "import": "./dist/prisma.js"
+      "import": "./dist/prisma.js",
+      "default": "./dist/prisma.js"
     },
     "./auth": {
       "types": "./dist/auth.d.ts",
-      "import": "./dist/auth.js"
+      "import": "./dist/auth.js",
+      "default": "./dist/auth.js"
     },
     "./test": {
       "import": {
@@ -79,7 +95,8 @@
     },
     "./test/widgets": {
       "types": "./dist/test-widgets.d.ts",
-      "import": "./dist/test-widgets.js"
+      "import": "./dist/test-widgets.js",
+      "default": "./dist/test-widgets.js"
     },
     "./styles/admin.css": "./dist/styles/admin.css",
     "./styles/tailwind.css": "./dist/styles/tailwind.css",
@@ -100,7 +117,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./test ./styles/admin.css ./styles/tailwind.css && attw --pack . --profile node16 --entrypoints ./test",
+    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./test ./styles/admin.css ./styles/tailwind.css && attw --pack . --profile node16 --entrypoints ./test ./publish",
     "lint:publish": "publint --strict",
     "postpack": "node scripts/pack-manifest.mjs restore",
     "prepack": "node scripts/pack-manifest.mjs strip",

@@ -5,7 +5,9 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { resolveFormatting } from "@flowpanel/core";
+import { fieldLabels } from "./field-labels";
 import { type ListRowsQuery, mayListDeleted } from "./list-rows";
+import { columnMoneyFactors } from "./money-field";
 import {
   parseListParams,
   type ResolvedFilterSpec,
@@ -47,16 +49,22 @@ export async function listRequestFromParams(
   );
   const parsed = parseListParams(searchParams, surface.defaultSort, surface.fields);
   const timeZone = resolveFormatting(config.formatting).timeZone;
-  const filterSpecs = await resolveFilterSpecs(
-    surface.filters as Array<keyof Row | FilterDef<Row>>,
-    reqCtx,
-    timeZone,
-    searchParams,
-  );
+  const factors = columnMoneyFactors(resource);
+  const labelOf = fieldLabels(resource);
+  const filterSpecs = (
+    await resolveFilterSpecs(
+      surface.filters as Array<keyof Row | FilterDef<Row>>,
+      reqCtx,
+      timeZone,
+      searchParams,
+      factors,
+    )
+  ).map((spec) => (spec.label ? spec : { ...spec, label: labelOf(spec.field) }));
   const filters = sanitizeFilterValues(
     withFilterDefaults(parsed.filters, filterSpecs),
     filterSpecs,
     timeZone,
+    factors,
   );
   const search = surface.searchFields.length > 0 ? parsed.search : "";
   const deletedToggle = !!softDelete && (await mayListDeleted(resource, reqCtx));

@@ -14,13 +14,16 @@ const reqCtx: RequestContext = {
 };
 
 describe("prerenderResourceCells", () => {
-  it("expands string column entries to PrerenderedColumn with just `field`", () => {
+  it("expands string column entries to PrerenderedColumn with `field` and what the text holds", () => {
     const out = prerenderResourceCells<Row>(
       ["id", "email"],
       [{ id: "1", email: "a@b.com", tags: [], userId: "u1", secret: "" }],
       reqCtx,
     );
-    expect(out.columns).toEqual([{ field: "id" }, { field: "email" }]);
+    expect(out.columns).toEqual([
+      { field: "id", textRem: expect.any(Number) },
+      { field: "email", content: "email", textRem: expect.any(Number) },
+    ]);
     // No renderer declared — prerenderedCells stays undefined.
     expect(out.prerenderedCells).toBeUndefined();
   });
@@ -83,7 +86,12 @@ describe("prerenderResourceCells", () => {
       { defaultSortable: true },
     );
     expect(out.columns).toHaveLength(2);
-    expect(out.columns[1]).toEqual({ field: "__cell_1", label: "Actions", sortable: false });
+    expect(out.columns[1]).toEqual({
+      field: "__cell_1",
+      label: "Actions",
+      sortable: false,
+      textRem: expect.any(Number),
+    });
     expect(out.prerenderedCells?.[0]?.[1]).toBe("edit:1");
   });
 

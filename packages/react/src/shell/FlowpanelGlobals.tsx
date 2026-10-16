@@ -17,6 +17,8 @@ export interface FlowpanelGlobalsProps {
   labels?: LabelsConfig;
   /** Default theme mode when the user has no stored choice. */
   themeMode?: ThemeMode;
+  /** Draw dark while the host's `<html>` has the class `dark`, instead of keeping a scheme of its own. */
+  followHost?: boolean;
   /** Where the route handlers are mounted — `paths.api`, app-relative; a deployment `basePath` is prefixed here. */
   apiBase?: string;
   /** Override the SSE endpoint. Defaults to `${apiBase}/stream`. */
@@ -30,6 +32,7 @@ export function FlowpanelGlobals({
   themeComponents,
   labels,
   themeMode,
+  followHost,
   apiBase,
   realtimeEndpoint,
   formatting,
@@ -44,8 +47,14 @@ export function FlowpanelGlobals({
           <LabelsProvider {...(labels ? { value: labels } : {})}>
             <RealtimeProvider {...(endpoint ? { endpoint } : {})}>
               <ToastProvider>
-                <div data-flowpanel-root="" className="fp-min-h-full">
-                  <ThemeRuntime {...(themeMode ? { defaultMode: themeMode } : {})} />
+                <div
+                  data-flowpanel-root=""
+                  {...(followHost ? { "data-scheme": "host" } : {})}
+                  className="fp-min-h-full"
+                >
+                  {followHost ? null : (
+                    <ThemeRuntime {...(themeMode ? { defaultMode: themeMode } : {})} />
+                  )}
                   <ShortcutsHost>{children}</ShortcutsHost>
                 </div>
               </ToastProvider>

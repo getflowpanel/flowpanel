@@ -335,12 +335,12 @@ describe("Form — a non-2xx response with an empty JSON body still surfaces a m
     expect(screen.getByRole("alert").textContent).toBe("Something went wrong — please try again.");
   });
 
-  it("takes that message from `labels.formError`", async () => {
+  it("takes that message from `labels.form.error`", async () => {
     fetchMock.mockResolvedValue({ ok: false, json: async () => ({}) });
 
     let dispatch: ((fd: FormData) => void) | null = null;
     render(
-      <LabelsProvider value={{ formError: "Что-то пошло не так." }}>
+      <LabelsProvider value={{ form: { error: "Что-то пошло не так." } }}>
         <Form
           action="/api/flowpanel/products/create"
           schema={z.object({ sku: z.unknown().optional() })}

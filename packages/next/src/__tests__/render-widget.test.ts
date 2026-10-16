@@ -510,9 +510,9 @@ describe("renderWidget — resource table widget cell pipeline", () => {
     );
     const el = node as ReactElement<{ columns: Record<string, unknown>[] }>;
     expect(el.props.columns).toEqual([
-      { field: "scraperId", label: "Scraper", type: "reference" },
+      { field: "scraperId", label: "Scraper", type: "reference", textRem: expect.any(Number) },
       { field: "status", label: "Status", format: "badge" },
-      { field: "durationMs", label: "Duration" },
+      { field: "durationMs", label: "Duration", textRem: expect.any(Number) },
     ]);
   });
 

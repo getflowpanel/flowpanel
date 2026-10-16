@@ -1,6 +1,5 @@
 import type { LinkTarget, WidgetContext } from "@flowpanel/core";
-import { DEFAULT_FORMATTING, DEFAULT_LABELS } from "@flowpanel/core";
-import { bindFormat } from "@flowpanel/core/internal";
+import { bindFormat, DEFAULT_FORMATTING, DEFAULT_LABELS } from "@flowpanel/core";
 
 type Thunk = () => Promise<unknown>;
 type Call = (...args: unknown[]) => Promise<unknown>;
@@ -26,6 +25,7 @@ export function fakeWidgetContext(overrides: Partial<WidgetContext> = {}): Widge
   const ctx: WidgetContext = {
     db: {},
     session: null,
+    role: "admin",
     dateRange: {
       from: new Date(0),
       to: new Date(),

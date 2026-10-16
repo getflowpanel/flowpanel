@@ -13,12 +13,12 @@ function titleIfCut(cell: HTMLElement): void {
   else cell.removeAttribute("title");
 }
 
-/** The table's scroller: both axes, so the header and first column stick inside it. */
+/** The table's scroller: both axes, so the header and first column stick inside it; column widths read its width. */
 export function TableScroll({ children }: { children: React.ReactNode }) {
   return (
     <div
       data-fp-table-scroll=""
-      className="fp-overflow-auto"
+      className="fp-overflow-auto fp-width-container"
       onScroll={(event) => {
         event.currentTarget.toggleAttribute("data-scrolled", event.currentTarget.scrollLeft !== 0);
       }}

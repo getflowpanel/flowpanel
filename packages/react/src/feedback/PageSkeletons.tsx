@@ -66,7 +66,11 @@ export interface ResourceDetailSkeletonProps {
 
 export function ResourceDetailSkeleton({ rows = 8, className }: ResourceDetailSkeletonProps) {
   return (
-    <div className={cn("fp-space-y-4", className)} aria-busy="true" aria-live="polite">
+    <div
+      className={cn("fp-max-w-[77rem] fp-space-y-4", className)}
+      aria-busy="true"
+      aria-live="polite"
+    >
       <div className="fp-flex fp-items-center fp-justify-between">
         <Skeleton className="fp-h-7 fp-w-72" />
         <Skeleton className="fp-h-9 fp-w-20" />

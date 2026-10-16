@@ -2,36 +2,44 @@ import type {
   AuditLogEntry,
   ColumnDef,
   ColumnFormat,
-  FieldDef,
   RequestContext,
   ResolvedAdminConfig,
   ResolvedFormatting,
   ResolvedLabels,
   ResourceConfig,
 } from "@flowpanel/core";
-import { formatLabel, resolveFieldLabel, resolveFormatting } from "@flowpanel/core";
+import { formatLabel, mergeLabels, resolveFormatting } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
 import { TimeAgo } from "@flowpanel/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import {
+  type AuditTitles,
+  auditTitles,
+  referenceKey,
+  referencesOf,
+} from "../../runtime/audit-titles";
 import {
   type AuditChange,
   describeAuditAction,
   projectAuditDiff,
   readableDiffFields,
 } from "../../runtime/audit-view";
+import { fieldLabels } from "../../runtime/field-labels";
+import { formFieldsOf } from "../../runtime/form-fields-of";
 import { formatFieldValue } from "../../runtime/format-field-value";
 import { buildHref } from "../../runtime/href";
 import { moneyShape } from "../../runtime/money-field";
 import { renderColumnFormat } from "../../runtime/render-column-format";
-import { singularLabel } from "../../runtime/resource-title";
+import { pluralLabel, singularLabel } from "../../runtime/resource-title";
 
 interface FieldLook {
-  label?: string;
   format?: ColumnFormat;
+  /** The `auditTitles` key of the resource the field points at. */
+  reference?: string;
 }
 
-/** Each field's label and format as the resource's columns and forms declare them; a money field formats as money. */
+/** Each field's format as the resource's columns and forms declare it; a money field formats as money. */
 function fieldLooks(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
@@ -39,24 +47,22 @@ function fieldLooks(
 ): Map<string, FieldLook> {
   const looks = new Map<string, FieldLook>();
   const { columns } = config.adapter.introspect(writeTarget(resource));
-  const forms = [
-    ...(resource.options.create?.fields ?? []),
-    ...(resource.options.update?.fields ?? []),
-  ] as FieldDef<Record<string, unknown>>[];
-  for (const field of forms) {
+  for (const field of formFieldsOf(resource)) {
     const name = String(field.name);
     const look: FieldLook = { ...looks.get(name) };
-    if (field.label !== undefined) look.label = field.label;
     if (field.type === "money") {
       const shape = moneyShape(
         field,
         columns.find((c) => c.name === name),
         formatting,
       );
-      const scale = shape.storage === "minor" ? 10 ** shape.minorUnits : 1;
-      look.format = { kind: "money", currency: shape.currency, scale };
+      const minorUnits = shape.storage === "minor" ? shape.minorUnits : 0;
+      look.format = { kind: "money", currency: shape.currency, minorUnits };
     }
     looks.set(name, look);
+  }
+  for (const [field, reference] of referencesOf(resource)) {
+    looks.set(field, { ...looks.get(field), reference: referenceKey(reference) });
   }
   for (const column of (resource.options.columns ?? []) as Array<
     string | ColumnDef<Record<string, unknown>>
@@ -64,7 +70,6 @@ function fieldLooks(
     if (typeof column !== "object" || !column.field) continue;
     looks.set(column.field, {
       ...looks.get(column.field),
-      ...(column.label !== undefined ? { label: column.label } : {}),
       ...(column.format !== undefined ? { format: column.format } : {}),
     });
   }
@@ -84,14 +89,46 @@ function shown(
   value: unknown,
   look: FieldLook | undefined,
   formatting: ResolvedFormatting,
-  empty: string,
+  words: { empty: string; yes: string; no: string },
+  references: AuditTitles,
 ): ReactNode {
   if (value === null || value === undefined || value === "") {
-    return <span className="fp-italic fp-text-faint">{empty}</span>;
+    return <span className="fp-italic fp-text-faint">{words.empty}</span>;
   }
+  if (typeof value === "boolean" && look?.format === undefined) return value ? words.yes : words.no;
+  const title = look?.reference ? references.get(look.reference)?.get(String(value)) : undefined;
+  if (title !== undefined) return title;
   return look?.format !== undefined
     ? renderColumnFormat(look.format, value, formatting)
     : formatFieldValue(value);
+}
+
+/** What an event acted on: its record, named once even when its title already says what it is, or the list it exported. */
+function recordOf(
+  config: ResolvedAdminConfig,
+  entry: AuditLogEntry,
+  resource: ResourceConfig | undefined,
+  titles: Awaited<ReturnType<typeof auditTitles>>,
+  labels: ResolvedLabels["audit"],
+): AuditFeedItem["record"] {
+  if (!entry.resource) return null;
+  if (!entry.targetId) {
+    if (!resource || !entry.action.endsWith(".export")) return null;
+    return {
+      label: pluralLabel(resource, entry.resource),
+      href: buildHref(config, entry.resource),
+    };
+  }
+  const kind = resource ? singularLabel(resource, entry.resource) : entry.resource;
+  const title = titles.records.get(entry.resource)?.get(entry.targetId);
+  const named = title?.toLowerCase().startsWith(`${kind.toLowerCase()} `) === true;
+  return {
+    label:
+      named && title
+        ? title
+        : formatLabel(labels.record, { label: kind, id: title ?? entry.targetId }),
+    href: resource ? buildHref(config, entry.resource, entry.targetId) : null,
+  };
 }
 
 /** Events with each diff cut down to what this reader may see, and every label resolved. */
@@ -108,7 +145,10 @@ export async function auditFeedItems(
     if (!entry.resource) continue;
     byResource.set(entry.resource, [...(byResource.get(entry.resource) ?? []), entry]);
   }
-  const allowed = new Map<string, { fields: Set<string>; looks: Map<string, FieldLook> }>();
+  const allowed = new Map<
+    string,
+    { fields: Set<string>; looks: Map<string, FieldLook>; labelOf: (field: string) => string }
+  >();
   await Promise.all(
     [...byResource].map(async ([name, list]) => {
       const resource = config.resourcesByName.get(name);
@@ -119,23 +159,21 @@ export async function auditFeedItems(
         list.map((entry) => entry.diff),
         reqCtx,
       );
-      allowed.set(name, { fields, looks: fieldLooks(config, resource, formatting) });
+      allowed.set(name, {
+        fields,
+        looks: fieldLooks(config, resource, formatting),
+        labelOf: fieldLabels(resource),
+      });
     }),
   );
+  const titles = await auditTitles(config, reqCtx, entries, linkRecords);
+  const { filters } = mergeLabels(config.labels);
+  const words = { empty: labels.emptyValue, yes: filters.yes, no: filters.no };
   return entries.map((entry) => {
     const resource = entry.resource ? config.resourcesByName.get(entry.resource) : undefined;
     const access = entry.resource ? allowed.get(entry.resource) : undefined;
     const changes: AuditChange[] = access ? projectAuditDiff(entry.diff, access.fields) : [];
-    const record =
-      linkRecords && entry.resource && entry.targetId
-        ? {
-            label: formatLabel(labels.record, {
-              label: resource ? singularLabel(resource, entry.resource) : entry.resource,
-              id: entry.targetId,
-            }),
-            href: resource ? buildHref(config, entry.resource, entry.targetId) : null,
-          }
-        : null;
+    const record = linkRecords ? recordOf(config, entry, resource, titles, labels) : null;
     const kind =
       entry.diff?.before === null ? "after" : entry.diff?.after === null ? "before" : "both";
     return {
@@ -147,9 +185,9 @@ export async function auditFeedItems(
         const look = access?.looks.get(change.field);
         return {
           field: change.field,
-          label: resolveFieldLabel(look?.label, change.field),
-          before: shown(change.before, look, formatting, labels.emptyValue),
-          after: shown(change.after, look, formatting, labels.emptyValue),
+          label: access?.labelOf(change.field) ?? change.field,
+          before: shown(change.before, look, formatting, words, titles.references),
+          after: shown(change.after, look, formatting, words, titles.references),
         };
       }),
     };
@@ -210,7 +248,7 @@ export function AuditFeed({
   labels: ResolvedLabels["audit"];
 }): ReactNode {
   return (
-    <ol className="fp-divide-y fp-divide-line fp-rounded fp-border fp-border-line fp-bg-surface">
+    <ol className="fp-divide-y fp-divide-line fp-rounded-lg fp-border fp-border-line fp-bg-surface">
       {items.map((item) => (
         <li key={item.entry.id} className="fp-px-4 fp-py-3 sm:fp-px-6" data-fp-audit-event="">
           <div className="fp-flex fp-items-baseline fp-justify-between fp-gap-3">

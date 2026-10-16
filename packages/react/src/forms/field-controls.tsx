@@ -9,13 +9,14 @@ import {
 } from "@conform-to/react";
 import { ChevronDown } from "lucide-react";
 import * as React from "react";
-import { JsonEditor } from "../data/JsonEditor";
-import { TagInput } from "../data/TagInput";
+import type { JsonEditorProps } from "../data/JsonEditor";
+import type { TagInputProps } from "../data/TagInput";
 import { cn } from "../lib/cn";
+import { lazyRetry } from "../lib/lazy-retry";
 import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
 import { Checkbox } from "../ui/checkbox";
-import { Input, READ_ONLY_CLASS } from "../ui/input";
+import { INVALID_CLASS, INVALID_WITHIN, Input, READ_ONLY_CLASS } from "../ui/input";
 import { Switch } from "../ui/switch";
 import { AsyncSelect, type AsyncSelectOption } from "./AsyncSelect";
 import type { FieldControlType } from "./Field";
@@ -42,7 +43,15 @@ function InertWhenReadOnly({
   );
 }
 
-const CONTROL_CLASS = `fp-w-full fp-rounded fp-border fp-border-line fp-bg-surface fp-px-3 fp-py-2 fp-text-sm fp-shadow-xs fp-transition-colors hover:fp-border-line-strong focus:fp-border-focus focus:fp-outline-none focus:fp-ring-2 focus:fp-ring-focus/25 ${READ_ONLY_CLASS} aria-readonly:focus:fp-border-line aria-readonly:focus:fp-ring-0`;
+/** A JSON or tag field is rare, so its editor loads with the first form that has one. */
+const JsonEditor = lazyRetry<JsonEditorProps<unknown>>(() =>
+  import("../data/JsonEditor").then((module) => ({ default: module.JsonEditor })),
+);
+const TagInput = lazyRetry<TagInputProps>(() =>
+  import("../data/TagInput").then((module) => ({ default: module.TagInput })),
+);
+
+const CONTROL_CLASS = `fp-w-full fp-rounded fp-border fp-border-line fp-bg-surface fp-px-3 fp-py-2 fp-text-sm fp-shadow-xs fp-transition-colors hover:fp-border-line-strong focus:fp-border-focus focus:fp-outline-none focus:fp-ring-2 focus:fp-ring-focus/25 ${INVALID_CLASS} ${READ_ONLY_CLASS} aria-readonly:focus:fp-border-line aria-readonly:focus:fp-ring-0`;
 
 /** A native `<select>`, since the form posts to a route, dressed to match `ui/select`'s trigger and chevron. */
 const SELECT_CLASS = `${CONTROL_CLASS} fp-h-9 fp-appearance-none fp-py-0 fp-pr-9 fp-text-ink disabled:fp-cursor-not-allowed disabled:fp-opacity-50 aria-readonly:disabled:fp-cursor-default aria-readonly:disabled:fp-opacity-100`;
@@ -104,12 +113,14 @@ export function JsonField({ field, readOnly, aria }: HiddenControlProps) {
     <>
       <input type="hidden" name={field.name} defaultValue={control.value} />
       <InertWhenReadOnly readOnly={readOnly}>
-        <JsonEditor
-          id={field.id}
-          value={parsed}
-          onChange={(v) => control.change(JSON.stringify(v))}
-          {...aria}
-        />
+        <React.Suspense fallback={<div className="fp-h-[154px]" />}>
+          <JsonEditor
+            id={field.id}
+            value={parsed}
+            onChange={(v) => control.change(JSON.stringify(v))}
+            {...aria}
+          />
+        </React.Suspense>
       </InertWhenReadOnly>
     </>
   );
@@ -137,12 +148,14 @@ export function TagsField({ field, readOnly, aria }: HiddenControlProps) {
     <>
       <input type="hidden" name={field.name} defaultValue={control.value} />
       <InertWhenReadOnly readOnly={readOnly}>
-        <TagInput
-          id={field.id}
-          value={list}
-          onChange={(next) => control.change(encodeList(next))}
-          {...aria}
-        />
+        <React.Suspense fallback={<div className="fp-h-[42px]" />}>
+          <TagInput
+            id={field.id}
+            value={list}
+            onChange={(next) => control.change(encodeList(next))}
+            {...aria}
+          />
+        </React.Suspense>
       </InertWhenReadOnly>
     </>
   );
@@ -171,7 +184,7 @@ export function MultiSelectField({
         {...(readOnly ? { disabled: true } : {})}
         {...(labelId ? { "aria-labelledby": labelId } : { "aria-label": label ?? field.name })}
         {...aria}
-        className="fp-m-0 fp-flex fp-min-w-0 fp-flex-wrap fp-gap-2 fp-rounded fp-border fp-border-line fp-bg-surface fp-p-2"
+        className={`fp-m-0 fp-flex fp-min-w-0 fp-flex-wrap fp-gap-2 fp-rounded fp-border fp-border-line fp-bg-surface fp-p-2 ${INVALID_WITHIN}`}
       >
         {options.map((o) => {
           const checked = list.includes(o.value);
@@ -321,6 +334,7 @@ export function MoneyField({ field, currency, placeholder, readOnly, aria }: Mon
     <div
       className={cn(
         "fp-flex fp-h-9 fp-w-full fp-items-center fp-rounded fp-border fp-border-line fp-shadow-xs fp-transition-colors",
+        INVALID_WITHIN,
         readOnly
           ? "fp-bg-canvas"
           : "fp-bg-surface hover:fp-border-line-strong focus-within:fp-border-focus focus-within:fp-ring-2 focus-within:fp-ring-focus/25",

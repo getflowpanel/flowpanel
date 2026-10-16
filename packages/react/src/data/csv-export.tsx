@@ -1,10 +1,9 @@
 "use client";
-import { csvField } from "@flowpanel/core/internal";
 import { formatLabel } from "@flowpanel/core/labels";
 import { useToast } from "../feedback/toast-api";
-import { resolveFieldLabel } from "../lib/humanize";
 import { triggerDownload } from "../lib/trigger-download";
 import { useApiBase } from "../provider/ApiBaseContext";
+import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
 import { Button } from "../ui/button";
 import {
@@ -14,83 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import type { DataTableColumn } from "./data-table-types";
-import { formatCell } from "./format-cell";
-
-export type ExportFormat = "csv" | "json";
-
-/** Coerce a cell value to a CSV string. */
-function cellToCsvString(value: unknown): string {
-  const formatted = formatCell(value);
-  if (typeof formatted === "string") return formatted;
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
-
-/** `__cell_<i>` columns are server-rendered cells — no row property stands behind them. */
-const SYNTHETIC_FIELD = /^__cell_\d+$/;
-
-function exportable<Row extends Record<string, unknown>>(
-  columns: DataTableColumn<Row>[],
-): DataTableColumn<Row>[] {
-  return columns.filter((c) => !SYNTHETIC_FIELD.test(c.field));
-}
-
-export function rowsToCsv<Row extends Record<string, unknown>>(
-  columns: DataTableColumn<Row>[],
-  rows: Row[],
-): string {
-  const cols = exportable(columns);
-  const header = cols.map((c) => csvField(resolveFieldLabel(c.label, c.field)));
-  const body = rows.map((row) =>
-    cols.map((c) => csvField(cellToCsvString(row[c.field]))).join(","),
-  );
-  return [header.join(","), ...body].join("\r\n");
-}
-
-/** Serialize rows to JSON, one object per row keyed by field. */
-export function rowsToJson<Row extends Record<string, unknown>>(
-  columns: DataTableColumn<Row>[],
-  rows: Row[],
-): string {
-  const cols = exportable(columns);
-  const data = rows.map((row) => {
-    const obj: Record<string, unknown> = {};
-    for (const c of cols) obj[c.field] = row[c.field] ?? null;
-    return obj;
-  });
-  return JSON.stringify(data, null, 2);
-}
-
-function slugify(label: string): string {
-  const slug = label
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "export";
-}
-
-function downloadRows<Row extends Record<string, unknown>>(
-  format: ExportFormat,
-  columns: DataTableColumn<Row>[],
-  rows: Row[],
-  tableLabel: string,
-): void {
-  const slug = slugify(tableLabel);
-  if (format === "json") {
-    triggerDownload({
-      filename: `${slug}-${rows.length}-rows.json`,
-      data: rowsToJson(columns, rows),
-      mime: "application/json;charset=utf-8",
-    });
-    return;
-  }
-  triggerDownload({
-    filename: `${slug}-${rows.length}-rows.csv`,
-    data: rowsToCsv(columns, rows),
-    mime: "text/csv;charset=utf-8",
-  });
-}
+import { type ExportFormat, slugify } from "./export-file";
 
 export interface ExportButtonProps<Row extends Record<string, unknown>> {
   /** Columns to include in the export. */
@@ -114,10 +37,16 @@ function attachmentName(res: Response, fallback: string): string {
   return match?.[1] ?? fallback;
 }
 
+/** The capped-export warning, its row count grouped the way the admin's locale writes numbers. */
+export function cappedMessage(template: string, capped: string, locale: string): string {
+  return formatLabel(template, { n: new Intl.NumberFormat(locale).format(Number(capped)) });
+}
+
 function useServerExport(resource: string | undefined, tableLabel: string) {
   const apiBase = useApiBase();
   const toast = useToast();
   const labels = useLabels();
+  const { locale } = useFormatting();
   if (resource === undefined) return null;
   return async (format: ExportFormat) => {
     const params = new URLSearchParams(window.location.search);
@@ -133,7 +62,7 @@ function useServerExport(resource: string | undefined, tableLabel: string) {
         data: await res.blob(),
       });
       const capped = res.headers.get("x-flowpanel-export-capped");
-      if (capped) toast.warning(formatLabel(labels.table.exportCapped, { n: capped }));
+      if (capped) toast.warning(cappedMessage(labels.table.exportCapped, capped, locale));
     } catch {
       toast.error(labels.table.exportFailed);
     }
@@ -155,12 +84,22 @@ export function ExportButton<Row extends Record<string, unknown>>({
     json: table.exportJson,
   };
   const run = (format: ExportFormat) =>
-    serverExport ? void serverExport(format) : downloadRows(format, columns, rows, tableLabel);
+    serverExport
+      ? void serverExport(format)
+      : void import("./csv-rows").then((rowsFile) =>
+          rowsFile.downloadRows(format, columns, rows, tableLabel),
+        );
 
   if (formats.length <= 1) {
     const format = formats[0] ?? "csv";
     return (
-      <Button type="button" variant="ghost" size="sm" onClick={() => run(format)}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        disabled={rows.length === 0}
+        onClick={() => run(format)}
+      >
         {label}
       </Button>
     );
@@ -169,7 +108,7 @@ export function ExportButton<Row extends Record<string, unknown>>({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="sm">
+        <Button type="button" variant="ghost" size="sm" disabled={rows.length === 0}>
           {label}
         </Button>
       </DropdownMenuTrigger>

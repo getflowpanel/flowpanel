@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { authProvider } from "../../auth-provider";
 import { withBetterAuth } from "../better-auth";
 
 function betterAuth(session: unknown) {
@@ -69,5 +70,13 @@ describe("withBetterAuth", () => {
     expect(cfg.signInUrl).toBe("/sign-in");
     expect(cfg.forbiddenUrl).toBe("/forbidden");
     expect(cfg.userId?.({ user: { id: "u1" } })).toBe("fixed");
+  });
+});
+
+describe("the provider a preset names", () => {
+  it("is readable from the auth block, and absent for your own", () => {
+    const preset = withBetterAuth({ auth: { api: { getSession: async () => null } } });
+    expect(authProvider(preset)).toBe("better-auth");
+    expect(authProvider({ session: async () => null })).toBeUndefined();
   });
 });

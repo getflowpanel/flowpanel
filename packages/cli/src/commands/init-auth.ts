@@ -6,7 +6,8 @@ import { aliasOf, type PathAliasMode } from "../utils/detect";
 import { resolveProjectModule, validateProjectImport } from "../utils/module-path";
 import { tpl } from "../utils/template";
 
-const SESSION_FILE = "server/lib/flowpanel-session.ts";
+const SESSION_BASENAME = "flowpanel-session.ts";
+const SESSION_FILE = `server/lib/${SESSION_BASENAME}`;
 
 export interface AuthSessionPlan {
   provider: AuthProvider;
@@ -27,6 +28,16 @@ export interface AuthSessionInput {
   devAuth: boolean;
 }
 
+/** The preset module beside the auth module it wraps, so it lands in the project's own layout. */
+async function sessionFileNear(input: AuthSessionInput): Promise<string> {
+  const auth = input.detectedAuth && (await resolveProjectModule(input.cwd, input.detectedAuth));
+  if (auth) {
+    const file = path.relative(input.cwd, path.join(path.dirname(auth), SESSION_BASENAME));
+    if (!file.startsWith("..")) return file.split(path.sep).join("/");
+  }
+  return input.aliasMode === "strip-src" ? `src/${SESSION_FILE}` : SESSION_FILE;
+}
+
 /** Bridges a provider's auth module through the matching preset when it exports an instance instead of `getSession`. */
 export async function planAuthSession(input: AuthSessionInput): Promise<AuthSessionPlan | null> {
   const { detectedAuth, provider } = input;
@@ -38,7 +49,7 @@ export async function planAuthSession(input: AuthSessionInput): Promise<AuthSess
 
   if (await exportsName("getSession")) return null;
   if (instance !== null && !(await exportsName(instance))) return null;
-  const file = input.aliasMode === "strip-src" ? `src/${SESSION_FILE}` : SESSION_FILE;
+  const file = await sessionFileNear(input);
   return {
     provider,
     file,

@@ -1,5 +1,6 @@
 import type { ResourceConfig } from "@flowpanel/core";
 import { encodeFilters } from "@flowpanel/core/internal";
+import { columnMoneyFactors } from "./money-field";
 
 /** A saved view as the browser's views menu receives it. */
 export interface WireView {
@@ -14,6 +15,6 @@ export interface WireView {
 export function wireViews(resource: ResourceConfig, timeZone: string): WireView[] {
   return (resource.options.views ?? []).map(({ filters, ...view }) => ({
     ...view,
-    ...(filters ? { filters: encodeFilters(filters, timeZone) } : {}),
+    ...(filters ? { filters: encodeFilters(filters, timeZone, columnMoneyFactors(resource)) } : {}),
   }));
 }

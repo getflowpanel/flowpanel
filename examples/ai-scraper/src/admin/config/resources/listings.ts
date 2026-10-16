@@ -20,6 +20,7 @@ export const listings = resource(schema.listings, {
   filters: [
     { field: "site", type: "select", label: "Marketplace" },
     { field: "stock", type: "select" },
+    { field: "priceCents", type: "numeric-range", label: "Price" },
     { field: "scrapedAt", type: "daterange", label: "Found" },
   ],
   defaultSort: { field: "scrapedAt", dir: "desc" },

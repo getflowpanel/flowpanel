@@ -20,9 +20,17 @@ The admin layout does not import `admin.css`. Restore `@import "@flowpanel/kit/s
 
 The config names something that does not exist or clashes: an unknown column, a duplicate or reserved name, a duplicate action key, a `rowClick: "drawer"` without a drawer, or an unresolved reference. The error is a `FlowpanelConfigError` that reads `[flowpanel] <where in the config>: <what is wrong>. <how to fix>.`, with the closest match when there is one. See [Errors](/docs/reference/errors#flowpanelconfigerror).
 
+### “The admin stays on 500 after I fixed a config error”
+
+In development with Turbopack, Next.js can keep a server module that failed to load. After `defineAdmin` threw and you fixed the config, the page still answers 500 with "module factory is not available" or the old error. This is Next's dev cache, not your config: stop `next dev` and start it again. If it persists, delete `.next` before starting. Run `flowpanel doctor` to check the config without the dev server.
+
 ### “Column typos compile without an error”
 
 The resource's row type fell back to `Record<string, unknown>`, usually because a Prisma model is missing from `FlowpanelResources`. Add it and make sure TypeScript includes the file. See [Type registry](/docs/reference/registry).
+
+### “No overload matches this call” on resource()
+
+`resource()` has two signatures, one for a resource with `name` and one without, so TypeScript reports a mistake once per signature and points at the `resource(` call. Read the first block: it names the field, such as `Type '"nmae"' is not assignable to type '"name" | "sku" | …'`. The last line, `Type 'string' is not assignable to type 'undefined'`, comes from the signature without `name` and is not the problem. `flowpanel doctor` and the dev server also print the closest column name.
 
 ### “flowpanel init exits in CI”
 
@@ -38,9 +46,9 @@ The resource's row type fell back to `Record<string, unknown>`, usually because 
 
 A production admin needs `auth.access`. Only a deliberately public admin may run without it, and it must set both `allowUnauthenticated: true` and `readOnly: true`. `auth: devAuth()` also refuses production, with or without `auth.access`. See [Authentication](/docs/guides/authentication#verify).
 
-### “Every caller shares one rate-limit bucket” or “ctx.ip is null”
+### “defineAdmin refuses rateLimit per ip” or “ctx.ip is null”
 
-`ctx.ip` stays `null` until `security.trustedProxies` says how many proxies append to `X-Forwarded-For`. Set `1` on Vercel or behind one nginx. See [SecurityConfig](/docs/reference/define-config#securityconfig).
+`ctx.ip` stays `null` until `security.trustedProxies` says how many proxies append to `X-Forwarded-For`, so `rateLimit` with `per: "ip"` cannot tell callers apart: `defineAdmin` refuses it in production and warns in development. Set `1` on Vercel or behind one nginx. With no proxy in front, use `per: "user"`. See [RateLimitConfig](/docs/reference/define-config#ratelimitconfig).
 
 ### “A tenant can address another tenant's row”
 
@@ -72,11 +80,11 @@ The memory driver reaches one process only, the instances use different Redis se
 
 ### “A worker publishes but no browser refreshes”
 
-The worker publishes in memory or with a different `keyPrefix`. Publish with `createPublisher` from `@flowpanel/kit/publish`, sharing the admin's `realtime` options. See [Publish from a worker](/docs/guides/realtime#publish-from-a-worker).
+The worker publishes in memory or with a different `keyPrefix`, for example one built from `NODE_ENV`, which a worker started with `tsx` leaves unset. Publish with `createPublisher` from `@flowpanel/kit/publish`, sharing the admin's `realtime` options. See [Publish from a worker](/docs/guides/realtime#publish-from-a-worker).
 
 ### “The queue page is blank or the board returns 401”
 
-The browser cannot reach `boardUrl`, the board token is missing, or the proxy blocks board assets. Open the board URL directly and fix its auth or proxy. See [Queues](/docs/guides/queues#verify-and-troubleshoot).
+The browser cannot reach `boardUrl`, `boardSecret` is missing or differs from the board's `auth.secret`, the signed link expired, or the proxy blocks board assets. Open the board URL directly and fix its auth or proxy. See [Queues](/docs/guides/queues#verify-and-troubleshoot).
 
 ## Customization
 
@@ -93,6 +101,10 @@ Next.js routes files before FlowPanel's catch-all. Delete or move the ejected ro
 ### “getRequestContext() called outside of a request scope”
 
 The call is outside a request, or two copies of `@flowpanel/kit` are installed. Use `tryGetRequestContext()` where the context is optional, and align FlowPanel package versions (`pnpm list @flowpanel/kit`). See [Request-scoped access](/docs/reference/contexts#request-scoped-access).
+
+### “A custom page reads no session or tenant”
+
+A `page()` component gets the request as props: `session`, `role`, `scope`, `formatting`, `labels` and `searchParams`. It renders after FlowPanel's own request scope, so read these props instead of `getRequestContext()`. A `"use client"` page component gets `session` and `scope` as `null`; read them in a server component. `bindFormat(formatting)` from `@flowpanel/kit` gives the formatters a widget gets as `ctx.format`. See [PageConfig](/docs/reference/widgets#pageconfig).
 
 ### “Which widget is slow”
 

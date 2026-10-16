@@ -64,7 +64,9 @@ async function sql<Row>(strings: TemplateStringsArray, ...values: unknown[]) {
 }
 ```
 
-`sanitizeSqlParams` binds a `Date` as ISO-8601 text and a `bigint` as decimal text.
+`sanitizeSqlParams` binds a `Date` as ISO-8601 text and a `bigint` as decimal text,
+as the Drizzle adapter does; the Prisma adapter hands both to `$queryRaw` as they are,
+so Prisma binds a timestamp and a bigint.
 `parseSqlRows` reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s, unless
 `{ parseDates: false }`.
 
@@ -147,7 +149,7 @@ The parts each adapter is built from:
 
 | Package | Also exports |
 | --- | --- |
-| `@flowpanel/kit/drizzle` | `introspect`, `inferSchema`, `toCsv`, `toJson` |
+| `@flowpanel/kit/drizzle` | `introspect`, `inferSchema` |
 | `@flowpanel/kit/prisma` | `introspect`, `inferSchema`, `PrismaDmmf` (type) |
 | `@flowpanel/kit/bullmq` | `BullMQAdapter` (type) |
 
@@ -155,14 +157,3 @@ The parts each adapter is built from:
 `{ create, update, select }` Zod schemas. `PrismaDmmf` is the type of the optional
 `dmmf` option.
 
-## Export helpers
-
-Standalone row serializers from `@flowpanel/kit/drizzle`.
-
-<ApiSignature path="../../packages/adapter-drizzle/src/export.ts" name="toCsv" />
-
-<ApiSignature path="../../packages/adapter-drizzle/src/export.ts" name="toJson" />
-
-Both keep only `fields`. `toCsv` quotes values with commas, quotes or newlines,
-writes `Date`s as ISO, and prefixes a value starting with `=`, `+`, `-`, `@`, a tab
-or a carriage return with `'`, so a spreadsheet does not run it as a formula.

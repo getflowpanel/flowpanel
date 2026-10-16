@@ -25,3 +25,13 @@ The Prisma adapter supports Prisma 5 and 6. Prisma 7's generated client no longe
 ## Not-found status under cacheComponents
 
 With `cacheComponents` on, an unknown admin URL shows the not-found screen with status 200, because Next.js has already streamed the page shell when the admin finds that the record is missing. The page is `noindex`, so search engines skip it; an uptime check that relies on the status should look for the "Page not found" title instead. See [`createFlowpanel`](/docs/reference/next-runtime#createflowpanel).
+
+## Rate-limit status on pages
+
+A page that `rateLimit` refuses shows the "Too many requests" wall inside the admin with status 200, because an App Router page cannot answer 429. The API routes and the realtime stream answer 429 with a `Retry-After` header, the limit's window in seconds. A client or monitor that watches for 429 should call the API, or look for the wall's title on a page. See [RateLimitConfig](/docs/reference/define-config#ratelimitconfig).
+
+## Sign-in and access-denied status on pages
+
+The sign-in and access-denied screens answer 200. Next.js lets a page answer 401 or 403 only through `unauthorized()` and `forbidden()`, behind `experimental.authInterrupts`, and Next then renders the nearest `unauthorized.tsx` or `forbidden.tsx` in place of the page, outside the admin's shell, or its own bare page when the host has none. FlowPanel keeps its screens inside the admin, with the navigation and a way back, even when the host turns `authInterrupts` on. Set `auth.signInUrl` and `auth.forbiddenUrl` to answer with a redirect instead.
+
+A page one role may not open inside an admin it may use, such as an `access: "admin"` dashboard, always shows "You don't have access to …" with status 200, for the same reason. The API routes answer 403, and every admin page is `noindex`. An uptime check or test that relies on the status should look for the screen's title instead.

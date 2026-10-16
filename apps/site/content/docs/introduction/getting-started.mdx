@@ -23,6 +23,28 @@ Everything the admin runs comes from `@flowpanel/kit` and its subpaths. The only
 
 With npm, run `npx @flowpanel/cli init` and then `npx flowpanel <command>`. Yarn and bun work the same way.
 
+### Without an ORM yet
+
+FlowPanel reads your tables through Drizzle or Prisma. In a project with neither, `init` writes nothing and prints what to add: `pnpm add drizzle-orm pg` and `pnpm add -D @types/pg`, or Prisma 6. Run `init` again. When it finds no database client or schema, it prints a starter `server/lib/db.ts` and `server/lib/db/schema.ts` (under `src/` in a `src/app` project) with a `users` table; create them, or point `init` at your own modules with `--db` and `--schema`. Create the table before you open the admin, for example with drizzle-kit, which reads `DATABASE_URL` from `.env` through its config:
+
+```ts
+// drizzle.config.ts
+import { defineConfig } from "drizzle-kit";
+
+export default defineConfig({
+  dialect: "postgresql",
+  schema: "./src/server/lib/db/schema.ts",
+  dbCredentials: { url: process.env.DATABASE_URL! },
+});
+```
+
+```bash
+pnpm add -D drizzle-kit
+pnpm drizzle-kit push
+```
+
+Then run `init` once more, and `pnpm flowpanel new users` for the first resource. [Build a complete admin](/docs/introduction/founder-admin) starts from an empty app the same way, with a full schema.
+
 ## Open the config
 
 `init` wrote `flowpanel.config.ts` at the project root. When it found no auth provider and no `getSession`, it looks like this, with your own import paths:
@@ -36,13 +58,15 @@ With npm, run `npx @flowpanel/cli init` and then `npx flowpanel <command>`. Yarn
   </AdapterTab>
 </AdapterTabs>
 
-The `declare module` block registers your database, your schema and your session type, so resource names, rows and the `s` in `auth.role` are typed. If your auth module already exports `getSession`, the config imports it and `role` is a longer guard that reads `user.role` defensively. When `init` finds better-auth, Auth.js, Clerk or Lucia, `auth` is `flowpanelAuth` from `server/lib/flowpanel-session.ts` instead, and that module registers the session.
+Dates, "Today" and the date filters use `formatting.timeZone`, which is UTC until you set it. Add `formatting: { timeZone: "Europe/Berlin" }`, with your own zone, to `defineAdmin` so the admin follows your clock.
+
+The `declare module` block registers your database, your schema and your session type, so resource names, rows and the `s` in `auth.role` are typed. If your auth module already exports `getSession`, the config imports it and `role` is a longer guard that reads `user.role` defensively. When `init` finds better-auth, Auth.js, Clerk or Lucia, `auth` is `flowpanelAuth` from `flowpanel-session.ts` beside your auth module, such as `lib/flowpanel-session.ts`, and that module registers the session.
 
 ## Connect auth
 
 `access: "admin"` lets in only sessions whose role is `admin`, so the admin needs your session.
 
-- With a detected provider, `server/lib/flowpanel-session.ts` holds the matching preset, which reads the role from `session.user.role`. Make sure your user's session carries the `admin` role.
+- With a detected provider, `flowpanel-session.ts` beside your auth module holds the matching preset, which reads the role from `session.user.role`. Make sure your user's session carries the `admin` role.
 - With your own `getSession`, the config uses it as it is.
 - Otherwise `server/lib/auth.ts` exports a `getSession` that returns `null`, so every request is denied. Return your session from it, or run `pnpm flowpanel init --dev-auth` for a development identity that refuses to run in production.
 
@@ -101,7 +125,7 @@ Paths start with `src/` in a `src/app` project.
 | File | Purpose |
 | --- | --- |
 | `flowpanel.config.ts` | Resources, dashboards, auth, scope, realtime and theme |
-| `server/lib/flowpanel-session.ts` | With a detected auth provider: its preset, your session and role |
+| `flowpanel-session.ts` beside your auth module | With a detected auth provider: its preset, your session and role |
 | `server/lib/auth.ts` | With no provider and no `getSession`: a stub that denies every request |
 | `app/admin/[[...slug]]/page.tsx` | Catch-all admin page; exports `generateMetadata` |
 | `app/admin/layout.tsx` | Imports the stylesheet and the theme script |
@@ -109,7 +133,7 @@ Paths start with `src/` in a `src/app` project.
 | `app/api/flowpanel/[...route]/route.ts` | Resource and action handlers |
 | `app/api/flowpanel/stream/route.ts` | Authenticated SSE endpoint |
 | `styles/admin.css` | One import of the precompiled, isolated stylesheet |
-| `flowpanel/migrations/0001_init.sql` | SQL for `_flowpanel_migrations` and `flowpanel_audit_log` |
+| `flowpanel/migrations/0001_init.sql` | SQL for `flowpanel_audit_log` |
 
 `init` also adds `suppressHydrationWarning` to the root layout's `<html>` tag, because `ThemeScript` sets an attribute on it before hydration. If it cannot patch the file safely, it prints the edit. `flowpanel doctor --fix` restores a missing route file.
 

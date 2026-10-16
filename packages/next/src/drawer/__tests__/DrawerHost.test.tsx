@@ -37,6 +37,7 @@ function payload(status: string) {
     labels: {},
     ...RECORD_DEFAULTS,
     formats: {},
+    references: {},
   };
 }
 

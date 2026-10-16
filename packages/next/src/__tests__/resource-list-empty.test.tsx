@@ -27,7 +27,7 @@ const adapter: Adapter = {
 
 type Empty = { title?: string; filtered?: string; searched?: string };
 
-function admin(empty?: Empty, locale?: string, creatable = true) {
+function admin(empty?: Empty, locale?: string, creatable = true, defaultOpen = false) {
   return defineAdmin({
     adapter,
     ...(locale ? { formatting: { locale } } : {}),
@@ -41,7 +41,14 @@ function admin(empty?: Empty, locale?: string, creatable = true) {
           columns: ["id", "status"],
           ...(creatable ? {} : { create: { disabled: true } }),
           search: ["status"],
-          filters: [{ field: "status", type: "select", options: ["paid", "open"] }],
+          filters: [
+            {
+              field: "status",
+              type: "select",
+              options: ["paid", "open"],
+              ...(defaultOpen ? { defaultValue: "open" } : {}),
+            },
+          ],
           ...(empty ? { empty } : {}),
         },
       ),
@@ -49,8 +56,14 @@ function admin(empty?: Empty, locale?: string, creatable = true) {
   });
 }
 
-async function table(query: string, empty?: Empty, locale?: string, creatable = true) {
-  const config = admin(empty, locale, creatable);
+async function table(
+  query: string,
+  empty?: Empty,
+  locale?: string,
+  creatable = true,
+  defaultOpen = false,
+) {
+  const config = admin(empty, locale, creatable, defaultOpen);
   const orders = config.resourcesByName.get("orders");
   if (!orders) throw new Error("orders is not registered");
   const tree = await ResourceListPage({
@@ -80,6 +93,18 @@ describe("an empty resource list", () => {
     const action = props.emptyAction as ReactElement<{ label?: string }>;
     expect(action.type).toBe(CreateDrawerTrigger);
     expect(action.props.label).toBe("Create order");
+  });
+
+  it("says there is no data yet when only its own default filter narrows it and no row exists", async () => {
+    const props = await table("", undefined, undefined, true, true);
+    expect(props.emptyTitle).toBe("No orders");
+    expect((props.emptyAction as ReactElement).type).toBe(CreateDrawerTrigger);
+  });
+
+  it("names the search when a search alone leaves the list empty, and offers to clear it", async () => {
+    const props = await table("q=zzz&sort=status");
+    expect(props.emptyTitle).toBe("Nothing matches “zzz”.");
+    expect(hrefOf(props.emptyAction)).toBe("/admin/orders?sort=status");
   });
 
   it("offers no create button where nobody creates rows", async () => {

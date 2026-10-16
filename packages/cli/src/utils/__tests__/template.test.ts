@@ -165,12 +165,21 @@ describe("every template renders with the variables its caller passes", () => {
     }
   });
 
+  const AUDIT_UPGRADES = (["postgresql", "mysql", "sqlite"] as const).map(
+    (dialect) => `migration-audit.${dialect}.sql.txt`,
+  );
+
+  it("migrate", async () => {
+    for (const name of AUDIT_UPGRADES) expect(await tpl(name), name).not.toMatch(PLACEHOLDER);
+  });
+
   it("leaves no template file without a caller in these tests", async () => {
     const files = await templateFiles();
     const covered = new Set([
       ...(await initCalls()).map((call) => call.template),
       "admin-page.tsx.txt",
       "dev-session.ts.txt",
+      ...AUDIT_UPGRADES,
       ...FIXABLE_FILES.map((file) => file.templateName),
       ...files.filter((file) => file.startsWith("ejected/")),
     ]);

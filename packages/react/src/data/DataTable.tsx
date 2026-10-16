@@ -6,10 +6,10 @@ import { cn } from "../lib/cn";
 import { useComponentOverrides } from "../provider/ComponentsContext";
 import { useLabels } from "../provider/LabelsContext";
 import { ShortcutsHint } from "../shell/ShortcutsHint";
-import { columnWidth, ROW_END_WIDTH, SELECTION_WIDTH_PX, tableMinWidth } from "./column-sizing";
+import { layoutColumns, REM_PX, ROW_END_REM, SELECTION_WIDTH_PX } from "./column-sizing";
 import { DataTableBody } from "./DataTableBody";
 import { DataTableHeader } from "./DataTableHeader";
-import { DataTableSkeleton, skeletonRowCount } from "./DataTableSkeleton";
+import { CardListSkeleton, DataTableSkeleton, skeletonRowCount } from "./DataTableSkeleton";
 import { DataTableToolbar, exportSetupOf } from "./DataTableToolbar";
 import type { DataTableDensity } from "./DensityToggle";
 import type { DataTableColumn, DataTableProps } from "./data-table-types";
@@ -59,6 +59,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   onPinnedColumnsChange,
   realtime,
   rowEndCell,
+  rowEndCellRem = ROW_END_REM,
   rowEndCellLabel: rowEndCellLabelOverride,
   onEditRow,
   onDeleteRow,
@@ -74,14 +75,19 @@ export function DataTable<Row extends Record<string, unknown>>({
 }: DataTableProps<Row>) {
   const labels = useLabels();
   const rowEndCellLabel = rowEndCellLabelOverride ?? labels.table.actions;
-  const effectiveEmptyTitle = emptyTitle ?? labels.noResults;
+  const effectiveEmptyTitle = emptyTitle ?? labels.table.noResults;
   const { EmptyState: EmptyOverride, SkeletonTable: SkeletonOverride } = useComponentOverrides();
   const Empty = EmptyOverride ?? TableEmptyState;
 
   const selectionEnabledProp = onSelectionChange !== undefined;
+  const tableRef = React.useRef<HTMLTableElement>(null);
+  const headExtrasRem = onPinnedColumnsChange ? 1.5 : 0;
   const layout = useColumnLayout<Row>({
     columns,
     leadingPx: selectionEnabledProp ? SELECTION_WIDTH_PX : 0,
+    headExtrasRem,
+    table: tableRef,
+    rows,
     ...(columnVisibility ? { columnVisibility } : {}),
     ...(columnWidths ? { columnWidths } : {}),
     ...(pinnedColumns ? { pinnedColumns } : {}),
@@ -96,6 +102,7 @@ export function DataTable<Row extends Record<string, unknown>>({
     setLiveWidths,
     liveWidthsRef,
     resizingRef,
+    raised,
   } = layout;
 
   const live = useTableLive(realtime);
@@ -151,7 +158,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   const frame =
     "fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-shadow-xs fp-overflow-clip";
 
-  const exportSetup = exportSetupOf(exportable, rows.length, columns, orderedVisible);
+  const exportSetup = exportSetupOf(exportable, columns, orderedVisible);
   const showToolbar =
     exportSetup !== null || Boolean(importable) || showDensityToggle || live.configured;
   const toolbar = showToolbar ? (
@@ -179,19 +186,31 @@ export function DataTable<Row extends Record<string, unknown>>({
     />
   );
 
+  const { widths, minWidth } = layoutColumns(orderedVisible, {
+    overrides: effectiveWidths,
+    pinned: new Set([...leftPins, ...rightPins]),
+    headExtrasRem,
+    raised,
+    extrasRem:
+      (selectionEnabled ? SELECTION_WIDTH_PX / REM_PX : 0) + (rowEndCell ? rowEndCellRem : 0),
+  });
   if (loading) {
     return (
       <div className={cn(frame, className)} aria-busy="true">
         {toolbar}
         {SkeletonOverride ? (
           <SkeletonOverride rows={skeletonRowCount(pageSize)} columns={orderedVisible.length} />
+        ) : mobileLayout === "card" && isMobile ? (
+          <CardListSkeleton orderedVisible={orderedVisible} pageSize={pageSize} />
         ) : (
           <DataTableSkeleton
             orderedVisible={orderedVisible}
+            widths={widths}
+            minWidth={minWidth}
             pageSize={pageSize}
             rowPadding={rowPadding}
             selectionEnabled={selectionEnabled}
-            rowEndCell={rowEndCell}
+            rowEndWidth={rowEndCell ? `${rowEndCellRem}rem` : undefined}
             rowEndCellLabel={rowEndCellLabel}
           />
         )}
@@ -250,19 +269,12 @@ export function DataTable<Row extends Record<string, unknown>>({
   const lastLeftPin = [...orderedVisible]
     .reverse()
     .find((c) => pinMeta.get(c.field)?.side === "left")?.field;
-  const minWidth = tableMinWidth(
-    orderedVisible.map((c) => columnWidth(c, effectiveWidths[c.field])),
-    [
-      ...(selectionEnabled ? [`${SELECTION_WIDTH_PX}px`] : []),
-      ...(rowEndCell ? [ROW_END_WIDTH] : []),
-    ],
-  );
-
   return (
     <div className={cn(frame, className)}>
       {toolbar}
       <TableScroll>
         <table
+          ref={tableRef}
           className="fp-w-full fp-table-fixed fp-text-sm"
           style={{ minWidth }}
           aria-rowcount={total + 1}
@@ -272,6 +284,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             sort={sort}
             pinMeta={pinMeta}
             effectiveWidths={effectiveWidths}
+            widths={widths}
             leftPins={leftPins}
             rightPins={rightPins}
             selectionEnabled={selectionEnabled}
@@ -284,7 +297,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             resizingRef={resizingRef}
             liveWidthsRef={liveWidthsRef}
             setLiveWidths={setLiveWidths}
-            rowEndCell={rowEndCell}
+            rowEndWidth={rowEndCell ? `${rowEndCellRem}rem` : undefined}
             rowEndCellLabel={rowEndCellLabel}
           />
           <DataTableBody<Row>

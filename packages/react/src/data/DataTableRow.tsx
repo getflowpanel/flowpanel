@@ -1,16 +1,22 @@
 "use client";
 import type { ResolvedFormatting } from "@flowpanel/core/format";
 import { formatLabel } from "@flowpanel/core/labels";
-import type * as React from "react";
+import * as React from "react";
 import { cn } from "../lib/cn";
+import { lazyRetry } from "../lib/lazy-retry";
 import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
 import { Checkbox } from "../ui/checkbox";
 import type { DataTableColumn } from "./data-table-types";
 import { ALIGN_CLASS } from "./format-cell";
-import { InlineEditCell } from "./InlineEditCell";
+import type { InlineEditCellProps } from "./InlineEditCell";
 import { renderDefaultCell, withSecondary } from "./render-default-cell";
 import type { PinMeta } from "./useColumnLayout";
+
+/** Editing a cell is rarer than reading it, so the editor loads with the first table that has one. */
+const InlineEditCell = lazyRetry<InlineEditCellProps>(() =>
+  import("./InlineEditCell").then((module) => ({ default: module.InlineEditCell })),
+);
 
 function renderCellContent<Row extends Record<string, unknown>>(
   c: DataTableColumn<Row>,
@@ -23,16 +29,20 @@ function renderCellContent<Row extends Record<string, unknown>>(
 ): React.ReactNode {
   // Without an identifier the update request has no row to address.
   if (c.editable && inlineEditResource && rowId !== null) {
+    const shown = prerendered ?? (c.render ? c.render(r) : renderDefaultCell(c, r, formatting));
     return (
-      <InlineEditCell
-        resource={inlineEditResource}
-        id={rowId}
-        field={c.field}
-        {...(c.label ? { label: c.label } : {})}
-        value={r[c.field]}
-        {...(c.type ? { valueType: c.type } : {})}
-        rowClickable={rowClickable}
-      />
+      <React.Suspense fallback={<span className="fp-block fp-truncate">{shown}</span>}>
+        <InlineEditCell
+          resource={inlineEditResource}
+          id={rowId}
+          field={c.field}
+          {...(c.label ? { label: c.label } : {})}
+          value={r[c.field]}
+          {...(c.type ? { valueType: c.type } : {})}
+          display={() => shown}
+          rowClickable={rowClickable}
+        />
+      </React.Suspense>
     );
   }
   if (prerendered !== undefined) return prerendered;
@@ -106,6 +116,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
       {selectionEnabled ? (
         <td className={cn("fp-sticky fp-left-0 fp-z-[1] fp-bg-surface fp-px-4", rowPadding)}>
           <Checkbox
+            className="sm:fp-flex"
             checked={isSelected}
             disabled={rowKeyValue === null}
             aria-label={formatLabel(labels.table.selectRow, { id: rowKeyValue ?? "" })}

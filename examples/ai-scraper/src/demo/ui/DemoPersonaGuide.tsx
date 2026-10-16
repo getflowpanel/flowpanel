@@ -10,10 +10,10 @@ export function DemoPersonaGuide({ role }: { role: DemoRole }) {
       aria-label="ScrapeAI"
       className="border-b border-demo-border bg-demo-surface text-demo-text"
     >
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:gap-5 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-[103rem] items-center gap-2 px-4 sm:gap-5 sm:px-6">
         <a
           href="/admin"
-          className="min-w-0 truncate rounded-sm text-sm font-medium tracking-tight transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-demo-accent"
+          className="-my-1 min-w-0 truncate rounded-sm py-1 text-sm font-medium tracking-tight transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-demo-accent"
         >
           ScrapeAI
         </a>

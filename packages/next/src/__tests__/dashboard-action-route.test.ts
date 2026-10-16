@@ -158,7 +158,7 @@ describe("dashboardActionRoute", () => {
     );
     expect(sink).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: "dashboard.action.trigger-scraper",
+        action: "dashboard.action.pipeline.trigger-scraper",
         resource: "dashboard",
         targetId: "/pipeline",
       }),

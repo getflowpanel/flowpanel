@@ -18,6 +18,7 @@ export function MetricCard(
       formatting={formatting}
       previousLabel={widget.previous}
       pointsLabel={widget.points}
+      freshLabel={widget.fresh}
       noChangeLabel={widget.noChange}
       trendLabel={widget.trend}
       {...props}

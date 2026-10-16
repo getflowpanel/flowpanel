@@ -7,7 +7,7 @@ import type {
   WidgetContext,
 } from "@flowpanel/core";
 import type { ReactNode } from "react";
-import { chartProps } from "./chart-props";
+import { chartProps, chartRows } from "./chart-props";
 import { resolveLink } from "./resolve-link";
 import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
 
@@ -20,7 +20,7 @@ export async function renderChartWidget(
   config: ResolvedAdminConfig,
   caption: CaptionPromise = NO_CAPTION,
 ): Promise<ReactNode> {
-  const { ChartRenderer } = await import("@flowpanel/charts");
+  const { ChartRenderer } = await import("@flowpanel/charts/renderer");
   const data = await widget.query(ctx);
   const captionLine = await caption;
   const drilldown = resolveLink(config, ctx, widget.options.drilldown);
@@ -30,7 +30,7 @@ export async function renderChartWidget(
       kind={widget.kind}
       label={widget.label}
       options={options}
-      data={data}
+      data={chartRows(widget, data, options)}
       {...(seriesLabels ? { seriesLabels } : {})}
       {...(drilldown ? { drilldown } : {})}
       {...(captionLine ? { caption: captionLine } : {})}

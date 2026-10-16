@@ -110,7 +110,7 @@ describe("importRoute — column-type coercion", () => {
     expect(body.imported).toBe(0);
     expect(created).toEqual([]);
     expect(body.failed).toHaveLength(1);
-    expect(body.failed[0]?.error).toBe("age: Age must be a number");
+    expect(body.failed[0]?.error).toBe("Age must be a number");
   });
 
   it("reports a clear per-row field error for an unparseable boolean", async () => {
@@ -119,7 +119,7 @@ describe("importRoute — column-type coercion", () => {
     const res = await importRoute(config)(post({ format: "csv", content }), params);
     const body = (await res.json()) as { failed: { row: number; error: string }[] };
     expect(created).toEqual([]);
-    expect(body.failed[0]?.error).toBe("active: Active must be yes or no");
+    expect(body.failed[0]?.error).toBe("Active must be yes or no");
   });
 
   it("leaves already-typed JSON values (real number/boolean) untouched", async () => {

@@ -60,6 +60,8 @@ export interface MetricOptions extends CaptionOptions {
   icon?: string;
   /** How the number is rendered. */
   format?: NumericFormat;
+  /** The query returns minor units with this many digits, as on a `money` field: with `format: "currency"`, `2` shows `260000` as $2,600. `tones` compare the amount shown. */
+  minorUnits?: number;
   /** Small caption under the value. */
   sublabel?: string;
   /** Period-over-period change, queried alongside the value. */
@@ -179,6 +181,8 @@ export interface CustomOptions extends CaptionOptions {
   frame?: boolean;
   /** The card's title when framed, and the name errors and slow-widget timings use. */
   label?: string;
+  /** The height in px the widget keeps, while it loads and after, so the page below it does not jump when it arrives. */
+  minHeight?: number;
 }
 
 export interface CustomWidget<P = unknown> {

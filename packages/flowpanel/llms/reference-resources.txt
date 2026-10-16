@@ -60,9 +60,10 @@ export const ordersResource = resource(orders, {
 | `actions?` | `RowAction<Row, any, any>[]` | Per-row actions, rendered inline or in the row's menu. |
 | `bulkActions?` | `BulkAction<Row, any, any>[]` | Actions applied to a selection of rows. |
 | `scope?` | `"bypass" \| ResourceScope` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
+| `scopeOf?` | `(row: Row) => Scope` | The tenant a row belongs to, as `scope` returns it; files `allTenants` staff's audit events under it. |
 | `access?` | `ResourceAccess<Row>` | Canonical operation-level authorization. |
 | `fieldAccess?` | `FieldAccessMap<Row>` | Canonical read/write policy for declared fields. |
-| `export?` | `\| { formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[]; /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */ maxRows?: number; } \| false` | Export button, off unless set: every row matching the list's filters, search and sort, as the user may read them. `formats` defaults to `["csv"]`; `fields` defaults to the columns. |
+| `export?` | `\| { formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[]; /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */ maxRows?: number; /** Who may export, on top of the resource's `read` rule. Everyone who may read by default. */ access?: AccessRule; } \| false` | Export button, off unless set: every row matching the list's filters, search and sort, as the user may read them. `formats` defaults to `["csv"]`; `fields` defaults to the columns. |
 | `import?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Import button. Off unless set; rows are created through the normal write path. |
 | `audit?` | `boolean` | `false` records no audit events for this resource, and its records show no History tab. |
 | `realtime?` | `boolean \| string` | Refresh the list when the channel fires. `true` uses `resource.<name>`. |
@@ -164,9 +165,60 @@ disabled, and declaring any of them (or `import`, or an `editable` column) throw
 
 #### Icons
 
-Resource, dashboard, page, queue, action and command icons take an `IconName`, a
-Lucide icon name such as `users`, `settings`, `database` or `trash-2`. An unknown
-name is a type error. To render one in your own component:
+Resource, dashboard, page, queue, action and command icons take an `IconName`, one
+of these Lucide icon names. Other Lucide names, such as `building-2` or `receipt`,
+are a type error:
+
+```ts
+type IconName =
+  | "activity"
+  | "archive"
+  | "badge-dollar-sign"
+  | "ban"
+  | "bar-chart"
+  | "bell"
+  | "book-open"
+  | "box"
+  | "boxes"
+  | "briefcase"
+  | "calendar"
+  | "check"
+  | "circle-dollar-sign"
+  | "circle-help"
+  | "clipboard-list"
+  | "command"
+  | "credit-card"
+  | "database"
+  | "file-text"
+  | "gauge"
+  | "heart-pulse"
+  | "history"
+  | "home"
+  | "inbox"
+  | "layout-dashboard"
+  | "list"
+  | "lock"
+  | "mail"
+  | "moon"
+  | "package"
+  | "play"
+  | "refresh"
+  | "search"
+  | "settings"
+  | "shield"
+  | "shopping-cart"
+  | "sparkles"
+  | "tags"
+  | "trash-2"
+  | "user"
+  | "user-cog"
+  | "users"
+  | "workflow"
+  | "wrench"
+  | "x";
+```
+
+To render one in your own component:
 
 ```tsx
 import { FlowpanelIcon } from "@flowpanel/kit/react";
@@ -188,13 +240,17 @@ views: [
 ```
 
 A `daterange` filter also takes a preset name (`today`, `yesterday`, `last7d`,
-`last30d`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
+`last30d`, `last12m`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
 fields the list declares in `columns`, `filters` or `search`, with values that
 match the filter type; `defineAdmin` rejects the rest. For "older than N days",
 compute the number in a view and use a `numeric-range` filter. The menu button
 names the view whose filters, sort and search match the list, counting the
 resource's `defaultSort` and filter defaults, so `?f_status=needs_review` reads
 "View: Needs review".
+
+"Save current view…" keeps a person's own views in their browser's `localStorage`
+under `flowpanel:views:<resource>`, so they stay on that browser and do not follow
+the person to another device. Views every operator should see belong in `views`.
 
 ### ColumnDef
 
@@ -206,10 +262,10 @@ An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
 | --- | --- | --- |
 | `field?` | `keyof Row & string` | Row property this column reads. Omit only when `render` supplies the cell. |
 | `secondary?` | `keyof Row & string` | Another field of the row, shown as a muted second line under the cell — the email under a name. It is loaded with the row; sort and search still use `field`. Ignored on a `reference` column. |
-| `label?` | `string` | Header text. Defaults to a humanized `field`. |
+| `label?` | `string` | The field's label: this header and its name on every other surface, see [Field labels](https://flowpanel.tech/docs/build/resources#field-labels). Defaults to a humanized `field`. |
 | `render?` | `(row: Row, ctx: RequestContext) => ReactNode` | Custom cell renderer. Runs on the server; receives the request context. |
 | `sortable?` | `boolean` | Allow clicking the header to sort by this column. |
-| `width?` | `number \| string` | Fixed column width, in px when a number. |
+| `width?` | `number \| string` | Fixed column width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. |
 | `align?` | `"left" \| "center" \| "right"` | Horizontal cell alignment. Defaults to `"left"`. |
 | `className?` | `string` | Extra classes on every cell in this column. |
 | `hidden?` | `boolean` | Keep the column out of the table (still available to export and drawer). |
@@ -237,7 +293,7 @@ type ColumnFormat =
   | "badge" | "money" | "number"
   | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
   | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
-  | { kind: "money"; currency?: string; scale?: number }
+  | { kind: "money"; currency?: string; minorUnits?: number; scale?: number }
   | { kind: "number"; tones?: Threshold }
   | { kind: "date"; time?: boolean; calendarDay?: boolean }
   | { kind: "percent"; digits?: number; heat?: boolean; tones?: Threshold }
@@ -245,6 +301,10 @@ type ColumnFormat =
   | { kind: "boolean"; labels?: { true?: string; false?: string } }
   | { kind: "url"; label?: string };
 ```
+
+A money column whose value holds minor units takes `minorUnits`, the same option as a
+`money` field: `{ kind: "money", minorUnits: 2 }` shows `5900` as `$59.00`. `scale`, the
+0.3 name (`scale: 100` is `minorUnits: 2`), still works and is deprecated.
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 The object form of `badge` maps each cell value to a tone:
@@ -358,7 +418,7 @@ when both name the same key.
 | Property | Type | Notes |
 | --- | --- | --- |
 | `name` | `keyof Row & string` | Row property this field writes. |
-| `label?` | `string` | Field label. Defaults to a humanized `name`. |
+| `label?` | `string` | Field label, also shown wherever no column labels this field. Defaults to a humanized `name`. |
 | `help?` | `string` | Hint rendered under the control. |
 | `placeholder?` | `string` | Placeholder text for empty inputs. |
 | `type?` | `FieldType` | Which control to render. Omitted, a declared field renders as `"text"` — or `"reference"` when `reference` is set. The adapter's column type is consulted only by a fully generated form, and only maps number, boolean, date and json. |
@@ -371,7 +431,7 @@ when both name the same key.
 | `readOnly?` | `boolean \| ((values: Partial<Row>) => boolean)` | Render non-editable. Enforced server-side, not just in the UI. |
 | `hidden?` | `boolean \| ((values: Partial<Row>) => boolean)` | Leave the field out of the form entirely. |
 | `validate?` | `\| z.ZodTypeAny \| ((value: unknown, values: Partial<Row>) => string \| null \| Promise<string \| null>)` | Per-field validation, run server-side after the resource schema. |
-| `defaultValue?` | `unknown \| ((ctx: QueryContext) => Promise<unknown>)` | Value used when creating, for keys the operator left empty; a visible field also pre-fills with it. The resource's `create.defaultValues` wins for the same key. |
+| `defaultValue?` | `FieldDefaultValue` | Value used when creating, for keys the operator left empty; a visible field also pre-fills with it. The resource's `create.defaultValues` wins for the same key. |
 | `span?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Width in a 12-column form grid. Defaults to full width. |
 | `group?` | `string` | Fieldset heading this field is grouped under. |
 | `render?` | `(row: Row, ctx: RequestContext) => ReactNode \| Promise<ReactNode>` | Detail pages and drawers only: what the field shows instead of its value — a join or a computed label. |
@@ -405,6 +465,7 @@ rule; use `access` and `fieldAccess` for that.
 | A resource or a queue | Leaves it out of the navigation and the palette. Its routes still work. |
 | A column | Keeps it out of the table. Export and the drawer still read it. |
 | A filter | Applies the filter, and its `defaultValue`, without a control. |
+| A row action | Deprecated: write `when` with the condition reversed. |
 | A form field, `hidden: true` or a function of the values | Leaves the control out of the form. The server still fills its `defaultValue`. |
 | A form field with `type: "hidden"` | Renders `<input type="hidden">`, which posts its value and which anyone can edit in the page. |
 
@@ -459,7 +520,11 @@ type FilterType =
 ```
 
 `daterange` and `numeric-range` reach your adapter as a `FilterRangeValue`;
-`multiselect` as a `FilterInValue`. Both are documented under
+`multiselect` as a `FilterInValue`. A `numeric-range` filter on a money column takes
+the amount the column shows: with `minorUnits: 2` on its format, `60` to `90` matches
+`6000` to `9000`, in the list, its URL, the export and the JSON API. A `{ gte, lte }`
+in a `where`, a view, a link's `filter` or a `defaultValue` stays in stored units, and
+its link opens the same rows. Both are documented under
 [Contexts](/docs/reference/contexts#filter-values).
 
 ### Record page
@@ -672,7 +737,7 @@ readable fields.
 | `hide?` | `string[]` | Related-tab columns to omit, typically the parent foreign key. |
 | `sort?` | `{ field: string; dir: "asc" \| "desc" }` | Related-tab default sort; falls back to the target's `defaultSort`, then its primary key. |
 | `widgets?` | `WidgetConfig[]` | Dashboard widgets with `ctx.row` set to the record being viewed; with `resource`, above its rows. |
-| `columns?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Grid columns for `widgets`; omitted, 12 when a widget sets `span`. Default: `2`. |
+| `columns?` | `1 \| 2 \| 3 \| 4 \| 6 \| 12` | Grid columns for `widgets`; omitted, 12 when a widget sets `span`, 1 for a single widget, else 2. |
 | `render?` | `(row: Row, ctx: DetailTabContext) => ReactNode` | Render arbitrary content instead of fields, widgets or a related resource. |
 | `emptyState?` | `string` | Shown instead of the generic label when the tab has nothing to show: no related rows, no widgets, or no fields the reader may see. |
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MIGRATIONS_TABLE_DDL, prismaAdapter } from "../adapter";
+import { migrationsTableDdl, prismaAdapter } from "../adapter";
 import type { PrismaDmmf } from "../introspect";
 import type { PrismaClientLike } from "../runtime";
 import { splitSqlStatements } from "../sql-statements";
@@ -45,6 +45,13 @@ describe("prismaAdapter migrations bookkeeping", () => {
     expect(adapter.listAppliedMigrations).toEqual(expect.any(Function));
   });
 
+  it("guards the bookkeeping table on PostgreSQL, so an existing table raises no NOTICE", () => {
+    expect(migrationsTableDdl("postgresql")).toContain(
+      "IF to_regclass('_flowpanel_migrations') IS NULL",
+    );
+    expect(migrationsTableDdl("postgresql")).not.toContain("IF NOT EXISTS");
+  });
+
   it("creates the bookkeeping table with dialect-portable DDL", async () => {
     const prisma = makeMockPrisma();
     const adapter = prismaAdapter({ prisma, dmmf, provider: "sqlite" });
@@ -52,7 +59,7 @@ describe("prismaAdapter migrations bookkeeping", () => {
     await adapter.listAppliedMigrations?.();
 
     const ddl = prisma.$executeRawUnsafe.mock.calls[0]?.[0] as string;
-    expect(ddl).toBe(MIGRATIONS_TABLE_DDL);
+    expect(ddl).toBe(migrationsTableDdl("sqlite"));
     expect(ddl).not.toMatch(/timestamptz/i);
     expect(ddl).not.toMatch(/DEFAULT\s+now\(\)/i);
     expect(ddl).toMatch(/DEFAULT CURRENT_TIMESTAMP/);
@@ -104,7 +111,7 @@ describe("prismaAdapter PostgreSQL migrations", () => {
       "marker",
       "transaction:commit",
     ]);
-    expect(root.$executeRawUnsafe).toHaveBeenCalledWith(MIGRATIONS_TABLE_DDL);
+    expect(root.$executeRawUnsafe).toHaveBeenCalledWith(migrationsTableDdl("postgresql"));
     expect(tx.$queryRawUnsafe.mock.calls[0]).toEqual([
       expect.stringContaining("pg_advisory_xact_lock"),
       "0001_init",
@@ -130,7 +137,7 @@ describe("prismaAdapter PostgreSQL migrations", () => {
       /^SELECT id FROM _flowpanel_migrations/,
     );
     expect(prisma.$executeRawUnsafe).toHaveBeenCalledTimes(1);
-    expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith(MIGRATIONS_TABLE_DDL);
+    expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith(migrationsTableDdl("postgresql"));
   });
 
   it("does not record the marker when a statement fails", async () => {
@@ -187,7 +194,7 @@ describe("prismaAdapter SQLite migrations", () => {
       "marker",
     ]);
     expect(root.$executeRawUnsafe.mock.calls.map(([sql]) => sql)).toEqual([
-      MIGRATIONS_TABLE_DDL,
+      migrationsTableDdl("sqlite"),
       expect.stringMatching(/^CREATE TABLE IF NOT EXISTS _flowpanel_migration_lock/),
     ]);
   });

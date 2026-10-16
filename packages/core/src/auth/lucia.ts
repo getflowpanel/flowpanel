@@ -1,4 +1,5 @@
 import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
+import { fromProvider } from "../auth-provider";
 import { assertNoAuthRequireRole } from "../compiler/validate/removed-keys";
 
 /** Minimal duck-type for a Lucia v3+ instance. */
@@ -26,7 +27,7 @@ export interface LuciaAuthOptions {
 /** First-class Lucia (v3+) integration. */
 export function withLucia(opts: LuciaAuthOptions): AuthConfig {
   assertNoAuthRequireRole("withLucia", opts);
-  return {
+  return fromProvider("Lucia", {
     async session(): Promise<Session | null> {
       const specifier = "next/headers";
       const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as {
@@ -58,5 +59,5 @@ export function withLucia(opts: LuciaAuthOptions): AuthConfig {
     ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),
     ...(opts.forbiddenUrl ? { forbiddenUrl: opts.forbiddenUrl } : {}),
-  };
+  });
 }

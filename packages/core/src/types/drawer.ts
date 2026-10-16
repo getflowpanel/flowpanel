@@ -1,8 +1,5 @@
-import type { z } from "zod";
-import type { ActionResult } from "./action";
-import type { ActionContext } from "./context";
-import type { AccessRule, FieldWriteContext } from "./policy";
-import type { InferDB, ResourceName } from "./registry";
+import type { ActionInput, RowAction } from "./action";
+import type { ResourceName } from "./registry";
 import type { FieldDef } from "./resource";
 import type { CustomWidget, WidgetConfig } from "./widget";
 import type { ChecklistWidget, HeatmapWidget } from "./widget-activity";
@@ -50,50 +47,15 @@ export type DrawerTab<Row = Record<string, unknown>> =
   | DrawerTabResource<Row>
   | DrawerTabWidgets;
 
-/** Input field of a `DrawerAction.form`. */
-export interface DrawerFieldFormSpec {
-  /** Key this input contributes to the action's `formData`. */
-  name: string;
-  /** Control to render. Defaults to `"text"`. */
-  type?: "text" | "textarea" | "select" | "switch" | "number";
-  /** Choices for `select`. */
-  options?: string[];
-  /** Reject an empty value. Enforced server-side. */
-  required?: boolean;
-  /** Per-input validation, run server-side before `run`. */
-  validate?:
-    | z.ZodTypeAny
-    | ((value: unknown, values: Record<string, unknown>) => string | null | Promise<string | null>);
-}
-
-/** An action in the open row's header menu, in the drawer and on the record page. */
-export interface DrawerAction<Row = Record<string, unknown>> {
-  /** Stable identifier, used in the action's URL. */
-  key: string;
-  label: string;
-  /** `"destructive"` styles the button as dangerous. */
-  variant?: "default" | "destructive";
-  /** `"inline"`: a button beside Edit instead of an entry in the record's menu. @defaultValue "menu" */
-  placement?: "inline" | "menu";
-  /** Ask for confirmation with this message before running. */
-  confirm?: string;
-  /** Inputs collected before `run`, passed to it as `formData`. */
-  form?: DrawerFieldFormSpec[];
-  /** Also offer the action in the command palette. */
-  palette?: boolean;
-  /** Roles allowed to see and execute this action. */
-  access?: AccessRule;
-  /** Server-enforced row condition evaluated after the scoped row load. */
-  when?: (context: FieldWriteContext<Row>) => boolean | Promise<boolean>;
-  /** Explicitly opt trusted code into raw database access. */
-  unsafe?: readonly "db"[];
-  /** Server-side handler. Runs only after every guard has passed. */
-  run: (
-    row: Row,
-    formData: Record<string, unknown>,
-    ctx: ActionContext<InferDB>,
-  ) => Promise<ActionResult>;
-}
+/**
+ * An action in the open row's header menu, in the drawer and on the record page. It takes the same
+ * options as a `RowAction`, apart from `hidden` and `disabled`: use `when` to offer it on some rows only.
+ */
+export interface DrawerAction<
+  Row = Record<string, unknown>,
+  Input extends ActionInput = ActionInput,
+  Output = never,
+> extends Omit<RowAction<Row, Input, Output>, "hidden" | "disabled"> {}
 
 /** Side panel opened for a single row. */
 export interface DrawerConfig<Row = Record<string, unknown>> {

@@ -1,7 +1,9 @@
 import type { IconName, ResolvedAdminConfig, ResourceConfig, RowAction } from "@flowpanel/core";
+import { mergeLabels } from "@flowpanel/core";
 import { actionFailure } from "../runtime/action-failure";
+import { actionAppliesTo, resourceActionTarget } from "../runtime/action-gate";
 import { buildHref } from "../runtime/href";
-import { readRow } from "../runtime/read-row";
+import { readLiveRow, readRow } from "../runtime/read-row";
 import {
   auditDiff,
   guardedRoute,
@@ -58,21 +60,17 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
       const actions = resource.options.actions as RowAction<Record<string, unknown>>[] | undefined;
       const action = lookupAction(actions, params.action);
       if (action instanceof Response) return action;
-      return { spec: { resource, actionAccess: action.access }, target: { resource, action } };
+      return { spec: resourceActionTarget(resource, action), target: { resource, action } };
     },
     handle: async ({ req, reqCtx, target: { resource, action }, params }) => {
       const { resource: name, id } = params;
-      const row = await readRow(config, resource, id, reqCtx);
-      if (!row) return rowNotFound();
-      if (action.when && !(await action.when({ ...reqCtx, current: row, input: {} }))) {
-        return rowNotFound();
-      }
-      if (action.hidden && (await action.hidden(row, reqCtx))) return rowNotFound();
+      const row = await readLiveRow(config, resource, id, reqCtx);
+      if (!row || !(await actionAppliesTo(action, row, reqCtx))) return rowNotFound();
       const disabled = action.disabled?.(row);
       if (disabled) {
         return actionFailure(
           "conflict",
-          typeof disabled === "string" ? disabled : "action disabled for this row",
+          typeof disabled === "string" ? disabled : mergeLabels(config.labels).errors.notApplicable,
         );
       }
 
@@ -91,6 +89,7 @@ export function rowActionRoute(config: ResolvedAdminConfig) {
             targetId: id,
             diff: async () =>
               auditDiff(config, resource, row, await readRow(config, resource, id, reqCtx), reqCtx),
+            rows: new Map([[id, row]]),
           },
           resourceAudit: resource.options.audit,
           publish: { resourceName: name, pathname: buildHref(config, name) },
