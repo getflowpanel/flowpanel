@@ -24,6 +24,8 @@ export interface MobileCardListProps<Row> {
   selection?: string[];
   onSelectionChange?: (ids: string[]) => void;
   rowEndCell?: (row: Row, rowIndex: number) => React.ReactNode;
+  /** Some row has an action button beside its menu: every card puts its actions on their own line, so the menu never moves. */
+  actionsBelow?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: React.ReactNode;
@@ -45,6 +47,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   selection,
   onSelectionChange,
   rowEndCell,
+  actionsBelow = false,
   emptyTitle,
   emptyDescription,
   emptyAction,
@@ -197,7 +200,12 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                 </div>
               </div>
               {rowEndCell ? (
-                <div className="fp-ml-auto fp-max-w-full [&>[role=toolbar]]:fp-my-0 [&>[role=toolbar]]:fp-flex-wrap">
+                <div
+                  className={cn(
+                    "fp-ml-auto fp-max-w-full [&>[role=toolbar]]:fp-my-0 [&>[role=toolbar]]:fp-flex-wrap",
+                    actionsBelow && "fp-flex fp-basis-full fp-justify-end",
+                  )}
+                >
                   {rowEndCell(r, idx)}
                 </div>
               ) : null}

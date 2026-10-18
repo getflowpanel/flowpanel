@@ -14,7 +14,7 @@ interface JitiModule {
 }
 
 /** What the audit table lacks: the whole table, or the columns 0.4 added. */
-export type AuditTableProblem = "table" | "columns";
+export type AuditTableProblem = "table" | "columns" | "preview";
 
 /** The config's own warnings and resource count, or why the config could not be read. */
 export type ConfigWarnings =
@@ -69,6 +69,7 @@ async function auditTableProblem(config: unknown): Promise<AuditTableProblem | u
   const text = await probeError(() => log.list({ limit: 1, offset: 0, scope: { key: null } }));
   if (text === null) return undefined;
   if (/actor_name|scope_key/.test(text)) return "columns";
+  if (/diff_preview/.test(text)) return "preview";
   if (/flowpanel_audit_log/.test(text) && /exist|no such table/i.test(text)) return "table";
   return undefined;
 }

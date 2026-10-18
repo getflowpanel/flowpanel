@@ -93,6 +93,35 @@ describe("ImportButton", () => {
     );
   });
 
+  it("names the file's columns the import will skip before it runs", async () => {
+    const { container } = render(
+      <ImportButton
+        resource="invoices"
+        formats={["csv"]}
+        label="Import"
+        headers={["number", "amount", "status"]}
+      />,
+    );
+    pickFile(container, "invoices.csv", "ID,Number, Amount ,Issued at,Paid at,\n1,A-1,10,x,y,");
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toContain(
+      "1 row will be imported. 3 columns will be skipped: ID, Issued at, and Paid at.",
+    );
+  });
+
+  it("names no skipped column when every header is read, or when the import keeps them all", async () => {
+    const { container } = render(
+      <ImportButton resource="invoices" formats={["csv"]} label="Import" headers={["number"]} />,
+    );
+    pickFile(container, "invoices.csv", "NUMBER\nA-1");
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).not.toContain("skipped");
+    cleanup();
+    const open = render(<ImportButton resource="invoices" formats={["csv"]} label="Import" />);
+    pickFile(open.container, "invoices.csv", "anything\n1");
+    expect((await screen.findByRole("alertdialog")).textContent).not.toContain("skipped");
+  });
+
   it("refuses an empty file before asking", async () => {
     const { container } = render(
       <ImportButton resource="users" formats={["csv"]} label="Import" />,

@@ -43,14 +43,13 @@ export function sectionLabel(config: ResolvedAdminConfig, slug: readonly string[
   return resource && head ? pluralLabel(resource, head) : null;
 }
 
-/** The first nav entry that is not the refused page itself. */
+/** The nav entry the refused page sits under, such as the list of a record's edit page, else the first other one. */
 function wayBack(place: RefusedPlace): { label: string; href: string } | null {
-  for (const group of place.navGroups) {
-    for (const item of group.items) {
-      if (item.href !== place.currentPath) return { label: item.label, href: item.href };
-    }
-  }
-  return null;
+  const items = place.navGroups.flatMap((group) => group.items);
+  const parents = items.filter((item) => place.currentPath.startsWith(`${item.href}/`));
+  const parent = parents.sort((a, b) => b.href.length - a.href.length)[0];
+  const back = parent ?? items.find((item) => item.href !== place.currentPath);
+  return back ? { label: back.label, href: back.href } : null;
 }
 
 function switchAccount(config: ResolvedAdminConfig, label: string): React.ReactNode {

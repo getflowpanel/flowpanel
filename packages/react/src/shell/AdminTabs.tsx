@@ -127,7 +127,9 @@ export function AdminTabs({
                   {it.icon ? (
                     <FlowpanelIcon name={it.icon} className="fp-mr-2 fp-h-4 fp-w-4 fp-shrink-0" />
                   ) : null}
-                  {it.label}
+                  <span className="fp-tab-label" data-label={it.label}>
+                    {it.label}
+                  </span>
                   {active ? (
                     <span
                       aria-hidden

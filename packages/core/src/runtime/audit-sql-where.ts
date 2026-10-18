@@ -3,6 +3,13 @@ import { DASHBOARD_ACTION_PREFIX, DASHBOARD_AUDIT_RESOURCE } from "../internal/d
 
 export type AuditSqlDialect = "postgresql" | "mysql" | "sqlite";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Whether PostgreSQL can compare `id` with its uuid primary key. */
+export function isUuid(id: string): boolean {
+  return UUID.test(id);
+}
+
 export class Statement {
   readonly strings: string[] = [""];
   readonly values: unknown[] = [];
@@ -71,6 +78,12 @@ export function where(
   }
   const { visible } = query;
   if (visible) conditions.push((s) => visibility(s, visible));
+  const { id } = query;
+  if (id !== undefined && dialect === "postgresql" && !isUuid(id)) {
+    conditions.push((s) => s.text("1 = 0"));
+  } else if (id !== undefined) {
+    conditions.push((s) => s.text("id = ").value(id, dialect === "postgresql" ? "::uuid" : ""));
+  }
   equal("resource", query.resource);
   equal("target_id", query.targetId);
   equal("actor_id", query.actorId);

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./hydration";
 
 /** The customers list from config, keyboard row opening, and the product create and edit forms. */
 

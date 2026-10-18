@@ -39,6 +39,21 @@ Run `pnpm flowpanel migrate --dry-run` before applying. On PostgreSQL and SQLite
 
 Use the Redis driver when more than one process serves the admin, and treat events as refresh signals, not a durable log. Keep the queue board on a protected network, and give `queue()` a strong `boardSecret` that matches the board's `auth.secret`. See [Realtime](/docs/guides/realtime) and [Queues](/docs/guides/queues).
 
+### Page weight
+
+The admin is one catch-all route, but each page type loads its own client code first: a list starts without the forms' code, which then loads while the browser is idle (or when New or Edit is pointed at), and a chart loads Recharts the first time it draws. First-load JavaScript of the demo app in a production build, gzip, measured before the idle form preload:
+
+| Page | Turbopack | webpack |
+| --- | --- | --- |
+| List | 245 KB | 241 KB |
+| Form | 293 KB | 284 KB |
+| Record | 253 KB | 250 KB |
+| Dashboard with charts | 387 KB | 396 KB |
+
+Next.js 16 builds with Turbopack unless you pass `--webpack`; Next.js 15.5 builds with webpack. The admin splits its code the same way under both, and the two land within 3% of each other on every page above. CI holds the demo's webpack admin first load to a budget.
+
+Your own client widgets add to every admin page unless they load their heavy parts on use; see [Keep heavy code off other pages](/docs/customization/custom-widgets#keep-heavy-code-off-other-pages). The admin needs JavaScript in the browser; see [JavaScript is required](/docs/introduction/limits#javascript-is-required).
+
 ### Observability
 
 Log FlowPanel request IDs, alert on auth, scope, rate-limit, adapter and post-commit failures, and document how to turn off writes and restore from backup. See [Errors](/docs/reference/errors).
@@ -404,6 +419,8 @@ The actor is `auth.userId` of the session, and their name or email comes from `t
 
 Each record of an audited resource gets a History tab beside its other tabs, newest event first, twenty to a page. Each event shows the action, who and when, and each changed field as `old → new`, formatted the way the list formats that column. A reference shows the record it points at by its `labelField`, when the reader may read that record, else its id.
 
+A long value, such as a 1 MB text edit or a large JSON object, shows its first 400 characters with **Show full value**, which loads the rest in place. One event sends at most 2,000 characters of such previews, so a page of events stays small whatever was stored. The table keeps every value whole in `diff` and a bounded copy in `diff_preview`; History and the Audit log read only the copy. Each value keeps its first 400 characters and one event keeps 4,000 in all, so a page of large edits stays small. An event recorded before 0.4 whose diff was too large to copy shows "Changes too large to preview" above each field the reader may see, and each field's **Show full value** loads it; with no such field it shows "No readable changes". The full value comes from `GET <paths.api>/audit/<event id>/value?field=<field>&side=before|after`, which answers `{ ok: true, value }` with a string as stored and an object as indented JSON, under the same rules as the page: a field, an event or a side the reader may not see answers 404.
+
 A reader sees only the fields their `fieldAccess` lets them read. Hide the tab for one resource with `detail.history`, or stop auditing it with `audit: false`:
 
 ```ts
@@ -644,7 +661,7 @@ FlowPanel 0.4 publishes three packages: `@flowpanel/kit`, `@flowpanel/cli` and `
 pnpm up "@flowpanel/*" --latest
 ```
 
-If 0.3's `init` wrote `flowpanel/migrations/0001_init.sql`, run `migrate` once more. The 0.4 audit log writes two columns, `actor_name` and `scope_key`, that a 0.3 table lacks:
+If 0.3's `init` wrote `flowpanel/migrations/0001_init.sql`, run `migrate` once more. The 0.4 audit log writes three columns, `actor_name`, `scope_key` and `diff_preview`, that a 0.3 table lacks. The `0002` also copies each old event's diff under 8 KB into `diff_preview`; a larger old one shows "Changes too large to preview" in History and the Audit log, with **Show full value** on each of its fields:
 
 ```bash
 pnpm flowpanel migrate
@@ -699,6 +716,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | a numeric key in a resource's `columns` or `filters` | string keys of the row only (`keyof Row & string`) |
 | code that matched error text such as "Duplicate resource name" | every config error is a `FlowpanelConfigError` reading `[flowpanel] <where>: <what is wrong>. <how to fix>.`; match its `where` |
 | a resource or queue named `export` or `palette`, or a dashboard or page at `/audit-log` | other names: these are reserved |
+| a `select`, `radio` or `multiselect` field whose fixed `defaultValue` is not among its fixed `options`, which the form dropped | a default that is one of the options, or `""` or `[]` for no choice: `defineAdmin` now refuses the rest and names the options |
 | `DrawerFieldFormSpec`, a drawer action's `palette`, and the 0.3 `DrawerAction` options | `DrawerAction` takes a `RowAction`'s options apart from `hidden` and `disabled`: `confirm` takes a title, description and button label, and `form` takes `FieldDef`s |
 | `RowAction.hidden` (deprecated) | `when`, which gets the row as `current` with the request context |
 | `labels.noResults`, `labels.searchPlaceholder`, `labels.allOption`, `labels.formError` | `labels.table.noResults`, `table.searchPlaceholder`, `filters.allOption`, `form.error`; `defineAdmin` throws on the old names |
@@ -748,7 +766,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
 | `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration`; `flowpanel migrate` no longer falls back to them or reads `basePath` |
 | **CLI** | |
-| a 0.3 `flowpanel_audit_log` table without `actor_name` and `scope_key` | run `pnpm flowpanel migrate`, as above |
+| a 0.3 `flowpanel_audit_log` table without `actor_name`, `scope_key` and `diff_preview` | run `pnpm flowpanel migrate`, as above |
 | an extra argument, such as `flowpanel doctor extra`, ignored | every command stops with an error |
 | `migrate` with an unset `DATABASE_URL` falling back to localhost | `migrate` stops before connecting; set the URL your client reads |
 

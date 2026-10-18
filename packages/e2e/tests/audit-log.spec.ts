@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, hydrating, type Page, test } from "./hydration";
 
 async function firstProductId(page: Page): Promise<string> {
   await page.goto("/admin/products");
@@ -22,8 +22,8 @@ test("a record's History tab and the Audit log show who changed what, per sandbo
   test.setTimeout(120_000);
   const mine = await browser.newContext();
   const theirs = await browser.newContext();
-  const page = await mine.newPage();
-  const other = await theirs.newPage();
+  const page = hydrating(await mine.newPage());
+  const other = hydrating(await theirs.newPage());
   const title = `Audited headphones ${Date.now()}`;
 
   try {

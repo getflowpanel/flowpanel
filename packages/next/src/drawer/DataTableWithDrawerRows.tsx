@@ -57,7 +57,7 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   /** Export affordance from `resource.options.export`; the export runs on the server for `resource`. */
   exportable?: boolean | { formats?: ("csv" | "json")[]; fields?: string[] };
   /** Show the import button (from `resource.options.import`). */
-  importable?: { resource: string; formats: ("csv" | "json")[] };
+  importable?: { resource: string; formats: ("csv" | "json")[]; headers?: string[] };
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: ReactNode;

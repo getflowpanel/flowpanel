@@ -31,11 +31,24 @@ describe("a form before its code runs", () => {
     const html = renderToString(<AutoForm action="/api/x" columns={cols} />);
     const box = document.createElement("div");
     box.innerHTML = html;
-    expect(box.querySelector("form")?.getAttribute("aria-busy")).toBe("true");
+    expect(box.querySelector("[data-fp-form-fields]")?.getAttribute("aria-busy")).toBe("true");
     expect(box.querySelector("input[name=email]")?.hasAttribute("readonly")).toBe(true);
     expect(box.querySelector("input[name=email]")?.hasAttribute("aria-readonly")).toBe(false);
     expect(box.querySelector("select")?.hasAttribute("disabled")).toBe(true);
     expect(box.querySelector("button[type=submit]")?.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("keeps its fields from focus and says it is loading in a row screen readers still reach", () => {
+    const box = document.createElement("div");
+    box.innerHTML = renderToString(<AutoForm action="/api/x" columns={cols} />);
+    const fields = box.querySelector("[data-fp-form-fields]");
+    expect(fields?.hasAttribute("inert")).toBe(true);
+    expect(fields?.hasAttribute("data-fp-loading")).toBe(true);
+    expect(box.querySelector("form")?.hasAttribute("inert")).toBe(false);
+    const actions = box.querySelector("[data-fp-form-actions]");
+    expect(actions?.closest("[inert]")).toBeNull();
+    expect(actions?.lastElementChild?.getAttribute("role")).toBe("status");
+    expect(actions?.lastElementChild?.textContent).toBe("Loading form…");
   });
 
   it("disables pickers that ignore readonly until it runs, then enables them", () => {
@@ -56,5 +69,12 @@ describe("a form before its code runs", () => {
     render(<AutoForm action="/api/x" columns={cols} />);
     expect(screen.getByLabelText(/email/i).hasAttribute("readonly")).toBe(false);
     expect(screen.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(false);
+    const fields = screen
+      .getByRole("button", { name: "Save" })
+      .closest("form")
+      ?.querySelector("[data-fp-form-fields]");
+    expect(fields?.hasAttribute("inert")).toBe(false);
+    expect(fields?.hasAttribute("data-fp-loading")).toBe(false);
+    expect(screen.queryByText("Loading form…")).toBeNull();
   });
 });

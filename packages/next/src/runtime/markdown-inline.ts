@@ -42,7 +42,7 @@ function targetEnd(text: string, from: number): number {
   return -1;
 }
 
-/** Inline markdown in one pass: code, `**strong**`, `*em*` or `_em_` between word boundaries, and `[label](target)`. */
+/** Inline markdown in one pass: code, `**strong**`, `*em*` or `_em_` between word boundaries, `[label](target)` and `![alt](src)` as a link. */
 export function inlineTokens(text: string): InlineToken[] {
   const next = nextOf(text);
   const targets = new Map<number, number>();
@@ -94,8 +94,10 @@ export function inlineTokens(text: string): InlineToken[] {
           targets.set(close, end);
         }
         if (end !== -1) {
-          const token = { kind: "link" as const, label: text.slice(i + 1, close), at: i };
-          emit({ ...token, href: text.slice(close + 2, end) }, end + 1);
+          const label = text.slice(i + 1, close);
+          // An image `![alt](src)` reads as a link to the image, named by its alt text.
+          if (text[i - 1] === "!" && i > plain) i -= 1;
+          emit({ kind: "link", label, href: text.slice(close + 2, end), at: i }, end + 1);
           continue;
         }
       }

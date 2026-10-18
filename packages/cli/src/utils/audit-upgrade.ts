@@ -40,7 +40,7 @@ export async function auditUpgrade(
       path: AUDIT_MIGRATION,
       content: await tpl(`migration-audit.${dialect ?? "postgresql"}.sql.txt`),
     },
-    reason: `${INIT_MIGRATION} is from 0.3, so flowpanel_audit_log lacks the actor_name and scope_key columns 0.4 writes`,
+    reason: `${INIT_MIGRATION} is from 0.3, so flowpanel_audit_log lacks the actor_name, scope_key and diff_preview columns 0.4 writes`,
   };
 }
 

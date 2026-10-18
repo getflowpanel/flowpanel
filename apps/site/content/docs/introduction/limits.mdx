@@ -22,6 +22,10 @@ The admin has no "sign in as" button. Your auth provider decides how impersonati
 
 The Prisma adapter supports Prisma 5 and 6. Prisma 7's generated client no longer carries the field metadata the adapter reads, so `init` and `doctor` stop on it. Stay on Prisma 6, or use the [Drizzle adapter](/docs/introduction/drizzle); [Prisma 7](/docs/introduction/prisma#prisma-7) has the details.
 
+## JavaScript is required
+
+The admin needs JavaScript in the browser. Pages render on the server, so a list or a record shows before the scripts run, but forms, filters, sorting, actions, imports and the command palette run in the browser. A form stays read-only until its code arrives, and with JavaScript off it cannot be sent. On a slow connection the form says it is loading until then.
+
 ## Not-found status under cacheComponents
 
 With `cacheComponents` on, an unknown admin URL shows the not-found screen with status 200, because Next.js has already streamed the page shell when the admin finds that the record is missing. The page is `noindex`, so search engines skip it; an uptime check that relies on the status should look for the "Page not found" title instead. See [`createFlowpanel`](/docs/reference/next-runtime#createflowpanel).

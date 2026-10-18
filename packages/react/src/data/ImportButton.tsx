@@ -1,5 +1,6 @@
 "use client";
 import { failureMessage, formatCount, formatLabel } from "@flowpanel/core/labels";
+import { Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useToast } from "../feedback/toast-api";
@@ -30,6 +31,8 @@ export interface ImportButtonProps {
   resource: string;
   formats: ImportFormat[];
   label: string;
+  /** The headers the import reads, lower-cased; the confirm step names the file's others as skipped. */
+  headers?: string[];
 }
 
 function failedRowsOf(value: unknown): FailedImportRow[] {
@@ -41,7 +44,7 @@ function failedRowsOf(value: unknown): FailedImportRow[] {
 }
 
 /** Imports a CSV or JSON file: asks with its row count, then lists the rows the server refused. */
-export function ImportButton({ resource, formats, label }: ImportButtonProps) {
+export function ImportButton({ resource, formats, label, headers }: ImportButtonProps) {
   const router = useRouter();
   const toast = useToast();
   const apiBase = useApiBase();
@@ -124,15 +127,18 @@ export function ImportButton({ resource, formats, label }: ImportButtonProps) {
         variant="ghost"
         size="sm"
         aria-disabled={busy || undefined}
+        aria-label={busy ? importer.importing : label}
         onClick={() => {
           if (!busy) inputRef.current?.click();
         }}
       >
-        {busy ? importer.importing : label}
+        <Upload aria-hidden className="fp-h-4 fp-w-4 fp-text-faint sm:fp-hidden" />
+        <span className="fp-hidden sm:fp-inline">{busy ? importer.importing : label}</span>
       </Button>
       {flow && pending ? (
         <flow.ImportConfirm
           file={pending}
+          skipped={headers ? flow.skippedColumns(pending.header, headers) : []}
           onCancel={() => setPending(null)}
           onConfirm={() => {
             setPending(null);

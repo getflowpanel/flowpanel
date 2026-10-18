@@ -18,6 +18,7 @@ import { tryIntrospect } from "./introspect";
 import { resolveRelatedTabs } from "./related-tabs";
 import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
 import { withDashboardTimelineIds } from "./timeline-ids";
+import { chartFormatWarnings } from "./validate/chart-warnings";
 import {
   asDashboard,
   assertBulkActionLimits,
@@ -31,15 +32,15 @@ import {
 } from "./validate/config";
 import { validateDashboardFilters } from "./validate/dashboard-filters";
 import { validateDeclaredKinds } from "./validate/declared-kinds";
+import { assertFormFields } from "./validate/form-fields";
 import { type LinkCheck, validateLinks } from "./validate/links";
-import { assertMoneyFields } from "./validate/money-fields";
 import { validateRealtime } from "./validate/realtime";
 import { validateRecordSources } from "./validate/record-sources";
 import { assertNoRemovedConfigKeys, assertNoRemovedResourceKeys } from "./validate/removed-keys";
 import { validateResourceColumns } from "./validate/resource-columns";
 import { validateReferenceLabels, validateResourceRefs } from "./validate/resource-refs";
 import { validateThresholds } from "./validate/thresholds";
-import { createFieldWarnings, warnCreateFieldsOnce } from "./validate/warn-create-fields";
+import { createFieldWarnings, warnOnceInDevelopment } from "./validate/warn-create-fields";
 import { warnIfNoAccessControl } from "./validate/warn-open-admin";
 import { viewResource } from "./view-resource";
 
@@ -138,7 +139,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     assertServableActionForm(raw.options.actions, name, "actions");
     assertServableActionForm(raw.options.bulkActions, name, "bulkActions");
     assertBulkActionLimits(raw, name);
-    assertMoneyFields(raw, name);
+    assertFormFields(raw, name);
     validateDeclaredKinds(name, raw);
     assertOwnScope(name, raw, config.scope !== undefined);
     const probe = tryIntrospect(config.adapter, raw.ref);
@@ -264,8 +265,9 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
   validateLinks(linkCheck, dashboards);
   validateReferenceLabels(linkCheck);
   validateRecordSources(linkCheck, dashboards);
+  warnings.push(...chartFormatWarnings(dashboards, resourcesByName));
   warnIfNoAccessControl(config, resources);
-  warnCreateFieldsOnce(warnings);
+  warnOnceInDevelopment(warnings);
 
   const paths = {
     admin: normalizeRoutePath(config.paths?.admin ?? "/admin", "paths.admin"),

@@ -93,7 +93,8 @@ export interface DataTableProps<Row> {
    * row matching the page's filters; without it, the rows on screen are downloaded.
    */
   exportable?: boolean | { formats?: ("csv" | "json")[]; fields?: string[]; resource?: string };
-  importable?: { resource: string; formats: ("csv" | "json")[] };
+  /** Shows Import. `headers` (lower-cased) are the ones it reads; the confirm step names the file's others as skipped. */
+  importable?: { resource: string; formats: ("csv" | "json")[]; headers?: string[] };
   showDensityToggle?: boolean;
   /** What one row is, mid-sentence ("run"): phone cards read "Open run 36". */
   rowLabel?: string;

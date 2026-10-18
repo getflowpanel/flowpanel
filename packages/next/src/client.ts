@@ -4,6 +4,7 @@ export { RestoreButton, type RestoreButtonProps } from "./actions/RestoreButton"
 export { CommandHost, type CommandHostProps } from "./command/CommandHost";
 export { DataTableWithDrawerRows } from "./drawer/DataTableWithDrawerRows";
 export { DrawerHost } from "./drawer/DrawerHost";
+export { AuditFullValue, type AuditFullValueProps } from "./pages/audit/AuditFullValue";
 export type { AuditLogFiltersProps } from "./pages/audit/AuditLogFilters";
 export type { UrlPaginationProps } from "./pages/audit/UrlPagination";
 export { CreateDrawer, type CreateDrawerProps, CreateDrawerTrigger } from "./pages/CreateDrawer";

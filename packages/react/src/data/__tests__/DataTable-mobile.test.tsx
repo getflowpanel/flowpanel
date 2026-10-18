@@ -94,4 +94,26 @@ describe("DataTable mobile card view", () => {
     );
     expect(screen.getByRole("button", { name: "Export" })).toBeTruthy();
   });
+
+  it("names the file actions by their icons on a phone, so a long language never pushes them out", () => {
+    render(
+      <DataTable
+        columns={[{ field: "email", label: "Email" }]}
+        rows={rows}
+        total={rows.length}
+        page={1}
+        pageSize={10}
+        rowKey="id"
+        exportable
+        importable={{ resource: "users", formats: ["csv"] }}
+        columnVisibility={{}}
+        onColumnVisibilityChange={vi.fn()}
+      />,
+    );
+    for (const name of ["Export", "Import", "Columns"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button.querySelector("svg")).toBeTruthy();
+      expect(button.querySelector("span.fp-hidden.sm\\:fp-inline")?.textContent).toBe(name);
+    }
+  });
 });

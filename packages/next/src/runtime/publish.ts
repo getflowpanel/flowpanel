@@ -40,9 +40,11 @@ function clientId(client: object): number {
   return id;
 }
 
+const MEMORY_KEY = '{"driver":"memory"}';
+
 /** The identity of a transport: the options, never the config object, which Next.js re-creates per route bundle. */
 function optionsKey(opts: PublisherOptions): string {
-  if (opts.driver === "memory") return '{"driver":"memory"}';
+  if (opts.driver === "memory") return MEMORY_KEY;
   return JSON.stringify({
     driver: "redis",
     url: opts.url ?? null,
@@ -51,17 +53,18 @@ function optionsKey(opts: PublisherOptions): string {
   });
 }
 
-const WARNED_MEMORY = Symbol.for("@flowpanel/next.warnedMemory");
+const WARNED_MEMORY = "__FLOWPANEL_WARNED_MEMORY_DRIVER";
 
-/** Next.js dev evaluates server bundles in more than one module realm; `process` is the one object they share. */
+/** Next.js dev evaluates server bundles in more than one module realm; `process.env` is what they share. */
 function firstInProcess(): boolean {
-  if (Reflect.get(process, WARNED_MEMORY) === true) return false;
-  Reflect.set(process, WARNED_MEMORY, true);
+  if (process.env[WARNED_MEMORY] === "1") return false;
+  process.env[WARNED_MEMORY] = "1";
   return true;
 }
 
-function warnIfMemoryWhileRedisConfigured(opts: PublisherOptions): void {
-  if (opts.driver !== "memory" || store.warnedMemory) return;
+/** Waits for a publish or subscription: `next dev` loads the page in a new process for each static-params pass. */
+function warnIfMemoryWhileRedisConfigured(): void {
+  if (store.boundOptions !== MEMORY_KEY || store.warnedMemory) return;
   const named = process.env.REDIS_URL
     ? "REDIS_URL"
     : process.env.FLOWPANEL_REDIS_URL
@@ -88,7 +91,6 @@ export function bindPublisher(config: ResolvedAdminConfig): void {
   const previous = store.publisher;
   store.publisher = createRealtimeTransport(options);
   store.boundOptions = key;
-  warnIfMemoryWhileRedisConfigured(options);
   if (previous) {
     void previous.close?.().catch(() => {});
   }
@@ -99,10 +101,11 @@ export function resetPublisherForTests(): void {
   store.boundOptions = null;
   store.warnedUnbound = false;
   store.warnedMemory = false;
-  Reflect.deleteProperty(process, WARNED_MEMORY);
+  Reflect.deleteProperty(process.env, WARNED_MEMORY);
 }
 
 function getPublisher(): Publisher {
+  warnIfMemoryWhileRedisConfigured();
   if (store.publisher) return store.publisher;
   // A fallback memory publisher only reaches subscribers inside this process, a no-op for browser tabs.
   if (!store.warnedUnbound) {

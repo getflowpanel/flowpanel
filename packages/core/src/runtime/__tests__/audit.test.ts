@@ -11,6 +11,7 @@ function store(): AuditLogStore & { append: ReturnType<typeof vi.fn> } {
     append: vi.fn(async () => {}),
     list: async () => ({ entries: [], total: 0, capped: false }),
     facets: async () => ({ actors: [], actions: [] }),
+    entry: async () => null,
   };
 }
 

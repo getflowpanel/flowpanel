@@ -36,6 +36,6 @@ export function Preview({ data }: { data: Array<{ day: string; count: number }> 
 }
 ```
 
-The client components in `@flowpanel/kit/charts` do not infer series: pass `y` (one key or a list).
+The client components in `@flowpanel/kit/charts` do not infer series: pass `y` (one key or a list). They load Recharts the first time one draws and show a skeleton of the chart's height until then, so a custom widget that uses one keeps Recharts off pages without a chart. Import them from `@flowpanel/kit/charts`, not from `recharts`, for that reason.
 
 Every option: [Charts reference](/docs/reference/widgets#charts).

@@ -55,6 +55,15 @@ describe("a markdown field's text", () => {
     expect(out).not.toContain('href="#top"');
   });
 
+  it("reads an image as a link to it named by its alt text, with no stray mark", () => {
+    const out = html("See ![chart of runs](https://example.com/runs.png) and a bang! [x](/a)");
+    expect(out).toContain(
+      'See <a href="https://example.com/runs.png" rel="noopener noreferrer" class="fp-underline">chart of runs</a>',
+    );
+    expect(out).toContain("a bang! <a");
+    expect(out).not.toContain("!<a");
+  });
+
   it("renders nothing for an empty or non-text value", () => {
     expect(renderMarkdown("  ")).toBeNull();
     expect(renderMarkdown(null)).toBeNull();

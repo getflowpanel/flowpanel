@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, hydrating, test } from "./hydration";
 
 /** A soft delete in one tab leaves the other tab's list within 2 s, and the overview receives live events. */
 
@@ -20,8 +20,8 @@ test.describe("realtime", () => {
   }) => {
     const ctx = await browser.newContext();
     try {
-      const tabA = await ctx.newPage();
-      const tabB = await ctx.newPage();
+      const tabA = hydrating(await ctx.newPage());
+      const tabB = hydrating(await ctx.newPage());
 
       await tabA.goto("/admin/customers");
       await tabB.goto("/admin/customers");

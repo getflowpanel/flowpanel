@@ -9,6 +9,17 @@ const LoadedAutoForm = lazyRetry<AutoFormProps>(() =>
   import("./AutoForm").then((module) => ({ default: module.AutoForm })),
 );
 
+let requested = false;
+
+/** Starts loading the forms' code once, so the next form a page shows takes input at once. */
+export function preloadAutoForm(): void {
+  if (requested) return;
+  requested = true;
+  import("./AutoForm").catch(() => {
+    requested = false;
+  });
+}
+
 function FormFieldsSkeleton({ count }: { count: number }) {
   return (
     <div className="fp-space-y-4" aria-busy="true">

@@ -38,6 +38,21 @@ Run `pnpm flowpanel migrate --dry-run` before applying. On PostgreSQL and SQLite
 
 Use the Redis driver when more than one process serves the admin, and treat events as refresh signals, not a durable log. Keep the queue board on a protected network, and give `queue()` a strong `boardSecret` that matches the board's `auth.secret`. See [Realtime](/docs/guides/realtime) and [Queues](/docs/guides/queues).
 
+## Page weight
+
+The admin is one catch-all route, but each page type loads its own client code first: a list starts without the forms' code, which then loads while the browser is idle (or when New or Edit is pointed at), and a chart loads Recharts the first time it draws. First-load JavaScript of the demo app in a production build, gzip, measured before the idle form preload:
+
+| Page | Turbopack | webpack |
+| --- | --- | --- |
+| List | 245 KB | 241 KB |
+| Form | 293 KB | 284 KB |
+| Record | 253 KB | 250 KB |
+| Dashboard with charts | 387 KB | 396 KB |
+
+Next.js 16 builds with Turbopack unless you pass `--webpack`; Next.js 15.5 builds with webpack. The admin splits its code the same way under both, and the two land within 3% of each other on every page above. CI holds the demo's webpack admin first load to a budget.
+
+Your own client widgets add to every admin page unless they load their heavy parts on use; see [Keep heavy code off other pages](/docs/customization/custom-widgets#keep-heavy-code-off-other-pages). The admin needs JavaScript in the browser; see [JavaScript is required](/docs/introduction/limits#javascript-is-required).
+
 ## Observability
 
 Log FlowPanel request IDs, alert on auth, scope, rate-limit, adapter and post-commit failures, and document how to turn off writes and restore from backup. See [Errors](/docs/reference/errors).

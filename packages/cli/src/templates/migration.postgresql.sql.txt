@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS flowpanel_audit_log (
   resource text,
   target_id text,
   diff jsonb,
+  diff_preview jsonb,
   ip text,
   user_agent text,
   scope_key text,

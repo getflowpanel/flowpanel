@@ -11,6 +11,9 @@ import {
 import { builtinModules, createRequire } from "node:module";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { directivePrologue, flattenBarrels } from "./flatten-barrels.mjs";
+
+export { directivePrologue };
 
 const require = createRequire(import.meta.url);
 export const KIT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -132,16 +135,17 @@ export function rewriteFile(text, file, packages) {
   return { output, errors };
 }
 
-export function directivePrologue(text) {
-  return /^(?:\s*(?:"[^"\n]*"|'[^'\n]*')\s*;)*/.exec(text)?.[0] ?? "";
-}
-
 /** True when `text` holds only `export … from "…"` declarations, so a module that loads it loads nothing else. */
 export function onlyReexports(text) {
   const ts = require("typescript");
   const source = ts.createSourceFile("entry.ts", text, ts.ScriptTarget.Latest, false);
   return source.statements.every(
-    (statement) => ts.isExportDeclaration(statement) && statement.moduleSpecifier !== undefined,
+    (statement, index) =>
+      (ts.isExportDeclaration(statement) && statement.moduleSpecifier !== undefined) ||
+      (index === 0 &&
+        ts.isExpressionStatement(statement) &&
+        ts.isStringLiteral(statement.expression) &&
+        statement.expression.text === "use client"),
   );
 }
 
@@ -376,6 +380,10 @@ export function vendor() {
     if (found.length) errors.set(file, found);
     if (output !== text) writeFileSync(file, output);
   }
+  flattenBarrels(
+    walk(DIST).filter((file) => /\.m?js$/.test(file) && !CJS.test(file)),
+    DIST,
+  );
   const removed = pruneCjs();
   const kept = [...errors].filter(([file]) => !removed.has(file)).flatMap(([, found]) => found);
   if (kept.length) return { copied: all, problems: kept };

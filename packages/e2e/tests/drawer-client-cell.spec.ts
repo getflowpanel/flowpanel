@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./hydration";
 
 test("a column render that returns a client component shows in the drawer", async ({ page }) => {
   await page.goto("/admin/matches");

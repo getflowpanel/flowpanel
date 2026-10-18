@@ -19,6 +19,11 @@ const ROWS: Record<string, Record<string, unknown>[]> = {
   invoices: [{ id: "9", number: "INV-9", email: "billing@northwind.test" }],
   notes: [{ id: "5", body: "northwind call" }],
   contacts: [{ id: "3", email: "lead@northwind.test", phone: "555" }],
+  listings: [
+    { id: "7", title: "Sony XM5 Renewed", reviews: 1922, seller: "Amazon" },
+    { id: "8", title: "Sony XM5 Renewed", reviews: 458, seller: "Amazon" },
+    { id: "9", title: "Bose QC Ultra", reviews: 12, seller: "Northstar Retail" },
+  ],
 };
 
 function makeAdmin(role: string) {
@@ -72,6 +77,12 @@ function makeAdmin(role: string) {
         columns: ["email", "phone"],
         search: ["email"],
         fieldAccess: { email: { read: "admin" } },
+      }),
+      resource({ __name: "listings" } as never, {
+        name: "listings",
+        columns: ["title", { field: "reviews", label: "Reviews", format: "number" }],
+        search: ["title", "seller"],
+        drawer: { fields: "*" },
       }),
     ],
   });
@@ -135,6 +146,25 @@ describe("record search for the command palette", () => {
 });
 
 describe("a palette result's second line", () => {
+  it("shows a search field that matched even when no list column shows it", async () => {
+    const { route } = makeAdmin("admin");
+    const body = await (await route(search("northstar"))).json();
+    const listings = body.groups.find((g: { resource: string }) => g.resource === "listings");
+    expect(listings.items).toEqual([
+      expect.objectContaining({ title: "Bose QC Ultra", detail: "Northstar Retail" }),
+    ]);
+  });
+
+  it("names the list column that tells look-alikes apart", async () => {
+    const { route } = makeAdmin("admin");
+    const body = await (await route(search("xm5"))).json();
+    const listings = body.groups.find((g: { resource: string }) => g.resource === "listings");
+    expect(listings.items.map((item: { detail?: string }) => item.detail)).toEqual([
+      "Reviews: 1,922",
+      "Reviews: 458",
+    ]);
+  });
+
   const fields = ["title", "brand", "asin", "seller"];
 
   it("shows the field that matched when the title did not", () => {
@@ -156,6 +186,18 @@ describe("a palette result's second line", () => {
       "B01",
       "B02",
       "Bose",
+    ]);
+  });
+
+  it("keeps the field that matched beside what tells look-alikes apart", () => {
+    const twin = { title: "Sony WH-1000XM5 Renewed", brand: "Sony", seller: "Northwind" };
+    const rows = [
+      { ...twin, asin: "B01" },
+      { ...twin, asin: "B02" },
+    ];
+    expect(resultLines(rows, fields, "north").map((line) => line[1])).toEqual([
+      "Northwind · B01",
+      "Northwind · B02",
     ]);
   });
 

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./hydration";
 
 test("a money field edits major units beside the currency and stores minor units", async ({
   page,

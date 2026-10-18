@@ -173,7 +173,7 @@ export function Form<S extends $ZodType>({
             onSubmit={onSubmit}
             action={formAction}
             onReset={keepAfterAction}
-            aria-busy={isSubmitting || !ready || undefined}
+            aria-busy={isSubmitting || undefined}
             className={cn("fp-space-y-4", className)}
           >
             {children}

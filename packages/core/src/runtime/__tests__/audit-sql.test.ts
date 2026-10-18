@@ -61,6 +61,7 @@ describe("sqlAuditLog.append", () => {
       "orders",
       "7",
       '{"before":{"total":"10"},"after":{"total":"12"}}',
+      '{"before":{"total":"10"},"after":{"total":"12"}}',
       null,
       null,
       '{"tenantId":"t1"}',
@@ -79,8 +80,8 @@ describe("sqlAuditLog.append", () => {
       at,
     });
     const values = statements[0]?.values ?? [];
-    expect(values.length).toBe(30);
-    expect([values[4], values[14], values[24]]).toEqual(["1", "2", "3"]);
+    expect(values.length).toBe(33);
+    expect([values[4], values[15], values[26]]).toEqual(["1", "2", "3"]);
   });
 
   it("writes a MySQL DATETIME in UTC", async () => {
@@ -134,6 +135,85 @@ describe("sqlAuditLog.list", () => {
       expect(statements[0]?.values.slice(0, 2)).toEqual(["orders", "7"]);
     },
   );
+
+  it.each<[AuditSqlDialect, string]>([
+    ["postgresql", "WHERE id = ?::uuid"],
+    ["mysql", "WHERE id = ?"],
+    ["sqlite", "WHERE id = ?"],
+  ])("reads one event by its id on %s through the primary key", async (dialect, clause) => {
+    const { statements, sql, executor } = recorder();
+    const id = "0b7c1f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b";
+    await sqlAuditLog(dialect, executor).list({ id, limit: 1, offset: 0 });
+    expect(sql(statements[0] ?? { strings: [], values: [] })).toContain(clause);
+    expect(statements[0]?.values).toEqual([id]);
+  });
+
+  it.each<[AuditSqlDialect, string, string]>([
+    ["postgresql", "diff_preview::text AS diff", "diff::text AS diff"],
+    ["mysql", "CAST(diff_preview AS CHAR) AS diff", "CAST(diff AS CHAR) AS diff"],
+    ["sqlite", "diff_preview AS diff", " diff AS diff"],
+  ])(
+    "pages through previews and reads a whole diff for one event on %s",
+    async (dialect, page, one) => {
+      const { statements, sql, executor } = recorder();
+      const store = sqlAuditLog(dialect, executor);
+      await store.list({ limit: 50, offset: 0 });
+      await store.entry({ id: "0b7c1f7e-1c2d-4e5f-8a9b-0c1d2e3f4a5b", scope: { key: null } });
+      const [listed, , single] = statements.map((s) => sql(s));
+      expect(listed).toContain(page);
+      expect(listed).not.toMatch(/[ ,]diff(::text)? AS diff|CAST\(diff AS/);
+      expect(single).toContain(one);
+      expect(single).toMatch(/LIMIT 1$/);
+    },
+  );
+
+  it("answers no event for an id PostgreSQL could not compare with a uuid, without a query", async () => {
+    const { statements, executor } = recorder();
+    expect(await sqlAuditLog("postgresql", executor).entry({ id: "1 OR 1=1" })).toBeNull();
+    expect(statements).toEqual([]);
+  });
+
+  it("reads the migration's too-large mark as its fields with empty previews, flagged", async () => {
+    const at = "2026-10-09 12:34:56.789";
+    const { executor } = recorder([
+      {
+        id: "a",
+        action: "x",
+        diff: '{"__flowpanelTooLarge": {"before": ["note"], "after": null}}',
+        at,
+      },
+      { id: "b", action: "x", diff: null, at },
+    ]);
+    const { entries } = await sqlAuditLog("sqlite", executor).list({ limit: 10, offset: 0 });
+    const empty = { __flowpanelPreview: { text: "", length: 0 } };
+    expect(entries.map((e) => [e.diff, e.diffTooLarge])).toEqual([
+      [{ before: { note: empty }, after: null }, true],
+      [null, undefined],
+    ]);
+  });
+
+  it("finds no event for a non-uuid id on PostgreSQL instead of failing the query", async () => {
+    const { statements, sql, executor } = recorder();
+    await sqlAuditLog("postgresql", executor).list({ id: "e1", limit: 1, offset: 0 });
+    expect(sql(statements[0] ?? { strings: [], values: [] })).toContain("WHERE 1 = 0");
+  });
+
+  it("stores a bounded preview beside the whole diff", async () => {
+    const { statements, executor } = recorder();
+    const long = "x".repeat(300_000);
+    await sqlAuditLog("sqlite", executor).append({
+      actorId: "u1",
+      action: "orders.update",
+      diff: { before: { note: "a" }, after: { note: long } },
+      at,
+    });
+    const [diff, preview] = (statements[0]?.values ?? []).slice(5, 7) as string[];
+    expect(diff?.length).toBeGreaterThan(300_000);
+    expect(preview?.length).toBeLessThan(600);
+    expect(JSON.parse(preview ?? "null").after.note).toEqual({
+      __flowpanelPreview: { text: "x".repeat(400), length: 300_000 },
+    });
+  });
 
   it("keeps limits inside what a page may ask for", async () => {
     const { statements, sql, executor } = recorder();
@@ -197,9 +277,9 @@ describe("sqlAuditLog.append in batches", () => {
       targetIds,
       at,
     });
-    expect(statements.length).toBe(Math.ceil(10_000 / 99));
+    expect(statements.length).toBe(Math.ceil(10_000 / 90));
     expect(statements.every((s) => s.values.length <= 999)).toBe(true);
-    const written = statements.flatMap((s) => s.values.filter((_, i) => i % 10 === 4));
+    const written = statements.flatMap((s) => s.values.filter((_, i) => i % 11 === 4));
     expect(written).toEqual(targetIds);
   });
 

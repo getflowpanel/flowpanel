@@ -3,6 +3,11 @@ import { useLabels, useToast } from "@flowpanel/react";
 import * as React from "react";
 import type { ActionFormDialogProps } from "./ActionFormDialog";
 
+/** Starts loading the action form dialog and its fields, as the pointer or focus reaches an action menu. */
+export function preloadFormDialog(): void {
+  import("./ActionFormDialog").catch(() => {});
+}
+
 /** An action's form dialog, whose code loads the first time one opens, so a page without one never fetches it. */
 export function useFormDialog(): {
   FormDialog: React.ComponentType<ActionFormDialogProps> | null;

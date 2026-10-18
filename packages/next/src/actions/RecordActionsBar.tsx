@@ -1,7 +1,7 @@
 "use client";
 import type { ActionEmphasis } from "@flowpanel/core";
 import { formatLabel } from "@flowpanel/core/labels";
-import { Button, useApiBase, useLabels } from "@flowpanel/react";
+import { Button, preloadAutoForm, useApiBase, useLabels } from "@flowpanel/react";
 import Link from "next/link";
 import type { SerializedDrawerAction } from "../drawer/drawer-action";
 import type { RecordActions } from "../runtime/record-actions";
@@ -96,7 +96,12 @@ export function RecordActionsBar({
       variant={editEmphasis === "primary" ? "default" : "outline"}
       {...(dense ? { size: "sm" as const } : {})}
     >
-      <Link href={editHref} prefetch={false}>
+      <Link
+        href={editHref}
+        prefetch={false}
+        onPointerEnter={preloadAutoForm}
+        onFocus={preloadAutoForm}
+      >
         {labels.actions.edit}
       </Link>
     </Button>

@@ -1,8 +1,8 @@
-import { and, eq, type SQL, sql } from "drizzle-orm";
+import { and, eq, is, SQL, sql } from "drizzle-orm";
 import type { DrizzleDialect } from "./dialect";
 import { type DrizzleLikeDb, firstRow, type Row, type WriteTarget } from "./drizzle-db";
 import { type MigrationDb, selectRaw } from "./migrations";
-import { outOfScope, rowSatisfiesScope, scopeHolds } from "./scope";
+import { defaultOf, outOfScope, rowSatisfiesScope, scopeHolds } from "./scope";
 
 type Insert = (handle: DrizzleLikeDb, target: WriteTarget, input: Row) => Promise<Row | undefined>;
 type Update = (
@@ -74,18 +74,28 @@ async function readBackUpdate(
   return firstRow(select(), eq(pkColumn(target), key));
 }
 
-/** mysql has no RETURNING, so a created row is read back by the id the caller supplied. */
+/** mysql has no RETURNING: the id is known before the insert, or reported by the auto-increment counter. */
 async function mysqlInsert(handle: DrizzleLikeDb, target: WriteTarget, input: Row) {
-  await handle.insert(target.ref).values(input);
-  const id = input[target.pk];
-  if (id === undefined || id === null) {
+  const pkCol = pkColumn(target);
+  const given = input[target.pk];
+  const missing = given === undefined || given === null;
+  if (pkCol.primary && pkCol.autoIncrement) {
+    const { [target.pk]: _key, ...rest } = input;
+    const [created] = await handle
+      .insert(target.ref)
+      .values(missing ? rest : input)
+      .$returningId();
+    return firstRow(handle.select().from(target.ref), eq(pkCol, created?.[target.pk]));
+  }
+  const id = missing ? defaultOf(pkCol) : given;
+  if (id === undefined || id === null || is(id, SQL)) {
     throw new Error(
-      `drizzleAdapter: create requires explicit primary key on dialect "mysql" ` +
-        `(auto-generated PKs not yet supported for mysql, which has no RETURNING). ` +
-        `Provide input.${target.pk}, or use dialect "pg" / "sqlite", both of which support RETURNING.`,
+      `drizzleAdapter: create on mysql needs input.${target.pk}, because mysql cannot report a key the ` +
+        `database generates. Pass it, or give the column autoincrement() or $defaultFn(() => crypto.randomUUID()).`,
     );
   }
-  return firstRow(handle.select().from(target.ref), eq(pkColumn(target), id));
+  await handle.insert(target.ref).values({ ...input, [target.pk]: id });
+  return firstRow(handle.select().from(target.ref), eq(pkCol, id));
 }
 
 /** Runs in a transaction when the driver opens one; a driver that cannot, such as neon-http, takes `fallback`. */
@@ -146,12 +156,12 @@ function transactionalInsert(dialect: DrizzleDialect, insert: Insert): ScopedIns
       db,
       async (tx) => {
         const row = await insert(tx, target, input);
+        if (!row)
+          throw new Error(
+            "drizzleAdapter: the created row could not be read back to check its scope",
+          );
         const { pkCol } = target;
-        if (
-          row &&
-          pkCol &&
-          !(await rowSatisfiesScope(tx, target.ref, pkCol, row[target.pk], scope))
-        ) {
+        if (pkCol && !(await rowSatisfiesScope(tx, target.ref, pkCol, row[target.pk], scope))) {
           throw outOfScope("create");
         }
         return row;

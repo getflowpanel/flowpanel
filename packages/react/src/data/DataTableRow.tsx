@@ -167,6 +167,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
             key={c.field}
             dir="auto"
             data-fp-cell=""
+            data-fp-field={c.field}
             {...(title ? { title } : {})}
             {...(meta.side === "left" && lastLeftPin === c.field ? { "data-fp-pin-edge": "" } : {})}
             {...(Object.keys(cssVars).length > 0 ? { style: cssVars as React.CSSProperties } : {})}

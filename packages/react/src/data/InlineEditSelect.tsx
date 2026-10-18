@@ -17,7 +17,7 @@ export interface InlineEditSelectProps {
   draft: string;
   disabled: boolean;
   onDraft: (value: string) => void;
-  /** Saves a value picked with the pointer; the keyboard saves with Enter or by leaving. */
+  /** Saves a value picked with the pointer, touch or assistive tech; the keyboard saves with Enter or by leaving. */
   onPick: (value: string) => void;
   onLeave: () => void;
   onKeyDown: (event: React.KeyboardEvent) => void;
@@ -30,7 +30,7 @@ export const InlineEditSelect = React.forwardRef<HTMLSelectElement, InlineEditSe
     { label, current, choices, draft, disabled, onDraft, onPick, onLeave, onKeyDown, className },
     ref,
   ) {
-    const pointer = React.useRef(false);
+    const browsing = React.useRef(false);
     return (
       <select
         ref={ref}
@@ -38,15 +38,15 @@ export const InlineEditSelect = React.forwardRef<HTMLSelectElement, InlineEditSe
         value={draft}
         disabled={disabled}
         onPointerDown={() => {
-          pointer.current = true;
+          browsing.current = false;
         }}
         onKeyDown={(event) => {
-          pointer.current = false;
+          browsing.current = event.key !== "Enter" && event.key !== "Tab";
           onKeyDown(event);
         }}
         onChange={(event) => {
           onDraft(event.target.value);
-          if (pointer.current) onPick(event.target.value);
+          if (!browsing.current) onPick(event.target.value);
         }}
         onBlur={onLeave}
         onClick={(event) => event.stopPropagation()}

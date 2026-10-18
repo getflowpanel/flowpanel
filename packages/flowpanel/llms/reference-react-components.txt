@@ -148,7 +148,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `mobileLayout?` | `"card" \| "scroll" \| false` | Mobile layout when the viewport is narrower than 640px. |
 | `enteringRowKeys?` | `string[]` | Stable keys that should receive the one-shot, reduced-motion-safe entry treatment. |
 | `exportable?` | `boolean \| { formats?: ("csv" \| "json")[]; fields?: string[]; resource?: string }` | When set, renders an "Export" button in the toolbar. With `resource`, the server exports every row matching the page's filters; without it, the rows on screen are downloaded. |
-| `importable?` | `{ resource: string; formats: ("csv" \| "json")[] }` |  |
+| `importable?` | `{ resource: string; formats: ("csv" \| "json")[]; headers?: string[] }` | Shows Import. `headers` (lower-cased) are the ones it reads; the confirm step names the file's others as skipped. |
 | `showDensityToggle?` | `boolean` |  |
 | `rowLabel?` | `string` | What one row is, mid-sentence ("run"): phone cards read "Open run 36". |
 
@@ -179,6 +179,7 @@ Each column of a `DataTable` you render yourself is a `DataTableColumn`. Its wid
 | Export | Purpose |
 | --- | --- |
 | `AutoForm` | Renders a resource's create/update fields from `ResolvedField[]` or `ColumnMeta[]`. |
+| `preloadAutoForm` | Starts loading the forms' code once; call it on hover or focus of your own control that opens a form, as New and Edit do. |
 | `Form` | Conform and Zod form wrapper. It POSTs to a route and shows field errors. |
 | `useFormContext` | Reads the current `Form`'s conform metadata; throws outside a `Form`. |
 | `FormField` | One labeled input, switched on its `type` prop (see below). |

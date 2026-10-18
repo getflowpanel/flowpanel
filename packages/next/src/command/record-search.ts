@@ -1,9 +1,15 @@
-import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import type {
+  ColumnFormat,
+  RequestContext,
+  ResolvedAdminConfig,
+  ResourceConfig,
+} from "@flowpanel/core";
 import { resolveFormatting } from "@flowpanel/core";
 import { formatColumnValue, type ResolvedFormatting } from "@flowpanel/core/format";
-import { createResourceController } from "../controllers/resource-controller";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
 import { readableByCaller, resourceNavName } from "../runtime/nav";
 import { resolveReadableFieldSet } from "../runtime/readable-fields";
+import { readRelatedPage } from "../runtime/require-authorized";
 import { pluralLabel } from "../runtime/resource-title";
 import { openRowHrefs } from "../runtime/row-click";
 import { rowIdentity, rowKeyOf } from "../runtime/row-identity";
@@ -36,12 +42,15 @@ export function resultLines(
 ): Array<[title: string | undefined, detail: string | undefined]> {
   const needle = query.toLowerCase();
   const words = rows.map((row) => wordsOf(row, fields));
-  const lines = words.map(([title, ...rest]): [string | undefined, string | undefined] => {
-    const matched = title?.toLowerCase().includes(needle)
+  const matches = words.map(([title, ...rest]) =>
+    title?.toLowerCase().includes(needle)
       ? undefined
-      : rest.find((text) => text.toLowerCase().includes(needle));
-    return [title, matched ?? rest[0]];
-  });
+      : rest.find((text) => text.toLowerCase().includes(needle)),
+  );
+  const lines = words.map(([title, ...rest], index): [string | undefined, string | undefined] => [
+    title,
+    matches[index] ?? rest[0],
+  ]);
   const seen = new Map<string, number>();
   for (const [title, detail] of lines) {
     const key = `${title}\u0000${detail}`;
@@ -59,28 +68,35 @@ export function resultLines(
           text !== "" &&
           twins.filter((twin) => texts[twin]?.[at] === text).length === 1,
       );
-    return [title, differs(words, 1) ?? differs(shown, 0) ?? detail];
+    const tell = differs(words, 1) ?? differs(shown, 0);
+    const matched = matches[index];
+    if (tell === undefined) return [title, detail];
+    return [title, matched && matched !== tell ? `${matched} · ${tell}` : tell];
   });
 }
 
-/** A row's list columns outside its search fields, as its cells show them, to tell look-alike results apart. */
+/** A row's list columns outside its search fields, as "Label: cell", to tell look-alike results apart. */
 function shownColumns(
   resource: ResourceConfig,
   rows: ReadonlyArray<Record<string, unknown>>,
   skip: ReadonlySet<string>,
   formatting: ResolvedFormatting,
+  labelOf: (field: string) => string,
 ): string[][] {
   const columns = (resource.options.columns ?? []).flatMap((column) => {
     const def = typeof column === "string" ? { field: column } : column;
     const field = def.field === undefined ? "" : String(def.field);
     return field === "" || skip.has(field) || def.reference ? [] : [{ field, format: def.format }];
   });
+  const cell = (value: unknown, format: ColumnFormat | undefined): string => {
+    if (format !== undefined)
+      return value == null || value === "" ? "" : formatColumnValue(value, format, formatting);
+    return typeof value === "string" || typeof value === "number" ? String(value) : "";
+  };
   return rows.map((row) =>
     columns.map(({ field, format }) => {
-      const value = row[field];
-      if (format !== undefined)
-        return value == null || value === "" ? "" : formatColumnValue(value, format, formatting);
-      return typeof value === "string" || typeof value === "number" ? String(value) : "";
+      const text = cell(row[field], format);
+      return text === "" ? "" : `${labelOf(field)}: ${text}`;
     }),
   );
 }
@@ -101,14 +117,16 @@ async function searchResource(
     )),
   ];
   if (fields.length === 0) return null;
-  const result = await createResourceController(config, resource, reqCtx).list({
+  const page = await readRelatedPage(config, resource, reqCtx, {
     search: query,
+    searchFields: fields,
     pageSize: PER_RESOURCE,
+    extraFields: fields,
   });
-  if (!result.ok) return null;
+  if (!page) return null;
   const name = resourceNavName(resource);
   const rowKey = rowKeyOf(resource);
-  const rows: Record<string, unknown>[] = result.data.rows;
+  const rows = page.rows;
   const hrefs = openRowHrefs(config, name, resource, rows, rowKey) ?? [];
   const lines = resultLines(
     rows,
@@ -119,6 +137,7 @@ async function searchResource(
       rows,
       new Set([...fields, rowKey]),
       resolveFormatting(config.formatting),
+      fieldLabels(resource, [], namedFields(config)),
     ),
   );
   const items = rows.flatMap((row, index): RecordSearchItem[] => {

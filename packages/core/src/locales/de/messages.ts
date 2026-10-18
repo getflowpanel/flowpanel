@@ -31,6 +31,7 @@ export const DE_MESSAGES: MessageLabels = {
     inUse: "Andere Datensätze verweisen noch auf diesen",
     createDisabled: "In diesem Bereich können keine Datensätze angelegt werden.",
     editDisabled: "In diesem Bereich können keine Datensätze bearbeitet werden.",
+    loading: "Formular wird geladen…",
   },
   notFound: {
     title: "Seite nicht gefunden",
@@ -167,6 +168,10 @@ export const DE_MESSAGES: MessageLabels = {
     notObject: "Diese Zeile ist kein Objekt.",
     confirmTitle: "{file} importieren?",
     rows: { one: "{n} Zeile wird importiert.", other: "{n} Zeilen werden importiert." },
+    skipped: {
+      one: "{n} Spalte wird übersprungen: {columns}.",
+      other: "{n} Spalten werden übersprungen: {columns}.",
+    },
     confirm: "Importieren",
     importing: "Wird importiert…",
     unsupported: "Dieser Dateityp lässt sich nicht importieren. Verwenden Sie {formats}.",
@@ -233,6 +238,12 @@ export const DE_MESSAGES: MessageLabels = {
     after: "Nachher",
     emptyValue: "leer",
     actionOption: "{resource}: {action}",
+    showFullValue: "Ganzen Wert zeigen",
+    showLess: "Weniger zeigen",
+    fullValueFailed: "Der ganze Wert ließ sich nicht laden. Bitte erneut versuchen.",
+    changesTooLarge: "Änderungen zu groß für eine Vorschau",
+    noReadableChanges: "Keine lesbaren Änderungen",
+    characters: { one: "{n} Zeichen", other: "{n} Zeichen" },
   },
   fields: {
     id: "ID",

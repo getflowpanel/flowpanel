@@ -1,8 +1,12 @@
 import { MAX_MINOR_UNITS } from "../../money-input";
+import { didYouMean } from "../../suggest";
 import { FlowpanelConfigError } from "../../types/config-error";
 import type { FieldDef, ResourceConfig } from "../../types/resource";
 
-type Field = Pick<FieldDef<Record<string, unknown>>, "name" | "type" | "minorUnits" | "currency">;
+type Field = Pick<
+  FieldDef<Record<string, unknown>>,
+  "name" | "type" | "minorUnits" | "currency" | "options" | "defaultValue"
+>;
 
 function formsOf(resource: ResourceConfig): Array<{ path: string; fields: readonly Field[] }> {
   const { create, update, actions, bulkActions, drawer } = resource.options;
@@ -46,7 +50,7 @@ function assertMoneyOptions(where: string, digits: number | undefined, currency?
 }
 
 /** A `money` field or column with digits a safe integer cannot hold, or a currency code `Intl` refuses, stops startup. */
-export function assertMoneyFields(resource: ResourceConfig, name: string): void {
+function assertMoneyFields(resource: ResourceConfig, name: string): void {
   for (const { path, fields } of formsOf(resource)) {
     for (const field of fields) {
       if (field.type !== "money") continue;
@@ -67,4 +71,46 @@ export function assertMoneyFields(resource: ResourceConfig, name: string): void 
     }
     assertMoneyOptions(where, format.minorUnits, format.currency);
   }
+}
+
+const CHOICE_TYPES: ReadonlySet<string> = new Set(["select", "radio", "multiselect"]);
+
+function quoted(values: readonly string[]): string {
+  return values.map((value) => `"${value}"`).join(", ");
+}
+
+/** A choice field whose fixed `defaultValue` is not among its fixed `options` stops startup; the form used to drop it. */
+function assertChoiceDefaults(resource: ResourceConfig, name: string): void {
+  const resourceDefaults: Record<string, unknown> = resource.options.create?.defaultValues ?? {};
+  for (const { path, fields } of formsOf(resource)) {
+    for (const field of fields) {
+      if (!CHOICE_TYPES.has(field.type ?? "") || !Array.isArray(field.options)) continue;
+      const choices = field.options.map((option: unknown) =>
+        typeof option === "object" && option !== null && "value" in option
+          ? String(option.value)
+          : String(option),
+      );
+      const fromResource = path === "create.fields" && Object.hasOwn(resourceDefaults, field.name);
+      const value = fromResource ? resourceDefaults[field.name] : field.defaultValue;
+      if (value === undefined || value === null || value === "" || typeof value === "function")
+        continue;
+      if (Array.isArray(value) && value.length === 0) continue;
+      const given = Array.isArray(value) ? value.map(String) : [String(value)];
+      const missing = given.find((choice) => !choices.includes(choice));
+      if (missing === undefined) continue;
+      throw new FlowpanelConfigError(
+        fromResource
+          ? `resource "${name}" create.defaultValues.${field.name}`
+          : `resource "${name}" ${path} "${field.name}" defaultValue`,
+        `"${missing}" is not one of the field's options, so the form would start empty.` +
+          `${didYouMean(missing, choices)} Options: ${quoted(choices)}.`,
+      );
+    }
+  }
+}
+
+/** Money options and choice defaults of every form a resource declares. */
+export function assertFormFields(resource: ResourceConfig, name: string): void {
+  assertMoneyFields(resource, name);
+  assertChoiceDefaults(resource, name);
 }

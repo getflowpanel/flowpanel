@@ -48,7 +48,7 @@ export function AdminShell({
     setMobileNavOpen(false);
   }, [currentPath]);
 
-  // List tables cap their scroller by the chrome above them and whatever the page puts below the admin.
+  // The shell fills the viewport left by a host header and footer; list tables cap their scroller by the chrome around them.
   const shellRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     const shell = shellRef.current;
@@ -56,13 +56,15 @@ export function AdminShell({
     if (!shell || !main || typeof ResizeObserver === "undefined") return;
     const nav = shell.querySelector<HTMLElement>("nav[data-flowpanel-nav]");
     const measure = () => {
+      const above = shell.getBoundingClientRect().top + window.scrollY;
+      const outside = `${Math.round(above + spaceBelow(shell))}px`;
       if (variant === "tabs") {
+        shell.style.setProperty("--fp-outside", outside);
         shell.style.setProperty("--fp-sticky-top", `${nav?.offsetHeight ?? 0}px`);
         shell.style.setProperty("--fp-below", `${Math.round(spaceBelow(main))}px`);
         return;
       }
-      const above = shell.getBoundingClientRect().top + window.scrollY;
-      shell.style.setProperty("--fp-sticky-top", `${Math.round(above + spaceBelow(shell))}px`);
+      shell.style.setProperty("--fp-sticky-top", outside);
     };
     const observer = new ResizeObserver(measure);
     if (nav) observer.observe(nav);
@@ -84,7 +86,7 @@ export function AdminShell({
     return (
       <div
         ref={shellRef}
-        className="fp-min-h-screen fp-bg-canvas fp-font-sans fp-text-ink fp-antialiased"
+        className="fp-min-h-[calc(100dvh-var(--fp-outside,0px))] fp-bg-canvas fp-font-sans fp-text-ink fp-antialiased"
       >
         {showSkipLink ? skipLink : null}
         <AdminTabs

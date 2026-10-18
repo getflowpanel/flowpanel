@@ -16,6 +16,7 @@ import {
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
 import { FilterSheet, PageHeader } from "@flowpanel/react";
+import { importHeaders } from "../actions/resource-import";
 import { fitColumnPrefs, readColumnPrefs } from "../drawer/column-prefs-cookie";
 import { exportTarget, targetAllows } from "../runtime/action-gate";
 import { DEFAULT_RESOURCE_PAGE_SIZE } from "../runtime/defaults";
@@ -230,9 +231,14 @@ export async function ResourceListPage({
     new Set(deletedRowKeys),
   );
   const importOptions = resource.options.import;
+  const importHeaderKeys = importOptions ? await importHeaders(config, resource, reqCtx) : null;
   const importable =
     importOptions && (await mayCreate(config, resource, reqCtx))
-      ? { resource: name, formats: importOptions.formats ?? ["csv", "json"] }
+      ? {
+          resource: name,
+          formats: importOptions.formats ?? ["csv", "json"],
+          ...(importHeaderKeys ? { headers: importHeaderKeys } : {}),
+        }
       : undefined;
   const createdRowKeyParam = searchParams.get("fp_created");
   const createdRowKey =

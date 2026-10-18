@@ -28,6 +28,7 @@ export const ES_CHROME: ChromeLabels = {
     resizeColumn: "Cambiar el ancho de la columna",
     columns: "Columnas",
     columnOptions: "Opciones de la columna “{label}”",
+    showAllColumns: "Mostrar todas las columnas",
     resetWidths: "Restablecer el ancho de las columnas",
     columnResized: "{label}: {width} px",
     pinLeft: "Fijar a la izquierda",

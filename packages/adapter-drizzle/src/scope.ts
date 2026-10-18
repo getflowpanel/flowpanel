@@ -101,7 +101,7 @@ function pgCastTarget(declared: string): SQL | undefined {
 }
 
 /** What a create writes to a column the input leaves out: its default, or what its `$defaultFn` returns. */
-function defaultOf(column: ScopedColumn): unknown {
+export function defaultOf(column: ScopedColumn): unknown {
   if (column.default !== undefined) return column.default;
   return column.defaultFn?.();
 }

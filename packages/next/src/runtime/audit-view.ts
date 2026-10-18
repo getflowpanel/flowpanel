@@ -16,10 +16,15 @@ import {
   resolveOperationAccess,
 } from "@flowpanel/core";
 import {
+  AUDIT_VALUE_PREVIEW,
   auditScopeKey,
+  auditValueText,
+  cutAuditText,
   DASHBOARD_ACTION_PREFIX,
   dashboardActionAudit,
   isBuiltinBulkDelete,
+  isLongAuditValue,
+  storedAuditPreview,
 } from "@flowpanel/core/internal";
 
 /** The Audit log page's URL segment, which FlowPanel reserves. */
@@ -27,6 +32,51 @@ export const AUDIT_LOG_SEGMENT = "audit-log";
 
 /** The record History tab's key in `?tab=`. */
 export const AUDIT_HISTORY_TAB = "history";
+
+/** Characters of previews one event may carry in total, so a page of events stays small. */
+export const AUDIT_EVENT_PREVIEW = 2000;
+
+export { AUDIT_VALUE_PREVIEW, auditValueText };
+
+/** The start of a value too long to print whole; the full text comes from the audit value route. */
+export interface AuditValuePreview {
+  readonly preview: true;
+  /** The first characters of the value as text (a string as is, an object as JSON). */
+  readonly text: string;
+  /** The full value's length in characters, as text. */
+  readonly length: number;
+}
+
+export function isAuditValuePreview(value: unknown): value is AuditValuePreview {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "preview" in value &&
+    value.preview === true &&
+    "text" in value &&
+    typeof value.text === "string" &&
+    "length" in value &&
+    typeof value.length === "number"
+  );
+}
+
+/** A stored preview or a long value read whole, cut to what is left of the event's budget. */
+class PreviewBudget {
+  #left = AUDIT_EVENT_PREVIEW;
+
+  take(value: unknown): unknown {
+    const stored = storedAuditPreview(value);
+    if (!stored && !isLongAuditValue(value)) return value;
+    const full = stored?.text ?? auditValueText(value);
+    const text = cutAuditText(full, Math.min(AUDIT_VALUE_PREVIEW, this.#left));
+    this.#left -= text.length;
+    return {
+      preview: true,
+      text,
+      length: stored?.length ?? full.length,
+    } satisfies AuditValuePreview;
+  }
+}
 
 /** One changed field as the reader may see it; a side the event did not have is `undefined`. */
 export interface AuditChange {
@@ -95,7 +145,17 @@ function record(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-/** The stored before/after as changed fields, keeping only `allowed` ones in their stored order. */
+/** One side of one stored field, or `undefined` when the event did not have it. */
+export function auditDiffValue(
+  diff: AuditLogEntry["diff"],
+  field: string,
+  side: "before" | "after",
+): unknown {
+  const values = record(diff?.[side]);
+  return values && Object.hasOwn(values, field) ? values[field] : undefined;
+}
+
+/** The changed `allowed` fields in stored order, each long value an `AuditValuePreview` within the event's budget. */
 export function projectAuditDiff(
   diff: AuditLogEntry["diff"],
   allowed: ReadonlySet<string>,
@@ -104,13 +164,14 @@ export function projectAuditDiff(
   const before = record(diff.before);
   const after = record(diff.after);
   const fields = new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]);
+  const budget = new PreviewBudget();
   const changes: AuditChange[] = [];
   for (const field of fields) {
     if (!allowed.has(field)) continue;
-    const was = before && Object.hasOwn(before, field) ? before[field] : undefined;
-    const now = after && Object.hasOwn(after, field) ? after[field] : undefined;
+    const was = auditDiffValue(diff, field, "before");
+    const now = auditDiffValue(diff, field, "after");
     if (before && after && Object.is(was, now)) continue;
-    changes.push({ field, before: was, after: now });
+    changes.push({ field, before: budget.take(was), after: budget.take(now) });
   }
   return changes;
 }

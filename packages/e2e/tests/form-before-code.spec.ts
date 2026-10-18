@@ -17,7 +17,7 @@ async function holdLateScripts(page: Page, path: string): Promise<() => void> {
   return release;
 }
 
-test("a form takes no input before its code runs, then keeps everything typed", async ({
+test("a form takes no input and says it is loading before its code runs, then keeps everything typed", async ({
   page,
 }) => {
   const release = await holdLateScripts(page, "/admin/products/new");
@@ -29,12 +29,17 @@ test("a form takes no input before its code runs, then keeps everything typed", 
 
   const form = page.locator("form").filter({ has: page.getByLabel("Product") });
   const product = page.getByLabel("Product");
-  await expect(form).toHaveAttribute("aria-busy", "true");
+  const fields = form.locator("[data-fp-form-fields]");
+  await expect(fields).toHaveAttribute("aria-busy", "true");
+  await expect(fields).toHaveAttribute("inert", "");
+  await expect(form.getByRole("status")).toHaveText("Loading form…");
   await expect(product).toHaveAttribute("readonly", "");
   await expect(page.getByLabel("Category")).toBeDisabled();
   await expect(page.getByRole("button", { name: "Create" })).toBeDisabled();
+  await expect(form.getByText("Loading form…")).toBeVisible();
 
-  await product.click();
+  await product.click({ force: true });
+  await expect(product).not.toBeFocused();
   await page.keyboard.type("Typed too early");
   await page.keyboard.press("Enter");
   await expect(product).toHaveValue("");
@@ -42,7 +47,9 @@ test("a form takes no input before its code runs, then keeps everything typed", 
   await expect(page).toHaveURL(/\/admin\/products\/new$/);
 
   release();
-  await expect(form).not.toHaveAttribute("aria-busy", "true");
+  await expect(fields).not.toHaveAttribute("aria-busy", "true");
+  await expect(fields).not.toHaveAttribute("inert", "");
+  await expect(form.getByText("Loading form…")).toHaveCount(0);
   await expect(product).toBeEditable();
   await product.fill("Kept title");
   await page.getByLabel("SKU").fill("KEPT-1");

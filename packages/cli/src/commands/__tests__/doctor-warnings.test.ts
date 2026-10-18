@@ -268,6 +268,21 @@ describe("doctor — audit log table", () => {
     });
   });
 
+  it("names the one ALTER for a table missing only diff_preview, with no 0002 to write", async () => {
+    process.env.DATABASE_URL = "postgres://probe.invalid/app";
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": `export default {
+        auditLog: { list: async () => { throw new Error('column "diff_preview" does not exist'); } },
+      };\n`,
+      "flowpanel/migrations/0001_init.sql": await tpl("migration.postgresql.sql.txt"),
+    });
+    const check = await checkNamed("Audit log table");
+    expect(check).toMatchObject({ ok: true, warn: true });
+    expect(check?.hint).toContain("ALTER TABLE flowpanel_audit_log ADD COLUMN diff_preview jsonb;");
+    expect(check?.fix).toBeUndefined();
+  });
+
   it("is quiet for the 0001 that init writes now", async () => {
     await write({
       "package.json": PACKAGE,

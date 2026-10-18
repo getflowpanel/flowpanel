@@ -15,7 +15,7 @@ import {
 } from "../ui/dialog";
 import { type FailedImportRow, failedRowsCsv, type ImportFile } from "./import-file";
 
-export { readImportFile } from "./import-file";
+export { readImportFile, skippedColumns } from "./import-file";
 
 export interface ImportOutcome {
   file: ImportFile;
@@ -26,18 +26,22 @@ export interface ImportOutcome {
 /** Refused rows the dialog lists; the CSV download carries all of them. */
 const SHOWN_ROWS = 100;
 
-/** "Import customers.csv? 48 rows will be imported." */
+/** "Import customers.csv? 48 rows will be imported. 1 column will be skipped: Issued at." */
 export function ImportConfirm({
   file,
+  skipped = [],
   onCancel,
   onConfirm,
 }: {
   file: ImportFile;
+  skipped?: readonly string[];
   onCancel: () => void;
   onConfirm: () => void;
 }) {
   const { importer } = useLabels();
   const { locale } = useFormatting();
+  const rows = formatCount(importer.rows, file.rowCount, locale);
+  const columns = new Intl.ListFormat(locale, { type: "conjunction" }).format(skipped);
   return (
     <ConfirmDialog
       open
@@ -45,7 +49,11 @@ export function ImportConfirm({
         if (!open) onCancel();
       }}
       title={formatLabel(importer.confirmTitle, { file: file.name })}
-      description={formatCount(importer.rows, file.rowCount, locale)}
+      description={
+        skipped.length > 0
+          ? `${rows} ${formatLabel(formatCount(importer.skipped, skipped.length, locale), { columns })}`
+          : rows
+      }
       confirmLabel={importer.confirm}
       onConfirm={onConfirm}
     />

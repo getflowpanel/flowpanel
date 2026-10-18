@@ -45,7 +45,7 @@ export function ColumnVisibilityMenu({
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" aria-label={label}>
           <Columns3 aria-hidden className="fp-h-4 fp-w-4 fp-text-faint" />
-          {label}
+          <span className="fp-hidden sm:fp-inline">{label}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="fp-min-w-[180px]">
@@ -67,6 +67,16 @@ export function ColumnVisibilityMenu({
                 </DropdownMenuCheckboxItem>
               );
             })}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={shown === columns.length}
+              onSelect={(e) => {
+                e.preventDefault();
+                onChange(Object.fromEntries(columns.map((c) => [c.field, true])));
+              }}
+            >
+              {table.showAllColumns}
+            </DropdownMenuItem>
           </>
         ) : null}
         {onResetWidths ? (

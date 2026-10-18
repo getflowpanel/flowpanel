@@ -531,6 +531,11 @@ tr.fp-row-enter > td {
   background: hsl(var(--fp-accent));
   animation: fp-pending-sweep 1.1s var(--fp-ease-in-out) infinite;
 }
+/* While a nav link's page is on its way, the page it leaves dims once the wait is longer than a blink. */
+[data-flowpanel-root]:has([data-flowpanel-nav] .fp-pending-bar) main {
+  opacity: 0.55;
+  transition: opacity var(--fp-duration) var(--fp-ease-out) 150ms;
+}
 /* Rows dim only once a change takes longer than a blink. */
 [data-fp-list][aria-busy="true"] [data-fp-table-scroll],
 [data-fp-list][aria-busy="true"] [data-fp-card] {
@@ -565,6 +570,39 @@ tr.fp-row-enter > td {
 }
 .fp-scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* A server-rendered form takes no input until its code runs; once the wait is noticeable its fields dim and the actions say why. */
+[data-fp-form-fields][data-fp-loading] {
+  animation: fp-form-wait var(--fp-duration) var(--fp-ease-out) 300ms both;
+}
+@keyframes fp-form-wait {
+  to {
+    opacity: 0.55;
+  }
+}
+.fp-form-loading-note {
+  animation: fp-fade-in var(--fp-duration) var(--fp-ease-out) 300ms both;
+}
+
+/* A tab holds its label's medium-weight width, so the strip does not shift as the current tab changes. */
+.fp-tab-label {
+  display: inline-flex;
+  flex-direction: column;
+}
+.fp-tab-label::after {
+  content: attr(data-label) / "";
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Breaks a long unbroken value, a URL or a token, so it never widens its row. */
+.fp-wrap-anywhere {
+  overflow-wrap: anywhere;
 }
 
 /* A KPI figure of N characters shrinks below 2rem only when N characters would not fit its container. */

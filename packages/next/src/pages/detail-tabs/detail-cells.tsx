@@ -97,7 +97,7 @@ export interface DetailField {
 
 /**
  * Each field's own `render`, run concurrently for a field the projected row carries; one that
- * throws is logged and left out, so the field shows its formatted value.
+ * throws or renders nothing is left out, so the field shows its formatted value, "—" when empty, as a list does.
  */
 export async function renderDetailFields(
   row: Record<string, unknown>,
@@ -107,13 +107,19 @@ export async function renderDetailFields(
 ): Promise<Map<string, React.ReactNode>> {
   const written = fields
     .filter((field) => !field.render && markdown.has(field.name) && Object.hasOwn(row, field.name))
-    .map((field) => [field.name, renderMarkdown(row[field.name])] as const);
+    .flatMap((field) => {
+      const node = renderMarkdown(row[field.name]);
+      return node === null ? [] : [[field.name, node] as const];
+    });
   const rendered = await Promise.all(
     fields
       .filter((field) => field.render && Object.hasOwn(row, field.name))
       .map(async (field): Promise<readonly [string, React.ReactNode] | null> => {
         try {
-          return [field.name, await field.render?.(row as never, reqCtx)];
+          const node = await field.render?.(row as never, reqCtx);
+          return node === null || node === undefined || node === false || node === ""
+            ? null
+            : [field.name, node];
         } catch (error) {
           console.error(`[flowpanel] detail render failed for "${field.name}"`, error);
           return null;

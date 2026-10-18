@@ -13,6 +13,7 @@ import { defineAdmin, resource } from "@flowpanel/core";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { importHeaders } from "../actions/resource-import";
 import { handlers } from "../handlers";
 
 const invoices = sqliteTable("invoices", {
@@ -143,6 +144,23 @@ describe("import headers", () => {
     expect(await imported("csv", content)).toMatchObject({ imported: 1, failed: [] });
     expect(stored()).toEqual([{ number: "A-9", status: "paid", amount_cents: 1050 }]);
   });
+
+  it("are the ones the confirm step checks a file against, so an exported ID reads as skipped", async () => {
+    const config = admin();
+    const invoicesResource = config.resourcesByName.get("invoices");
+    if (!invoicesResource) throw new Error("invoices not registered");
+    const reader = {
+      req: new Request("http://localhost/admin/invoices"),
+      session: { id: "u1" },
+      role: "admin",
+      scope: null,
+      ip: null,
+      userAgent: null,
+    };
+    const headers = await importHeaders(config, invoicesResource, reader);
+    expect(headers).toEqual(expect.arrayContaining(["number", "state", "amount", "amountcents"]));
+    expect(headers).not.toContain("id");
+  });
 });
 
 describe("an import row that fails", () => {
@@ -259,5 +277,85 @@ describe("an import with no import.fields", () => {
       { id: 1, body: "first" },
       { id: 2, body: "again" },
     ]);
+  });
+});
+
+describe("an import row judged by a conditional field", () => {
+  it("is held to a field its own values show, not the form's starting values", async () => {
+    sqlite.exec("DELETE FROM invoices");
+    const conditional = defineAdmin({
+      adapter: drizzleAdapter({ db: drizzle(sqlite), schema: { invoices }, dialect: "sqlite" }),
+      auth: { session: async () => ({ id: "u1" }), role: () => "admin" },
+      resources: [
+        resource(invoices, {
+          columns: ["number", "status", "amountCents"],
+          create: {
+            fields: [
+              { name: "status", defaultValue: "draft" },
+              {
+                name: "number",
+                required: true,
+                hidden: (row: { status?: string }) => row.status === "draft",
+              },
+              { name: "amountCents" },
+            ],
+          },
+          import: { formats: ["csv"], fields: ["number", "status", "amountCents"] },
+        }),
+      ],
+    });
+    const res = await handlers(conditional).POST(
+      new Request("http://localhost/api/flowpanel/invoices/import", {
+        method: "POST",
+        headers: { ...origin, "content-type": "application/json" },
+        body: JSON.stringify({ format: "csv", content: "status,amountCents\r\npaid,100\r\n" }),
+      }),
+      route("invoices", "import"),
+    );
+    const body = (await res.json()) as { imported: number; failed: { error: string }[] };
+    expect(body.imported).toBe(0);
+    expect(body.failed[0]?.error).toContain("Number is required");
+  });
+});
+
+describe("an import column the importer may not read", () => {
+  it("is skipped, as the confirm step said, instead of being written", async () => {
+    sqlite.exec("DELETE FROM invoices");
+    const restricted = defineAdmin({
+      adapter: drizzleAdapter({ db: drizzle(sqlite), schema: { invoices }, dialect: "sqlite" }),
+      auth: { session: async () => ({ id: "u1" }), role: () => "clerk" },
+      resources: [
+        resource(invoices, {
+          columns: ["number", "status", "amountCents"],
+          fieldAccess: { number: { read: "boss" } },
+          create: { defaultValues: { number: "AUTO" } },
+          import: { formats: ["csv"], fields: ["number", "status", "amountCents"] },
+        }),
+      ],
+    });
+    const invoicesResource = restricted.resourcesByName.get("invoices");
+    if (!invoicesResource) throw new Error("invoices not registered");
+    const clerk = {
+      req: new Request("http://localhost/admin/invoices"),
+      session: { id: "u1" },
+      role: "clerk",
+      scope: null,
+      ip: null,
+      userAgent: null,
+    };
+    expect(await importHeaders(restricted, invoicesResource, clerk)).not.toContain("number");
+    const res = await handlers(restricted).POST(
+      new Request("http://localhost/api/flowpanel/invoices/import", {
+        method: "POST",
+        headers: { ...origin, "content-type": "application/json" },
+        body: JSON.stringify({
+          format: "csv",
+          content: "number,status,amountCents\r\nX-1,paid,100\r\n",
+        }),
+      }),
+      route("invoices", "import"),
+    );
+    expect(await res.json()).toMatchObject({ imported: 1, failed: [] });
+    expect(stored()).toEqual([{ number: "AUTO", status: "paid", amount_cents: 100 }]);
   });
 });

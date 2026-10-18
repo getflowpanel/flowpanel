@@ -28,6 +28,7 @@ export const DE_CHROME: ChromeLabels = {
     resizeColumn: "Spaltenbreite ändern",
     columns: "Spalten",
     columnOptions: "Optionen für die Spalte „{label}“",
+    showAllColumns: "Alle Spalten zeigen",
     resetWidths: "Spaltenbreiten zurücksetzen",
     columnResized: "{label}: {width} px",
     pinLeft: "Links fixieren",

@@ -21,8 +21,8 @@ export default [
     name: "@flowpanel/kit/react UI on a list's first render (shell, table; forms and cards load on use)",
     ...UI,
     modifyEsbuildConfig: firstRenderOnly,
-    // 0.4.0: forms, widget cards, menus, popovers, selects, the toaster and the shortcut sheet load on use; measured 54.99 KB.
-    limit: "55 KB",
+    // 0.4.0 launch, merged: forms, widget cards, menus, popovers, selects, the toaster and the shortcut sheet load on use; phone file-action icons, fixed-width tabs, fit-to-widest and the audit and import labels come with the shell; measured 55.51 KB.
+    limit: "55.55 KB",
   },
   {
     name: "@flowpanel/kit/react on-demand chunks (importer dialogs and CSV parser, leave-guard dialog), alone with what they import",
@@ -31,16 +31,16 @@ export default [
       "dist/react/data/ImportDialogs.mjs": "{ ImportConfirm, ImportResult, readImportFile }",
       "dist/react/feedback/ConfirmDialog.mjs": "{ ConfirmDialog }",
     },
-    // 0.4.0: the column-width labels and the Russian preset's field names ride along; measured 29.09 KB.
-    limit: "29.1 KB",
+    // 0.4.0 launch, merged: the skipped-columns line and the audit, form-loading and show-all-columns labels ride along; measured 29.30 KB.
+    limit: "29.35 KB",
   },
   {
     name: "@flowpanel/kit/react on-demand form (AutoForm with its fields and validation)",
     path: "dist/react/forms/AutoForm.mjs",
     import: "{ AutoForm }",
     modifyEsbuildConfig: firstRenderOnly,
-    // 0.4.0: zod and Conform load here, not with the list; read-only-until-ready controls and the editors' retry line; measured 39.62 KB.
-    limit: "39.65 KB",
+    // 0.4.0 launch, merged: zod and Conform load here, not with the list; the inert fields, their loading status and the larger switch; measured 39.66 KB.
+    limit: "39.7 KB",
   },
   {
     name: "@flowpanel/kit/react on-demand menus, popovers and selects",
@@ -87,8 +87,8 @@ export default [
       "dist/react/widgets/TrackerCard.mjs": "{ TrackerCard }",
     },
     modifyEsbuildConfig: firstRenderOnly,
-    // 0.4.0: the cards left the first render and load with the first dashboard; measured 21.21 KB.
-    limit: "21.25 KB",
+    // 0.4.0 launch, merged: the cards load with the first dashboard and carry the new labels; measured 21.31 KB.
+    limit: "21.35 KB",
   },
   {
     name: "@flowpanel/kit/client (hooks)",
@@ -97,11 +97,19 @@ export default [
     limit: "1 KB",
   },
   {
-    name: "@flowpanel/kit/charts (own code; Recharts not counted)",
+    name: "@flowpanel/kit/charts as a page imports it (Recharts loads with the first chart drawn)",
     path: "dist/charts.js",
     import: "{ AreaChart, BarChart, LineChart, PieChart }",
-    // 0.4 final: 7.61 KB; the minified bundle is 3 B smaller than at rc, brotli packs the new labels/format bytes 54 B worse.
-    limit: "7.65 KB",
+    modifyEsbuildConfig: firstRenderOnly,
+    // 0.4.0 launch, merged: Recharts stays behind the first draw; the empty and failed lines bring the labels context the admin already loads; measured 4.57 KB.
+    limit: "4.6 KB",
+  },
+  {
+    name: "@flowpanel/kit/charts own code with its on-demand chart body (Recharts not counted)",
+    path: "dist/charts.js",
+    import: "{ AreaChart, BarChart, LineChart, PieChart }",
+    // 0.4.0 launch, merged: the lazy wrappers, their empty, failed and skeleton states and the new labels; measured 8.26 KB.
+    limit: "8.3 KB",
     ignore: ["recharts"],
   },
 ];

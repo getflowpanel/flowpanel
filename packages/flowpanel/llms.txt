@@ -519,6 +519,7 @@ component against `paths.api` needs the helper. Server code calls the runtime
 through `createFlowpanel(config).request()` instead of fetching its own routes.
 
 ```ts
+"use client";
 import { withDeploymentBasePath } from "@flowpanel/kit/react";
 
 export async function verifyUser(id: string): Promise<Response> {
@@ -2840,6 +2841,9 @@ Without `y`, the chart plots every numeric key of its first row except `x`, whic
 is what `series({ by })` returns. `labels` names the series. `bucket` only formats
 date ticks; aggregate with `series({ grain })`. For amounts stored in cents, set
 `format: "currency"` and `minorUnits: 2`, and the axis and tooltips show money.
+`minorUnits` alone divides the values but prints plain numbers, so `defineAdmin`
+warns about a chart that sets it without `format: "currency"` when the dev server
+starts, and `flowpanel doctor` lists it.
 
 One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
 order. `colors` pins a series to a colour:
@@ -3885,7 +3889,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `mobileLayout?` | `"card" \| "scroll" \| false` | Mobile layout when the viewport is narrower than 640px. |
 | `enteringRowKeys?` | `string[]` | Stable keys that should receive the one-shot, reduced-motion-safe entry treatment. |
 | `exportable?` | `boolean \| { formats?: ("csv" \| "json")[]; fields?: string[]; resource?: string }` | When set, renders an "Export" button in the toolbar. With `resource`, the server exports every row matching the page's filters; without it, the rows on screen are downloaded. |
-| `importable?` | `{ resource: string; formats: ("csv" \| "json")[] }` |  |
+| `importable?` | `{ resource: string; formats: ("csv" \| "json")[]; headers?: string[] }` | Shows Import. `headers` (lower-cased) are the ones it reads; the confirm step names the file's others as skipped. |
 | `showDensityToggle?` | `boolean` |  |
 | `rowLabel?` | `string` | What one row is, mid-sentence ("run"): phone cards read "Open run 36". |
 
@@ -3916,6 +3920,7 @@ Each column of a `DataTable` you render yourself is a `DataTableColumn`. Its wid
 | Export | Purpose |
 | --- | --- |
 | `AutoForm` | Renders a resource's create/update fields from `ResolvedField[]` or `ColumnMeta[]`. |
+| `preloadAutoForm` | Starts loading the forms' code once; call it on hover or focus of your own control that opens a form, as New and Edit do. |
 | `Form` | Conform and Zod form wrapper. It POSTs to a route and shows field errors. |
 | `useFormContext` | Reads the current `Form`'s conform metadata; throws outside a `Form`. |
 | `FormField` | One labeled input, switched on its `type` prop (see below). |
@@ -4998,15 +5003,20 @@ admin appends each [audit event](/docs/guides/audit-log) to it and reads the rec
 History tabs and the Audit log page from it. The shipped adapters bind every value
 through the same client `flowpanel migrate` uses. `list` returns events newest
 first; with `scope` set, only those whose stored tenant key equals `scope.key`.
-`append` writes one row per id in `targetIds`. Without `auditLog`, an admin with
-`audit` on needs a `sink`.
+`append` writes one row per id in `targetIds`, with the whole diff in `diff` and a
+copy in `diff_preview` whose long values keep their first 400 characters. `list`
+reads only `diff_preview`, so a page of events never moves the whole diffs;
+`entry` reads one event's whole `diff`, under the same `scope` and `visible`
+bounds, for **Show full value**. Without `auditLog`, an admin with `audit` on
+needs a `sink`.
 
 `AuditLogStore`
 
 | Property | Type | Notes |
 | --- | --- | --- |
 | `append` | `(event: AuditEvent) => Promise<void>` |  |
-| `list` | `(query: AuditLogQuery) => Promise<AuditLogPage>` |  |
+| `list` | `(query: AuditLogQuery) => Promise<AuditLogPage>` | A page of events with their bounded diff previews, never the whole stored diffs. |
+| `entry` | `(query: Pick<AuditLogQuery, "scope" \| "visible" \| "id">) => Promise<AuditLogEntry \| null>` | One event, `id` set, with its whole diff, under the same `scope` and `visible` bounds as `list`. |
 | `facets` | `(query: Pick<AuditLogQuery, "scope" \| "visible" \| "from">) => Promise<AuditLogFacets>` | Who acted and what ran among the events `query` selects, newest actors first. |
 
 ### Raw SQL
@@ -5314,8 +5324,8 @@ The SSE envelope helpers, for reading the stream without FlowPanel's client:
 #### The memory driver in a Redis deployment
 
 The publisher is bound per process from `config.realtime` and rebinds when the
-options change. It warns once when the driver is `memory` while `REDIS_URL` or
-`FLOWPANEL_REDIS_URL` is set:
+options change. It warns once per process, on the first publish or stream, when
+the driver is `memory` while `REDIS_URL` or `FLOWPANEL_REDIS_URL` is set:
 
 ```text
 [flowpanel] realtime driver is memory while REDIS_URL is set — other instances

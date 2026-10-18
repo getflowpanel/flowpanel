@@ -647,6 +647,80 @@ describe("required fields on the server", () => {
     await expect(makeActions(config, resource).create({})).resolves.toBeTruthy();
   });
 
+  it("judges a create field's hidden function on the values the form starts with", async () => {
+    const note = {
+      name: "name",
+      required: true,
+      hidden: (values: { status?: string }) => values.status === "draft",
+    };
+    const fromField = withFields([{ name: "status", defaultValue: "draft" }, note]);
+    await expect(
+      makeActions(fromField.config, fromField.resource).create({}),
+    ).resolves.toBeTruthy();
+
+    const fromColumn = withFields([{ name: "status" }, note]);
+    (fromColumn.config.adapter as { introspect: unknown }).introspect = () => ({
+      name: "users",
+      columns: [
+        {
+          name: "status",
+          type: "string",
+          nullable: false,
+          unique: false,
+          primaryKey: false,
+          defaultValue: "draft",
+        },
+      ],
+      primaryKey: "id",
+    });
+    await expect(
+      makeActions(fromColumn.config, fromColumn.resource).create({}),
+    ).resolves.toBeTruthy();
+
+    const open = withFields([{ name: "status" }, note]);
+    await expect(makeActions(open.config, open.resource).create({})).rejects.toMatchObject({
+      fieldErrors: { name: "Name is required" },
+    });
+  });
+
+  it("judges an API or import create on its own values over the starting ones", async () => {
+    const note = {
+      name: "name",
+      required: true,
+      hidden: (values: { status?: string }) => values.status === "draft",
+    };
+    const api = withFields([{ name: "status", defaultValue: "draft" }, note]);
+    const actions = makeActions(api.config, api.resource);
+    await expect(actions.create({ status: "published" })).rejects.toMatchObject({
+      fieldErrors: { name: "Name is required" },
+    });
+    await expect(actions.create({ status: "draft" })).resolves.toBeTruthy();
+
+    const locked = withFields([
+      { name: "status", defaultValue: "draft" },
+      { name: "name", readOnly: (values: { status?: string }) => values.status !== "draft" },
+    ]);
+    await expect(
+      makeActions(locked.config, locked.resource).create({ status: "published", name: "x" }),
+    ).rejects.toBeTruthy();
+    await expect(
+      makeActions(locked.config, locked.resource).create({ status: "draft", name: "x" }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("keeps a field read-only on an API create when the client sends the value its predicate checks", async () => {
+    const { config, resource } = withFields([
+      { name: "status", defaultValue: "draft" },
+      {
+        name: "approvedBy",
+        readOnly: (row: { status?: string }) => row.status !== "approved",
+      },
+    ]);
+    await expect(
+      makeActions(config, resource).create({ status: "approved", approvedBy: "x" }),
+    ).rejects.toMatchObject({ code: "field_forbidden", field: "approvedBy" });
+  });
+
   it("lets an edit leave a required field out, keeping the stored value", async () => {
     const { config, resource } = withFields(
       [{ name: "email" }, { name: "name", required: true }],
@@ -806,8 +880,8 @@ describe("readOnly next to fieldAccess", () => {
     });
   });
 
-  it("evaluates a function readOnly on create, against an empty row", async () => {
-    const seen = vi.fn((values: Record<string, unknown>) => values.locked !== false);
+  it("evaluates a function readOnly on an API create, against the starting row and the row it would write", async () => {
+    const seen = vi.fn((values: Record<string, unknown>) => values.email !== undefined);
     const { config, resource } = makeConfig({});
     (resource.options as { create?: unknown }).create = {
       fields: [{ name: "email", readOnly: seen }],
@@ -817,6 +891,7 @@ describe("readOnly next to fieldAccess", () => {
       field: "email",
     });
     expect(seen).toHaveBeenCalledWith({});
+    expect(seen).toHaveBeenCalledWith({ email: "a@b.com" });
   });
 
   it("lets a create write a field whose function readOnly is false for a new row", async () => {

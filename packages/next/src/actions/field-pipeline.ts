@@ -157,6 +157,50 @@ export async function applyFieldDefaults(
   return out;
 }
 
+/** The create fields judged on the starting values; for an API write, `readOnly` also on `input` over them and `hidden` only so. */
+export async function createFormFields(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+  input?: unknown,
+): Promise<FieldDef<Record<string, unknown>>[] | undefined> {
+  const fields = declaredFormFields(resource, "create");
+  const judged = (f: FieldDef<Record<string, unknown>>) =>
+    typeof f.hidden === "function" || typeof f.readOnly === "function";
+  if (!fields?.some(judged)) return fields;
+  const starting = await startingValues(config, resource, fields, {}, reqCtx);
+  const given = typeof input === "object" && input !== null && !Array.isArray(input) ? input : null;
+  const merged = given
+    ? await startingValues(config, resource, fields, { ...given }, reqCtx)
+    : starting;
+  return fields.map((f) =>
+    judged(f)
+      ? {
+          ...f,
+          hidden: fieldFlag(f.hidden, merged),
+          readOnly: fieldFlag(f.readOnly, starting) || fieldFlag(f.readOnly, merged),
+        }
+      : f,
+  );
+}
+
+/** `input` over the field and resource defaults, then the columns' database defaults. */
+async function startingValues(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  fields: FieldDef<Record<string, unknown>>[],
+  input: Record<string, unknown>,
+  reqCtx: RequestContext,
+): Promise<Record<string, unknown>> {
+  const values = await applyFieldDefaults(resource, fields, input, reqCtx);
+  for (const column of config.adapter.introspect(writeTarget(resource)).columns) {
+    if (values[column.name] === undefined && column.defaultValue !== undefined) {
+      values[column.name] = column.defaultValue;
+    }
+  }
+  return values;
+}
+
 /** The update's fields plus `extra` columns the form does not list, such as an inline-editable one. */
 export function updateFields(
   resource: ResourceConfig,

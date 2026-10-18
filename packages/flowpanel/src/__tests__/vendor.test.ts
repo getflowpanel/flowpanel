@@ -3,9 +3,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 // @ts-expect-error Build tooling is executed as JavaScript and deliberately has no public types.
+import * as flatten from "../../scripts/flatten-barrels.mjs";
+// @ts-expect-error Build tooling is executed as JavaScript and deliberately has no public types.
 import * as vendor from "../../scripts/vendor.mjs";
 
 const { directivePrologue, onlyReexports, rewriteFile, sourceModules, specifiers } = vendor;
+const { barrelExports, clientEntry, flattenBarrelImports } = flatten;
 
 const dist = mkdtempSync(join(tmpdir(), "fp-vendor-"));
 afterAll(() => rmSync(dist, { recursive: true, force: true }));
@@ -110,5 +113,63 @@ describe("vendoring the internal packages into the kit", () => {
   it("reads the source modules esbuild bundled into a file", () => {
     const text = '"use client";\n\n// src/a.ts\nvar a = 1;\n\n// src/b/c.tsx\nvar c = 2;\n';
     expect(sourceModules(text, "core")).toEqual(["core/src/a.ts", "core/src/b/c.tsx"]);
+  });
+
+  it("accepts a client entry with only its directive before the re-exports", () => {
+    expect(onlyReexports('"use client";\nexport { A } from "./react/a.mjs";\n')).toBe(true);
+  });
+});
+
+describe("keeping client modules apart under webpack", () => {
+  const barrel = [
+    'import { Card, CardHeader as Header } from "./chunk-a.mjs";',
+    'import "./chunk-b.mjs";',
+    'import { Form } from "./chunk-c.mjs";',
+    "export { Card, Form, Header as CardHeader };",
+  ].join("\n");
+  const react = join(dist, "react/index.mjs");
+  const barrels = new Map([[react, barrelExports(barrel)]]);
+  const barrelOf = (path: string) => barrels.get(path);
+
+  it("reads what a barrel re-exports and from where, bare chunk imports included", () => {
+    expect(Object.fromEntries(barrelExports(barrel))).toEqual({
+      Card: { from: "./chunk-a.mjs", name: "Card" },
+      CardHeader: { from: "./chunk-a.mjs", name: "CardHeader" },
+      Form: { from: "./chunk-c.mjs", name: "Form" },
+    });
+    expect(barrelExports('import { a } from "./a.mjs";\nconst b = a;\nexport { b };')).toBeNull();
+  });
+
+  it("points a server module's named imports at the modules that define them", () => {
+    const text = [
+      'import { Card, CardHeader as Head } from "../react/index.mjs";',
+      'import { jsx } from "react/jsx-runtime";',
+      'export { Form } from "../react/index.mjs";',
+    ].join("\n");
+    expect(flattenBarrelImports(text, join(dist, "next/index.js"), barrelOf)).toBe(
+      [
+        'import { Card, CardHeader as Head } from "../react/chunk-a.mjs";',
+        'import { jsx } from "react/jsx-runtime";',
+        'export { Form } from "../react/chunk-c.mjs";',
+      ].join("\n"),
+    );
+  });
+
+  it("turns an entry over a barrel of client modules into a client module naming each export", () => {
+    const entry = join(dist, "react.js");
+    expect(clientEntry('export * from "./react/index.mjs";\n', entry, barrelOf, () => true)).toBe(
+      [
+        '"use client";',
+        'export { Card, CardHeader } from "./react/chunk-a.mjs";',
+        'export { Form } from "./react/chunk-c.mjs";',
+        "",
+      ].join("\n"),
+    );
+    expect(
+      clientEntry('export * from "./react/index.mjs";\n', entry, barrelOf, () => false),
+    ).toBeNull();
+    expect(
+      clientEntry('export * from "./core/index.mjs";\n', entry, barrelOf, () => true),
+    ).toBeNull();
   });
 });

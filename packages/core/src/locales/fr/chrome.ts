@@ -28,6 +28,7 @@ export const FR_CHROME: ChromeLabels = {
     resizeColumn: "Redimensionner la colonne",
     columns: "Colonnes",
     columnOptions: "Options de la colonne « {label} »",
+    showAllColumns: "Afficher toutes les colonnes",
     resetWidths: "Réinitialiser la largeur des colonnes",
     columnResized: "{label} : {width} px",
     pinLeft: "Épingler à gauche",

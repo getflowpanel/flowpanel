@@ -131,7 +131,7 @@ export { FormSection, type FormSectionProps } from "./forms/FormSection";
 export { FormSubmit } from "./forms/FormSubmit";
 export type { ResolvedField } from "./forms/field-types";
 export { useFormContext } from "./forms/form-context";
-export { AutoForm } from "./forms/lazy-auto-form";
+export { AutoForm, preloadAutoForm } from "./forms/lazy-auto-form";
 export { confirmLeave } from "./forms/leave-guard";
 export {
   StandaloneFormFields,

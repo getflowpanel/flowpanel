@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { expect, type Page, test } from "@playwright/test";
+import { choosePersona, expect, hydrating, type Page, test } from "./hydration";
 
 async function createProduct(page: Page, title: string): Promise<string> {
   await page.goto("/admin/products/new");
@@ -35,8 +35,8 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
   test.setTimeout(120_000);
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
-  const pageA = await contextA.newPage();
-  const pageB = await contextB.newPage();
+  const pageA = hydrating(await contextA.newPage());
+  const pageB = hydrating(await contextB.newPage());
   const suffix = `${Date.now()}`;
   const titleA = `Private A product ${suffix}`;
   const editedTitleA = `${titleA} edited`;
@@ -112,17 +112,11 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
     expect(JSON.stringify(await referenceA.json())).toContain(customerA);
     expect(JSON.stringify(await referenceB.json())).not.toContain(customerA);
 
-    await Promise.all([
-      pageA.waitForURL(/\/admin$/),
-      pageA.getByRole("button", { name: "support", exact: true }).click(),
-    ]);
+    await choosePersona(pageA, "support");
     await pageA.goto("/admin/products");
     await expect(pageA.getByText(editedTitleA).first()).toBeVisible();
     await expect(pageA.getByRole("columnheader", { name: "Our price" })).toHaveCount(0);
-    await Promise.all([
-      pageA.waitForURL(/\/admin$/),
-      pageA.getByRole("button", { name: "admin", exact: true }).click(),
-    ]);
+    await choosePersona(pageA, "admin");
     await pageA.goto("/admin/products");
     await expect(pageA.getByRole("columnheader", { name: "Our price" })).toBeVisible();
     await expect(pageA.locator("tbody tr").filter({ hasText: editedTitleA })).toContainText(

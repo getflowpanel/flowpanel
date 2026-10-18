@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { choosePersona, expect, test } from "./hydration";
 
 test("@cross-browser release shell is responsive and role-aware", async ({ page, isMobile }) => {
   const hydrationWarnings: string[] = [];
@@ -43,27 +43,21 @@ test("@cross-browser release shell is responsive and role-aware", async ({ page,
     expect(accountBox?.height).toBeGreaterThanOrEqual(44);
   }
 
-  await Promise.all([
-    page.waitForURL(/\/admin$/),
-    page.getByRole("button", { name: "support", exact: true }).click(),
-  ]);
-  await expect(page.getByRole("button", { name: "support", exact: true })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await choosePersona(page, "support");
   await page.reload();
-  await page.getByRole("button", { name: "Account menu" }).click();
-  await expect(page.getByText("Role: support")).toBeVisible();
+  // Pressed once more only while it still reads closed, so an open menu is never clicked shut.
+  const account = page.getByRole("button", { name: "Account menu" });
+  await expect(async () => {
+    if ((await account.getAttribute("aria-expanded")) !== "true") await account.click();
+    await expect(page.getByText("Role: support")).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
   expect(hydrationWarnings).toEqual([]);
 });
 
 test("demo persona makes the field-level policy visible", async ({ page }) => {
   await page.goto("/admin");
 
-  await Promise.all([
-    page.waitForURL(/\/admin$/),
-    page.getByRole("button", { name: "support", exact: true }).click(),
-  ]);
+  await choosePersona(page, "support");
   await page.goto("/admin/products");
   await expect(page.getByRole("columnheader", { name: "Our price" })).toHaveCount(0);
   await page.getByRole("row").filter({ hasText: "NWA-APP2-USB-C" }).first().click();
@@ -76,10 +70,7 @@ test("demo persona makes the field-level policy visible", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(drawer).toBeHidden();
 
-  await Promise.all([
-    page.waitForURL(/\/admin$/),
-    page.getByRole("button", { name: "admin", exact: true }).click(),
-  ]);
+  await choosePersona(page, "admin");
   await page.goto("/admin/products");
   await expect(page.getByRole("columnheader", { name: "Our price" })).toBeVisible();
 });

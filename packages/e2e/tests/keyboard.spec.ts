@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./hydration";
 
 /** The skip link is the first focusable element and jumps to main; Esc closes the drawer. */
 test.describe("keyboard navigation", () => {

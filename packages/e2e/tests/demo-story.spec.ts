@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./hydration";
 
 test("canonical demo exposes one coherent seven-screen journey", async ({ page }) => {
   await page.goto("/admin");

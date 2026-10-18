@@ -122,8 +122,8 @@ The SSE envelope helpers, for reading the stream without FlowPanel's client:
 ### The memory driver in a Redis deployment
 
 The publisher is bound per process from `config.realtime` and rebinds when the
-options change. It warns once when the driver is `memory` while `REDIS_URL` or
-`FLOWPANEL_REDIS_URL` is set:
+options change. It warns once per process, on the first publish or stream, when
+the driver is `memory` while `REDIS_URL` or `FLOWPANEL_REDIS_URL` is set:
 
 ```text
 [flowpanel] realtime driver is memory while REDIS_URL is set — other instances

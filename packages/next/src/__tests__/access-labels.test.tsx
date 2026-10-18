@@ -134,6 +134,20 @@ describe("a refused page leaves a way out", () => {
     );
   });
 
+  it("leads a refused edit page back to its own list, not the first entry", async () => {
+    await refusal(new FlowpanelAccessError("forbidden"), admin({}, true), {
+      slug: ["users", "1", "edit"],
+      currentPath: "/admin/users/1/edit",
+      navGroups: [
+        { label: "Home", items: [{ label: "Overview", href: "/admin" }] },
+        ...place.navGroups,
+      ],
+    });
+    expect(screen.getByRole("link", { name: "Back to Users" }).getAttribute("href")).toBe(
+      "/admin/users",
+    );
+  });
+
   it("falls back to Reload when there is nowhere else to go", async () => {
     await refusal(new FlowpanelAccessError("forbidden"), admin({}, true), {
       slug: ["users"],

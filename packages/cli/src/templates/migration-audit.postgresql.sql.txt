@@ -1,6 +1,13 @@
 -- The audit log columns and indexes FlowPanel 0.4 reads, for a table that 0.3's 0001_init.sql created.
+-- An old event whose diff is under 8 KB gets it as its preview; a larger one keeps only its field names there.
 
 ALTER TABLE flowpanel_audit_log ADD COLUMN IF NOT EXISTS actor_name text;
 ALTER TABLE flowpanel_audit_log ADD COLUMN IF NOT EXISTS scope_key text;
+ALTER TABLE flowpanel_audit_log ADD COLUMN IF NOT EXISTS diff_preview jsonb;
 CREATE INDEX IF NOT EXISTS flowpanel_audit_log_target_idx ON flowpanel_audit_log (resource, target_id, at DESC);
 CREATE INDEX IF NOT EXISTS flowpanel_audit_log_scope_idx ON flowpanel_audit_log (scope_key, at DESC);
+UPDATE flowpanel_audit_log SET diff_preview = diff WHERE diff_preview IS NULL AND diff IS NOT NULL AND octet_length(diff::text) <= 8192;
+UPDATE flowpanel_audit_log SET diff_preview = jsonb_build_object('__flowpanelTooLarge', jsonb_build_object(
+  'before', CASE WHEN jsonb_typeof(diff -> 'before') = 'object' THEN (SELECT coalesce(jsonb_agg(k), '[]'::jsonb) FROM jsonb_object_keys(diff -> 'before') AS k) END,
+  'after', CASE WHEN jsonb_typeof(diff -> 'after') = 'object' THEN (SELECT coalesce(jsonb_agg(k), '[]'::jsonb) FROM jsonb_object_keys(diff -> 'after') AS k) END
+)) WHERE diff_preview IS NULL AND diff IS NOT NULL;

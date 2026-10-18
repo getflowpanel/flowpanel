@@ -1,5 +1,6 @@
 "use client";
 import { formatLabel } from "@flowpanel/core/labels";
+import { Download } from "lucide-react";
 import { useToast } from "../feedback/toast-api";
 import { triggerDownload } from "../lib/trigger-download";
 import { useApiBase } from "../provider/ApiBaseContext";
@@ -69,6 +70,16 @@ function useServerExport(resource: string | undefined, tableLabel: string) {
   };
 }
 
+/** A download icon on a phone, where the toolbar has no room for words, and the word above. */
+function ExportFace({ label }: { label: string }) {
+  return (
+    <>
+      <Download aria-hidden className="fp-h-4 fp-w-4 fp-text-faint sm:fp-hidden" />
+      <span className="fp-hidden sm:fp-inline">{label}</span>
+    </>
+  );
+}
+
 export function ExportButton<Row extends Record<string, unknown>>({
   columns,
   rows,
@@ -98,9 +109,10 @@ export function ExportButton<Row extends Record<string, unknown>>({
         variant="ghost"
         size="sm"
         disabled={rows.length === 0}
+        aria-label={label}
         onClick={() => run(format)}
       >
-        {label}
+        <ExportFace label={label} />
       </Button>
     );
   }
@@ -108,8 +120,14 @@ export function ExportButton<Row extends Record<string, unknown>>({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" disabled={rows.length === 0}>
-          {label}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={rows.length === 0}
+          aria-label={label}
+        >
+          <ExportFace label={label} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

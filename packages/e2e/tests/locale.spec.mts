@@ -7,7 +7,7 @@ import {
   type ResolvedLabels,
   RU_LABELS,
 } from "@flowpanel/kit";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./hydration";
 
 const PRESETS: Record<string, ResolvedLabels> = {
   "ru-RU": RU_LABELS,

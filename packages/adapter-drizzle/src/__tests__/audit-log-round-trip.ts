@@ -1,5 +1,5 @@
 import type { AuditLogStore } from "@flowpanel/core";
-import { dashboardActionAudit } from "@flowpanel/core/internal";
+import { dashboardActionAudit, storedAuditPreview } from "@flowpanel/core/internal";
 import { expect } from "vitest";
 
 /** What every adapter's `flowpanel_audit_log` store must do on a freshly migrated database. */
@@ -88,4 +88,64 @@ export async function expectAuditLogRoundTrip(store: AuditLogStore | undefined):
   expect(own.entries.map((e) => e.action)).toEqual(["session.signin"]);
   const runs = { resources: [], actions: [sync.action] };
   expect((await store.list({ actorId: "u4", visible: runs, limit: 10, offset: 0 })).total).toBe(2);
+
+  const big = "x".repeat(1_000_000);
+  await store.append({
+    actorId: "u5",
+    action: "orders.update",
+    resource: "orders",
+    targetId: "9",
+    diff: { before: { note: "short" }, after: { note: big } },
+    scope: { tenantId: "t1" },
+    at: later,
+  });
+  const [listed] = (await store.list({ actorId: "u5", limit: 1, offset: 0 })).entries;
+  if (!listed) throw new Error("the large event was not listed");
+  expect(JSON.stringify(listed.diff).length).toBeLessThan(600);
+  const after = listed.diff?.after as Record<string, unknown> | undefined;
+  expect(storedAuditPreview(after?.note)).toEqual({ text: "x".repeat(400), length: 1_000_000 });
+  expect(listed.diff?.before).toEqual({ note: "short" });
+  const tenant1 = { key: '{"tenantId":"t1"}' };
+  const whole = await store.entry({ id: listed.id, scope: tenant1 });
+  expect((whole?.diff?.after as Record<string, unknown> | undefined)?.note).toBe(big);
+  expect(await store.entry({ id: listed.id, scope: { key: '{"tenantId":"t2"}' } })).toBeNull();
+  const elsewhere = { resources: ["users"], actions: [] };
+  expect(await store.entry({ id: listed.id, scope: tenant1, visible: elsewhere })).toBeNull();
+}
+
+const OLD_LARGE_NOTE = "z".repeat(20_000);
+
+/** Two events a 0.3 table holds before its 0002 runs: one small enough to copy as its preview, one too large. */
+export function oldAuditRows(dialect: "postgresql" | "mysql" | "sqlite"): string[] {
+  const json = dialect === "postgresql" ? "::jsonb" : "";
+  const small = JSON.stringify({ before: { note: "a" }, after: { note: "b" } });
+  const large = JSON.stringify({ before: { note: "a" }, after: { note: OLD_LARGE_NOTE } });
+  const odd = JSON.stringify([OLD_LARGE_NOTE]);
+  return [
+    ["old-small", small],
+    ["old-large", large],
+    ["old-odd", odd],
+  ].map(
+    ([target, diff]) =>
+      `INSERT INTO flowpanel_audit_log (action, resource, target_id, diff) VALUES ('orders.update', 'orders', '${target}', '${diff}'${json})`,
+  );
+}
+
+/** After the 0002: the small old event shows its diff; the large one is flagged and still reads whole. */
+export async function expectOldRowsAfterUpgrade(store: AuditLogStore | undefined): Promise<void> {
+  if (!store) throw new Error("the adapter has no auditLog");
+  const page = (targetId: string) =>
+    store.list({ resource: "orders", targetId, limit: 1, offset: 0 });
+  const [small] = (await page("old-small")).entries;
+  expect(small?.diff).toEqual({ before: { note: "a" }, after: { note: "b" } });
+  expect(small?.diffTooLarge).toBeUndefined();
+  const [large] = (await page("old-large")).entries;
+  const unknown = { __flowpanelPreview: { text: "", length: 0 } };
+  expect(large?.diff).toEqual({ before: { note: unknown }, after: { note: unknown } });
+  expect(large?.diffTooLarge).toBe(true);
+  const [odd] = (await page("old-odd")).entries;
+  expect(odd?.diff).toEqual({ before: null, after: null });
+  expect(odd?.diffTooLarge).toBe(true);
+  const whole = await store.entry({ id: large?.id ?? "" });
+  expect((whole?.diff?.after as Record<string, unknown> | undefined)?.note).toBe(OLD_LARGE_NOTE);
 }

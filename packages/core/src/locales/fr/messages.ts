@@ -36,6 +36,7 @@ export const FR_MESSAGES: MessageLabels = {
     inUse: "D’autres enregistrements renvoient encore à celui-ci",
     createDisabled: "La création est désactivée pour cette rubrique.",
     editDisabled: "La modification est désactivée pour cette rubrique.",
+    loading: "Chargement du formulaire…",
   },
   notFound: {
     title: "Page introuvable",
@@ -176,6 +177,11 @@ export const FR_MESSAGES: MessageLabels = {
       many: "{n} de lignes seront importées.",
       other: "{n} lignes seront importées.",
     },
+    skipped: {
+      one: "{n} colonne sera ignorée : {columns}.",
+      many: "{n} de colonnes seront ignorées : {columns}.",
+      other: "{n} colonnes seront ignorées : {columns}.",
+    },
     confirm: "Importer",
     importing: "Importation…",
     unsupported: "Ce type de fichier ne peut pas être importé. Utilisez {formats}.",
@@ -252,6 +258,12 @@ export const FR_MESSAGES: MessageLabels = {
     after: "Après",
     emptyValue: "vide",
     actionOption: "{resource} : {action}",
+    showFullValue: "Afficher la valeur entière",
+    showLess: "Afficher moins",
+    fullValueFailed: "Impossible de charger la valeur entière. Réessayez.",
+    changesTooLarge: "Modifications trop volumineuses pour un aperçu",
+    noReadableChanges: "Aucune modification lisible",
+    characters: { one: "{n} caractère", many: "{n} de caractères", other: "{n} caractères" },
   },
   fields: {
     id: "ID",

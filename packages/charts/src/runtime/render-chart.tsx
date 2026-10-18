@@ -2,23 +2,9 @@
 import type { WidgetCaption, WidgetConfig } from "@flowpanel/core";
 import { chartBox } from "@flowpanel/core/internal";
 import { Card, CardHeading } from "@flowpanel/react";
-import {
-  lazy,
-  type ReactNode,
-  Suspense,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChartSkeleton } from "./ChartSkeleton";
-
-// One more try after a short wait, as when a redeploy removed the chunk the page asked for.
-const ChartBody = lazy(() =>
-  import("./chart-body").catch(() =>
-    new Promise<void>((resolve) => setTimeout(resolve, 800)).then(() => import("./chart-body")),
-  ),
-);
+import { ChartBody } from "./lazy-body";
 
 type ChartWidget = Extract<WidgetConfig, { kind: `${string}Chart` }>;
 

@@ -65,6 +65,7 @@ export const DEFAULT_LABELS: {
     resizeColumn: "Resize column",
     columns: "Columns",
     columnOptions: "Column options for {label}",
+    showAllColumns: "Show all columns",
     resetWidths: "Reset column widths",
     columnResized: "{label}, {width} px",
     pinLeft: "Pin left",
@@ -234,6 +235,7 @@ export const DEFAULT_LABELS: {
     inUse: "Other records still point to this one",
     createDisabled: "Create is disabled for this resource.",
     editDisabled: "Editing is disabled for this resource.",
+    loading: "Loading form…",
   },
   notFound: {
     title: "Page not found",
@@ -365,6 +367,10 @@ export const DEFAULT_LABELS: {
     notObject: "This row is not an object.",
     confirmTitle: "Import {file}?",
     rows: { one: "{n} row will be imported.", other: "{n} rows will be imported." },
+    skipped: {
+      one: "{n} column will be skipped: {columns}.",
+      other: "{n} columns will be skipped: {columns}.",
+    },
     confirm: "Import",
     importing: "Importing…",
     unsupported: "This file type can't be imported. Use {formats}.",
@@ -430,6 +436,12 @@ export const DEFAULT_LABELS: {
     after: "After",
     emptyValue: "empty",
     actionOption: "{resource}: {action}",
+    showFullValue: "Show full value",
+    showLess: "Show less",
+    fullValueFailed: "Couldn't load the full value. Try again.",
+    changesTooLarge: "Changes too large to preview",
+    noReadableChanges: "No readable changes",
+    characters: { one: "{n} character", other: "{n} characters" },
   },
 } as const;
 

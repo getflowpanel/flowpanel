@@ -42,7 +42,7 @@ export interface AuditConfig {
   access?: AccessRule;
 }
 
-/** One stored audit event, as the History tab and the Audit log page read it. */
+/** One stored audit event. From `list`, each long value in `diff` is cut to its start; `entry` reads it whole. */
 export interface AuditLogEntry {
   id: string;
   actorId: string | null;
@@ -51,6 +51,8 @@ export interface AuditLogEntry {
   resource: string | null;
   targetId: string | null;
   diff: { before: unknown; after: unknown } | null;
+  /** From `list`: the diff predates previews and was too large to copy; `diff` names its fields with empty previews. */
+  diffTooLarge?: boolean;
   at: Date;
 }
 
@@ -66,6 +68,8 @@ export interface AuditLogQuery {
   scope?: { key: string | null };
   /** Present when the reader may not see every resource. */
   visible?: AuditLogVisibility;
+  /** One event by its stored id. */
+  id?: string;
   resource?: string;
   targetId?: string;
   actorId?: string;
@@ -94,7 +98,10 @@ export interface AuditLogFacets {
 /** The `flowpanel_audit_log` table, as an adapter exposes it. */
 export interface AuditLogStore {
   append(event: AuditEvent): Promise<void>;
+  /** A page of events with their bounded diff previews, never the whole stored diffs. */
   list(query: AuditLogQuery): Promise<AuditLogPage>;
+  /** One event, `id` set, with its whole diff, under the same `scope` and `visible` bounds as `list`. */
+  entry(query: Pick<AuditLogQuery, "scope" | "visible" | "id">): Promise<AuditLogEntry | null>;
   /** Who acted and what ran among the events `query` selects, newest actors first. */
   facets(query: Pick<AuditLogQuery, "scope" | "visible" | "from">): Promise<AuditLogFacets>;
 }

@@ -51,6 +51,7 @@ export const PT_BR_MESSAGES: MessageLabels = {
     inUse: "Outros registros ainda apontam para este",
     createDisabled: "Não é possível criar registros nesta seção.",
     editDisabled: "Não é possível editar registros nesta seção.",
+    loading: "Carregando formulário…",
   },
   notFound: {
     title: "Página não encontrada",
@@ -191,6 +192,11 @@ export const PT_BR_MESSAGES: MessageLabels = {
       many: "{n} de linhas serão importadas.",
       other: "{n} linhas serão importadas.",
     },
+    skipped: {
+      one: "{n} coluna será ignorada: {columns}.",
+      many: "{n} de colunas serão ignoradas: {columns}.",
+      other: "{n} colunas serão ignoradas: {columns}.",
+    },
     confirm: "Importar",
     importing: "Importando…",
     unsupported: "Este tipo de arquivo não pode ser importado. Use {formats}.",
@@ -266,6 +272,12 @@ export const PT_BR_MESSAGES: MessageLabels = {
     after: "Depois",
     emptyValue: "vazio",
     actionOption: "{resource}: {action}",
+    showFullValue: "Mostrar valor completo",
+    showLess: "Mostrar menos",
+    fullValueFailed: "Não foi possível carregar o valor completo. Tente de novo.",
+    changesTooLarge: "Alterações grandes demais para a pré-visualização",
+    noReadableChanges: "Nenhuma alteração legível",
+    characters: { one: "{n} caractere", many: "{n} de caracteres", other: "{n} caracteres" },
   },
   fields: {
     id: "ID",

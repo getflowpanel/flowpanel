@@ -248,6 +248,31 @@ describe("InlineEditCell with choices", () => {
     vi.unstubAllGlobals();
   });
 
+  it("saves a pick that came with no key press at once, as a touch picker or assistive tech sends it", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <InlineEditCell
+        resource="tickets"
+        id="3"
+        field="status"
+        label="Status"
+        value="new"
+        valueType="enum"
+        options={[
+          { value: "new", label: "New" },
+          { value: "solved", label: "Solved" },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Edit Status$/ }), { detail: 1 });
+    fireEvent.change(screen.getByRole("combobox", { name: "Status" }), {
+      target: { value: "solved" },
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    vi.unstubAllGlobals();
+  });
+
   it("moves only the draft on the keyboard and saves on Enter", async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);

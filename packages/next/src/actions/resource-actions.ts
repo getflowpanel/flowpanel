@@ -26,13 +26,14 @@ import { readLiveRow, readRow } from "../runtime/read-row";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAccessIfSet } from "../runtime/require-access";
 import { requireAuthorized } from "../runtime/require-authorized";
-import { declaredFormFields, deniedFieldWrites } from "../runtime/resolve-form-fields";
+import { deniedFieldWrites } from "../runtime/resolve-form-fields";
 import { rowKeyOf } from "../runtime/row-identity";
 import { scopeBinding } from "../runtime/scope-binding";
 import { auditDiff, commitEffects, type WriteEffects } from "../runtime/write-pipeline";
 import {
   applyFieldDefaults,
   assertResourceWritableInput,
+  createFormFields,
   editableColumns,
   formInput,
   pickSchema,
@@ -128,7 +129,12 @@ export function makeActions(
       const reqCtx = await ctxFor(buildHref(config, name, "new"));
       await guard(reqCtx, "create");
 
-      const fields = declaredFormFields(resource, "create");
+      const fields = await createFormFields(
+        config,
+        resource,
+        reqCtx,
+        opts.fromForm ? undefined : input,
+      );
       const denied = await deniedFieldWrites(resource, reqCtx, null);
       const submitted = opts.fromForm ? formInput(fields, input, null, denied) : input;
       const safe = await assertResourceWritableInput(resource, fields, submitted, null, reqCtx);

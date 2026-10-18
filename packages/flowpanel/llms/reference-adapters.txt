@@ -62,15 +62,20 @@ admin appends each [audit event](/docs/guides/audit-log) to it and reads the rec
 History tabs and the Audit log page from it. The shipped adapters bind every value
 through the same client `flowpanel migrate` uses. `list` returns events newest
 first; with `scope` set, only those whose stored tenant key equals `scope.key`.
-`append` writes one row per id in `targetIds`. Without `auditLog`, an admin with
-`audit` on needs a `sink`.
+`append` writes one row per id in `targetIds`, with the whole diff in `diff` and a
+copy in `diff_preview` whose long values keep their first 400 characters. `list`
+reads only `diff_preview`, so a page of events never moves the whole diffs;
+`entry` reads one event's whole `diff`, under the same `scope` and `visible`
+bounds, for **Show full value**. Without `auditLog`, an admin with `audit` on
+needs a `sink`.
 
 `AuditLogStore`
 
 | Property | Type | Notes |
 | --- | --- | --- |
 | `append` | `(event: AuditEvent) => Promise<void>` |  |
-| `list` | `(query: AuditLogQuery) => Promise<AuditLogPage>` |  |
+| `list` | `(query: AuditLogQuery) => Promise<AuditLogPage>` | A page of events with their bounded diff previews, never the whole stored diffs. |
+| `entry` | `(query: Pick<AuditLogQuery, "scope" \| "visible" \| "id">) => Promise<AuditLogEntry \| null>` | One event, `id` set, with its whole diff, under the same `scope` and `visible` bounds as `list`. |
 | `facets` | `(query: Pick<AuditLogQuery, "scope" \| "visible" \| "from">) => Promise<AuditLogFacets>` | Who acted and what ran among the events `query` selects, newest actors first. |
 
 ### Raw SQL

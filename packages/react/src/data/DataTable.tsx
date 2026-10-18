@@ -24,6 +24,7 @@ import { useColumnLayout } from "./useColumnLayout";
 import { useDataTableKeyboard } from "./useDataTableKeyboard";
 import { useDataTableSelection } from "./useDataTableSelection";
 import { useTableLive } from "./useTableLive";
+import { fitToWidest, widestCellPx } from "./widest-cell";
 
 export type {
   DataTableColumn,
@@ -296,7 +297,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             {...(onRowClick ? { onRowClick } : {})}
             {...(selection ? { selection } : {})}
             {...(onSelectionChange ? { onSelectionChange } : {})}
-            {...(rowEndCell ? { rowEndCell } : {})}
+            {...(rowEndCell ? { rowEndCell, actionsBelow: rowEndCellRem > ROW_END_REM } : {})}
             {...(emptyTitle ? { emptyTitle } : {})}
             {...(emptyDescription ? { emptyDescription } : {})}
             {...(emptyAction ? { emptyAction } : {})}
@@ -341,7 +342,12 @@ export function DataTable<Row extends Record<string, unknown>>({
             onToggleAll={toggleAll}
             onHeaderClick={handleHeaderClick}
             {...(onColumnWidthsChange ? { onColumnWidthsChange } : {})}
-            fitWidth={(c) => fitPx(c, { headExtrasRem, raisedPx: raised[c.field] })}
+            fitWidth={(c) =>
+              fitToWidest(
+                fitPx(c, { headExtrasRem, raisedPx: raised[c.field] }),
+                widestCellPx(tableRef.current, c.field),
+              )
+            }
             {...(onPinnedColumnsChange ? { onPinnedColumnsChange } : {})}
             resizingRef={resizingRef}
             liveWidthsRef={liveWidthsRef}

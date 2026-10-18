@@ -36,6 +36,7 @@ export const ES_MESSAGES: MessageLabels = {
     inUse: "Otros registros todavía hacen referencia a este",
     createDisabled: "En esta sección no se pueden crear registros.",
     editDisabled: "En esta sección no se pueden editar registros.",
+    loading: "Cargando formulario…",
   },
   notFound: {
     title: "Página no encontrada",
@@ -173,6 +174,11 @@ export const ES_MESSAGES: MessageLabels = {
       many: "Se importarán {n} de filas.",
       other: "Se importarán {n} filas.",
     },
+    skipped: {
+      one: "Se omitirá {n} columna: {columns}.",
+      many: "Se omitirán {n} de columnas: {columns}.",
+      other: "Se omitirán {n} columnas: {columns}.",
+    },
     confirm: "Importar",
     importing: "Importando…",
     unsupported: "No se puede importar este tipo de archivo. Usa {formats}.",
@@ -246,6 +252,12 @@ export const ES_MESSAGES: MessageLabels = {
     after: "Después",
     emptyValue: "vacío",
     actionOption: "{resource}: {action}",
+    showFullValue: "Mostrar valor completo",
+    showLess: "Mostrar menos",
+    fullValueFailed: "No se pudo cargar el valor completo. Inténtalo de nuevo.",
+    changesTooLarge: "Cambios demasiado grandes para la vista previa",
+    noReadableChanges: "No hay cambios legibles",
+    characters: { one: "{n} carácter", many: "{n} de caracteres", other: "{n} caracteres" },
   },
   fields: {
     id: "ID",

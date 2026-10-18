@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS flowpanel_audit_log (
   resource varchar(255),
   target_id varchar(255),
   diff json,
+  diff_preview json,
   ip varchar(45),
   user_agent text,
   scope_key text,

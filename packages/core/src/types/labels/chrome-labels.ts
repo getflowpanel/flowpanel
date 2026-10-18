@@ -22,6 +22,8 @@ export interface ImporterLabels {
   confirmTitle?: string;
   /** How many rows the file holds. */
   rows?: string | PluralLabel;
+  /** The file's columns the import does not read. Use `{n}` and `{columns}`. */
+  skipped?: string | PluralLabel;
   confirm?: string;
   importing?: string;
   /** Use `{formats}` for the accepted extensions. */
@@ -111,6 +113,18 @@ export interface AuditLabels {
   emptyValue?: string;
   /** An action filter option. Use `{resource}` and `{action}`. */
   actionOption?: string;
+  /** After the start of a long value; expands it in place. */
+  showFullValue?: string;
+  /** Folds an expanded value back to its start. */
+  showLess?: string;
+  /** Under a long value whose full text could not be loaded. */
+  fullValueFailed?: string;
+  /** Above the fields of an old event whose diff was stored before previews and is too large to show inline. */
+  changesTooLarge?: string;
+  /** An old event too large to preview, none of whose fields this reader may see. */
+  noReadableChanges?: string;
+  /** Beside two long values that start alike. Use `{n}`. */
+  characters?: string | PluralLabel;
 }
 
 /** The list table's chrome. */
@@ -125,6 +139,8 @@ export interface TableLabels {
   columns?: string;
   /** A column's pin menu. Use `{label}` for the column. */
   columnOptions?: string;
+  /** The columns menu item that shows every hidden column again. */
+  showAllColumns?: string;
   /** The columns menu item that drops every width the reader dragged. */
   resetWidths?: string;
   /** Read out after a keyboard resize. Use `{label}` for the column and `{width}` for its px. */
@@ -187,6 +203,8 @@ export interface FormLabels {
   error?: string;
   /** A reference picker before a choice. */
   referencePlaceholder?: string;
+  /** Beside the submit while a form's code is still loading and it takes no input yet. */
+  loading?: string;
   /** A tags control's input. */
   tagPlaceholder?: string;
   /** A tag's remove button. Use `{tag}`. */

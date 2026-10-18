@@ -2,6 +2,17 @@ export { authProvider } from "../auth-provider";
 export { isBuiltinBulkDelete } from "../compiler/builtin-bulk-delete";
 export { emitAudit, isAuditActive } from "../runtime/audit";
 export {
+  AUDIT_PREVIEW_KEY,
+  AUDIT_STORED_PREVIEW,
+  AUDIT_VALUE_PREVIEW,
+  auditDiffPreview,
+  auditValueText,
+  cutAuditText,
+  isLongAuditValue,
+  type StoredAuditPreview,
+  storedAuditPreview,
+} from "../runtime/audit-preview";
+export {
   AUDIT_COUNT_CAP,
   type AuditSqlDialect,
   type AuditSqlExecutor,

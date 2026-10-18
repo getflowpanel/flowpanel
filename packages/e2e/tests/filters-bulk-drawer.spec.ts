@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./hydration";
 
 /** A filter narrowing the customers list, bulk selection, the row drawer and its action. */
 

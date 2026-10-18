@@ -11,7 +11,7 @@ FlowPanel 0.4 publishes three packages: `@flowpanel/kit`, `@flowpanel/cli` and `
 pnpm up "@flowpanel/*" --latest
 ```
 
-If 0.3's `init` wrote `flowpanel/migrations/0001_init.sql`, run `migrate` once more. The 0.4 audit log writes two columns, `actor_name` and `scope_key`, that a 0.3 table lacks:
+If 0.3's `init` wrote `flowpanel/migrations/0001_init.sql`, run `migrate` once more. The 0.4 audit log writes three columns, `actor_name`, `scope_key` and `diff_preview`, that a 0.3 table lacks. The `0002` also copies each old event's diff under 8 KB into `diff_preview`; a larger old one shows "Changes too large to preview" in History and the Audit log, with **Show full value** on each of its fields:
 
 ```bash
 pnpm flowpanel migrate
@@ -66,6 +66,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | a numeric key in a resource's `columns` or `filters` | string keys of the row only (`keyof Row & string`) |
 | code that matched error text such as "Duplicate resource name" | every config error is a `FlowpanelConfigError` reading `[flowpanel] <where>: <what is wrong>. <how to fix>.`; match its `where` |
 | a resource or queue named `export` or `palette`, or a dashboard or page at `/audit-log` | other names: these are reserved |
+| a `select`, `radio` or `multiselect` field whose fixed `defaultValue` is not among its fixed `options`, which the form dropped | a default that is one of the options, or `""` or `[]` for no choice: `defineAdmin` now refuses the rest and names the options |
 | `DrawerFieldFormSpec`, a drawer action's `palette`, and the 0.3 `DrawerAction` options | `DrawerAction` takes a `RowAction`'s options apart from `hidden` and `disabled`: `confirm` takes a title, description and button label, and `form` takes `FieldDef`s |
 | `RowAction.hidden` (deprecated) | `when`, which gets the row as `current` with the request context |
 | `labels.noResults`, `labels.searchPlaceholder`, `labels.allOption`, `labels.formError` | `labels.table.noResults`, `table.searchPlaceholder`, `filters.allOption`, `form.error`; `defineAdmin` throws on the old names |
@@ -115,7 +116,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
 | `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration`; `flowpanel migrate` no longer falls back to them or reads `basePath` |
 | **CLI** | |
-| a 0.3 `flowpanel_audit_log` table without `actor_name` and `scope_key` | run `pnpm flowpanel migrate`, as above |
+| a 0.3 `flowpanel_audit_log` table without `actor_name`, `scope_key` and `diff_preview` | run `pnpm flowpanel migrate`, as above |
 | an extra argument, such as `flowpanel doctor extra`, ignored | every command stops with an error |
 | `migrate` with an unset `DATABASE_URL` falling back to localhost | `migrate` stops before connecting; set the URL your client reads |
 
