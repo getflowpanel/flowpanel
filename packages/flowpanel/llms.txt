@@ -1,8 +1,8 @@
 # FlowPanel
 
-> A typed admin panel for Next.js. Describe your Drizzle or Prisma tables in a typed config and get lists, forms, record pages and dashboards at /admin. Open source, MIT licensed.
+> Add an admin panel to your Next.js app: lists, forms, record pages and dashboards from your Drizzle or Prisma schema and a typed config. Open source, MIT.
 
-Admin panel for Next.js in one package: config builders, Drizzle and Prisma adapters, the App Router runtime, React UI and auth presets.
+Typed admin panel for Next.js App Router apps: lists, forms, record pages and dashboards from your Drizzle or Prisma schema.
 
 ```bash
 pnpm dlx @flowpanel/cli init

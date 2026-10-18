@@ -2,7 +2,7 @@
 
 ## Prisma setup
 
-Connect FlowPanel to an existing Prisma project on PostgreSQL, MySQL or SQLite.
+Connect FlowPanel to an existing Prisma 5 or 6 project on PostgreSQL, MySQL or SQLite, and get an admin panel for its models at /admin.
 
 Docs: https://flowpanel.tech/docs/introduction/prisma
 

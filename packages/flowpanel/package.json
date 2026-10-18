@@ -1,18 +1,27 @@
 {
   "name": "@flowpanel/kit",
   "version": "0.3.0",
-  "description": "Admin panel for Next.js in one package: config builders, Drizzle and Prisma adapters, the App Router runtime, React UI and auth presets",
+  "description": "Typed admin panel for Next.js App Router apps: lists, forms, record pages and dashboards from your Drizzle or Prisma schema",
   "keywords": [
     "flowpanel",
     "admin",
     "admin-panel",
+    "admin-dashboard",
+    "backoffice",
+    "internal-tools",
+    "crud",
     "dashboard",
     "nextjs",
+    "next.js",
+    "app-router",
     "react",
-    "crud",
-    "rbac",
+    "typescript",
     "drizzle",
-    "prisma"
+    "drizzle-orm",
+    "prisma",
+    "rbac",
+    "audit-log",
+    "bullmq"
   ],
   "license": "MIT",
   "repository": {
@@ -20,7 +29,7 @@
     "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/flowpanel"
   },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
+  "homepage": "https://flowpanel.tech",
   "type": "module",
   "exports": {
     ".": {

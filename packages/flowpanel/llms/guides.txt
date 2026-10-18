@@ -187,7 +187,7 @@ Every option: [AuthConfig](/docs/reference/define-config#authconfig).
 
 ## Roles and permissions
 
-Enforce admin, resource, action, field, row, and tenant access on the server.
+Limit who can open the admin, each dashboard, resource and action, which fields each role can read or write, and which rows an action applies to.
 
 Docs: https://flowpanel.tech/docs/guides/permissions
 

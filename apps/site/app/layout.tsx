@@ -7,6 +7,8 @@ import type { ReactNode } from "react";
 import { AdapterScript, DEFAULT_ADAPTER } from "@/features/adapter-switcher";
 import { ogImages } from "@/shared/lib/og-image";
 import { siteConfig } from "@/shared/lib/site-config";
+import { siteJsonLd } from "@/shared/lib/structured-data";
+import { JsonLd } from "@/shared/ui/json-ld";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -49,6 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <AdapterScript />
       </head>
       <body>
+        <JsonLd data={siteJsonLd()} />
         <RootProvider>{children}</RootProvider>
       </body>
     </html>

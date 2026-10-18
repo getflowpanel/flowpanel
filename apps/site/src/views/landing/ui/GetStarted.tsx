@@ -44,7 +44,22 @@ export function GetStarted() {
           <Link href="/docs/introduction/founder-admin" className={linkClass}>
             build a complete admin
           </Link>{" "}
-          for dashboards and record pages.
+          for dashboards and record pages. Each ORM has its own notes: the{" "}
+          <Link href="/docs/introduction/drizzle" className={linkClass}>
+            Drizzle setup
+          </Link>{" "}
+          and the{" "}
+          <Link href="/docs/introduction/prisma" className={linkClass}>
+            Prisma setup
+          </Link>
+          .
+        </p>
+        <p>
+          Comparing it with Retool, AdminJS, react-admin or Drizzle Studio?{" "}
+          <Link href="/docs/introduction/why-flowpanel" className={linkClass}>
+            Why FlowPanel
+          </Link>{" "}
+          says where each one fits better.
         </p>
         <p>
           Two examples run locally with seeded data:{" "}

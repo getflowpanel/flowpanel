@@ -21,6 +21,15 @@ describe("documentation contract", () => {
     ).not.toThrow();
   });
 
+  it("rejects a redirect that would hide an existing page", () => {
+    expect(() =>
+      validateDocRedirects(
+        [{ source: "/docs/build", destination: "/docs/current" }],
+        new Set(["/docs/build", "/docs/current"]),
+      ),
+    ).toThrow(/hides a page/i);
+  });
+
   it("rejects redirects whose destination is not canonical", () => {
     expect(() =>
       validateDocRedirects(

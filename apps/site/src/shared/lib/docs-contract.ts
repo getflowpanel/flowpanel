@@ -9,10 +9,26 @@ export const DOC_KINDS = [
 export interface DocRedirect {
   source: "/docs" | `/docs/${string}`;
   destination: `/docs/${string}` | "/changelog";
+  /** Section roots point at whichever page comes first, so browsers must not cache them. */
+  permanent?: false;
 }
 
 export const DOC_REDIRECTS = [
   { source: "/docs", destination: "/docs/introduction/getting-started" },
+  {
+    source: "/docs/introduction",
+    destination: "/docs/introduction/getting-started",
+    permanent: false,
+  },
+  { source: "/docs/build", destination: "/docs/build/configuration", permanent: false },
+  { source: "/docs/customization", destination: "/docs/customization/overview", permanent: false },
+  { source: "/docs/guides", destination: "/docs/guides/production-readiness", permanent: false },
+  {
+    source: "/docs/understand",
+    destination: "/docs/understand/how-flowpanel-works",
+    permanent: false,
+  },
+  { source: "/docs/reference", destination: "/docs/reference/define-config", permanent: false },
   { source: "/docs/integrations/drizzle", destination: "/docs/introduction/drizzle" },
   { source: "/docs/integrations/prisma", destination: "/docs/introduction/prisma" },
   { source: "/docs/core-concepts/configuration", destination: "/docs/build/configuration" },
@@ -74,6 +90,9 @@ export function validateDocRedirects(
   }
 
   for (const redirect of redirects) {
+    if (canonicalRoutes.has(redirect.source)) {
+      throw new Error(`Documentation redirect hides a page: ${redirect.source}`);
+    }
     if (destinations.has(redirect.destination)) {
       throw new Error(
         `Documentation redirect chain: ${redirect.source} points to ${redirect.destination}`,

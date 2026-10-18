@@ -21,18 +21,28 @@ const nextConfig: NextConfig = {
   // Required so the monorepo standalone trace includes workspace packages.
   outputFileTracingRoot: resolve(process.cwd(), "../.."),
   reactStrictMode: true,
+  poweredByHeader: false,
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
   images: {
     formats: ["image/avif", "image/webp"],
   },
+  headers() {
+    const noindex = [{ key: "X-Robots-Tag", value: "noindex" }];
+    return Promise.resolve(
+      ["/api/md/:path*", "/llms.txt", "/llms-full.txt", "/llms/:path*"].map((source) => ({
+        source,
+        headers: noindex,
+      })),
+    );
+  },
   redirects() {
     return Promise.resolve(
-      DOC_REDIRECTS.map(({ source, destination }) => ({
-        source,
-        destination,
-        permanent: true,
+      DOC_REDIRECTS.map((redirect) => ({
+        source: redirect.source,
+        destination: redirect.destination,
+        permanent: "permanent" in redirect ? redirect.permanent : true,
       })),
     );
   },

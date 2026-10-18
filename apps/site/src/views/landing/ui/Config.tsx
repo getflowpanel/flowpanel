@@ -32,7 +32,11 @@ export function Config() {
         <figcaption className="font-mono text-xs text-[var(--color-fg-subtle)]">
           flowpanel.config.ts
         </figcaption>
-        <pre className="mt-3 overflow-x-auto whitespace-pre rounded-lg bg-[var(--color-bg-subtle)] p-4 font-mono text-xs leading-relaxed text-[var(--color-fg)] sm:p-6 sm:text-[13px]">
+        <pre
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: the sample scrolls sideways at phone width, so the keyboard must reach it.
+          tabIndex={0}
+          className="mt-3 overflow-x-auto whitespace-pre rounded-lg bg-[var(--color-bg-subtle)] p-4 font-mono text-xs leading-relaxed text-[var(--color-fg)] sm:p-6 sm:text-[13px]"
+        >
           <code>{highlightTs(CONFIG)}</code>
         </pre>
       </figure>

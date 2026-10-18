@@ -8,6 +8,8 @@
     "eslint-plugin",
     "eslintplugin",
     "admin",
+    "admin-panel",
+    "nextjs",
     "lint"
   ],
   "license": "MIT",
@@ -16,7 +18,7 @@
     "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/eslint-plugin"
   },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
+  "homepage": "https://flowpanel.tech/docs/reference/eslint-plugin",
   "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

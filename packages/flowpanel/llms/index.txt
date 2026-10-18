@@ -1,8 +1,8 @@
 # FlowPanel
 
-> A typed admin panel for Next.js. Describe your Drizzle or Prisma tables in a typed config and get lists, forms, record pages and dashboards at /admin. Open source, MIT licensed.
+> Add an admin panel to your Next.js app: lists, forms, record pages and dashboards from your Drizzle or Prisma schema and a typed config. Open source, MIT.
 
-Admin panel for Next.js in one package: config builders, Drizzle and Prisma adapters, the App Router runtime, React UI and auth presets.
+Typed admin panel for Next.js App Router apps: lists, forms, record pages and dashboards from your Drizzle or Prisma schema.
 
 ```bash
 pnpm dlx @flowpanel/cli init
@@ -26,8 +26,8 @@ This directory is canonical; https://flowpanel.tech/llms/<file> serves the same 
 - llms/introduction-founder-admin-2.txt — Getting started: Build a complete admin, 10. Live updates from the worker, 11. Test the admin, 12. Ship
 - llms/introduction-why-flowpanel.txt — Getting started: Why FlowPanel. Decide whether an embedded, schema-aware admin fits your application better than a hosted tool, an admin framework or a database browser.
 - llms/introduction-limits.txt — Getting started: What FlowPanel does not do yet. The gaps in 0.4 that a real admin runs into, and the workaround for each.
-- llms/introduction-drizzle.txt — Getting started: Drizzle setup. Connect FlowPanel to an existing Drizzle ORM project on PostgreSQL, MySQL or SQLite.
-- llms/introduction-prisma.txt — Getting started: Prisma setup. Connect FlowPanel to an existing Prisma project on PostgreSQL, MySQL or SQLite.
+- llms/introduction-drizzle.txt — Getting started: Drizzle setup. Connect FlowPanel to an existing Drizzle ORM project on PostgreSQL, MySQL or SQLite, and get a typed admin panel for its tables at /admin.
+- llms/introduction-prisma.txt — Getting started: Prisma setup. Connect FlowPanel to an existing Prisma 5 or 6 project on PostgreSQL, MySQL or SQLite, and get an admin panel for its models at /admin.
 - llms/build.txt — Build your admin: Configuration, Resources, Forms, Add actions, Record pages and drawers, Dashboards, Import and export
 - llms/customization.txt — Customize the UI: Choose an extension point, Column renderers, Build a custom widget, Charts, Styling and theme slots, Eject to source
 - llms/guides.txt — Production: Production readiness, Authentication, Roles and permissions, Multi-tenant scope, Audit log, Realtime, Queues, Upgrade from 0.3

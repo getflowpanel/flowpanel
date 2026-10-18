@@ -203,7 +203,7 @@ it("links the failed stage to failed runs", async () => {
 
 ## Charts
 
-Add server-queried chart widgets or render FlowPanel chart components from client data.
+Add line, area, bar and pie charts to a dashboard from server queries, or render FlowPanel's chart components from your own client data.
 
 Docs: https://flowpanel.tech/docs/customization/charts
 

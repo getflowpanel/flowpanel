@@ -1,13 +1,15 @@
 {
   "name": "@flowpanel/cli",
   "version": "0.3.0",
-  "description": "CLI for FlowPanel: init, dev, new, migrate, doctor and eject",
+  "description": "CLI for FlowPanel, the typed admin panel for Next.js: init, new, migrate, doctor, dev and eject",
   "keywords": [
     "flowpanel",
     "cli",
     "admin",
     "admin-panel",
     "nextjs",
+    "drizzle",
+    "prisma",
     "scaffolding"
   ],
   "license": "MIT",
@@ -16,7 +18,7 @@
     "url": "git+https://github.com/getflowpanel/flowpanel.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
+  "homepage": "https://flowpanel.tech/docs/reference/cli",
   "sideEffects": false,
   "type": "module",
   "engines": {

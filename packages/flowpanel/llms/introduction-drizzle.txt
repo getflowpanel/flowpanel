@@ -2,7 +2,7 @@
 
 ## Drizzle setup
 
-Connect FlowPanel to an existing Drizzle ORM project on PostgreSQL, MySQL or SQLite.
+Connect FlowPanel to an existing Drizzle ORM project on PostgreSQL, MySQL or SQLite, and get a typed admin panel for its tables at /admin.
 
 Docs: https://flowpanel.tech/docs/introduction/drizzle
 
