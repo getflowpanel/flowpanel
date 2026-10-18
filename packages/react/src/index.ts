@@ -123,13 +123,15 @@ export {
   type AsyncSelectOption,
   type AsyncSelectProps,
 } from "./forms/AsyncSelect";
-export { AutoForm, type AutoFormProps } from "./forms/AutoForm";
+export type { AutoFormProps } from "./forms/AutoForm";
 export { Field as FormField, type FieldProps as FormFieldProps } from "./forms/Field";
-export { Form, type FormActionResult, type FormProps, useFormContext } from "./forms/Form";
+export { Form, type FormActionResult, type FormProps } from "./forms/Form";
 export { FormError } from "./forms/FormError";
 export { FormSection, type FormSectionProps } from "./forms/FormSection";
 export { FormSubmit } from "./forms/FormSubmit";
 export type { ResolvedField } from "./forms/field-types";
+export { useFormContext } from "./forms/form-context";
+export { AutoForm } from "./forms/lazy-auto-form";
 export { confirmLeave } from "./forms/leave-guard";
 export {
   StandaloneFormFields,
@@ -308,42 +310,41 @@ export {
 export { Skeleton } from "./ui/skeleton";
 export { Switch } from "./ui/switch";
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-export { BarsCard, type BarsCardProps, type BarsCardRow } from "./widgets/BarsCard";
+export type { BarsCardProps, BarsCardRow } from "./widgets/BarsCard";
 export { CaptionLine, type CaptionLineProps } from "./widgets/CaptionLine";
 export { CardHeading, type CardHeadingProps } from "./widgets/CardHeading";
-export {
-  ChecklistCard,
-  type ChecklistCardItem,
-  type ChecklistCardProps,
-} from "./widgets/ChecklistCard";
+export type { ChecklistCardItem, ChecklistCardProps } from "./widgets/ChecklistCard";
 export { CustomWidget, type CustomWidgetProps } from "./widgets/CustomWidget";
 export type { CardDate } from "./widgets/card-date";
 export { DashboardRefresh, type DashboardRefreshProps } from "./widgets/DashboardRefresh";
 export { ExpiredCard, type ExpiredCardProps } from "./widgets/ExpiredCard";
-export {
-  FunnelCard,
-  type FunnelCardProps,
-  type FunnelCardStep,
-} from "./widgets/FunnelCard";
-export { HeatmapCard, type HeatmapCardCell, type HeatmapCardProps } from "./widgets/HeatmapCard";
-export { KvCard, type KvCardItem, type KvCardProps } from "./widgets/KvCard";
+export type { FunnelCardProps, FunnelCardStep } from "./widgets/FunnelCard";
+export type { HeatmapCardCell, HeatmapCardProps } from "./widgets/HeatmapCard";
+export type { KvCardItem, KvCardProps } from "./widgets/KvCard";
 export { ListBanner, type ListBannerProps } from "./widgets/ListBanner";
-export { ListCard, type ListCardProps, type ListCardRow } from "./widgets/ListCard";
-export { MetricCard, type MetricCardProps } from "./widgets/MetricCard";
-export { DefaultMetricCard } from "./widgets/MetricCardDefault";
-export { StatCard, type StatCardProps } from "./widgets/StatCard";
-export { StatGroupCard, type StatGroupCardProps } from "./widgets/StatGroupCard";
-export { TableWidget, type TableWidgetProps } from "./widgets/TableWidget";
+export type { ListCardProps, ListCardRow } from "./widgets/ListCard";
 export {
+  BarsCard,
+  ChecklistCard,
+  FunnelCard,
+  HeatmapCard,
+  KvCard,
+  ListCard,
+  MetricCard,
+  StatCard,
+  StatGroupCard,
   TimelineCard,
-  type TimelineCardChip,
-  type TimelineCardGroup,
-  type TimelineCardLine,
-  type TimelineCardProps,
-} from "./widgets/TimelineCard";
-export {
   TrackerCard,
-  type TrackerCardCell,
-  type TrackerCardProps,
-  type TrackerCardRow,
-} from "./widgets/TrackerCard";
+} from "./widgets/lazy-widgets";
+export type { MetricCardProps } from "./widgets/MetricCard";
+export { DefaultMetricCard } from "./widgets/MetricCardDefault";
+export type { StatCardProps } from "./widgets/StatCard";
+export type { StatGroupCardProps } from "./widgets/StatGroupCard";
+export { TableWidget, type TableWidgetProps } from "./widgets/TableWidget";
+export type {
+  TimelineCardChip,
+  TimelineCardGroup,
+  TimelineCardLine,
+  TimelineCardProps,
+} from "./widgets/TimelineCard";
+export type { TrackerCardCell, TrackerCardProps, TrackerCardRow } from "./widgets/TrackerCard";

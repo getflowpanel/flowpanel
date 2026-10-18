@@ -1,6 +1,7 @@
 "use client";
 import type * as React from "react";
 import { Suspense, useEffect, useRef, useState } from "react";
+import { ChunkBoundary } from "../lib/chunk-boundary";
 import { lazyRetry } from "../lib/lazy-retry";
 import { useLabels } from "../provider/LabelsContext";
 
@@ -66,8 +67,10 @@ export function CommandPalette(props: CommandPaletteProps) {
   if (props.open && !opened) setOpened(true);
   if (!opened) return null;
   return (
-    <Suspense fallback={props.open ? <PaletteShell onOpenChange={props.onOpenChange} /> : null}>
-      <CommandPaletteDialog {...props} />
-    </Suspense>
+    <ChunkBoundary floating>
+      <Suspense fallback={props.open ? <PaletteShell onOpenChange={props.onOpenChange} /> : null}>
+        <CommandPaletteDialog {...props} />
+      </Suspense>
+    </ChunkBoundary>
   );
 }

@@ -5,7 +5,7 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { resolveFormatting } from "@flowpanel/core";
-import { fieldLabels } from "./field-labels";
+import { fieldLabels, namedFields } from "./field-labels";
 import { type ListRowsQuery, mayListDeleted } from "./list-rows";
 import { columnMoneyFactors } from "./money-field";
 import {
@@ -50,7 +50,7 @@ export async function listRequestFromParams(
   const parsed = parseListParams(searchParams, surface.defaultSort, surface.fields);
   const timeZone = resolveFormatting(config.formatting).timeZone;
   const factors = columnMoneyFactors(resource);
-  const labelOf = fieldLabels(resource);
+  const labelOf = fieldLabels(resource, [], namedFields(config));
   const filterSpecs = (
     await resolveFilterSpecs(
       surface.filters as Array<keyof Row | FilterDef<Row>>,

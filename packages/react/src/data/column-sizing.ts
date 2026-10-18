@@ -28,6 +28,8 @@ interface Box {
   field: string;
   min: number;
   ideal: number;
+  /** A text column's whole widest value, when its ideal stops short of it. */
+  whole?: number;
   text?: Text;
   turn?: number;
   css?: string;
@@ -103,11 +105,13 @@ function boxOf<Row>(column: DataTableColumn<Row>, headExtrasRem = 0, raisedRem =
     kind === "url" ? "link" : (column.content ?? (kind === "reference" ? "reference" : "text"));
   const [guessed, ideal, turn] = TEXT[text];
   if (column.textRem === undefined) return box(guessed, ideal, { text, turn });
-  const fits = Math.min(
-    text === "link" ? 20 : 26,
-    column.textRem + PAD_REM + (column.editable ? 2 : 0.5),
-  );
-  return box(Math.min(fits, READABLE_REM), fits, { text, turn });
+  const whole = column.textRem + PAD_REM + (column.editable ? 2 : 0.5);
+  const fits = Math.min(text === "link" ? 20 : 26, whole);
+  return box(Math.min(fits, READABLE_REM), fits, {
+    text,
+    turn,
+    ...(whole > fits ? { whole } : {}),
+  });
 }
 
 function boxesOf<Row>(
@@ -149,18 +153,6 @@ export function pinnedPx<Row>(
   return boxOf(column, headExtrasRem, raisedPx / REM_PX).ideal * REM_PX;
 }
 
-/** Who takes the width left at their ideals: long text and references, else the first text column, else every column. */
-function takersOf(boxes: Box[], pinned: ReadonlySet<string>): Box[] {
-  const flexible = boxes.filter((box) => box.turn !== undefined && box.text !== undefined);
-  const named = flexible.filter((box) => box.text === "long" || box.text === "reference");
-  if (named.length > 0) return named;
-  if (flexible[0]) return [flexible[0]];
-  const guessed = boxes.filter((box) => box.turn !== undefined);
-  return guessed.length > 0
-    ? guessed
-    : boxes.filter((box) => box.css === undefined && !pinned.has(box.field));
-}
-
 export interface TableWidths {
   /** Each column's CSS width, measured against the scroller with `cqw`. */
   widths: Map<string, string>;
@@ -168,7 +160,36 @@ export interface TableWidths {
   minWidth: string;
 }
 
-/** Columns grow from their narrowest to their ideal in turns as the frame widens. */
+/** About how wide a text runs in the table's 14 px type, padding included, in rem. */
+const cellRem = (text: string): number => (textWidthEm(text) * 14) / 16 + PAD_REM;
+
+/** A text longer than any measured column's narrowest width, which a cell may cut. */
+export const mayCutText = (text: string): boolean => cellRem(text) > READABLE_REM;
+
+/** A cell's full text for its tooltip, when its column can be narrower than the text. */
+export function cutTitle<Row>(
+  column: DataTableColumn<Row>,
+  text: string | undefined,
+  resized: boolean,
+): string | undefined {
+  if (!text?.trim() || fixedShape(column)) return undefined;
+  if (resized || column.width !== undefined) return text;
+  return cellRem(text) > boxOf(column).min ? text : undefined;
+}
+
+/** A column's width in px when it fits its widest value whole, as a double click on its edge sets it. */
+export function fitPx<Row>(
+  column: DataTableColumn<Row>,
+  {
+    headExtrasRem = 0,
+    raisedPx = 0,
+  }: { headExtrasRem?: number; raisedPx?: number | undefined } = {},
+): number {
+  const box = boxOf(column, headExtrasRem, raisedPx / REM_PX);
+  return Math.round((box.whole ?? box.ideal) * REM_PX);
+}
+
+/** Columns grow from their narrowest to their ideal in turns, a cut text column to its whole value, then all in proportion. */
 export function layoutColumns<Row>(
   columns: ReadonlyArray<DataTableColumn<Row>>,
   {
@@ -204,10 +225,21 @@ export function layoutColumns<Row>(
     }
     reached += need;
   }
-  const takers = takersOf(boxes, pinned);
-  const weight = takers.reduce((sum, box) => sum + box.ideal, 0);
-  for (const box of takers) {
-    const share = box.ideal / weight;
+  const growers = boxes.filter((box) => box.css === undefined && !pinned.has(box.field));
+  const cut = growers.filter((box) => box.whole !== undefined);
+  const cutNeed = cut.reduce((sum, box) => sum + (box.whole ?? box.ideal) - box.ideal, 0);
+  for (const box of cut) {
+    const room = (box.whole ?? box.ideal) - box.ideal;
+    const share = room / cutNeed;
+    widths.set(
+      box.field,
+      `calc(${widths.get(box.field)} + clamp(0rem, ${(share * 100).toFixed(3)}cqw - ${(reached * share).toFixed(3)}rem, ${room.toFixed(3)}rem))`,
+    );
+  }
+  reached += cutNeed;
+  const weight = growers.reduce((sum, box) => sum + (box.whole ?? box.ideal), 0);
+  for (const box of growers) {
+    const share = (box.whole ?? box.ideal) / weight;
     widths.set(
       box.field,
       `calc(${widths.get(box.field)} + max(0rem, ${(share * 100).toFixed(3)}cqw - ${(reached * share).toFixed(3)}rem))`,

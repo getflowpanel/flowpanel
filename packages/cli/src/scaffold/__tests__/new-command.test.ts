@@ -51,7 +51,7 @@ describe("flowpanel new on a Drizzle config", () => {
     const config = result.contents["flowpanel.config.ts"] ?? "";
     expect(config).toContain('import { defineAdmin, resource } from "@flowpanel/kit";');
     expect(config).toContain(
-      '    resource(schema.user, {\n      plural: "Users",\n      columns: [\n',
+      '    resource(schema.user, {\n      plural: "Users",\n      icon: "users",\n      columns: [\n',
     );
     expect(config).toContain('      search: ["email", "name"],');
     expect(config).toContain('      defaultSort: { field: "createdAt", dir: "desc" },');
@@ -163,7 +163,9 @@ describe("flowpanel new on a Prisma config", () => {
     const result = await run(["users"], files, ["flowpanel.config.ts"]);
     expect(result.exit).toBeNull();
     const config = result.contents["flowpanel.config.ts"] ?? "";
-    expect(config).toContain('    resource("User", {\n      name: "users",\n      columns: [\n');
+    expect(config).toContain(
+      '    resource("User", {\n      name: "users",\n      icon: "users",\n      columns: [\n',
+    );
     expect(config).toContain(
       '        { field: "createdAt", format: { kind: "date", time: true } },',
     );
@@ -201,6 +203,53 @@ describe("flowpanel new on a Prisma config", () => {
     expect(config).toContain('        "authorId",\n');
     expect(config).not.toContain("reference:");
     expect(config).not.toContain("create:");
+  });
+
+  it("writes a model into its own file with --dir, wires the directory and types it", async () => {
+    const result = await run(["users", "--dir", "admin/models"], files, [
+      "flowpanel.config.ts",
+      "admin/models/users.ts",
+      "admin/models/index.ts",
+    ]);
+    expect(result.exit).toBeNull();
+    const file = result.contents["admin/models/users.ts"] ?? "";
+    expect(file).toContain('import { resource } from "@flowpanel/kit";');
+    expect(file).toContain('export const users = resource("User", {\n  name: "users",\n');
+    expect(file).toContain('  filters: [{ field: "role", type: "select" }],');
+    expect(result.contents["admin/models/index.ts"]).toBe(
+      'import { users } from "./users";\n\nexport const resources = [users] as const;\n',
+    );
+    const config = result.contents["flowpanel.config.ts"] ?? "";
+    expect(config).toContain('import { resources } from "@/admin/models";');
+    expect(config).toContain("resources: [...resources],");
+    expect(config).toContain('    users: import("@prisma/client").User;');
+    expect(result.stdout).toContain('Added resource "users" to admin/models');
+  });
+
+  it("links a foreign key to a model another file in the directory registers", async () => {
+    const first = await run(["users", "--dir", "admin/models"], files, [
+      "flowpanel.config.ts",
+      "admin/models/users.ts",
+      "admin/models/index.ts",
+    ]);
+    const result = await run(
+      ["Post"],
+      {
+        ...files,
+        "flowpanel.config.ts": first.contents["flowpanel.config.ts"] ?? "",
+        "admin/models/users.ts": first.contents["admin/models/users.ts"] ?? "",
+        "admin/models/index.ts": first.contents["admin/models/index.ts"] ?? "",
+      },
+      ["admin/models/posts.ts", "admin/models/index.ts", "flowpanel.config.ts"],
+    );
+    expect(result.exit).toBeNull();
+    expect(result.contents["admin/models/posts.ts"]).toContain(
+      '{ field: "authorId", label: "Author", reference: { resource: "users", labelField: "email" } },',
+    );
+    expect(result.contents["admin/models/index.ts"]).toContain("[users, posts]");
+    expect(result.contents["flowpanel.config.ts"]).toContain(
+      '    posts: import("@prisma/client").Post;',
+    );
   });
 
   it("refuses a name that is no model, listing the models", async () => {

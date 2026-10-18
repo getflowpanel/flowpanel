@@ -8,7 +8,8 @@ import type {
 import { assertWritableInput, runWithRequestContext } from "@flowpanel/core";
 import { declaredWriteFields, writeTarget } from "@flowpanel/core/internal";
 import type { z } from "zod";
-import { fieldFlag } from "../runtime/resolve-form-fields";
+import { columnDefs } from "../runtime/column-defs";
+import { declaredFormFields, fieldFlag } from "../runtime/resolve-form-fields";
 
 export { declaredWriteFields };
 
@@ -154,4 +155,22 @@ export async function applyFieldDefaults(
     }
   }
   return out;
+}
+
+/** The update's fields plus `extra` columns the form does not list, such as an inline-editable one. */
+export function updateFields(
+  resource: ResourceConfig,
+  extra: readonly string[],
+): FieldDef<Record<string, unknown>>[] | undefined {
+  const fields = declaredFormFields(resource, "update");
+  if (!fields) return fields;
+  const missing = extra.filter((name) => !fields.some((f) => f.name === name));
+  return [...fields, ...missing.map((name) => ({ name }))];
+}
+
+/** Columns the list edits in place: a script may write them wherever the list can. */
+export function editableColumns(resource: ResourceConfig): string[] {
+  return columnDefs(resource).flatMap((column) =>
+    column.editable === true && column.field ? [column.field] : [],
+  );
 }

@@ -2,6 +2,7 @@ import type { Adapter, ListQueryContext, ResourceConfig } from "@flowpanel/core"
 import { defineAdmin, resource } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
 import { drawerRoute } from "../drawer/drawer-route";
+import { withoutScope } from "./without-scope";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",
@@ -553,7 +554,7 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
           resource: "payments",
           filter: (row: unknown) => ({ userId: (row as { id: string }).id }),
         };
-    return defineAdmin({
+    const config = defineAdmin({
       adapter: { ...fakeAdapter, list },
       auth: { session: async () => null, role: () => opts.role ?? "admin" },
       ...(opts.globalScope ? { scope: () => ({ tenantId: "t1" }) } : {}),
@@ -566,11 +567,12 @@ describe("drawerRoute (tabs) — cross-resource authorization", () => {
         resource({ __name: "payments" }, {
           columns: ["id", "userId", "amount"],
           ...(opts.targetReadAccess ? { access: { read: opts.targetReadAccess } } : {}),
-          ...(opts.targetScope ? { scope: opts.targetScope } : {}),
+          ...(opts.targetScope || opts.globalScope ? { scope: opts.targetScope ?? "bypass" } : {}),
           ...(opts.targetFieldAccess ? { fieldAccess: opts.targetFieldAccess } : {}),
         } as never),
       ],
     });
+    return opts.globalScope && !opts.targetScope ? withoutScope(config, "payments") : config;
   }
 
   async function tabsOf(config: ReturnType<typeof mkConfigWith>) {

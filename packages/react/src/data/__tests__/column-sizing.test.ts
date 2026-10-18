@@ -317,13 +317,34 @@ describe("list columns in the shells they ship in", () => {
     expect(layoutColumns([col("id", number(4.25, { label: "ID" }))]).minWidth).toBe("6.500rem");
   });
 
-  it("gives the tutorial's spare width to its text, not to its numbers and dates", () => {
-    const wide = at(tutorialCustomers, 1230, SELECTION);
-    const narrow = at(tutorialCustomers, 1134, SELECTION);
-    for (const field of ["id", "mrr", "churned", "createdAt", "lastSeenAt"]) {
-      expect(wide[field]).toBe(narrow[field]);
+  it("shares the width left at every ideal across all columns in proportion", () => {
+    const wide = at(tutorialCustomers, 1900, SELECTION);
+    const narrow = at(tutorialCustomers, 1500, SELECTION);
+    const ratio = (wide.email ?? 0) / (narrow.email ?? 1);
+    expect(ratio).toBeGreaterThan(1.2);
+    for (const field of ["id", "name", "company", "mrr", "churned", "createdAt", "lastSeenAt"]) {
+      expect((wide[field] ?? 0) / (narrow[field] ?? 1), field).toBeCloseTo(ratio, 3);
     }
-    expect(wide.email).toBeGreaterThan(narrow.email ?? 0);
+  });
+
+  it("keeps a short customer name near its amount on a wide invoices list", () => {
+    const invoices = [
+      col("number", { label: "Number", type: "string", textRem: shown("INV-2026-0042") }),
+      col("customerId", {
+        label: "Customer",
+        type: "reference",
+        textRem: shown("Union Audio", "Northwind Audio Co"),
+      }),
+      col("amountCents", { label: "Amount", ...money, textRem: shown("$1,240.00") }),
+      col("status", { label: "Status", ...badge("Paid", "Open", "Overdue", "Void") }),
+      col("period", { label: "Period", type: "string", textRem: shown("Oct 2026") }),
+      col("createdAt", date("Created")),
+    ];
+    for (const frame of [FRAMES.tabs[1440], FRAMES.tabs[1920]]) {
+      const widths = at(invoices, frame, { extrasRem: 3.5 });
+      expect(widths.customerId).toBeLessThan(frame * 0.3);
+      expect(widths.customerId).toBeLessThan(2.2 * (widths.amountCents ?? 0));
+    }
   });
 
   it("keeps a whole SKU beside the product name at 1100", () => {
@@ -378,14 +399,17 @@ describe("column widths by what a column holds", () => {
   });
 
   it("falls back to sizes by kind when the server sent no values", () => {
-    const { widths } = layoutColumns([
+    const columns = [
       col("name", { sortable: false }),
       col("description", { content: "long", sortable: false }),
       col("website", { content: "link", sortable: false }),
-    ]);
-    expect(px(widths.get("description") ?? "", 2000)).toBeGreaterThan(20 * 16);
-    expect(px(widths.get("website") ?? "", 2000)).toBe(14 * 16);
-    expect(px(widths.get("name") ?? "", 2000)).toBe(12 * 16);
+    ];
+    const fitted = at(columns, (12 + 20 + 14) * 16);
+    expect(fitted.name).toBeCloseTo(12 * 16, 1);
+    expect(fitted.description).toBeCloseTo(20 * 16, 1);
+    expect(fitted.website).toBeCloseTo(14 * 16, 1);
+    const wide = at(columns, 2000);
+    expect((wide.description ?? 0) / (wide.name ?? 1)).toBeCloseTo(20 / 12, 3);
   });
 
   it("keeps long text readable beside a pinned text column", () => {
@@ -437,12 +461,15 @@ describe("column widths by what a column holds", () => {
     expect(px(measured.minWidth, 1e6)).toBe(READABLE_PX);
   });
 
-  it("stops a link's ideal at the width its link is drawn to", () => {
-    const widths = at(
-      [col("id", number(1, { sortable: false })), col("website", { format: "url", textRem: 40 })],
-      2000,
-    );
-    expect(widths.website).toBe(2000 - 3.25 * 16);
+  it("grows a cut link to its whole value before widening anything else", () => {
+    const columns = [
+      col("id", number(1, { sortable: false })),
+      col("website", { format: "url", textRem: 40 }),
+    ];
+    expect(at(columns, (3.25 + 20) * 16).website).toBeCloseTo(20 * 16, 1);
+    const whole = at(columns, (3.25 + 42.5) * 16);
+    expect(whole.id).toBeCloseTo(3.25 * 16, 1);
+    expect(whole.website).toBeCloseTo(42.5 * 16, 1);
     const { minWidth } = layoutColumns([col("website", { format: "url", textRem: 40 })]);
     expect(px(minWidth, 1e6)).toBe(READABLE_PX);
   });

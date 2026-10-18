@@ -437,8 +437,9 @@ tr.fp-row-enter > td {
   animation: fp-row-enter-surface 2s var(--fp-ease-out);
 }
 
-/* List scroller: both axes, so the header and first column stick; no taller than the screen. */
+/* List scroller: both axes, so the header and first column stick; no taller than the screen; contains its sr-only labels. */
 [data-fp-table-scroll] {
+  position: relative;
   max-height: max(
     var(--fp-table-min-h),
     calc(100dvh - var(--fp-sticky-top, 0px) - var(--fp-below, 0px) - var(--fp-table-foot-h))
@@ -468,6 +469,9 @@ tr.fp-row-enter > td {
 }
 [data-fp-table-scroll] tr[data-fp-row] > td {
   background-image: linear-gradient(var(--fp-row-tint), var(--fp-row-tint));
+}
+[data-fp-table-scroll] tr[data-fp-row][aria-current="true"] > td:first-child:not(.fp-sticky) {
+  position: relative;
 }
 [data-fp-table-scroll] tr[data-fp-row][aria-current="true"] > td:first-child::before {
   content: "";
@@ -561,6 +565,128 @@ tr.fp-row-enter > td {
 }
 .fp-scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* A KPI figure of N characters shrinks below 2rem only when N characters would not fit its container. */
+.fp-figure[data-fp-figure="1"] {
+  font-size: min(2rem, 166.67cqi);
+}
+.fp-figure[data-fp-figure="2"] {
+  font-size: min(2rem, 83.33cqi);
+}
+.fp-figure[data-fp-figure="3"] {
+  font-size: min(2rem, 55.56cqi);
+}
+.fp-figure[data-fp-figure="4"] {
+  font-size: min(2rem, 41.67cqi);
+}
+.fp-figure[data-fp-figure="5"] {
+  font-size: min(2rem, 33.33cqi);
+}
+.fp-figure[data-fp-figure="6"] {
+  font-size: min(2rem, 27.78cqi);
+}
+.fp-figure[data-fp-figure="7"] {
+  font-size: min(2rem, 23.81cqi);
+}
+.fp-figure[data-fp-figure="8"] {
+  font-size: min(2rem, 20.83cqi);
+}
+.fp-figure[data-fp-figure="9"] {
+  font-size: min(2rem, 18.52cqi);
+}
+.fp-figure[data-fp-figure="10"] {
+  font-size: min(2rem, 16.67cqi);
+}
+.fp-figure[data-fp-figure="11"] {
+  font-size: min(2rem, 15.15cqi);
+}
+.fp-figure[data-fp-figure="12"] {
+  font-size: min(2rem, 13.89cqi);
+}
+.fp-figure[data-fp-figure="13"] {
+  font-size: min(2rem, 12.82cqi);
+}
+.fp-figure[data-fp-figure="14"] {
+  font-size: min(2rem, 11.9cqi);
+}
+.fp-figure[data-fp-figure="15"] {
+  font-size: min(2rem, 11.11cqi);
+}
+.fp-figure[data-fp-figure="16"] {
+  font-size: min(2rem, 10.42cqi);
+}
+.fp-figure[data-fp-figure="17"] {
+  font-size: min(2rem, 9.8cqi);
+}
+.fp-figure[data-fp-figure="18"] {
+  font-size: min(2rem, 9.26cqi);
+}
+.fp-figure[data-fp-figure="19"] {
+  font-size: min(2rem, 8.77cqi);
+}
+.fp-figure[data-fp-figure="20"] {
+  font-size: min(2rem, 8.33cqi);
+}
+.fp-figure[data-fp-figure="21"] {
+  font-size: min(2rem, 7.94cqi);
+}
+.fp-figure[data-fp-figure="22"] {
+  font-size: min(2rem, 7.58cqi);
+}
+.fp-figure[data-fp-figure="23"] {
+  font-size: min(2rem, 7.25cqi);
+}
+.fp-figure[data-fp-figure="24"] {
+  font-size: min(2rem, 6.94cqi);
+}
+.fp-figure[data-fp-figure="25"] {
+  font-size: min(2rem, 6.67cqi);
+}
+.fp-figure[data-fp-figure="26"] {
+  font-size: min(2rem, 6.41cqi);
+}
+.fp-figure[data-fp-figure="27"] {
+  font-size: min(2rem, 6.17cqi);
+}
+.fp-figure[data-fp-figure="28"] {
+  font-size: min(2rem, 5.95cqi);
+}
+.fp-figure[data-fp-figure="29"] {
+  font-size: min(2rem, 5.75cqi);
+}
+.fp-figure[data-fp-figure="30"] {
+  font-size: min(2rem, 5.56cqi);
+}
+.fp-figure[data-fp-figure="31"] {
+  font-size: min(2rem, 5.38cqi);
+}
+.fp-figure[data-fp-figure="32"] {
+  font-size: min(2rem, 5.21cqi);
+}
+.fp-figure[data-fp-figure="33"] {
+  font-size: min(2rem, 5.05cqi);
+}
+.fp-figure[data-fp-figure="34"] {
+  font-size: min(2rem, 4.9cqi);
+}
+.fp-figure[data-fp-figure="35"] {
+  font-size: min(2rem, 4.76cqi);
+}
+.fp-figure[data-fp-figure="36"] {
+  font-size: min(2rem, 4.63cqi);
+}
+.fp-figure[data-fp-figure="37"] {
+  font-size: min(2rem, 4.5cqi);
+}
+.fp-figure[data-fp-figure="38"] {
+  font-size: min(2rem, 4.39cqi);
+}
+.fp-figure[data-fp-figure="39"] {
+  font-size: min(2rem, 4.27cqi);
+}
+.fp-figure[data-fp-figure="40"] {
+  font-size: min(2rem, 4.17cqi);
 }
 
 /* A table frame whose column widths are measured against its own width with `cqw`; the gutter keeps that width steady. */

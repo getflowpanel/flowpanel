@@ -30,7 +30,7 @@ export function JsonCell({ value, className }: JsonCellProps) {
             "fp-inline-flex fp-items-center fp-gap-1 fp-rounded-sm fp-bg-canvas fp-px-2 fp-py-0.5 fp-font-mono fp-text-xs fp-text-soft hover:fp-bg-fill",
             className,
           )}
-          aria-label={table.viewJson}
+          aria-label={`${hint}, ${table.viewJson}`}
         >
           <span>{hint}</span>
         </button>

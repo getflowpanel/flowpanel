@@ -42,7 +42,7 @@ names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its
 
 | Assertion | How it fails |
 | --- | --- |
-| Every navigation answers below 400 | `<route>: responded 500: <the error page's text>` |
+| Every navigation answers below 400 | `<route>: responded 500: <the server's error>` |
 | No render crashed past the admin into Next's error page | `<route>: rendered Next's error page instead of the admin: <its text>` |
 | Every page shows its `main` within 15 seconds | `<route>: rendered no <main> within 15 s` |
 | Nothing wrote to `console.error` | `console.error: <text>` |
@@ -53,13 +53,27 @@ names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its
 `[data-fp-error]` marks FlowPanel's error cards: a failed widget, a failed read, a
 failed drawer, a `page()` that threw. A walk that finds no routes fails. Pages count
 as loaded when `main` is visible, since realtime pages never reach network idle. A
-route that answers 500 or shows Next's error page fails at once, with the page's text
-and, in development, the server's error among the console errors, instead of waiting
-for the test's timeout.
+route that answers 500 or shows Next's error page fails at once, instead of waiting
+for the test's timeout. In development the line carries the server's own error, such
+as a `defineAdmin` config error with its near match; a production 500 hides it, so read
+the server log. When the admin's first page fails, that line is the only one, with no
+"found no navigation" after it.
 
 The accessibility scan leaves out iframes. A `queue()` page embeds bull-board, whose
 markup is not the admin's to fix, so an admin with queues passes `a11y: true` on its
 own pages. Check the board separately if it matters to you.
+
+`a11y` also takes an object. `disableRules` skips axe rules by id, for a rule
+that markup of your own, such as a page or a widget, fails while you fix it:
+
+```ts
+import { test } from "@playwright/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
+
+test("the admin is healthy, contrast aside", async ({ page }) => {
+  await smokeAdmin(page, { a11y: { disableRules: ["color-contrast"] } });
+});
+```
 
 `smokeAdmin` opens pages and rows; it submits no forms. A test of your own that submits an invalid form sees the browser log `Failed to load resource: … 422` for the rejected request. That line comes from the browser, not from the admin, so filter it out when you assert a clean console after a submit.
 

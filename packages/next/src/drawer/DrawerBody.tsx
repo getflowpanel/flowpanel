@@ -6,16 +6,14 @@ import { DrawerWidgetsTab } from "./DrawerWidgetsTab";
 import type { DrawerPayload } from "./drawer-payload";
 import { rememberedCell } from "./table-cells";
 
-/** One record's fields, or its tabs with the open one named in the URL. */
-export function DrawerBody({
-  payload,
-  resource,
-  id,
-}: {
+export interface DrawerBodyProps {
   payload: DrawerPayload;
   resource: string;
   id: string;
-}) {
+}
+
+/** One record's fields, or its tabs with the open one named in the URL. */
+export function DrawerBody({ payload, resource, id }: DrawerBodyProps) {
   const { state, open } = useAdminDrawer();
   const listCell = (field: string) => rememberedCell(resource, id, field);
   const fields = (list: DrawerPayload["fields"]) => (

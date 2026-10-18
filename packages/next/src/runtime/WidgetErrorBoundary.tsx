@@ -1,5 +1,5 @@
 "use client";
-import { Button, useLabels } from "@flowpanel/react";
+import { Button, PageHeader, useLabels } from "@flowpanel/react";
 import { unstable_rethrow, useRouter } from "next/navigation";
 import * as React from "react";
 import { RequestId } from "../pages/RequestId";
@@ -22,6 +22,10 @@ interface BoundaryProps {
   title?: string;
   /** What failed, in place of "Couldn't load this widget". */
   failureTitle?: string;
+  /** Runs before Retry renders the widget again, such as asking for code that failed to load. */
+  onRetry?: () => void;
+  /** A whole page's heading, kept above the card when the page fails. */
+  pageTitle?: string;
 }
 
 interface SentryLike {
@@ -48,18 +52,20 @@ function BoundaryFallback({
   plain,
   title,
   failureTitle,
+  pageTitle,
 }: {
   error: Error & { digest?: string };
   onReset: () => void;
   plain: boolean;
   title: string | undefined;
   failureTitle: string | undefined;
+  pageTitle: string | undefined;
 }): React.JSX.Element {
   const router = useRouter();
   const { errors } = useLabels();
   const [pending, startTransition] = React.useTransition();
   const developing = process.env.NODE_ENV !== "production";
-  return (
+  const card = (
     <FailureCard
       {...(title ? { heading: title } : {})}
       title={failureTitle ?? errors.widgetTitle}
@@ -86,6 +92,13 @@ function BoundaryFallback({
       }
     />
   );
+  if (!pageTitle) return card;
+  return (
+    <>
+      <PageHeader title={pageTitle} />
+      {card}
+    </>
+  );
 }
 
 export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
@@ -108,6 +121,7 @@ export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
   }
 
   private reset = (): void => {
+    this.props.onRetry?.();
     this.setState({ error: null });
   };
 
@@ -121,6 +135,7 @@ export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
           plain={this.props.plain === true}
           title={this.props.title}
           failureTitle={this.props.failureTitle}
+          pageTitle={this.props.pageTitle}
         />
       );
     }

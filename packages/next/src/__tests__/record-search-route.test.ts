@@ -158,4 +158,16 @@ describe("a palette result's second line", () => {
       "Bose",
     ]);
   });
+
+  it("falls back to a list column when the search fields read alike", () => {
+    const rows = [{ title: "Sony WH-1000XM5 Renewed" }, { title: "Sony WH-1000XM5 Renewed" }];
+    const shown = [
+      ["Amazon", "$249.00"],
+      ["eBay", "$249.00"],
+    ];
+    expect(resultLines(rows, fields, "sony", shown).map((line) => line[1])).toEqual([
+      "Amazon",
+      "eBay",
+    ]);
+  });
 });

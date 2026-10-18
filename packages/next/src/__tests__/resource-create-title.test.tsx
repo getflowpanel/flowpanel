@@ -4,6 +4,7 @@ import { AutoForm, PageHeader } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ResourceCreatePage } from "../pages/resource-create";
+import { withoutScope } from "./without-scope";
 
 function findElement(tree: ReactNode, type: unknown): Record<string, unknown> | null {
   if (tree === null || tree === undefined || typeof tree !== "object") return null;
@@ -63,8 +64,9 @@ describe("ResourceCreatePage title", () => {
       adapter,
       auth: { session: async () => null, role: () => "admin" },
       scope: () => ({ tenantId: "t1" }),
-      resources: [resource({ __name: "customers" }, { columns: ["id"] })],
+      resources: [resource({ __name: "customers" }, { columns: ["id"], scope: "bypass" })],
     });
+    withoutScope(config, "customers");
     const resourceConfig = config.resourcesByName.get("customers");
     if (!resourceConfig) throw new Error("fixture: resource not registered");
 

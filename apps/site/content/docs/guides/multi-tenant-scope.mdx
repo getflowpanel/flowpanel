@@ -68,7 +68,7 @@ The New button follows `access.create`, not the scope, so it cannot know that a 
 
 ## Fail closed
 
-With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither, or whose predicate adds no constraint, throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
+With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither stops `defineAdmin` at boot with a message that names it, and one whose predicate adds no constraint throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
 
 `ctx.sql`, `ctx.db` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself, reading the tenant from `ctx.session`.
 

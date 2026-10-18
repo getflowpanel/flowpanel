@@ -51,6 +51,15 @@ function optionsKey(opts: PublisherOptions): string {
   });
 }
 
+const WARNED_MEMORY = Symbol.for("@flowpanel/next.warnedMemory");
+
+/** Next.js dev evaluates server bundles in more than one module realm; `process` is the one object they share. */
+function firstInProcess(): boolean {
+  if (Reflect.get(process, WARNED_MEMORY) === true) return false;
+  Reflect.set(process, WARNED_MEMORY, true);
+  return true;
+}
+
 function warnIfMemoryWhileRedisConfigured(opts: PublisherOptions): void {
   if (opts.driver !== "memory" || store.warnedMemory) return;
   const named = process.env.REDIS_URL
@@ -60,6 +69,7 @@ function warnIfMemoryWhileRedisConfigured(opts: PublisherOptions): void {
       : null;
   if (!named) return;
   store.warnedMemory = true;
+  if (!firstInProcess()) return;
   console.warn(
     `[flowpanel] realtime driver is memory while ${named} is set — other ` +
       "instances and workers will not receive events; set realtime: { driver: " +
@@ -89,6 +99,7 @@ export function resetPublisherForTests(): void {
   store.boundOptions = null;
   store.warnedUnbound = false;
   store.warnedMemory = false;
+  Reflect.deleteProperty(process, WARNED_MEMORY);
 }
 
 function getPublisher(): Publisher {

@@ -935,7 +935,19 @@ export function ReportsPage({ role, scope, formatting, searchParams }: PageProps
 }
 ```
 
-Register it with `page({ path: "/reports", label: "Reports", component: ReportsPage })`.
+Register it in the config's `pages`, next to `dashboards`:
+
+```ts
+// src/admin/config/pages.ts
+import { page } from "@flowpanel/kit";
+import { ReportsPage } from "@/admin/pages/reports";
+
+export const pages = [page({ path: "/reports", label: "Reports", component: ReportsPage })];
+```
+
+Then pass it to `defineAdmin({ ..., pages })`. A `page()` put in `dashboards` fails to
+compile with `'"a page() is registered in pages: [...], not dashboards"' is missing`,
+and a plain JavaScript config fails at boot with the same advice.
 
 ### PageProps
 

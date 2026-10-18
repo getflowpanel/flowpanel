@@ -16,8 +16,8 @@ test("@cross-browser release shell is responsive and role-aware", async ({ page,
 
   if (isMobile) {
     for (const control of [
-      page.getByRole("button", { name: "admin" }),
-      page.getByRole("button", { name: "support" }),
+      page.getByRole("button", { name: "admin", exact: true }),
+      page.getByRole("button", { name: "support", exact: true }),
       page.getByRole("link", { name: "View on GitHub" }),
     ]) {
       const box = await control.boundingBox();
@@ -32,8 +32,8 @@ test("@cross-browser release shell is responsive and role-aware", async ({ page,
 
   await page.goto("/admin");
   await expect(page.getByText("ScrapeAI", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "admin" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "support" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "admin", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "support", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "View on GitHub" })).toBeVisible();
   await expect(page.getByText("Demo guide", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Download brief", { exact: true })).toHaveCount(0);
@@ -45,9 +45,9 @@ test("@cross-browser release shell is responsive and role-aware", async ({ page,
 
   await Promise.all([
     page.waitForURL(/\/admin$/),
-    page.getByRole("button", { name: "support" }).click(),
+    page.getByRole("button", { name: "support", exact: true }).click(),
   ]);
-  await expect(page.getByRole("button", { name: "support" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "support", exact: true })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -62,7 +62,7 @@ test("demo persona makes the field-level policy visible", async ({ page }) => {
 
   await Promise.all([
     page.waitForURL(/\/admin$/),
-    page.getByRole("button", { name: "support" }).click(),
+    page.getByRole("button", { name: "support", exact: true }).click(),
   ]);
   await page.goto("/admin/products");
   await expect(page.getByRole("columnheader", { name: "Our price" })).toHaveCount(0);
@@ -78,13 +78,13 @@ test("demo persona makes the field-level policy visible", async ({ page }) => {
 
   await Promise.all([
     page.waitForURL(/\/admin$/),
-    page.getByRole("button", { name: "admin" }).click(),
+    page.getByRole("button", { name: "admin", exact: true }).click(),
   ]);
   await page.goto("/admin/products");
   await expect(page.getByRole("columnheader", { name: "Our price" })).toBeVisible();
 });
 
-test("the overview, a list and a record page share one 1600 px frame and header edge", async ({
+test("the overview, a list and a record page share one 1600 px frame and header edge, the record's aside 25rem", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1920, height: 900 });
@@ -120,8 +120,10 @@ test("the overview, a list and a record page share one 1600 px frame and header 
     expect(await edges(), path).toEqual({ main: [160, 1760], tabs: [160, 1760], heading: 160 });
   }
   await expect(page).toHaveURL(new RegExp(`/admin/customers/${customer}$`));
-  const record = await page.locator("main > div").first().boundingBox();
+  const record = await page.locator("main [data-record-layout]").first().boundingBox();
   expect(record).not.toBeNull();
   expect(Math.round(record?.x ?? 0)).toBe(160);
-  expect(Math.round((record?.x ?? 0) + (record?.width ?? 0))).toBe(160 + 77 * 16);
+  expect(Math.round((record?.x ?? 0) + (record?.width ?? 0))).toBe(1760);
+  const aside = await page.locator("main [data-record-layout] > aside").boundingBox();
+  expect(Math.round(aside?.width ?? 0)).toBe(25 * 16);
 });

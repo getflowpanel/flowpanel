@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FormError } from "../FormError";
 
 // FormError consumes useFormContext. Mock the module to inject errors.
-vi.mock("../Form", () => ({
+vi.mock("../form-context", () => ({
   useFormContext: () => ({ form: { errors: ["Email is required"] } }),
 }));
 

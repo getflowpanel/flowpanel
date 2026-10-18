@@ -1,5 +1,6 @@
 "use client";
 import { formatCount } from "@flowpanel/core/labels";
+import type * as React from "react";
 import { LiveIndicator } from "../atoms/LiveIndicator";
 import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
@@ -18,6 +19,7 @@ export interface DataTableToolbarProps<Row> {
   exportSetup: ExportSetup<Row> | null;
   rows: Row[];
   tableLabel: string;
+  columnsMenu?: React.ReactNode;
 }
 
 export interface ExportSetup<Row> {
@@ -58,6 +60,7 @@ export function DataTableToolbar<Row extends Record<string, unknown>>({
   exportSetup,
   rows,
   tableLabel,
+  columnsMenu,
 }: DataTableToolbarProps<Row>) {
   const labels = useLabels();
   const { locale } = useFormatting();
@@ -73,6 +76,7 @@ export function DataTableToolbar<Row extends Record<string, unknown>>({
       </span>
       {liveStatus ? <LiveIndicator status={liveStatus} /> : null}
       {density ? <DensityToggle density={density} onChange={onDensityChange} /> : null}
+      {columnsMenu}
       {importable ? (
         <ImportButton
           resource={importable.resource}

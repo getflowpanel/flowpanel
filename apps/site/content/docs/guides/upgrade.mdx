@@ -26,6 +26,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | 0.3 | 0.4 |
 | --- | --- |
 | **Packages and imports** | |
+| Node.js below 20.19, or Node.js 21 | Node.js 20.19+ or 22.12+: the `engines.node` of `@flowpanel/kit` and `@flowpanel/cli` now asks for 20.19 or 22.12 and newer, and Yarn, or npm and pnpm with `engine-strict`, refuse the install on an older one |
 | an import from `@flowpanel/core`, `next`, `react`, `client`, `charts`, `test` or an adapter package | the same names from `@flowpanel/kit` or its subpath: `/next`, `/react`, `/client`, `/charts`, `/test`, `/drizzle`, `/prisma`, `/bullmq` |
 | `areaChart`, `barChart`, `lineChart`, `pieChart` from `@flowpanel/kit/charts` | the same builders from `@flowpanel/kit` |
 | chart components from `@flowpanel/kit/charts/runtime` | the same components from `@flowpanel/kit/charts` |
@@ -69,12 +70,14 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | `RowAction.hidden` (deprecated) | `when`, which gets the row as `current` with the request context |
 | `labels.noResults`, `labels.searchPlaceholder`, `labels.allOption`, `labels.formError` | `labels.table.noResults`, `table.searchPlaceholder`, `filters.allOption`, `form.error`; `defineAdmin` throws on the old names |
 | `labels.errors.queryTitle` | `labels.errors.loadTitle` and `loadRecordTitle` |
+| `labels.navigation.scrollHint` | removed: the tab strip no longer scrolls, it folds the tabs that do not fit into More; delete the key |
 | a money column format `{ kind: "money", scale: 100 }` (deprecated) | `{ kind: "money", minorUnits: 2 }`, the option a `money` field takes; `defineAdmin` refuses a format that sets both |
 | `ctx.format.money(cents, { scale: 100 })` | `ctx.format.money(cents, { minorUnits: 2 })` |
 | a typed `numeric-range` value on a money column whose format has `minorUnits`, such as `6000:9000` for $60 to $90 in a URL or a string `defaultValue` | major units, the amount the column shows: `60:90`. A `{ gte, lte }` in a `where`, a view, a link's `filter` or a `defaultValue` stays in stored units, and FlowPanel converts it |
 | a CSV of a money column in minor units | Export writes, and import reads, a money column that stores minor units in major units, `59.00` |
 | `delete.confirm` worded for a selection | it titles the Delete of one record too, and takes plural forms, `{ one, other }` with `{n}` |
 | `bulkActions` declared to remove the built-in bulk Delete, or `bulkActions: []` | `delete: { bulk: false }`, or declare your own `delete` bulk action |
+| a resource with no `scope` under an admin-wide `scope`, which 0.3 refused only when a request read it | add `scope: (scope, query) => …` to the resource, or `scope: "bypass"` for a table every tenant shares; `defineAdmin` now refuses it at startup, so `next build`, seed scripts and config tests stop on it too |
 | a resource `scope` function that returns the query unchanged to mean "no tenant" | it now throws; return `allTenants` from the admin-wide `scope` for staff who work across tenants |
 | **Realtime and queues** | |
 | a widget, dashboard or list subscribed to a channel of your own, any channel other than `resource.<name>` | declare it in `realtime.channels`, with `access` if not every operator may see it; `defineAdmin` refuses an undeclared one, and under an admin-wide `scope` its events reach the browser as `{}` unless it is `tenantSafe` |

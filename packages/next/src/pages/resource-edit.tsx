@@ -16,6 +16,7 @@ import { writeTarget } from "@flowpanel/core/internal";
 import { AutoForm, PageHeader } from "@flowpanel/react";
 import { notFound } from "next/navigation";
 import { writableColumns } from "../actions/field-pipeline";
+import { namedFields } from "../runtime/field-labels";
 import { dateInputFor, dateInputValue } from "../runtime/form-dates";
 import { buildApiHref, buildHref } from "../runtime/href";
 import { moneyInputValue, moneyShape } from "../runtime/money-field";
@@ -134,7 +135,8 @@ export async function ResourceEditPage({
   const { timeZone } = formatting;
   const columnTypes = new Map(written.columns.map((column) => [column.name, column.type]));
   const declaredByName = new Map(declared?.map((field) => [field.name, field]));
-  const formFields = declared ?? generatedFormFields(resource, columns, "update");
+  const formFields =
+    declared ?? generatedFormFields(resource, columns, "update", namedFields(config));
   const moneyByName = new Map(
     formFields.filter((field) => field.type === "money").map((field) => [field.name, field]),
   );

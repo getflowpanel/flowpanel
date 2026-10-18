@@ -46,8 +46,8 @@ shape `scope` returns, so the audit log files that user's changes under it.
 #### The opt-out is mandatory
 
 With a global `scope`, every resource declares its own `scope` or
-`scope: "bypass"`. One that does neither throws `FlowpanelAccessError` on its first
-query.
+`scope: "bypass"`. One that does neither stops `defineAdmin` at boot with
+`resource "<name>" scope: the admin has a global scope, so every resource needs its own`.
 
 `ScopeCheckInput`
 
@@ -56,7 +56,7 @@ query.
 | `hasGlobal` | `boolean` |  |
 | `resourceScope` | `"bypass" \| ResourceScope \| undefined` |  |
 
-FlowPanel runs this check per request; call it only in your own adapter or route.
+FlowPanel also runs this check per request, in case a resource loses its scope after boot; call it only in your own adapter or route.
 
 ### Publisher
 

@@ -77,6 +77,10 @@ describe("a create form that cannot succeed", () => {
     ]);
   });
 
+  it("counts a column the list shows as a secondary line as offered", () => {
+    expect(admin({ columns: ["id", { field: "name", secondary: "email" }] }).warnings).toEqual([]);
+  });
+
   it("ignores generated, primary-key and nullable columns", () => {
     expect(admin({ columns: ["email"] }).warnings).toEqual([]);
   });

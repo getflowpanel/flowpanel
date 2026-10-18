@@ -9,7 +9,7 @@ import { csvLine, dayKeyIn } from "@flowpanel/core/internal";
 import { actionFailure } from "../runtime/action-failure";
 import { exportTarget } from "../runtime/action-gate";
 import { actorIdFromSession, buildAuditEvent, maybeEmitAudit } from "../runtime/action-helpers";
-import { fieldLabels } from "../runtime/field-labels";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
 import { listRequestFromParams } from "../runtime/list-request";
 import { type ListRowsPage, type ListRowsQuery, listRows } from "../runtime/list-rows";
 import { majorAmount, moneyDigits } from "../runtime/money-field";
@@ -25,8 +25,12 @@ type Format = "csv" | "json";
 type Row = Record<string, unknown>;
 
 /** Header text per field: its label, or its name where an earlier column has that label; import reads it back. */
-function exportHeaders(resource: ResourceConfig, fields: readonly string[]): string[] {
-  const labelOf = fieldLabels(resource);
+function exportHeaders(
+  resource: ResourceConfig,
+  fields: readonly string[],
+  named: Readonly<Record<string, string>>,
+): string[] {
+  const labelOf = fieldLabels(resource, [], named);
   const seen = new Set<string>();
   return fields.map((field) => {
     const label = labelOf(field);
@@ -174,7 +178,9 @@ export function exportRoute(config: ResolvedAdminConfig) {
         start(controller) {
           controller.enqueue(
             encoder.encode(
-              format === "csv" ? `${csvLine(exportHeaders(resource, fields))}\r\n` : "[",
+              format === "csv"
+                ? `${csvLine(exportHeaders(resource, fields, namedFields(config)))}\r\n`
+                : "[",
             ),
           );
         },

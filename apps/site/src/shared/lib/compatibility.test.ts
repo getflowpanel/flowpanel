@@ -11,7 +11,7 @@ describe("readCompatibility", () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: "node",
-          range: ">=20",
+          range: "^20.19.0 || >=22.12.0",
           source: "packages/cli/package.json#engines.node",
         }),
         expect.objectContaining({ id: "next", range: ">=15.5.0 <17.0.0" }),

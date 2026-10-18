@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/users",
 }));
 
+import { renderToString } from "react-dom/server";
 import { DataTable } from "../DataTable";
 
 afterEach(cleanup);
@@ -27,24 +28,23 @@ describe("DataTable column resize", () => {
   };
 
   it("renders no resizer handle when onColumnWidthsChange is absent", () => {
-    const { queryAllByRole } = render(<DataTable {...baseProps} />);
-    // separator role comes from ColumnResizer only
-    expect(queryAllByRole("separator").length).toBe(0);
+    const { container } = render(<DataTable {...baseProps} />);
+    expect(container.querySelectorAll("[data-fp-resizer]").length).toBe(0);
   });
 
   it("renders a resizer per column when onColumnWidthsChange is provided", () => {
-    const { getAllByRole } = render(
+    const { container } = render(
       <DataTable {...baseProps} onColumnWidthsChange={() => undefined} />,
     );
-    expect(getAllByRole("separator").length).toBe(2);
+    expect(container.querySelectorAll("[data-fp-resizer]").length).toBe(2);
   });
 
   it("invokes onColumnWidthsChange with new width after drag", () => {
     const onChange = vi.fn();
-    const { getAllByRole } = render(
+    const { container } = render(
       <DataTable {...baseProps} columnWidths={{ a: 120 }} onColumnWidthsChange={onChange} />,
     );
-    const resizer = getAllByRole("separator")[0]!;
+    const resizer = container.querySelector<HTMLElement>("[data-fp-resizer]")!;
     // Mock setPointerCapture/releasePointerCapture (happy-dom lacks them)
     (resizer as unknown as { setPointerCapture: () => void }).setPointerCapture = () => undefined;
     (resizer as unknown as { releasePointerCapture: () => void }).releasePointerCapture = () =>
@@ -55,5 +55,42 @@ describe("DataTable column resize", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     const args = onChange.mock.calls[0]![0] as Record<string, number>;
     expect(args.a).toBe(160); // 120 + 40
+  });
+
+  it("resizes and fits a focused header from the keyboard", () => {
+    const onChange = vi.fn();
+    const { getByRole } = render(
+      <DataTable
+        {...baseProps}
+        columns={[{ field: "a" as const, label: "A", sortable: true, textRem: 30 }]}
+        columnWidths={{ a: 120 }}
+        onColumnWidthsChange={onChange}
+      />,
+    );
+    const header = getByRole("button", { name: "A" });
+    expect(header.getAttribute("aria-keyshortcuts")).toContain("Shift+ArrowRight");
+    fireEvent.keyDown(header, { key: "ArrowRight", shiftKey: true });
+    expect(onChange).toHaveBeenLastCalledWith({ a: 136 });
+    expect(document.querySelector("[aria-live=polite]")?.textContent).toBe("A, 136 px");
+    fireEvent.keyDown(header, { key: "ArrowLeft", shiftKey: true });
+    expect(onChange).toHaveBeenLastCalledWith({ a: 120 });
+    fireEvent.keyDown(header, { key: "Enter", shiftKey: true });
+    expect(onChange).toHaveBeenLastCalledWith({ a: (30 + 2.5) * 16 });
+  });
+
+  it("gives a cell that can be cut its full text in the server render", () => {
+    const long = "alexandra.montgomerywhitfield0@gmail.com";
+    const html = renderToString(
+      <DataTable
+        {...baseProps}
+        columns={[
+          { field: "a" as const, label: "A", content: "email", textRem: 20 },
+          { field: "b" as const, label: "B", textRem: 2 },
+        ]}
+        rows={[{ id: "1", a: long, b: "ok" }]}
+      />,
+    );
+    expect(html).toContain(`title="${long}"`);
+    expect(html).not.toContain('title="ok"');
   });
 });

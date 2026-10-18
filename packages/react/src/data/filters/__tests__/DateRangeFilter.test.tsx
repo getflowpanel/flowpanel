@@ -14,7 +14,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-const openPicker = () => fireEvent.click(screen.getByRole("button", { name: /^date range$/i }));
+const openPicker = () => fireEvent.click(screen.getByRole("button", { name: /, date range$/i }));
 
 /** Day cells are labelled with the locale's long date, e.g. "August 5, 2026". */
 const day = (label: string) => screen.getAllByRole("button", { name: label })[0] as HTMLElement;
@@ -43,7 +43,7 @@ describe("DateRangeFilter", () => {
   it("keeps the actual mobile trigger at least 44px tall", () => {
     render(<DateRangeFilter value={null} onChange={vi.fn()} />);
 
-    const trigger = screen.getByRole("button", { name: /^date range$/i });
+    const trigger = screen.getByRole("button", { name: /, date range$/i });
     expect(trigger.className).toContain("fp-h-11");
     expect(trigger.className).toContain("sm:fp-h-8");
   });
@@ -104,14 +104,14 @@ describe("DateRangeFilter", () => {
 
   it("renders a committed range on the trigger", () => {
     render(<DateRangeFilter value="2026-08-05:2026-08-20" onChange={vi.fn()} />);
-    expect(screen.getByRole("button", { name: /^date range$/i }).textContent).toContain("Aug 5");
-    expect(screen.getByRole("button", { name: /^date range$/i }).textContent).toContain("Aug 20");
+    expect(screen.getByRole("button", { name: /, date range$/i }).textContent).toContain("Aug 5");
+    expect(screen.getByRole("button", { name: /, date range$/i }).textContent).toContain("Aug 20");
   });
 
   it("keeps a one-sided range round-tripping through the wire format", () => {
     const onChange = vi.fn();
     render(<DateRangeFilter value="2026-08-05:" onChange={onChange} />);
-    expect(screen.getByRole("button", { name: /^date range$/i }).textContent).toContain(
+    expect(screen.getByRole("button", { name: /, date range$/i }).textContent).toContain(
       "From Aug 5",
     );
   });

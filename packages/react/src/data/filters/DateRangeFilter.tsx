@@ -17,6 +17,7 @@ import {
   startOfDay,
   toISODate,
 } from "../Calendar";
+import { activePresetOf } from "./date-range-preset";
 import { parseDateRangeValue, serializeDateRange } from "./date-range-value";
 import { FilterField } from "./FilterField";
 
@@ -105,22 +106,12 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
   }, [committed.from, committed.to, locale, dateRange.from, dateRange.until]);
   const named = isDateRangePreset(value) ? value : null;
   const trigger = named ? dateRange[named] : rangeText;
+  const shown = trigger ?? dateRange.any;
 
-  // Which preset the committed range corresponds to, if any, so reopening shows what is applied.
-  const activePreset = React.useMemo(() => {
-    if (named)
-      return named === "MTD"
-        ? "thisMonth"
-        : (RANGE_PRESETS.find((p) => p.key === named)?.key ?? null);
-    if (!committed.from || !committed.to) return null;
-    const key = `${toISODate(committed.from)}:${toISODate(committed.to)}`;
-    return (
-      RANGE_PRESETS.find((p) => {
-        const r = p.range();
-        return r.from && r.to && `${toISODate(r.from)}:${toISODate(r.to)}` === key;
-      })?.key ?? null
-    );
-  }, [named, committed.from, committed.to]);
+  const activePreset = React.useMemo(
+    () => activePresetOf(named, committed.from, committed.to),
+    [named, committed.from, committed.to],
+  );
 
   const commit = (next: CalendarRange) => {
     setDraft(next);
@@ -159,10 +150,13 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
       >
         <PopoverTrigger
           className="fp-press fp-flex fp-h-11 fp-min-w-0 fp-items-center fp-gap-2 fp-rounded-full fp-text-sm focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 sm:fp-h-8"
-          aria-label={label ? formatLabel(dateRange.fieldLabel, { label }) : dateRange.label}
+          aria-label={[
+            shown,
+            label ? formatLabel(dateRange.fieldLabel, { label }) : dateRange.label,
+          ].join(", ")}
         >
           <span className={cn("fp-truncate", trigger ? "fp-text-ink" : "fp-text-faint")}>
-            {trigger ?? dateRange.any}
+            {shown}
           </span>
           {/* Matches the chevron on the Select pills beside it; the label
               already says what the field is, so a calendar glyph is noise. */}

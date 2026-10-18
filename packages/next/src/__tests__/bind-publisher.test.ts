@@ -98,6 +98,21 @@ describe("bindPublisher — memory driver diagnostic", () => {
     warn.mockRestore();
   });
 
+  it("stays quiet in a second copy of the runtime that the same process loads", async () => {
+    vi.stubEnv("REDIS_URL", "redis://a:6379");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    bindPublisher(fakeConfig(undefined));
+
+    Reflect.deleteProperty(globalThis, Symbol.for("@flowpanel/next.publisherStore"));
+    vi.resetModules();
+    const fresh = await import("../runtime/publish");
+    fresh.bindPublisher(fakeConfig(undefined));
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    fresh.resetPublisherForTests();
+    warn.mockRestore();
+  });
+
   it("names FLOWPANEL_REDIS_URL when that is the variable that is set", () => {
     vi.stubEnv("REDIS_URL", "");
     vi.stubEnv("FLOWPANEL_REDIS_URL", "redis://a:6379");

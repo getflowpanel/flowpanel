@@ -23,14 +23,18 @@ describe("plain cards", () => {
     expect(container.querySelector("[data-plain]")).toBeTruthy();
     expect(container.querySelector(".fp-rounded-lg.fp-border")).toBeNull();
     expect(container.querySelector("[data-delta]")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Visits" }).getAttribute("href")).toBe("/admin/visits");
+    expect(screen.getByRole("link", { name: /^Visits/ }).getAttribute("href")).toBe(
+      "/admin/visits",
+    );
   });
 
   it("drops the stat card's frame but keeps its link", () => {
     const { container } = render(<StatCard plain label="Failures" value="3" href="/admin/runs" />);
     expect(container.querySelector("[data-plain]")).toBeTruthy();
     expect(container.querySelector(".fp-rounded-lg.fp-border")).toBeNull();
-    expect(screen.getByRole("link", { name: "Failures" }).getAttribute("href")).toBe("/admin/runs");
+    expect(screen.getByRole("link", { name: /^Failures/ }).getAttribute("href")).toBe(
+      "/admin/runs",
+    );
   });
 
   it("drops an expired card's frame inside a strip", () => {

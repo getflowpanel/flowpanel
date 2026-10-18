@@ -11,6 +11,7 @@ describe("near", () => {
     expect(near("emial", ["id", "email"])).toBe("email");
     expect(near("createdA", ["createdAt"])).toBe("createdAt");
     expect(near("statuss", ["status"])).toBe("status");
+    expect(near("nmae", ["email", "name"])).toBe("name");
   });
 
   it("returns the closest of several near names", () => {

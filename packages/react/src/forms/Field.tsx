@@ -2,7 +2,6 @@
 import { getInputProps } from "@conform-to/react";
 import type * as React from "react";
 import { Label } from "../ui/label";
-import { useFormContext } from "./Form";
 import {
   type AriaProps,
   CheckboxField,
@@ -18,6 +17,7 @@ import {
   TagsField,
   TextareaField,
 } from "./field-controls";
+import { useFormContext } from "./form-context";
 
 export type FieldControlType =
   | "text"

@@ -1,33 +1,46 @@
 "use client";
-import * as PopoverPrimitive from "@radix-ui/react-popover";
+import { Slot } from "@radix-ui/react-slot";
 import * as React from "react";
-import { cn } from "../lib/cn";
-import { named } from "../lib/named";
+import { DeferredTrigger, deferredModule, useDeferredRoot } from "./deferred";
+import type * as Parts from "./popover-parts";
 
-const Popover = PopoverPrimitive.Root;
-const PopoverTrigger = PopoverPrimitive.Trigger;
-const PopoverAnchor = PopoverPrimitive.Anchor;
+const popovers = deferredModule(() => import("./popover-parts"));
 
-const PopoverContent = /* @__PURE__ */ named(
-  /* @__PURE__ */ React.forwardRef<
-    React.ElementRef<typeof PopoverPrimitive.Content>,
-    React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>
-  >(({ className, align = "center", sideOffset = 4, ...props }, ref) => (
-    <PopoverPrimitive.Portal>
-      <PopoverPrimitive.Content
-        data-flowpanel-portal=""
-        ref={ref}
-        align={align}
-        sideOffset={sideOffset}
-        className={cn(
-          "fp-anim-pop fp-anim-no-exit fp-z-50 fp-w-72 fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-4 fp-text-ink fp-shadow-md fp-outline-none",
-          className,
-        )}
-        {...props}
-      />
-    </PopoverPrimitive.Portal>
-  )),
-  PopoverPrimitive.Content,
-);
+/** Loads the popovers' code now, as a test setup does. */
+export const preloadPopovers = () => popovers.ensure();
+
+function Popover(props: React.ComponentProps<typeof Parts.Popover>) {
+  const { loaded, defaultOpen, provide } = useDeferredRoot(popovers, props);
+  if (loaded) return <loaded.Popover {...props} defaultOpen={defaultOpen} />;
+  return provide(props.children);
+}
+
+const PopoverTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentPropsWithoutRef<typeof Parts.PopoverTrigger>
+>(function PopoverTrigger(props, ref) {
+  const loaded = popovers.useLoaded();
+  if (loaded) return <loaded.PopoverTrigger ref={ref} data-fp-trigger="" {...props} />;
+  return <DeferredTrigger ref={ref} popup="dialog" opensOn="click" {...props} />;
+});
+
+const PopoverAnchor = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<typeof Parts.PopoverAnchor>
+>(function PopoverAnchor(props, ref) {
+  const loaded = popovers.useLoaded();
+  if (loaded) return <loaded.PopoverAnchor ref={ref} {...props} />;
+  const { asChild, ...rest } = props;
+  const Comp = asChild ? Slot : "div";
+  return <Comp ref={ref} {...rest} />;
+});
+
+const PopoverContent = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentPropsWithoutRef<typeof Parts.PopoverContent>
+>(function PopoverContent(props, ref) {
+  const loaded = popovers.useLoaded();
+  return loaded ? <loaded.PopoverContent ref={ref} {...props} /> : null;
+});
 
 export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger };

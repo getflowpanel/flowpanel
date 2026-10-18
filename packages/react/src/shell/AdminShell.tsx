@@ -7,6 +7,7 @@ import { AccountMenu, type AccountMenuUser } from "./AccountMenu";
 import { AdminNav, type NavGroup } from "./AdminNav";
 import { AdminTabs } from "./AdminTabs";
 import { Brand, type ShellBrand } from "./Brand";
+import { spaceBelow } from "./space-below";
 
 export type AdminShellVariant = "sidebar" | "tabs";
 
@@ -47,28 +48,28 @@ export function AdminShell({
     setMobileNavOpen(false);
   }, [currentPath]);
 
-  // List tables cap their scroller by the tab bar above and whatever the page puts below the admin.
-  const tabsShellRef = React.useRef<HTMLDivElement>(null);
+  // List tables cap their scroller by the chrome above them and whatever the page puts below the admin.
+  const shellRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
-    const shell = tabsShellRef.current;
-    const nav = shell?.querySelector<HTMLElement>("nav[data-flowpanel-nav]");
+    const shell = shellRef.current;
     const main = shell?.querySelector<HTMLElement>("main");
-    if (!shell || !nav || !main || typeof ResizeObserver === "undefined") return;
+    if (!shell || !main || typeof ResizeObserver === "undefined") return;
+    const nav = shell.querySelector<HTMLElement>("nav[data-flowpanel-nav]");
     const measure = () => {
-      const contentEnd =
-        main.getBoundingClientRect().bottom +
-        window.scrollY -
-        parseFloat(getComputedStyle(main).paddingBottom);
-      const below = Math.max(0, document.documentElement.scrollHeight - contentEnd);
-      shell.style.setProperty("--fp-sticky-top", `${nav.offsetHeight}px`);
-      shell.style.setProperty("--fp-below", `${Math.round(below)}px`);
+      if (variant === "tabs") {
+        shell.style.setProperty("--fp-sticky-top", `${nav?.offsetHeight ?? 0}px`);
+        shell.style.setProperty("--fp-below", `${Math.round(spaceBelow(main))}px`);
+        return;
+      }
+      const above = shell.getBoundingClientRect().top + window.scrollY;
+      shell.style.setProperty("--fp-sticky-top", `${Math.round(above + spaceBelow(shell))}px`);
     };
     const observer = new ResizeObserver(measure);
-    observer.observe(nav);
+    if (nav) observer.observe(nav);
     observer.observe(main);
     observer.observe(document.body);
     return () => observer.disconnect();
-  }, []);
+  }, [variant]);
 
   const skipLink = (
     <a
@@ -82,7 +83,7 @@ export function AdminShell({
   if (variant === "tabs") {
     return (
       <div
-        ref={tabsShellRef}
+        ref={shellRef}
         className="fp-min-h-screen fp-bg-canvas fp-font-sans fp-text-ink fp-antialiased"
       >
         {showSkipLink ? skipLink : null}
@@ -101,7 +102,10 @@ export function AdminShell({
   }
 
   return (
-    <div className="fp-flex fp-h-screen fp-flex-col fp-bg-canvas fp-font-sans fp-text-ink fp-antialiased md:fp-flex-row">
+    <div
+      ref={shellRef}
+      className="fp-flex fp-h-[calc(100dvh-var(--fp-sticky-top,0px))] fp-flex-col fp-bg-canvas fp-font-sans fp-text-ink fp-antialiased md:fp-flex-row"
+    >
       {showSkipLink ? skipLink : null}
       <div className="fp-flex fp-shrink-0 fp-items-center fp-gap-2 fp-border-b fp-border-line fp-bg-surface fp-px-3 fp-py-2 md:fp-hidden">
         <DialogPrimitive.Root open={mobileNavOpen} onOpenChange={setMobileNavOpen}>

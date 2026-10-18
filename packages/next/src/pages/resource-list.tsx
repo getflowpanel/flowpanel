@@ -5,18 +5,22 @@ import {
   resolveFormatting,
   resolveOperationAccess,
 } from "@flowpanel/core";
+import { withDeploymentBasePath } from "@flowpanel/core/paths";
 import {
   DataTableWithDrawerRows,
   ListNavigationProvider,
+  ResourceListClearFilters,
   ResourceListDeletedToggle,
   ResourceListFilters,
   ResourceListSearch,
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
 import { FilterSheet, PageHeader } from "@flowpanel/react";
+import { fitColumnPrefs, readColumnPrefs } from "../drawer/column-prefs-cookie";
 import { exportTarget, targetAllows } from "../runtime/action-gate";
 import { DEFAULT_RESOURCE_PAGE_SIZE } from "../runtime/defaults";
-import { fieldLabels } from "../runtime/field-labels";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
+import { buildHref } from "../runtime/href";
 import { listRequestFromParams } from "../runtime/list-request";
 import { listRows } from "../runtime/list-rows";
 import { resourceNavName } from "../runtime/nav";
@@ -111,6 +115,7 @@ export async function ResourceListPage({
           <div className="fp-flex-1">
             <ResourceListFilters filters={filterSpecs} />
           </div>
+          <ResourceListClearFilters filters={filterSpecs} />
           {listing.deletedToggle ? <ResourceListDeletedToggle /> : null}
           <SavedViewsDropdown
             resource={name}
@@ -158,7 +163,7 @@ export async function ResourceListPage({
       defaultSortable: true,
       metaByField,
       formatting: resolveFormatting(config.formatting),
-      labelOf: fieldLabels(resource),
+      labelOf: fieldLabels(resource, [], namedFields(config)),
     },
   );
 
@@ -174,15 +179,18 @@ export async function ResourceListPage({
   const rowKey = rowKeyOf(resource);
   const rowClick = resolveRowClick(resource);
   // A list empty under its own default filters may be empty everywhere, as for a new tenant: then it says so.
-  const defaults = listDefaults(filterSpecs, resource).filters;
+  const userFiltered = filterSpecs.some(
+    (f) =>
+      !f.hidden &&
+      searchParams.has(`f_${f.field}`) &&
+      searchParams.get(`f_${f.field}`) !== (f.defaultValue ?? ""),
+  );
   const hiddenFilters = new Set(filterSpecs.filter((f) => f.hidden).map((f) => f.field));
-  const chosen = Object.entries(filters).filter(([field]) => !hiddenFilters.has(field));
   const underDefaults =
     clientRows.length === 0 &&
     effectiveSearch === "" &&
-    chosen.length > 0 &&
-    chosen.length === Object.keys(defaults).length &&
-    chosen.every(([field, value]) => defaults[field] === value);
+    !userFiltered &&
+    Object.keys(filters).length > 0;
   const emptyEverywhere =
     underDefaults &&
     (
@@ -236,6 +244,8 @@ export async function ResourceListPage({
       <DataTableWithDrawerRows
         resource={name}
         columns={columns}
+        columnPrefs={fitColumnPrefs(readColumnPrefs(req.headers.get("cookie"), name), columns)}
+        columnPrefsPath={withDeploymentBasePath(buildHref(config, name))}
         rows={clientRows}
         total={result.total}
         page={result.page}
@@ -263,6 +273,7 @@ export async function ResourceListPage({
           : {})}
         {...listEmptyProps(config, resource, name, displayPlural, {
           filtered: !emptyEverywhere && (effectiveSearch !== "" || Object.keys(filters).length > 0),
+          resettable: userFiltered || effectiveSearch !== "",
           searchOnly: Object.keys(filters).length === 0,
           params: searchParams,
           search: effectiveSearch,

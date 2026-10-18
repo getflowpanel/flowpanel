@@ -37,6 +37,7 @@
   "next/src/actions/action-form-field.ts",
   "next/src/actions/form-values.ts",
   "next/src/command/record-search-wire.ts",
+  "next/src/drawer/column-prefs-cookie.ts",
   "next/src/pages/wall.tsx",
   "next/src/runtime/failure-card.tsx",
   "next/src/runtime/format-field-value.tsx",

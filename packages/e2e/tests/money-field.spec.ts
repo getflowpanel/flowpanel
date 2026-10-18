@@ -10,6 +10,7 @@ test("a money field edits major units beside the currency and stores minor units
   expect(id).toBeTruthy();
 
   await page.goto(`/admin/products/${id}/edit`);
+
   const price = page.getByRole("textbox", { name: "Our price" });
   await expect(price).toHaveValue(/^\d+\.\d{2}$/);
   await expect(page.getByText("$", { exact: true })).toBeVisible();

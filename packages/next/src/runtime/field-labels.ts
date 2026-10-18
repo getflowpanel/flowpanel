@@ -1,5 +1,6 @@
-import type { FieldDef, ResourceConfig } from "@flowpanel/core";
+import type { FieldDef, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { humanize, humanizeAmount, humanizeReference } from "@flowpanel/core";
+import { SERVER_LABELS } from "@flowpanel/core/internal";
 import { columnDefs } from "./column-defs";
 import { formFieldsOf } from "./form-fields-of";
 
@@ -32,10 +33,18 @@ function kindOf(field: Field): Kind | undefined {
   return field.type === "money" ? "money" : undefined;
 }
 
-/** The one label a field shows on every surface: its own, then a form's, record's or drawer's, then its column's, then its name humanized. */
+/** The admin's `labels.fields`: names for fields nothing else labels, such as `createdAt`, in its language. */
+export function namedFields(
+  config: Pick<ResolvedAdminConfig, "labels">,
+): Readonly<Record<string, string>> {
+  return config.labels?.fields ?? SERVER_LABELS.fields;
+}
+
+/** The one label a field shows on every surface: its own, then a form's, record's or drawer's, then its column's, then `named`, then its name humanized. */
 export function fieldLabels(
   resource: ResourceConfig | undefined,
   fields: readonly Field[] = [],
+  named: Readonly<Record<string, string>> = {},
 ): (name: string) => string {
   const labels = new Map<string, string>();
   const kinds = new Map<string, Kind>();
@@ -62,7 +71,7 @@ export function fieldLabels(
     if (kind) kinds.set(field.name, kind);
   }
   return (name) => {
-    const label = labels.get(name);
+    const label = labels.get(name) ?? (Object.hasOwn(named, name) ? named[name] : undefined);
     if (label !== undefined) return label;
     const kind = kinds.get(name);
     if (kind === "reference") return humanizeReference(name);

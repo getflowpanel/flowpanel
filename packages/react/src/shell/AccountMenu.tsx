@@ -70,18 +70,23 @@ export function AccountMenu({ user, align = "start", className, compact }: Accou
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
-        aria-label={navigation.accountMenu}
         className={cn(
-          "fp-flex fp-min-h-11 fp-w-full fp-items-center fp-gap-2 fp-rounded-sm fp-px-2 fp-py-1.5 fp-text-left fp-text-sm fp-text-ink hover:fp-bg-canvas focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 sm:fp-min-h-9",
+          "fp-relative fp-flex fp-min-h-11 fp-w-full fp-items-center fp-gap-2 fp-rounded-sm fp-px-2 fp-py-1.5 fp-text-left fp-text-sm fp-text-ink hover:fp-bg-canvas focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 sm:fp-min-h-9",
           className,
         )}
       >
         <Avatar user={user} />
         <span
-          className={cn("fp-min-w-0 fp-flex-1 fp-truncate", compact && "fp-hidden sm:fp-block")}
+          className={cn(
+            "fp-min-w-0 fp-flex-1 fp-truncate",
+            compact && "max-sm:fp-sr-only sm:fp-max-w-56",
+          )}
         >
           {label}
         </span>
+        {user.name || user.email ? (
+          <span className="fp-sr-only">{navigation.accountMenu}</span>
+        ) : null}
         <ChevronsUpDown
           className={cn(
             "fp-h-3.5 fp-w-3.5 fp-shrink-0 fp-text-faint",

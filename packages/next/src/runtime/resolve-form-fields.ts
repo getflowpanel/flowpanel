@@ -12,7 +12,7 @@ import { accessAllows, humanize, resolveFormatting, runWithRequestContext } from
 import { moneyColumnFactor } from "@flowpanel/core/format";
 import type { ResolvedField } from "@flowpanel/react";
 import { columnDefs } from "./column-defs";
-import { fieldLabels } from "./field-labels";
+import { fieldLabels, namedFields } from "./field-labels";
 import { moneyInputValue, moneyShape } from "./money-field";
 import { readRelatedRows } from "./require-authorized";
 import { toWireOptions } from "./select-options";
@@ -132,7 +132,10 @@ export async function resolveFormFields(
     visible.map(async (f): Promise<ResolvedField> => {
       const opts = f.options;
       const defaultValue =
-        row === undefined ? await resolvedDefault(f, reqCtx, queryCtx) : undefined;
+        row === undefined
+          ? ((await resolvedDefault(f, reqCtx, queryCtx)) ??
+            columns.find((c) => c.name === f.name)?.defaultValue)
+          : undefined;
       let options: { label: string; value: string }[] | undefined;
       if (f.reference) {
         options = await resolveReferenceCurrentOption(
@@ -239,12 +242,13 @@ export function generatedFormFields(
   resource: ResourceConfig,
   columns: ReadonlyArray<ColumnMeta>,
   mode: "create" | "update",
+  named: Readonly<Record<string, string>> = {},
 ): FieldDef<Record<string, unknown>>[] {
   const defs = new Map(
     columnDefs(resource).flatMap((def) => (def.field ? [[def.field, def]] : [])),
   );
   const references = columnReferences(resource);
-  const labelOf = fieldLabels(resource);
+  const labelOf = fieldLabels(resource, [], named);
   return columns
     .filter((column) => !column.primaryKey && (mode === "update" || !systemTimestamp(column)))
     .map((column) => {
@@ -284,7 +288,7 @@ export async function generatedColumnFields(
 ): Promise<ResolvedField[]> {
   return resolveFormFields(
     config,
-    generatedFormFields(resource, columns, mode),
+    generatedFormFields(resource, columns, mode, namedFields(config)),
     reqCtx,
     row,
     undefined,

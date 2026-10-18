@@ -11,6 +11,7 @@ import { ChevronDown } from "lucide-react";
 import * as React from "react";
 import type { JsonEditorProps } from "../data/JsonEditor";
 import type { TagInputProps } from "../data/TagInput";
+import { ChunkBoundary } from "../lib/chunk-boundary";
 import { cn } from "../lib/cn";
 import { lazyRetry } from "../lib/lazy-retry";
 import { useFormatting } from "../provider/FormattingContext";
@@ -20,6 +21,7 @@ import { INVALID_CLASS, INVALID_WITHIN, Input, READ_ONLY_CLASS } from "../ui/inp
 import { Switch } from "../ui/switch";
 import { AsyncSelect, type AsyncSelectOption } from "./AsyncSelect";
 import type { FieldControlType } from "./Field";
+import { useFormReady } from "./form-context";
 
 export interface AriaProps {
   "aria-invalid"?: true;
@@ -101,6 +103,7 @@ interface HiddenControlProps {
 
 export function JsonField({ field, readOnly, aria }: HiddenControlProps) {
   const control = useStringControl(field);
+  const ready = useFormReady();
   const parsed = React.useMemo<unknown>(() => {
     if (!control.value) return {};
     try {
@@ -112,15 +115,17 @@ export function JsonField({ field, readOnly, aria }: HiddenControlProps) {
   return (
     <>
       <input type="hidden" name={field.name} defaultValue={control.value} />
-      <InertWhenReadOnly readOnly={readOnly}>
-        <React.Suspense fallback={<div className="fp-h-[154px]" />}>
-          <JsonEditor
-            id={field.id}
-            value={parsed}
-            onChange={(v) => control.change(JSON.stringify(v))}
-            {...aria}
-          />
-        </React.Suspense>
+      <InertWhenReadOnly readOnly={readOnly || !ready}>
+        <ChunkBoundary>
+          <React.Suspense fallback={<div className="fp-h-[154px]" />}>
+            <JsonEditor
+              id={field.id}
+              value={parsed}
+              onChange={(v) => control.change(JSON.stringify(v))}
+              {...aria}
+            />
+          </React.Suspense>
+        </ChunkBoundary>
       </InertWhenReadOnly>
     </>
   );
@@ -143,19 +148,22 @@ function decodeList(value: string | undefined): string[] {
 
 export function TagsField({ field, readOnly, aria }: HiddenControlProps) {
   const control = useStringControl(field);
+  const ready = useFormReady();
   const list = React.useMemo(() => decodeList(control.value), [control.value]);
   return (
     <>
       <input type="hidden" name={field.name} defaultValue={control.value} />
-      <InertWhenReadOnly readOnly={readOnly}>
-        <React.Suspense fallback={<div className="fp-h-[42px]" />}>
-          <TagInput
-            id={field.id}
-            value={list}
-            onChange={(next) => control.change(encodeList(next))}
-            {...aria}
-          />
-        </React.Suspense>
+      <InertWhenReadOnly readOnly={readOnly || !ready}>
+        <ChunkBoundary>
+          <React.Suspense fallback={<div className="fp-h-[42px]" />}>
+            <TagInput
+              id={field.id}
+              value={list}
+              onChange={(next) => control.change(encodeList(next))}
+              {...aria}
+            />
+          </React.Suspense>
+        </ChunkBoundary>
       </InertWhenReadOnly>
     </>
   );
@@ -176,12 +184,13 @@ export function MultiSelectField({
   aria,
 }: MultiSelectFieldProps) {
   const control = useStringControl(field);
+  const ready = useFormReady();
   const list = React.useMemo(() => decodeList(control.value), [control.value]);
   return (
     <>
       <input type="hidden" name={field.name} defaultValue={control.value} />
       <fieldset
-        {...(readOnly ? { disabled: true } : {})}
+        {...(readOnly || !ready ? { disabled: true } : {})}
         {...(labelId ? { "aria-labelledby": labelId } : { "aria-label": label ?? field.name })}
         {...aria}
         className={`fp-m-0 fp-flex fp-min-w-0 fp-flex-wrap fp-gap-2 fp-rounded fp-border fp-border-line fp-bg-surface fp-p-2 ${INVALID_WITHIN}`}
@@ -234,6 +243,7 @@ export function ReferenceField({
 }: ReferenceFieldProps) {
   const labels = useLabels();
   const control = useStringControl(field);
+  const ready = useFormReady();
   const initialLabel = options.find((o) => o.value === control.value)?.label ?? null;
   const loadOptions = React.useCallback(
     async (q: string): Promise<AsyncSelectOption[]> => {
@@ -250,7 +260,7 @@ export function ReferenceField({
   return (
     <>
       <input type="hidden" name={field.name} defaultValue={control.value} />
-      <InertWhenReadOnly readOnly={readOnly}>
+      <InertWhenReadOnly readOnly={readOnly || !ready}>
         <AsyncSelect
           id={field.id}
           hasLabel={hasLabel}
@@ -275,6 +285,11 @@ interface ScalarFieldProps {
   aria: AriaProps;
 }
 
+/** Inputs whose picker ignores `readonly` (color everywhere, dates on iOS Safari), so they wait disabled. */
+const PICKER_TYPES = new Set<ScalarInputType>(["color", "date", "datetime-local", "time"]);
+const notReady = (type: ScalarInputType) =>
+  PICKER_TYPES.has(type) ? { disabled: true } : { readOnly: true };
+
 /** Plain scalar inputs (text/email/password/url/number/date/…). */
 export function ScalarField({
   field,
@@ -285,6 +300,7 @@ export function ScalarField({
   aria,
 }: ScalarFieldProps) {
   const control = useStringControl(field);
+  const ready = useFormReady();
   return (
     <Input
       {...getInputProps(field, { type, value: false })}
@@ -292,7 +308,7 @@ export function ScalarField({
       onChange={(e) => control.change(e.target.value)}
       {...(placeholder ? { placeholder } : {})}
       {...(autoComplete ? { autoComplete } : {})}
-      {...(readOnly ? { readOnly: true, "aria-readonly": true } : {})}
+      {...(readOnly ? { readOnly: true, "aria-readonly": true } : ready ? {} : notReady(type))}
       {...aria}
     />
   );
@@ -321,6 +337,7 @@ interface MoneyFieldProps {
 /** An amount in major units with the currency beside it; the server stores minor units. */
 export function MoneyField({ field, currency, placeholder, readOnly, aria }: MoneyFieldProps) {
   const control = useStringControl(field);
+  const ready = useFormReady();
   const formatting = useFormatting();
   const code = currency ?? formatting.currency;
   const affix = currencyAffix(formatting.locale, code);
@@ -356,7 +373,11 @@ export function MoneyField({ field, currency, placeholder, readOnly, aria }: Mon
         value={control.value ?? ""}
         onChange={(e) => control.change(e.target.value)}
         {...(placeholder ? { placeholder } : {})}
-        {...(readOnly ? { readOnly: true, "aria-readonly": true } : {})}
+        {...(readOnly
+          ? { readOnly: true, "aria-readonly": true }
+          : ready
+            ? {}
+            : { readOnly: true })}
         {...aria}
         aria-describedby={[codeId, aria["aria-describedby"]].filter(Boolean).join(" ")}
       />
@@ -381,6 +402,7 @@ export function TextareaField({
   aria,
 }: TextareaFieldProps) {
   const control = useStringControl(field);
+  const ready = useFormReady();
   return (
     <textarea
       {...getTextareaProps(field, { value: false })}
@@ -388,7 +410,7 @@ export function TextareaField({
       onChange={(e) => control.change(e.target.value)}
       rows={markdown ? 8 : 4}
       {...(placeholder ? { placeholder } : {})}
-      {...(readOnly ? { readOnly: true, "aria-readonly": true } : {})}
+      {...(readOnly ? { readOnly: true, "aria-readonly": true } : ready ? {} : { readOnly: true })}
       {...aria}
       className={`${CONTROL_CLASS} ${markdown ? "fp-font-mono" : ""}`}
     />
@@ -415,6 +437,7 @@ export function SelectField({
 }: SelectFieldProps) {
   const labels = useLabels();
   const control = useStringControl(field);
+  const ready = useFormReady();
   return (
     <>
       {readOnly ? (
@@ -425,7 +448,11 @@ export function SelectField({
           {...getSelectProps(field, { value: false })}
           value={control.value ?? ""}
           onChange={(e) => control.change(e.target.value)}
-          {...(readOnly ? { disabled: true, "aria-readonly": true } : {})}
+          {...(readOnly
+            ? { disabled: true, "aria-readonly": true }
+            : ready
+              ? {}
+              : { disabled: true })}
           {...aria}
           className={SELECT_CLASS}
         >
@@ -456,6 +483,7 @@ interface RadioFieldProps {
 
 export function RadioField({ field, readOnly, options, rawValue, aria, labelId }: RadioFieldProps) {
   const control = useStringControl(field);
+  const ready = useFormReady();
   return (
     <fieldset
       {...(labelId ? { "aria-labelledby": labelId } : {})}
@@ -475,7 +503,7 @@ export function RadioField({ field, readOnly, options, rawValue, aria, labelId }
             value={o.value}
             checked={control.value === o.value}
             onChange={() => control.change(o.value)}
-            {...(readOnly ? { disabled: true } : {})}
+            {...(readOnly || !ready ? { disabled: true } : {})}
             className="fp-accent-accent"
           />
           {o.label}
@@ -494,6 +522,7 @@ interface CheckboxFieldProps {
 /** `type: "switch"` — a toggle with checkbox form semantics (submits "on" or nothing). */
 export function SwitchField({ field, readOnly, aria }: CheckboxFieldProps) {
   const control = useStringControl(field);
+  const ready = useFormReady();
   const checked = control.value === "on" || control.value === "true";
   return (
     <>
@@ -504,7 +533,7 @@ export function SwitchField({ field, readOnly, aria }: CheckboxFieldProps) {
         onCheckedChange={(next) => {
           if (!readOnly) control.change(next ? "on" : "");
         }}
-        disabled={readOnly}
+        disabled={readOnly || !ready}
         {...aria}
       />
     </>
@@ -513,6 +542,7 @@ export function SwitchField({ field, readOnly, aria }: CheckboxFieldProps) {
 
 export function CheckboxField({ field, readOnly, aria }: CheckboxFieldProps) {
   const control = useStringControl(field);
+  const ready = useFormReady();
   const checked = control.value === "on" || control.value === "true";
   return (
     <>
@@ -521,7 +551,7 @@ export function CheckboxField({ field, readOnly, aria }: CheckboxFieldProps) {
         {...getInputProps(field, { type: "checkbox", value: false })}
         checked={checked}
         onChange={(e) => control.change(e.target.checked ? "on" : "")}
-        {...(readOnly ? { disabled: true } : {})}
+        {...(readOnly || !ready ? { disabled: true } : {})}
         {...aria}
         className="fp-h-4 fp-w-4 fp-accent-accent"
       />

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LABELS, mergeLabels, RU_LABELS } from "../../labels";
+import { ENGLISH_LABELS } from "../../__tests__/english-labels";
+import { mergeLabels, RU_LABELS } from "../../labels";
 
 const variables = (text: string): string[] => text.match(/\{\w+\}/g) ?? [];
 
@@ -31,7 +32,7 @@ describe("Russian chrome preset", () => {
   it("is serializable and has every default key and template variable", () => {
     const roundTrip = JSON.parse(JSON.stringify(RU_LABELS));
     expect(roundTrip).toEqual(RU_LABELS);
-    for (const [key, value] of Object.entries(DEFAULT_LABELS)) {
+    for (const [key, value] of Object.entries(ENGLISH_LABELS)) {
       expectSameShape(value, roundTrip[key]);
     }
   });

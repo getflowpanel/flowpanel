@@ -1,4 +1,4 @@
-import { globSync } from "node:fs";
+import { globSync, readFileSync, writeFileSync } from "node:fs";
 import { defineConfig } from "tsup";
 
 const modules = globSync("src/**/*.{ts,tsx}")
@@ -34,6 +34,10 @@ export default defineConfig({
     "@flowpanel/core/theme",
     "zod",
   ],
-  // Next.js treats every module here as a client boundary.
+  // Every module is a client boundary but the barrel, so a page loads only the components it imports.
   banner: { js: '"use client";' },
+  onSuccess: async () => {
+    const barrel = "dist/index.mjs";
+    writeFileSync(barrel, readFileSync(barrel, "utf8").replace(/^"use client";\n/, ""));
+  },
 });

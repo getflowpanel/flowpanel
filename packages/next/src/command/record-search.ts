@@ -1,4 +1,6 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import { resolveFormatting } from "@flowpanel/core";
+import { formatColumnValue, type ResolvedFormatting } from "@flowpanel/core/format";
 import { createResourceController } from "../controllers/resource-controller";
 import { readableByCaller, resourceNavName } from "../runtime/nav";
 import { resolveReadableFieldSet } from "../runtime/readable-fields";
@@ -30,6 +32,7 @@ export function resultLines(
   rows: ReadonlyArray<Record<string, unknown>>,
   fields: string[],
   query: string,
+  shown: ReadonlyArray<ReadonlyArray<string>> = [],
 ): Array<[title: string | undefined, detail: string | undefined]> {
   const needle = query.toLowerCase();
   const words = rows.map((row) => wordsOf(row, fields));
@@ -47,14 +50,39 @@ export function resultLines(
   return lines.map(([title, detail], index) => {
     if ((seen.get(`${title}\u0000${detail}`) ?? 0) < 2) return [title, detail];
     const twins = lines.flatMap((line, other) =>
-      line[0] === title && line[1] === detail ? [words[other] ?? []] : [],
+      line[0] === title && line[1] === detail ? [other] : [],
     );
-    const own = words[index] ?? [];
-    const apart = own.find(
-      (text, at) => at > 0 && twins.filter((twin) => twin[at] === text).length === 1,
-    );
-    return [title, apart ?? detail];
+    const differs = (texts: ReadonlyArray<ReadonlyArray<string>>, from: number) =>
+      (texts[index] ?? []).find(
+        (text, at) =>
+          at >= from &&
+          text !== "" &&
+          twins.filter((twin) => texts[twin]?.[at] === text).length === 1,
+      );
+    return [title, differs(words, 1) ?? differs(shown, 0) ?? detail];
   });
+}
+
+/** A row's list columns outside its search fields, as its cells show them, to tell look-alike results apart. */
+function shownColumns(
+  resource: ResourceConfig,
+  rows: ReadonlyArray<Record<string, unknown>>,
+  skip: ReadonlySet<string>,
+  formatting: ResolvedFormatting,
+): string[][] {
+  const columns = (resource.options.columns ?? []).flatMap((column) => {
+    const def = typeof column === "string" ? { field: column } : column;
+    const field = def.field === undefined ? "" : String(def.field);
+    return field === "" || skip.has(field) || def.reference ? [] : [{ field, format: def.format }];
+  });
+  return rows.map((row) =>
+    columns.map(({ field, format }) => {
+      const value = row[field];
+      if (format !== undefined)
+        return value == null || value === "" ? "" : formatColumnValue(value, format, formatting);
+      return typeof value === "string" || typeof value === "number" ? String(value) : "";
+    }),
+  );
 }
 
 async function searchResource(
@@ -82,7 +110,17 @@ async function searchResource(
   const rowKey = rowKeyOf(resource);
   const rows: Record<string, unknown>[] = result.data.rows;
   const hrefs = openRowHrefs(config, name, resource, rows, rowKey) ?? [];
-  const lines = resultLines(rows, fields, query);
+  const lines = resultLines(
+    rows,
+    fields,
+    query,
+    shownColumns(
+      resource,
+      rows,
+      new Set([...fields, rowKey]),
+      resolveFormatting(config.formatting),
+    ),
+  );
   const items = rows.flatMap((row, index): RecordSearchItem[] => {
     const href = hrefs[index];
     if (!href) return [];

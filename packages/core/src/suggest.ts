@@ -1,20 +1,25 @@
-/** Edit distance, abandoned as soon as it passes `max` — a far name is not a suggestion. */
+/** Edit distance counting a swap of two neighbours as one edit, abandoned once it passes `max`. */
 function distance(a: string, b: string, max: number): number {
   if (Math.abs(a.length - b.length) > max) return max + 1;
+  let before: number[] = [];
   let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i++) {
     const row = [i];
     let best = i;
     for (let j = 1; j <= b.length; j++) {
-      const substitute = (previous[j - 1] as number) + (a[i - 1] === b[j - 1] ? 0 : 1);
-      const step = Math.min(substitute, (previous[j] as number) + 1, (row[j - 1] as number) + 1);
+      const substitute = (previous[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1);
+      let step = Math.min(substitute, (previous[j] ?? 0) + 1, (row[j - 1] ?? 0) + 1);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        step = Math.min(step, (before[j - 2] ?? 0) + 1);
+      }
       row.push(step);
       if (step < best) best = step;
     }
     if (best > max) return max + 1;
+    before = previous;
     previous = row;
   }
-  return previous[b.length] as number;
+  return previous[b.length] ?? max + 1;
 }
 
 const squash = (value: string): string => value.toLowerCase().replace(/[_-]/g, "");

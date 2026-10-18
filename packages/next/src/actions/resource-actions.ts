@@ -1,5 +1,4 @@
 import type {
-  FieldDef,
   MutationContext,
   RequestContext,
   ResolvedAdminConfig,
@@ -14,6 +13,7 @@ import {
   runWithRequestContext,
 } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
+import { changesRow } from "../runtime/action-helpers";
 import { buildServerRequest } from "../runtime/build-server-request";
 import { explainWrite } from "../runtime/constraint-error";
 import { deleteRow } from "../runtime/delete-row";
@@ -33,9 +33,11 @@ import { auditDiff, commitEffects, type WriteEffects } from "../runtime/write-pi
 import {
   applyFieldDefaults,
   assertResourceWritableInput,
+  editableColumns,
   formInput,
   pickSchema,
   schemasFor,
+  updateFields,
 } from "./field-pipeline";
 import { checkedValues } from "./field-validation";
 
@@ -67,15 +69,6 @@ export interface MakeActionsOptions {
 function dateColumnsOf(config: ResolvedAdminConfig, resource: ResourceConfig): Set<string> {
   const { columns } = config.adapter.introspect(writeTarget(resource));
   return new Set(columns.filter((c) => c.type === "date").map((c) => c.name));
-}
-
-type Field = FieldDef<Record<string, unknown>>;
-
-/** The update's fields: an inline edit also accepts its own column when the form does not list it. */
-function updateFields(resource: ResourceConfig, inline: string | undefined): Field[] | undefined {
-  const fields = declaredFormFields(resource, "update");
-  if (inline === undefined || !fields || fields.some((f) => f.name === inline)) return fields;
-  return [...fields, { name: inline }];
 }
 
 /**
@@ -182,7 +175,14 @@ export function makeActions(
       const reqCtx = await ctxFor(buildHref(config, name, id, "edit"));
       await guard(reqCtx, "update");
 
-      const fields = updateFields(resource, options.inline);
+      const fields = updateFields(
+        resource,
+        options.inline !== undefined
+          ? [options.inline]
+          : opts.fromForm
+            ? []
+            : editableColumns(resource),
+      );
       const current = await readLiveRow(config, resource, id, reqCtx);
       if (!current) throw new FlowpanelNotFoundError();
       const denied = await deniedFieldWrites(resource, reqCtx, current);
@@ -239,6 +239,7 @@ export function makeActions(
           action: options.inline === undefined ? `${name}.update` : `${name}.inline-update`,
           targetId: id,
           rows: new Map([[id, current]]),
+          ...(changesRow(current, values) ? {} : { unchanged: true }),
           diff: () =>
             auditDiff(
               config,

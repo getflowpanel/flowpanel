@@ -133,14 +133,15 @@ export function sessionFailedWall(
 ): React.ReactNode {
   const { errors } = mergeLabels(config.labels);
   const message = cause instanceof Error ? cause.message : "";
-  const shown = cause instanceof FlowpanelConfigError || process.env.NODE_ENV !== "production";
+  const configured = cause instanceof FlowpanelConfigError;
+  const shown = !configured && process.env.NODE_ENV !== "production";
   return (
     <Wall
       title={errors.title}
-      description={`${errors.loadHint} ${errors.reportHint}`}
+      description={configured ? message : `${errors.loadHint} ${errors.reportHint}`}
       actions={
         <>
-          <RefreshButton label={errors.retry} variant="outline" />
+          {configured ? null : <RefreshButton label={errors.retry} variant="outline" />}
           <RequestId id={requestId} />
         </>
       }

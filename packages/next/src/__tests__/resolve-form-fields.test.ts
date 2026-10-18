@@ -111,6 +111,39 @@ describe("resolveFormFields — hidden / readOnly / defaultValue", () => {
     expect(edit.map((f) => f.defaultValue)).toEqual([undefined, undefined]);
   });
 
+  it("starts a declared create field on its column's database default, as a generated one does", async () => {
+    const fields: Fields = [
+      { name: "status", type: "select", options: ["draft", "sent"] },
+      { name: "priority", type: "select", options: ["low", "high"], defaultValue: "high" },
+      { name: "note" },
+    ];
+    const columns = [
+      { name: "status", type: "string", nullable: false, hasDefault: true, defaultValue: "draft" },
+      { name: "priority", type: "string", nullable: false, hasDefault: true, defaultValue: "low" },
+      { name: "note", type: "string", nullable: true, hasDefault: true },
+    ] as never;
+    const create = await resolveFormFields(
+      config,
+      fields,
+      ctx("admin"),
+      undefined,
+      undefined,
+      undefined,
+      columns,
+    );
+    expect(create.map((f) => f.defaultValue)).toEqual(["draft", "high", undefined]);
+    const edit = await resolveFormFields(
+      config,
+      fields,
+      ctx("admin"),
+      { status: "sent" },
+      undefined,
+      undefined,
+      columns,
+    );
+    expect(edit.map((f) => f.defaultValue)).toEqual([undefined, undefined, undefined]);
+  });
+
   it("hands a money field its currency and a default in major units", async () => {
     const fields: Fields = [
       { name: "price", type: "money", currency: "EUR", defaultValue: 1999 },

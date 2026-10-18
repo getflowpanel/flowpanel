@@ -50,6 +50,10 @@ export interface ShortcutsLabels {
   rows?: string;
   general?: string;
   moveDown?: string;
+  /** Shift+← and Shift+→ on a focused column header. */
+  columnWidth?: string;
+  /** Shift+Enter on a focused column header. */
+  columnFit?: string;
   moveUp?: string;
   first?: string;
   last?: string;
@@ -121,6 +125,10 @@ export interface TableLabels {
   columns?: string;
   /** A column's pin menu. Use `{label}` for the column. */
   columnOptions?: string;
+  /** The columns menu item that drops every width the reader dragged. */
+  resetWidths?: string;
+  /** Read out after a keyboard resize. Use `{label}` for the column and `{width}` for its px. */
+  columnResized?: string;
   pinLeft?: string;
   pinRight?: string;
   unpin?: string;
@@ -155,6 +163,8 @@ export interface TableLabels {
   emptyReadOnlyDescription?: string;
   /** A list a search alone left empty; `{query}` is the search. */
   noSearchMatch?: string;
+  /** The empty state when the list's default filters alone hide every row. */
+  noDefaultMatch?: string;
   /** The empty list's create button. Use `{label}` for the singular label. */
   createFirst?: string;
   /** The pencil on an editable cell. Use `{label}` for the column label. */
@@ -205,6 +215,14 @@ export interface FormLabels {
   invalidBoolean?: string;
   /** A value that is not a date. Use `{label}`. */
   invalidDate?: string;
+  /** A `type: "email"` value that is not an email address. Use `{label}`. */
+  invalidEmail?: string;
+  /** A `type: "url"` value that is not a full web address. Use `{label}`. */
+  invalidUrl?: string;
+  /** A `type: "color"` value that is not a `#rrggbb` colour. Use `{label}`. */
+  invalidColor?: string;
+  /** A `type: "time"` value that is not a time of day. Use `{label}`. */
+  invalidTime?: string;
   /** A value a unique column already holds. Use `{label}`. */
   taken?: string;
   /** A unique violation the database did not tie to one column. */

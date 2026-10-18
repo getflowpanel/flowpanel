@@ -1,23 +1,30 @@
-import { quoted } from "../../internal/validate-shared";
+import { checkColumn, quoted } from "../../internal/validate-shared";
 import { didYouMean } from "../../suggest";
 import { FlowpanelConfigError } from "../../types/config-error";
 import type { DashboardConfig } from "../../types/dashboard";
 import type { ResourceConfig } from "../../types/resource";
+import type { LinkCheck } from "./links";
 
 interface RefSite {
   /** Resource name the config points at. */
   target: string;
   /** Human-readable config path, used verbatim in the error. */
   where: string;
+  /** The target's column a reference labels its rows with. */
+  labelField?: string;
 }
 
 function pushFieldRefs(list: unknown, where: string, out: RefSite[]): void {
   if (!Array.isArray(list)) return;
   list.forEach((entry, i) => {
     if (!entry || typeof entry !== "object") return;
-    const ref = (entry as { reference?: { resource?: unknown } }).reference;
+    const ref = (entry as { reference?: { resource?: unknown; labelField?: unknown } }).reference;
     if (ref && typeof ref.resource === "string") {
-      out.push({ target: ref.resource, where: `${where}[${i}].reference.resource` });
+      out.push({
+        target: ref.resource,
+        where: `${where}[${i}].reference.resource`,
+        ...(typeof ref.labelField === "string" ? { labelField: ref.labelField } : {}),
+      });
     }
   });
 }
@@ -92,5 +99,16 @@ export function validateResourceRefs(
       pushWidgetRefs(s.widgets, `sections[${i}].widgets`, sites);
     });
     assertKnown(sites, `dashboard "${d.path}"`, known);
+  }
+}
+
+/** Throws when a reference labels its rows with a column its target does not have. */
+export function validateReferenceLabels(check: LinkCheck): void {
+  for (const [name, resource] of check.resourcesByName) {
+    for (const site of resourceRefSites(resource)) {
+      if (site.labelField === undefined) continue;
+      const where = `resource "${name}" ${site.where.replace(/\.resource$/, ".labelField")}`;
+      checkColumn(where, site.target, site.labelField, check);
+    }
   }
 }

@@ -10,7 +10,7 @@ import type { FilesystemPlan } from "../plan/types";
 import { addPrismaResourceType, dirSpecifier, wireResourcesDir } from "../scaffold/config-edits";
 import { findAdminConfig } from "../scaffold/config-target";
 import { describeSchema } from "../scaffold/describe-schema";
-import { planNewIntoDir } from "../scaffold/plan-new";
+import { planNewIntoDir, planPrismaModelIntoDir } from "../scaffold/plan-new";
 import { linkPrismaReferences, registeredPrismaNames } from "../scaffold/prisma-references";
 import {
   describePrismaSchema,
@@ -90,24 +90,29 @@ async function noConfig(cwd: string): Promise<string> {
 }
 
 async function newIntoDir(cwd: string, resource: string, dir: string, opts: NewOptions) {
-  if (opts.table !== undefined || parseAdapterKind(opts.kind) !== "drizzle") {
-    stop(opts, "--dir reads your Drizzle schema, so it takes neither --table nor --kind prisma.");
-  }
+  if (opts.table !== undefined) stop(opts, "--dir reads your schema, so it does not take --table.");
   const config = await findAdminConfig(cwd);
   if (!config) stop(opts, await noConfig(cwd));
   const configSource = await fs.readFile(config.file, "utf8");
-  if (adapterKindOf(configSource) === "prisma") {
-    stop(
-      opts,
-      "--dir writes Drizzle resource files. With Prisma, run new without --dir and move the entry into its own file: https://flowpanel.tech/docs/introduction/prisma#one-file-per-resource",
-    );
+  const kind = opts.kind === undefined ? adapterKindOf(configSource) : parseAdapterKind(opts.kind);
+  if (kind === null) {
+    stop(opts, `Unknown --kind "${opts.kind}". Use one of: ${ADAPTER_KINDS.join(", ")}`);
   }
   const absoluteDir = path.resolve(cwd, dir);
   const shownDir = path.relative(cwd, absoluteDir) || ".";
-  const { intents, unlinked } = await planNewIntoDir(cwd, resource, {
-    dir,
-    hidden: opts.hidden === true,
-  });
+  const prisma =
+    kind === "prisma"
+      ? await planPrismaModelIntoDir(cwd, resource, {
+          dir,
+          hidden: opts.hidden === true,
+          registered: registeredPrismaNames(configSource),
+        })
+      : null;
+  if (prisma && prisma.model !== resource) {
+    createUi(opts.json).info(`Using the ${prisma.model} model for "${resource}".`);
+  }
+  const { intents, unlinked } =
+    prisma ?? (await planNewIntoDir(cwd, resource, { dir, hidden: opts.hidden === true }));
   const index = path.join(absoluteDir, "index.ts");
   const importsDir = new Set<string>();
   for (const match of configSource.matchAll(/from\s+["']([^"']+)["']/g)) {
@@ -119,10 +124,12 @@ async function newIntoDir(cwd: string, resource: string, dir: string, opts: NewO
     await dirSpecifier(cwd, config.file, absoluteDir),
     (spec) => importsDir.has(spec),
   );
-  if (wiring.kind === "wired") {
+  const wired = wiring.kind === "wired" ? wiring.source : configSource;
+  const typed = prisma ? addPrismaResourceType(wired, prisma.name, prisma.model) : wired;
+  if (typed !== configSource) {
     intents.push({
       path: path.relative(cwd, config.file),
-      content: wiring.source,
+      content: typed,
       expectedContent: configSource,
     });
   }
@@ -149,7 +156,7 @@ async function newIntoDir(cwd: string, resource: string, dir: string, opts: NewO
     ...(unlinked.length > 0 ? { unlinked: unlinkedColumns(unlinked) } : {}),
     ...(wiring.kind === "manual" ? { wiring: wiring.line } : {}),
   };
-  await finish(plan, opts, `Added resource "${resource}" to ${shownDir}`, extra);
+  await finish(plan, opts, `Added resource "${prisma?.name ?? resource}" to ${shownDir}`, extra);
 }
 
 /** The entry `new` writes for a Drizzle table: columns, search, filters and sort, read from the schema. */
@@ -221,7 +228,7 @@ export function newCommand(cli: Command): void {
         const source = await fs.readFile(found.file, "utf8");
         const kind = opts.kind === undefined ? adapterKindOf(source) : requested;
         const splitDir = await findSplitResourcesDir(cwd, found.file, source);
-        if (splitDir && kind === "drizzle" && opts.table === undefined) {
+        if (splitDir && opts.table === undefined) {
           await newIntoDir(cwd, resource, path.relative(cwd, splitDir) || ".", opts);
           return;
         }

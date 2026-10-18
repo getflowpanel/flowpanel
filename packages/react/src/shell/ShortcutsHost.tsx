@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
-import { ShortcutsCheatsheet } from "./ShortcutsCheatsheet";
+import { ChunkBoundary } from "../lib/chunk-boundary";
+import { lazyRetry } from "../lib/lazy-retry";
+import type { ShortcutsCheatsheetProps } from "./ShortcutsCheatsheet";
 import { SHORTCUTS_EVENT, ShortcutsAvailable } from "./ShortcutsHint";
 
 function typingIn(target: EventTarget | null): boolean {
@@ -8,9 +10,15 @@ function typingIn(target: EventTarget | null): boolean {
   return target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName);
 }
 
+const ShortcutsCheatsheet = lazyRetry<ShortcutsCheatsheetProps>(() =>
+  import("./ShortcutsCheatsheet").then((module) => ({ default: module.ShortcutsCheatsheet })),
+);
+
 /** Binds `?` to the cheat sheet and `/` to the page's search box, outside text fields. */
 export function ShortcutsHost({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
+  const [opened, setOpened] = React.useState(false);
+  if (open && !opened) setOpened(true);
 
   React.useEffect(() => {
     const show = () => setOpen(true);
@@ -38,7 +46,13 @@ export function ShortcutsHost({ children }: { children: React.ReactNode }) {
   return (
     <ShortcutsAvailable.Provider value={true}>
       {children}
-      <ShortcutsCheatsheet open={open} onOpenChange={setOpen} />
+      {opened ? (
+        <ChunkBoundary floating>
+          <React.Suspense fallback={null}>
+            <ShortcutsCheatsheet open={open} onOpenChange={setOpen} />
+          </React.Suspense>
+        </ChunkBoundary>
+      ) : null}
     </ShortcutsAvailable.Provider>
   );
 }

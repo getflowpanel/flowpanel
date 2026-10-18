@@ -1,4 +1,4 @@
-/** Keeps on-demand chunks out of the first-render check; the toaster always loads, so it counts. */
+/** Keeps on-demand chunks, the toaster, forms and widget cards included, out of the first-render check. */
 const firstRenderOnly = (config) => ({
   ...config,
   plugins: [
@@ -7,24 +7,22 @@ const firstRenderOnly = (config) => ({
       name: "on-demand-chunks-external",
       setup(build) {
         build.onResolve({ filter: /.*/ }, (args) =>
-          args.kind === "dynamic-import" && !args.path.includes("ToasterMount")
-            ? { path: args.path, external: true }
-            : undefined,
+          args.kind === "dynamic-import" ? { path: args.path, external: true } : undefined,
         );
       },
     },
   ],
 });
 
-const UI = { path: "dist/react.js", import: "{ AdminShell, DataTable, AutoForm, Form }" };
+const UI = { path: "dist/react.js", import: "{ AdminShell, DataTable, AutoForm, MetricCard }" };
 
 export default [
   {
-    name: "@flowpanel/kit/react UI on first render (shell, table, forms, toaster)",
+    name: "@flowpanel/kit/react UI on a list's first render (shell, table; forms and cards load on use)",
     ...UI,
     modifyEsbuildConfig: firstRenderOnly,
-    // 0.4 rc: editors and CSV writer load on use; measured 86.73 KB with humanize's lists.
-    limit: "86.75 KB",
+    // 0.4.0: forms, widget cards, menus, popovers, selects, the toaster and the shortcut sheet load on use; measured 54.99 KB.
+    limit: "55 KB",
   },
   {
     name: "@flowpanel/kit/react on-demand chunks (importer dialogs and CSV parser, leave-guard dialog), alone with what they import",
@@ -33,8 +31,64 @@ export default [
       "dist/react/data/ImportDialogs.mjs": "{ ImportConfirm, ImportResult, readImportFile }",
       "dist/react/feedback/ConfirmDialog.mjs": "{ ConfirmDialog }",
     },
-    // 0.4 rc: the search-only empty label, the refused-field border and humanize's lists; measured 29.08 KB.
+    // 0.4.0: the column-width labels and the Russian preset's field names ride along; measured 29.09 KB.
     limit: "29.1 KB",
+  },
+  {
+    name: "@flowpanel/kit/react on-demand form (AutoForm with its fields and validation)",
+    path: "dist/react/forms/AutoForm.mjs",
+    import: "{ AutoForm }",
+    modifyEsbuildConfig: firstRenderOnly,
+    // 0.4.0: zod and Conform load here, not with the list; read-only-until-ready controls and the editors' retry line; measured 39.62 KB.
+    limit: "39.65 KB",
+  },
+  {
+    name: "@flowpanel/kit/react on-demand menus, popovers and selects",
+    path: [
+      "dist/react/ui/dropdown-menu-parts.mjs",
+      "dist/react/ui/popover-parts.mjs",
+      "dist/react/ui/select-parts.mjs",
+    ],
+    import: {
+      "dist/react/ui/dropdown-menu-parts.mjs":
+        "{ DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger }",
+      "dist/react/ui/popover-parts.mjs": "{ Popover, PopoverContent, PopoverTrigger }",
+      "dist/react/ui/select-parts.mjs": "{ Select, SelectContent, SelectItem, SelectTrigger }",
+    },
+    // 0.4.0: Radix and Floating UI load on a trigger's first press; measured 42.74 KB.
+    limit: "42.8 KB",
+  },
+  {
+    name: "@flowpanel/kit/react on-demand widget cards, together",
+    path: [
+      "dist/react/widgets/BarsCard.mjs",
+      "dist/react/widgets/ChecklistCard.mjs",
+      "dist/react/widgets/FunnelCard.mjs",
+      "dist/react/widgets/HeatmapCard.mjs",
+      "dist/react/widgets/KvCard.mjs",
+      "dist/react/widgets/ListCard.mjs",
+      "dist/react/widgets/MetricCard.mjs",
+      "dist/react/widgets/StatCard.mjs",
+      "dist/react/widgets/StatGroupCard.mjs",
+      "dist/react/widgets/TimelineCard.mjs",
+      "dist/react/widgets/TrackerCard.mjs",
+    ],
+    import: {
+      "dist/react/widgets/BarsCard.mjs": "{ BarsCard }",
+      "dist/react/widgets/ChecklistCard.mjs": "{ ChecklistCard }",
+      "dist/react/widgets/FunnelCard.mjs": "{ FunnelCard }",
+      "dist/react/widgets/HeatmapCard.mjs": "{ HeatmapCard }",
+      "dist/react/widgets/KvCard.mjs": "{ KvCard }",
+      "dist/react/widgets/ListCard.mjs": "{ ListCard }",
+      "dist/react/widgets/MetricCard.mjs": "{ MetricCard }",
+      "dist/react/widgets/StatCard.mjs": "{ StatCard }",
+      "dist/react/widgets/StatGroupCard.mjs": "{ StatGroupCard }",
+      "dist/react/widgets/TimelineCard.mjs": "{ TimelineCard }",
+      "dist/react/widgets/TrackerCard.mjs": "{ TrackerCard }",
+    },
+    modifyEsbuildConfig: firstRenderOnly,
+    // 0.4.0: the cards left the first render and load with the first dashboard; measured 21.21 KB.
+    limit: "21.25 KB",
   },
   {
     name: "@flowpanel/kit/client (hooks)",
@@ -46,7 +100,8 @@ export default [
     name: "@flowpanel/kit/charts (own code; Recharts not counted)",
     path: "dist/charts.js",
     import: "{ AreaChart, BarChart, LineChart, PieChart }",
-    limit: "7.6 KB",
+    // 0.4 final: 7.61 KB; the minified bundle is 3 B smaller than at rc, brotli packs the new labels/format bytes 54 B worse.
+    limit: "7.65 KB",
     ignore: ["recharts"],
   },
 ];

@@ -7,7 +7,9 @@ import { resolveProjectModule } from "../utils/module-path";
 import { findAdminConfig } from "./config-target";
 import { describeSchema, type TableDescription } from "./describe-schema";
 import { appendToIndex } from "./index-file";
-import { fileBaseOf, renderResourceFile } from "./render-resource";
+import { linkPrismaReferences } from "./prisma-references";
+import { describePrismaSchema, findPrismaModel, prismaResourceName } from "./prisma-schema";
+import { fileBaseOf, renderResourceEntry, renderResourceFile } from "./render-resource";
 
 const SCHEMA_IMPORT = /import\s+\*\s+as\s+schema\s+from\s+["']([^"']+)["']/;
 
@@ -131,4 +133,96 @@ export async function planNewIntoDir(
       },
     ],
   };
+}
+
+const PRISMA_CALL = /resource\(\s*["'](\w+)["']\s*,\s*(?:\{\s*name:\s*["']([^"']+)["'])?/g;
+
+/** `order_items` → `orderItems`, the variable a Prisma resource file exports. */
+export function exportNameOf(resourceName: string): string {
+  const camel = resourceName.replace(/[-_\s]+([a-zA-Z0-9])/g, (_, c: string) => c.toUpperCase());
+  const safe = camel.replace(/[^\w$]/g, "");
+  return /^[A-Za-z_$]/.test(safe) ? safe : `_${safe}`;
+}
+
+/** Model → resource name for every Prisma resource the directory's files register. */
+async function registeredModels(directory: string): Promise<Map<string, string>> {
+  const files = await fs.readdir(directory).catch(() => [] as string[]);
+  const out = new Map<string, string>();
+  for (const file of files.filter((name) => /\.tsx?$/.test(name))) {
+    const source = await fs.readFile(path.join(directory, file), "utf8");
+    for (const match of source.matchAll(PRISMA_CALL)) {
+      const model = match[1] ?? "";
+      out.set(model, match[2] ?? model);
+    }
+  }
+  return out;
+}
+
+interface PrismaIntoDirOptions extends NewIntoDirOptions {
+  /** The model, as `describePrismaSchema` reads it. */
+  model: TableDescription;
+  /** The name the resource registers under, such as `orders` for `Order`. */
+  name: string;
+  /** Models the config itself already registers, by resource name. */
+  registered: ReadonlyMap<string, string>;
+}
+
+/** What `flowpanel new <model> --dir <dir>` writes on Prisma: the resource file and its index entry. */
+async function planPrismaIntoDir(
+  cwd: string,
+  options: PrismaIntoDirOptions,
+): Promise<NewIntoDirPlan> {
+  const { model, name } = options;
+  const absoluteDir = path.resolve(cwd, options.dir);
+  const relativeDir = path.relative(cwd, absoluteDir);
+  const registered = new Map([...options.registered, ...(await registeredModels(absoluteDir))]);
+  const linked = linkPrismaReferences(model, name, registered);
+  const unlinked = model.columns.flatMap((column) => {
+    const target = column.references?.table;
+    if (!target || linked.columns.find((c) => c.key === column.key)?.references) return [];
+    return [`${column.key} → ${target}`];
+  });
+  const exportName = exportNameOf(name);
+  const fileBase = fileBaseOf(exportName);
+  const entry = renderResourceEntry(linked, JSON.stringify(model.exportName), {
+    hidden: options.hidden,
+    ...(name === model.exportName ? {} : { name }),
+  });
+  const content = [
+    'import { resource } from "@flowpanel/kit";',
+    "",
+    `export const ${exportName} = ${entry};`,
+    "",
+  ].join("\n");
+  const index = await readOrNull(path.join(absoluteDir, "index.ts"));
+  return {
+    unlinked,
+    intents: [
+      { path: path.join(relativeDir, `${fileBase}.ts`), content },
+      {
+        path: path.join(relativeDir, "index.ts"),
+        content: appendToIndex(index, exportName, fileBase),
+        ...(index === null ? {} : { expectedContent: index }),
+      },
+    ],
+  };
+}
+
+/** The model `resource` names in schema.prisma, the name it registers under, and its `--dir` plan. */
+export async function planPrismaModelIntoDir(
+  cwd: string,
+  resource: string,
+  options: NewIntoDirOptions & { registered: ReadonlyMap<string, string> },
+): Promise<NewIntoDirPlan & { name: string; model: string }> {
+  const models = await describePrismaSchema(cwd);
+  if (models.length === 0) throw new Error("--dir reads schema.prisma, and none was found.");
+  const model = findPrismaModel(models, resource);
+  if (!model) {
+    throw new Error(
+      `schema.prisma has no model named "${resource}".\nModels: ${models.map((m) => m.exportName).join(", ")}`,
+    );
+  }
+  const name = prismaResourceName(model);
+  const planned = await planPrismaIntoDir(cwd, { ...options, model, name });
+  return { ...planned, name, model: model.exportName };
 }

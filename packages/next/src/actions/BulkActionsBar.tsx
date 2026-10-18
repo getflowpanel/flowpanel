@@ -13,10 +13,10 @@ import {
   useLabels,
 } from "@flowpanel/react";
 import * as React from "react";
-import { ActionFormDialog } from "./ActionFormDialog";
 import type { ActionFormFieldErrors } from "./action-form-field";
 import type { SerializedBulkAction } from "./bulk-action";
 import { useActionRunner } from "./use-action-runner";
+import { useFormDialog } from "./use-form-dialog";
 
 export interface BulkActionsBarProps {
   resource: string;
@@ -33,6 +33,7 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedBulkAction | null>(null);
   const [formAction, setFormAction] = React.useState<SerializedBulkAction | null>(null);
+  const { FormDialog, whenLoaded } = useFormDialog();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
   if (selection.length === 0 || actions.length === 0) return null;
@@ -63,7 +64,7 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
   function onActionPick(action: SerializedBulkAction): void {
     setMenuOpen(false);
     if (action.hasForm) {
-      setFormAction(action);
+      whenLoaded(() => setFormAction(action));
       return;
     }
     if (action.confirm) {
@@ -152,8 +153,8 @@ export function BulkActionsBar({ resource, selection, onClear, actions }: BulkAc
         />
       ) : null}
 
-      {formAction ? (
-        <ActionFormDialog
+      {formAction && FormDialog ? (
+        <FormDialog
           title={formAction.confirm?.title ?? formAction.label}
           {...(formAction.confirm?.description
             ? { description: formatCount(formAction.confirm.description, selection.length, locale) }

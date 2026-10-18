@@ -7,9 +7,10 @@ import type {
 } from "@flowpanel/core";
 import { FlowpanelValidationError, formatLabel } from "@flowpanel/core";
 import type { z } from "zod";
-import { fieldLabels } from "../runtime/field-labels";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
 import { choiceErrors } from "./field-choices";
 import { formOffersField } from "./field-pipeline";
+import { typedValueErrors } from "./field-types";
 
 type Field = FieldDef<Record<string, unknown>>;
 
@@ -43,7 +44,7 @@ export function missingRequiredErrors(
   return out;
 }
 
-/** Per-field validators, then the choices and references the form offered this caller; fields in `skip` already failed. */
+/** Declared types, per-field validators, then the choices and references offered this caller; fields in `skip` already failed. */
 export async function fieldRuleErrors(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
@@ -55,12 +56,23 @@ export async function fieldRuleErrors(
   skip: ReadonlySet<string> = new Set(),
 ): Promise<Record<string, string> | null> {
   const checked = Object.fromEntries(Object.entries(values).filter(([name]) => !skip.has(name)));
+  const mistyped = typedValueErrors(
+    fields,
+    checked,
+    current,
+    labels,
+    fieldLabels(resource, fields, namedFields(config)),
+  );
+  const typed = Object.fromEntries(
+    Object.entries(checked).filter(([name]) => !Object.hasOwn(mistyped, name)),
+  );
   const errors = {
+    ...mistyped,
     ...(await runFieldValidators(
-      fields?.filter((field) => !skip.has(field.name)),
-      checked,
+      fields?.filter((field) => !skip.has(field.name) && !Object.hasOwn(mistyped, field.name)),
+      typed,
     )),
-    ...(await choiceErrors(config, resource, fields, checked, current, reqCtx, labels)),
+    ...(await choiceErrors(config, resource, fields, typed, current, reqCtx, labels)),
   };
   return Object.keys(errors).length > 0 ? errors : null;
 }
@@ -170,7 +182,7 @@ export async function checkedValues(
   denied: ReadonlySet<string>,
   decoded: Readonly<Record<string, string>> = {},
 ): Promise<Record<string, unknown>> {
-  const labelOf = fieldLabels(resource, fields);
+  const labelOf = fieldLabels(resource, fields, namedFields(config));
   const missing = {
     ...missingRequiredErrors(fields, values, current, labels, denied, labelOf),
     ...decoded,

@@ -143,7 +143,7 @@ export function DefaultMetricCard(props: MetricCardProps) {
             <div className="fp-flex fp-items-baseline fp-gap-1.5 fp-whitespace-nowrap">
               <span
                 className={cn("fp-min-w-0 fp-truncate", FIGURE, toneTextClass[tone])}
-                style={figureSize(display)}
+                {...figureSize(display)}
               >
                 {display}
               </span>
@@ -208,7 +208,6 @@ export function DefaultMetricCard(props: MetricCardProps) {
             ? "focus-visible:fp-ring-inset"
             : "fp-rounded-lg fp-transition-shadow hover:fp-shadow-sm",
         )}
-        aria-label={label}
       >
         {card}
       </a>

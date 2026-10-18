@@ -63,8 +63,8 @@ describe("DataTable layout", () => {
     render(<DataTable {...props} />);
     expect(screen.getByRole("table").className).toContain("fp-table-fixed");
     const { widths, minWidth } = layoutColumns(columns);
-    expect(headerCell("Plan").style.width).toBe("9rem");
     for (const [name, field] of [
+      ["Plan", "plan"],
       ["Joined", "joined"],
       ["Seats", "seats"],
       ["Company", "company"],

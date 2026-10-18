@@ -25,7 +25,7 @@ import {
   projectAuditDiff,
   readableDiffFields,
 } from "../../runtime/audit-view";
-import { fieldLabels } from "../../runtime/field-labels";
+import { fieldLabels, namedFields } from "../../runtime/field-labels";
 import { formFieldsOf } from "../../runtime/form-fields-of";
 import { formatFieldValue } from "../../runtime/format-field-value";
 import { buildHref } from "../../runtime/href";
@@ -162,7 +162,7 @@ export async function auditFeedItems(
       allowed.set(name, {
         fields,
         looks: fieldLooks(config, resource, formatting),
-        labelOf: fieldLabels(resource),
+        labelOf: fieldLabels(resource, [], namedFields(config)),
       });
     }),
   );

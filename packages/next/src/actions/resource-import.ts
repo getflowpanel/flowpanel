@@ -9,7 +9,7 @@ import { actionFailure } from "../runtime/action-failure";
 import { safeErrorMessage } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { coerceRowByColumns } from "../runtime/coerce-values";
-import { fieldLabels } from "../runtime/field-labels";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
 import { buildHref } from "../runtime/href";
 import { decodeMoneyCells, moneyDigits } from "../runtime/money-field";
 import { resourceNavName } from "../runtime/nav";
@@ -157,13 +157,17 @@ export function importRoute(config: ResolvedAdminConfig) {
       const allowed = importOpt.fields as string[] | undefined;
       const { columns } = config.adapter.introspect(writeTarget(resource));
       const labels = mergeLabels(config.labels);
-      const labelOf = fieldLabels(resource, declaredFormFields(resource, "create"));
+      const labelOf = fieldLabels(
+        resource,
+        declaredFormFields(resource, "create"),
+        namedFields(config),
+      );
       const named =
         allowed ??
         columns
           .filter((column) => !column.primaryKey && column.writableOnCreate !== false)
           .map((column) => column.name);
-      const headerLabels = [fieldLabels(resource), labelOf];
+      const headerLabels = [fieldLabels(resource, [], namedFields(config)), labelOf];
       const digits = moneyDigits(config, resource);
       const actions = makeActions(config, resource, { reqCtx, publish: false });
       let imported = 0;

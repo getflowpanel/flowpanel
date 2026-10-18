@@ -183,6 +183,7 @@ describe("a session provider that throws", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Something went wrong" })).toBeTruthy();
     expect(screen.getByText("req-42", { exact: false })).toBeTruthy();
     expect(screen.queryByText(/ECONNREFUSED/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
     vi.unstubAllEnvs();
   });
 
@@ -195,6 +196,7 @@ describe("a session provider that throws", () => {
     );
     render(sessionFailedWall(config, "req-43", refusal));
     expect(screen.getByText(refusal.message)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
     cleanup();
     render(sessionFailedWall(config, "req-44", new Error("[flowpanel] /srv/app/lib/auth.ts: no")));
     expect(screen.queryByText(/srv\/app/)).toBeNull();

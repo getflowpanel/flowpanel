@@ -24,6 +24,7 @@ import {
   missingAsNull,
   outOfScopeUpdate,
   type PrismaClientLike,
+  type PrismaOrderBy,
   pkWhere,
   getDelegate as resolveDelegate,
 } from "./runtime";
@@ -134,8 +135,21 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
       const scopedWhere = applyScopeToWhere(where, ctx);
 
-      const orderBy: Array<Record<string, "asc" | "desc">> = [
-        ...(ctx.sort ? [{ [ctx.sort.field]: ctx.sort.dir }] : []),
+      const optional = new Set(
+        introspect(modelName, dmmf)
+          .columns.filter((c) => c.nullable)
+          .map((c) => c.name),
+      );
+      const orderBy: PrismaOrderBy[] = [
+        ...(ctx.sort
+          ? [
+              {
+                [ctx.sort.field]: optional.has(ctx.sort.field)
+                  ? { sort: ctx.sort.dir, nulls: "last" as const }
+                  : ctx.sort.dir,
+              },
+            ]
+          : []),
         ...(ctx.tiebreak ?? [])
           .filter((field) => field !== ctx.sort?.field)
           .map((field) => ({ [field]: "asc" as const })),

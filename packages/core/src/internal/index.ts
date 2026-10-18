@@ -11,6 +11,7 @@ export {
 } from "../runtime/audit-sql";
 export { clientIpFrom } from "../runtime/client-ip";
 export { didYouMean } from "../suggest";
+export { SERVER_LABELS, type ServerFormLabel } from "../types/labels/server-defaults";
 export { CHART_HEIGHT, type ChartBox, chartBox } from "./chart-box";
 export { type ChecklistRow, checklistRows, isDone } from "./checklist-rows";
 export { assertCountWhereColumns } from "./count-where";

@@ -55,6 +55,7 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
     await createProduct(pageB, titleB);
 
     await pageA.goto(`/admin/products/${createdId}/edit`);
+
     await pageA.getByLabel("Product").fill(editedTitleA);
     await pageA.getByRole("button", { name: "Save" }).click();
     await expect(pageA).toHaveURL(new RegExp(`/admin/products/${createdId}$`));
@@ -113,14 +114,14 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
 
     await Promise.all([
       pageA.waitForURL(/\/admin$/),
-      pageA.getByRole("button", { name: "support" }).click(),
+      pageA.getByRole("button", { name: "support", exact: true }).click(),
     ]);
     await pageA.goto("/admin/products");
     await expect(pageA.getByText(editedTitleA).first()).toBeVisible();
     await expect(pageA.getByRole("columnheader", { name: "Our price" })).toHaveCount(0);
     await Promise.all([
       pageA.waitForURL(/\/admin$/),
-      pageA.getByRole("button", { name: "admin" }).click(),
+      pageA.getByRole("button", { name: "admin", exact: true }).click(),
     ]);
     await pageA.goto("/admin/products");
     await expect(pageA.getByRole("columnheader", { name: "Our price" })).toBeVisible();

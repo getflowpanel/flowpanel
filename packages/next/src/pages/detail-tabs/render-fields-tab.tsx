@@ -8,7 +8,8 @@ import type {
 import { mergeLabels, resolveFormatting } from "@flowpanel/core";
 import { KV, KVRow, Section } from "@flowpanel/react";
 import type { ReactNode } from "react";
-import { fieldLabels } from "../../runtime/field-labels";
+import { fieldLabels, namedFields } from "../../runtime/field-labels";
+import { markdownFields } from "../../runtime/markdown";
 import {
   buildDetailCells,
   type DetailCell,
@@ -90,9 +91,9 @@ export async function renderFieldsTab<Row extends Record<string, unknown>>(
       resource,
       row,
       new Set(shown.map((field) => field.name)),
-      buildDetailCells(resource, row, reqCtx),
+      buildDetailCells(resource, row, reqCtx, namedFields(config)),
     ),
-    renderDetailFields(row, shown, reqCtx),
+    renderDetailFields(row, shown, reqCtx, markdownFields(resource)),
   ]);
   const block = (fields: DetailField[]) =>
     fieldsBlock<Row>({
@@ -102,7 +103,7 @@ export async function renderFieldsTab<Row extends Record<string, unknown>>(
       formatting,
       rendered,
       emptyState,
-      labelOf: fieldLabels(resource),
+      labelOf: fieldLabels(resource, [], namedFields(config)),
     });
 
   if (sections) {

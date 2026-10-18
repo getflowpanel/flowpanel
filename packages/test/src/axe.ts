@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import type { SmokeA11yOptions } from "./types";
 import type { A11yScanner } from "./walk";
 
 const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -14,6 +15,7 @@ interface AxeResults {
 interface AxeRun {
   withTags(tags: string[]): AxeRun;
   exclude(selector: string): AxeRun;
+  disableRules(rules: string[]): AxeRun;
   analyze(): Promise<AxeResults>;
 }
 
@@ -39,7 +41,10 @@ async function loadAxeBuilder(): Promise<AxeBuilderCtor | null> {
  * `@axe-core/playwright` is an optional peer, needed only for `a11y: true`. Asking for the scan
  * without it fails, so a project that forgot the install never reads a pass it did not earn.
  */
-export async function createAxeScanner(page: Page): Promise<A11yScanner> {
+export async function createAxeScanner(
+  page: Page,
+  options: SmokeA11yOptions = {},
+): Promise<A11yScanner> {
   const AxeBuilder = await loadAxeBuilder();
   if (!AxeBuilder) {
     throw new Error(
@@ -47,11 +52,10 @@ export async function createAxeScanner(page: Page): Promise<A11yScanner> {
         "or drop a11y.",
     );
   }
+  const disabled = options.disableRules ?? [];
   return async () => {
-    const { violations } = await new AxeBuilder({ page })
-      .withTags(WCAG_TAGS)
-      .exclude("iframe")
-      .analyze();
+    const run = new AxeBuilder({ page }).withTags(WCAG_TAGS).exclude("iframe");
+    const { violations } = await (disabled.length > 0 ? run.disableRules(disabled) : run).analyze();
     return violations.map((violation) => {
       const targets = (violation.nodes ?? [])
         .slice(0, MAX_TARGETS)

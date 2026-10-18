@@ -57,7 +57,11 @@ describe("no-access-control warning", () => {
   });
 
   it("is silent when a global scope is configured", () => {
-    defineAdmin({ ...open, scope: () => null });
+    defineAdmin({
+      ...open,
+      scope: () => null,
+      resources: [resource({ __name: "users" }, { columns: [], scope: "bypass" })],
+    });
     expect(warn).not.toHaveBeenCalled();
   });
 

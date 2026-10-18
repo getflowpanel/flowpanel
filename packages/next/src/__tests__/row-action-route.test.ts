@@ -389,6 +389,26 @@ describe("rowActionRoute", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
+  it("returns 422 when a typed form field gets a value of another kind", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      action: { key: "note", label: "Note", form: [{ name: "contact", type: "email" }], run },
+    });
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contact: "nope" }),
+    });
+    const res = await rowActionRoute(config)(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "note" }),
+    });
+    expect(res.status).toBe(422);
+    expect((await res.json()).fieldErrors).toEqual({
+      contact: "Contact must be an email address like name@example.com",
+    });
+    expect(run).not.toHaveBeenCalled();
+  });
+
   it("passes input through to run when the form validation succeeds", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig({

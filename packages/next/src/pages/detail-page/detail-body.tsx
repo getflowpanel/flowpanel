@@ -47,9 +47,12 @@ export function recordLayout(
     <>
       {strip ? <div className="fp-mb-4">{strip}</div> : null}
       {aside ? (
-        <div className="fp-grid fp-gap-4 lg:fp-grid-cols-12" data-record-layout="">
-          <div className="fp-min-w-0 lg:fp-col-span-8">{main}</div>
-          <aside className="fp-min-w-0 fp-space-y-3 lg:fp-col-span-4">{aside}</aside>
+        <div
+          className="fp-grid fp-gap-4 lg:fp-grid-cols-[minmax(0,1fr)_clamp(16rem,33%,25rem)]"
+          data-record-layout=""
+        >
+          <div className="fp-min-w-0">{main}</div>
+          <aside className="fp-min-w-0 fp-space-y-3">{aside}</aside>
         </div>
       ) : (
         main

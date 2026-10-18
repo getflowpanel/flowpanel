@@ -63,6 +63,7 @@ export function mergeLabels(
     shortcuts: { ...base.shortcuts, ...defined(user.shortcuts ?? {}) },
     realtime: { ...base.realtime, ...defined(user.realtime ?? {}) },
     audit: { ...base.audit, ...defined(user.audit ?? {}) },
+    ...(base.fields || user.fields ? { fields: { ...base.fields, ...user.fields } } : {}),
   };
 }
 

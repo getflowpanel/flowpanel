@@ -113,14 +113,16 @@ export async function warningChecks(
     );
   }
 
-  if (!(await usesFlowpanelEslintPlugin(cwd))) {
-    checks.push({
-      name: "ESLint plugin",
-      ok: true,
-      info: true,
-      hint: `Add @flowpanel/eslint-plugin to your ESLint config to catch a destructive action without confirm: ${ESLINT_PLUGIN_DOCS}`,
-    });
-  }
+  checks.push(
+    (await usesFlowpanelEslintPlugin(cwd))
+      ? { name: "ESLint plugin", ok: true }
+      : {
+          name: "ESLint plugin",
+          ok: true,
+          info: true,
+          hint: `Add @flowpanel/eslint-plugin to your ESLint config to catch a destructive action without confirm: ${ESLINT_PLUGIN_DOCS}`,
+        },
+  );
 
   return checks;
 }

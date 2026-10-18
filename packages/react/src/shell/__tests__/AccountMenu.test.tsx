@@ -43,6 +43,29 @@ describe("AccountMenu", () => {
     );
   });
 
+  it("names the trigger with the visible name first, so voice users can say what they see", () => {
+    render(<AccountMenu user={{ name: "Ada" }} compact />);
+    expect(screen.getByRole("button", { name: /^Ada\W+Account menu$/ })).toBeTruthy();
+    expect(screen.getByRole("button").getAttribute("aria-label")).toBeNull();
+  });
+
+  it("says Account once for a user with neither a name nor an email", () => {
+    render(<AccountMenu user={{}} />);
+    expect(screen.getByRole("button", { name: "Account" })).toBeTruthy();
+  });
+
+  it("names the menu for a user whose name is the word Account", () => {
+    render(<AccountMenu user={{ name: "Account" }} />);
+    expect(screen.getByRole("button", { name: /^Account\W+Account menu$/ })).toBeTruthy();
+  });
+
+  it("keeps the name to one truncated line in the compact header from sm up", () => {
+    const { container } = render(<AccountMenu user={{ name: "Ada" }} compact />);
+    const name = container.querySelector("button span.fp-truncate");
+    expect(name?.className).toContain("max-sm:fp-sr-only");
+    expect(name?.className).not.toContain("not-sr-only");
+  });
+
   it("shows an initial when there is no avatar image", () => {
     const { container } = render(<AccountMenu user={{ name: "ada" }} />);
     expect(container.querySelector("img")).toBeNull();

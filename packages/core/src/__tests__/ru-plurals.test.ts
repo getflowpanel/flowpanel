@@ -35,7 +35,7 @@ describe("the Russian preset's count plurals", () => {
     const labels = mergeLabels({ table: { results: "Всего: {n}" } }, RU_LABELS);
     expect(labels.plurals?.results).toBeUndefined();
     expect(labels.plurals?.selected).toEqual(RU_LABELS.plurals?.selected);
-    expect(mergeLabels(DEFAULT_LABELS, RU_LABELS)).toEqual(DEFAULT_LABELS);
+    expect(mergeLabels(DEFAULT_LABELS, RU_LABELS)).toMatchObject(DEFAULT_LABELS);
   });
 
   it("drops the base plural when the host sets its own timeline.event(s)", () => {

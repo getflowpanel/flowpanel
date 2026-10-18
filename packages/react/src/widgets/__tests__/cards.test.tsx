@@ -25,7 +25,7 @@ describe("StatCard", () => {
 
   it("marks the tone on the card and links the whole card for an href", () => {
     render(<StatCard label="Failures" value="3" tone="err" href="/admin/runs" />);
-    const link = screen.getByRole("link", { name: "Failures" });
+    const link = screen.getByRole("link", { name: /^Failures/ });
     expect(link.getAttribute("href")).toBe("/admin/runs");
     expect(link.querySelector("[data-tone='err']")).toBeTruthy();
   });

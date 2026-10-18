@@ -249,8 +249,8 @@ When no `eslint.config.*` in the project, or above it up to the repository or
 workspace root, loads `@flowpanel/eslint-plugin`, `doctor` adds a note
 (a `·` line, `"info": true` in `--json`) that suggests the
 [ESLint plugin](/docs/reference/eslint-plugin); its `audit-row-action-needs-confirm`
-rule flags a destructive action without a `confirm`. A note never fails the run or
-counts as a warning. In `--json`, `hint` appears on failing checks, warnings and
+rule flags a destructive action without a `confirm`. Once a config loads it, the line
+turns into a passing check. A note never fails the run or counts as a warning. In `--json`, `hint` appears on failing checks, warnings and
 notes only.
 
 Mount checks follow route groups, parallel slots and intercepting routes.
@@ -342,7 +342,7 @@ the references to it are typed.
 $ pnpm flowpanel new user_visit --dir admin/config/resources --hidden
 ```
 
-`--dir` reads the Drizzle schema and writes `admin/config/resources/user-visit.ts`:
+`--dir` reads the schema and writes `admin/config/resources/user-visit.ts`:
 
 <include>../../snippets/generated/new/user-visit.ts</include>
 
@@ -356,11 +356,14 @@ also makes it a searchable picker in the generated create and edit forms, so
 scaffold referenced tables first. JSON and long text are left out of the list columns, `name`,
 `title` and `email` become search fields, and the list sorts by `createdAt` or `startedAt`.
 `--hidden` keeps the resource out of the navigation. A table with a singular name,
-such as `user`, gets `plural: "Users"` so the navigation reads as a collection.
+such as `user`, gets `plural: "Users"` so the navigation reads as a collection, and
+every entry in the navigation gets an `icon` guessed from the table's name: `users`
+for customers, `shopping-cart` for orders, `package` for products and line items,
+`database` when nothing fits.
 
-Re-running changes nothing; a different existing file stops it. `--dir` is
-Drizzle only. On Prisma, run `new` without it and move the entry into its own file
-by hand, as [Prisma setup](/docs/introduction/prisma#one-file-per-resource) shows. Without `--dir`, a config whose `resources` comes from a `--dir`
+Re-running changes nothing; a different existing file stops it. On Prisma, `--dir`
+reads `schema.prisma` and writes the model's entry to its own file the same way, as
+[Prisma setup](/docs/introduction/prisma#one-file-per-resource) shows. Without `--dir`, a config whose `resources` comes from a `--dir`
 directory gets the new file there; any other `resources` that is not an array
 literal is left unchanged, and `new` exits `1`.
 

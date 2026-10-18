@@ -7,7 +7,7 @@ import type { CompiledAdmin, CompiledResource } from "../types/compiled";
 import type { AdminDefinition, ResolvedAdminConfig } from "../types/config";
 import { FlowpanelConfigError } from "../types/config-error";
 import type { DashboardConfig, PageConfig } from "../types/dashboard";
-import { type LabelsConfig, mergeLabels } from "../types/labels";
+import { DEFAULT_LABELS, type LabelsConfig, mergeLabels } from "../types/labels";
 import type { QueueConfig } from "../types/queue";
 import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
 import { resolveAuditLog } from "./audit-log";
@@ -19,8 +19,10 @@ import { resolveRelatedTabs } from "./related-tabs";
 import { normalizeRoutePath, RouteNameRegistry } from "./route-graph";
 import { withDashboardTimelineIds } from "./timeline-ids";
 import {
+  asDashboard,
   assertBulkActionLimits,
   assertCanonicalFieldAccess,
+  assertOwnScope,
   assertProductionAuth,
   assertServableActionForm,
   assertTrustedProxies,
@@ -28,13 +30,14 @@ import {
   rateLimitKeyWarning,
 } from "./validate/config";
 import { validateDashboardFilters } from "./validate/dashboard-filters";
+import { validateDeclaredKinds } from "./validate/declared-kinds";
 import { type LinkCheck, validateLinks } from "./validate/links";
 import { assertMoneyFields } from "./validate/money-fields";
 import { validateRealtime } from "./validate/realtime";
 import { validateRecordSources } from "./validate/record-sources";
 import { assertNoRemovedConfigKeys, assertNoRemovedResourceKeys } from "./validate/removed-keys";
 import { validateResourceColumns } from "./validate/resource-columns";
-import { validateResourceRefs } from "./validate/resource-refs";
+import { validateReferenceLabels, validateResourceRefs } from "./validate/resource-refs";
 import { validateThresholds } from "./validate/thresholds";
 import { createFieldWarnings, warnCreateFieldsOnce } from "./validate/warn-create-fields";
 import { warnIfNoAccessControl } from "./validate/warn-open-admin";
@@ -85,12 +88,14 @@ function normalizeDeclaredRoutePath(raw: string, where: string): string {
   return normalizeRoutePath(raw, where);
 }
 
-/** A Russian `formatting.locale` makes `RU_LABELS` the base the host's labels merge over. */
+/** A Russian locale takes `RU_LABELS` as its base, unless the host passes a whole language, `DEFAULT_LABELS` included. */
 function localeLabels(
   locale: string | undefined,
   labels: LabelsConfig | undefined,
 ): LabelsConfig | undefined {
-  return locale && /^ru(?:-|$)/i.test(locale) ? mergeLabels(labels, RU_LABELS) : labels;
+  if (!locale || !/^ru(?:-|$)/i.test(locale)) return labels;
+  const whole = labels !== undefined && Object.keys(DEFAULT_LABELS).every((key) => key in labels);
+  return whole ? labels : mergeLabels(labels, RU_LABELS);
 }
 
 export function compileAdmin<const Resources extends readonly AnyResourceConfig[]>(
@@ -134,6 +139,8 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     assertServableActionForm(raw.options.bulkActions, name, "bulkActions");
     assertBulkActionLimits(raw, name);
     assertMoneyFields(raw, name);
+    validateDeclaredKinds(name, raw);
+    assertOwnScope(name, raw, config.scope !== undefined);
     const probe = tryIntrospect(config.adapter, raw.ref);
     const introspection = probe.introspection;
     const viewed = viewResource(name, raw, introspection, config.adapter);
@@ -173,7 +180,9 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     });
   }
 
-  const dashboards = (config.dashboards ?? []).map(withDashboardTimelineIds);
+  const dashboards = (config.dashboards ?? []).map((entry, index) =>
+    withDashboardTimelineIds(asDashboard(entry, index)),
+  );
   const dashboardsByPath = new Map<string, DashboardConfig>();
   for (const [index, dashboard] of dashboards.entries()) {
     const path = normalizeDeclaredRoutePath(dashboard.path, `dashboards[${index}].path`);
@@ -253,6 +262,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     ),
   };
   validateLinks(linkCheck, dashboards);
+  validateReferenceLabels(linkCheck);
   validateRecordSources(linkCheck, dashboards);
   warnIfNoAccessControl(config, resources);
   warnCreateFieldsOnce(warnings);
@@ -262,8 +272,9 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     api: normalizeRoutePath(config.paths?.api ?? "/api/flowpanel", "paths.api"),
   };
   const labels = localeLabels(config.formatting?.locale, config.labels);
+  const { dashboards: _declared, ...definition } = config;
   const resolved: ResolvedAdminConfig<Resources> = {
-    ...config,
+    ...definition,
     ...(labels ? { labels } : {}),
     ...(config.dashboards ? { dashboards } : {}),
     resources: resources as unknown as Resources,

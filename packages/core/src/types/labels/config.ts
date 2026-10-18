@@ -44,7 +44,6 @@ export interface LabelsConfig {
     accountMenu?: string;
     account?: string;
     signOut?: string;
-    scrollHint?: string;
     dashboards?: string;
     resources?: string;
     pages?: string;
@@ -261,4 +260,9 @@ export interface LabelsConfig {
   realtime?: RealtimeLabels;
   /** The record History tab and the Audit log page. */
   audit?: AuditLabels;
+  /**
+   * Labels for fields no column, form or view labels, by field name. The presets name `id`,
+   * `createdAt`, `updatedAt` and `deletedAt`, and their snake_case forms.
+   */
+  fields?: Record<string, string>;
 }

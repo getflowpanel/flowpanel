@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Adapter, LabelsConfig } from "../index";
 import { DEFAULT_LABELS, defineAdmin, mergeLabels, RU_LABELS, resource } from "../index";
+import { ENGLISH_LABELS } from "./english-labels";
 
 const adapter: Adapter = {
   kind: "drizzle",
@@ -64,6 +65,7 @@ function paths(tree: Tree, prefix = ""): Map<string, string> {
 /** Strings that read the same in both languages: codes, symbols, examples and a locale tag. */
 const SAME_IN_RUSSIAN = new Set([
   "dateRange.locale",
+  "fields.id",
   "detail.tabCount",
   "pagination.pageSize",
   "timeline.folded",
@@ -75,7 +77,7 @@ const SAME_IN_RUSSIAN = new Set([
 ]);
 
 describe("RU_LABELS", () => {
-  const { plurals: _en, ...english } = DEFAULT_LABELS;
+  const { plurals: _en, ...english } = ENGLISH_LABELS;
   const { plurals: _ru, ...russian } = RU_LABELS;
   const en = paths(english as unknown as Tree);
   const ru = paths(russian as unknown as Tree);

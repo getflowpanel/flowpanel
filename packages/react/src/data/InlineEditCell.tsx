@@ -12,6 +12,7 @@ import { isReply, readReply, textOf } from "../lib/json-reply";
 import { useApiBase } from "../provider/ApiBaseContext";
 import { useLabels } from "../provider/LabelsContext";
 import { BooleanCell } from "./FormatCells";
+import { editorClass, InlineEditSelect } from "./InlineEditSelect";
 
 const PENCIL_REVEAL =
   "fp-opacity-0 group-hover/row:fp-opacity-100 group-hover/edit:fp-opacity-100 group-focus-within/edit:fp-opacity-100 [@media(hover:none)]:fp-opacity-100";
@@ -25,6 +26,8 @@ export interface InlineEditCellProps {
   label?: string;
   value: unknown;
   valueType?: "string" | "number" | "boolean" | "date" | "enum" | "array" | "json" | "reference";
+  /** The choices to pick from, which turn the editor into a select; a yes/no column gets its own. */
+  options?: ReadonlyArray<{ value: string; label: string }>;
   /** Custom display formatter when not in edit mode. Defaults to `String(value)`. */
   display?: (v: unknown) => React.ReactNode;
   /** The row opens on click, so the cell text passes clicks through and editing starts from the pencil or Enter. */
@@ -39,6 +42,7 @@ export function InlineEditCell({
   label,
   value,
   valueType,
+  options,
   display,
   rowClickable = false,
   className,
@@ -52,20 +56,31 @@ export function InlineEditCell({
   const [draft, setDraft] = React.useState<string>(() => valueToInputString(value, valueType));
   const [pending, setPending] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const selectRef = React.useRef<HTMLSelectElement>(null);
+  const choices =
+    options ??
+    (valueType === "boolean"
+      ? [
+          { value: "true", label: labels.filters.yes },
+          { value: "false", label: labels.filters.no },
+        ]
+      : undefined);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const wasEditing = React.useRef(false);
+  const open = React.useRef(false);
 
   React.useEffect(() => {
-    if (editing) inputRef.current?.focus();
+    if (editing) (selectRef.current ?? inputRef.current)?.focus();
     else if (wasEditing.current) triggerRef.current?.focus();
     wasEditing.current = editing;
   }, [editing]);
 
-  async function save() {
-    if (pending) return;
-    const parsed = inputStringToValue(draft, valueType);
+  async function save(next = draft) {
+    if (!open.current) return;
+    open.current = false;
+    const parsed = inputStringToValue(next, valueType);
     const original = valueToInputString(value, valueType);
-    if (draft === original) {
+    if (next === original) {
       setEditing(false);
       return;
     }
@@ -88,6 +103,7 @@ export function InlineEditCell({
   }
 
   function cancel() {
+    open.current = false;
     setDraft(valueToInputString(value, valueType));
     setEditing(false);
   }
@@ -96,6 +112,7 @@ export function InlineEditCell({
     const edit = (e: React.SyntheticEvent) => {
       e.stopPropagation();
       setDraft(valueToInputString(value, valueType));
+      open.current = true;
       setEditing(true);
     };
     const editOnKey = (e: React.KeyboardEvent) => {
@@ -118,7 +135,7 @@ export function InlineEditCell({
             aria-label={editLabel}
             className={cn(
               PENCIL_REVEAL,
-              "fp-relative fp-shrink-0 fp-rounded-sm fp-p-0.5 fp-text-faint fp-transition-opacity after:fp-absolute after:-fp-inset-3 after:fp-content-[''] hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+              "fp-relative -fp-my-1 fp-inline-flex fp-h-6 fp-w-6 fp-shrink-0 fp-items-center fp-justify-center fp-rounded-sm fp-text-faint fp-transition-opacity after:fp-absolute after:-fp-inset-2 after:fp-content-[''] hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
             )}
           >
             <Pencil size={14} aria-hidden />
@@ -132,19 +149,47 @@ export function InlineEditCell({
         type="button"
         onClick={edit}
         onKeyDown={editOnKey}
-        aria-label={editLabel}
         className={cn(
-          "fp-group/edit fp-flex fp-w-full fp-min-w-0 fp-cursor-text fp-items-center fp-gap-1 fp-rounded-sm fp-text-left fp-text-ink fp-transition-colors hover:-fp-mx-1 hover:-fp-my-0.5 hover:fp-bg-fill/60 hover:fp-px-1 hover:fp-py-0.5 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+          "fp-group/edit fp-relative fp-flex fp-w-full fp-min-w-0 fp-cursor-text fp-items-center fp-gap-1 fp-rounded-sm fp-text-left fp-text-ink fp-transition-colors hover:-fp-mx-1 hover:-fp-my-0.5 hover:fp-bg-fill/60 hover:fp-px-1 hover:fp-py-0.5 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
           className,
         )}
       >
         <span className="fp-min-w-0 fp-flex-1 fp-truncate">{shown}</span>
+        <span className="fp-sr-only">{editLabel}</span>
         <Pencil
           size={14}
           aria-hidden
           className={cn(PENCIL_REVEAL, "fp-shrink-0 fp-text-faint fp-transition-opacity")}
         />
       </button>
+    );
+  }
+
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      void save();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      cancel();
+    }
+    e.stopPropagation();
+  };
+  if (choices) {
+    return (
+      <InlineEditSelect
+        ref={selectRef}
+        label={label ?? humanize(field)}
+        current={valueToInputString(value, valueType)}
+        choices={choices}
+        draft={draft}
+        disabled={pending}
+        onDraft={setDraft}
+        onPick={(next) => void save(next)}
+        onLeave={() => void save()}
+        onKeyDown={keys}
+        {...(className ? { className } : {})}
+      />
     );
   }
 
@@ -155,22 +200,10 @@ export function InlineEditCell({
       value={draft}
       disabled={pending}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={save}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          void save();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          cancel();
-        }
-        e.stopPropagation();
-      }}
+      onBlur={() => void save()}
+      onKeyDown={keys}
       onClick={(e) => e.stopPropagation()}
-      className={cn(
-        "-fp-my-[3px] fp-w-full fp-rounded-sm fp-border fp-border-line-strong fp-bg-surface fp-px-1.5 fp-py-0.5 fp-text-ink focus:fp-border-accent focus:fp-outline-none",
-        className,
-      )}
+      className={editorClass(className)}
     />
   );
 }
@@ -231,6 +264,7 @@ function localDateTimeString(d: Date): string {
 
 function inputStringToValue(draft: string, t: InlineEditCellProps["valueType"]): unknown {
   if (draft === "") return null;
+  if (t === "boolean") return draft === "true";
   if (t === "number") {
     const n = Number(draft);
     return Number.isFinite(n) ? n : draft;

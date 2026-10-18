@@ -167,3 +167,28 @@ export function assertTrustedProxies(config: AdminDefinition): void {
       "X-Forwarded-For, or leave it out.",
   );
 }
+
+/** A `dashboards` entry that is a dashboard, or the error that says where a page or a section-less entry goes. */
+export function asDashboard(
+  entry: NonNullable<AdminDefinition["dashboards"]>[number],
+  index: number,
+) {
+  if (entry.kind !== "page" && "sections" in entry && Array.isArray(entry.sections)) return entry;
+  throw new FlowpanelConfigError(
+    `dashboards[${index}]`,
+    entry.kind === "page"
+      ? "it is a page(). Register pages under pages: [...], next to dashboards."
+      : "it has no sections. Give it sections: [...], or register a custom page with page() under pages.",
+  );
+}
+
+/** Under an admin-wide `scope`, every resource narrows its own rows or says it shares them. */
+export function assertOwnScope(name: string, resource: ResourceConfig, globalScope: boolean): void {
+  const own = resource.options.scope;
+  if (!globalScope || own === "bypass" || typeof own === "function") return;
+  throw new FlowpanelConfigError(
+    `resource "${name}" scope`,
+    "the admin has a global scope, so every resource needs its own. Add scope: (scope, query) => … " +
+      'to the resource, or scope: "bypass" for a table every tenant shares.',
+  );
+}

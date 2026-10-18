@@ -14,7 +14,7 @@ FlowPanel adds a typed admin panel to an existing Next.js app, built from your D
 <!-- flowpanel:compatibility:start -->
 | Requirement | Supported range |
 | --- | --- |
-| Node.js | `>=20` |
+| Node.js | `^20.19.0 || >=22.12.0` |
 | Next.js | `>=15.5.0 <17.0.0` |
 | React | `^19.0.0` |
 | Drizzle ORM | `>=0.45.2 <1.0.0` |

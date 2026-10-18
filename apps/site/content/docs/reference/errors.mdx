@@ -112,14 +112,18 @@ production admin without real auth, and `devAuth()` in production. See
 ### Did you mean
 
 An unknown name close to a registered one gets a suggestion: a match ignoring case
-and `_`/`-`, else the closest within edit distance two.
+and `_`/`-`, else the closest within edit distance two, where swapping two
+neighbouring letters, as in `nmae`, counts as one edit.
 
 ```text
 [flowpanel] resource "users" columns[0]: it points at column "emial", which the
 adapter does not report. Did you mean "email"? Known columns: "id", "email".
 ```
 
-It covers column, filter, sort, field, tab, reference, view and link names. A link,
+It covers column, search, filter, sort, field, tab, reference, view and link
+names, a reference's `labelField` on its target, a filter's `type` and a column's
+`format`, so a plain JavaScript config or a cast gets the same message TypeScript
+would have shown. A link,
 view or count `where` value must match its filter type: an array needs a
 `multiselect` filter, `{ gte, lte }` a range filter; a bare `Date` is rejected.
 Names computed at run time (function links, `ctx.count`, `ctx.read`, `ctx.rowOf`)

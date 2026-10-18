@@ -74,7 +74,7 @@ it("uses an explicit calendar locale for server and client, with unchanged date 
   const html = renderToString(element);
   expect(html).toContain("авг.");
   render(element);
-  expect(screen.getByRole("button", { name: "Период" }).textContent).toContain("авг.");
+  expect(screen.getByRole("button", { name: /, Период$/ }).textContent).toContain("авг.");
   fireEvent.click(screen.getByRole("button", { name: "Сбросить период" }));
   expect(onChange).toHaveBeenCalledWith(null);
 });

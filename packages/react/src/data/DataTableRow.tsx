@@ -2,11 +2,13 @@
 import type { ResolvedFormatting } from "@flowpanel/core/format";
 import { formatLabel } from "@flowpanel/core/labels";
 import * as React from "react";
+import { ChunkBoundary } from "../lib/chunk-boundary";
 import { cn } from "../lib/cn";
 import { lazyRetry } from "../lib/lazy-retry";
 import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
 import { Checkbox } from "../ui/checkbox";
+import { cutTitle } from "./column-sizing";
 import type { DataTableColumn } from "./data-table-types";
 import { ALIGN_CLASS } from "./format-cell";
 import type { InlineEditCellProps } from "./InlineEditCell";
@@ -31,23 +33,38 @@ function renderCellContent<Row extends Record<string, unknown>>(
   if (c.editable && inlineEditResource && rowId !== null) {
     const shown = prerendered ?? (c.render ? c.render(r) : renderDefaultCell(c, r, formatting));
     return (
-      <React.Suspense fallback={<span className="fp-block fp-truncate">{shown}</span>}>
-        <InlineEditCell
-          resource={inlineEditResource}
-          id={rowId}
-          field={c.field}
-          {...(c.label ? { label: c.label } : {})}
-          value={r[c.field]}
-          {...(c.type ? { valueType: c.type } : {})}
-          display={() => shown}
-          rowClickable={rowClickable}
-        />
-      </React.Suspense>
+      <ChunkBoundary>
+        <React.Suspense fallback={<span className="fp-block fp-truncate">{shown}</span>}>
+          <InlineEditCell
+            resource={inlineEditResource}
+            id={rowId}
+            field={c.field}
+            {...(c.label ? { label: c.label } : {})}
+            value={r[c.field]}
+            {...(c.type ? { valueType: c.type } : {})}
+            {...(c.options ? { options: c.options } : {})}
+            display={() => shown}
+            rowClickable={rowClickable}
+          />
+        </React.Suspense>
+      </ChunkBoundary>
     );
   }
   if (prerendered !== undefined) return prerendered;
   if (c.render) return c.render(r);
   return renderDefaultCell(c, r, formatting);
+}
+
+/** The text a plain cell shows, which its tooltip repeats when the column can cut it. */
+function shownText<Row extends Record<string, unknown>>(
+  c: DataTableColumn<Row>,
+  row: Row,
+  prerendered: React.ReactNode | undefined,
+): string | undefined {
+  if (typeof prerendered === "string") return prerendered;
+  if (prerendered !== undefined || c.render || c.format !== undefined) return undefined;
+  const value = row[c.field];
+  return c.type !== "reference" && typeof value === "string" ? value : undefined;
 }
 
 export interface DataTableRowProps<Row extends Record<string, unknown>> {
@@ -71,6 +88,7 @@ export interface DataTableRowProps<Row extends Record<string, unknown>> {
   pageIndex: number;
   /** The last column held at the left edge, which draws the edge line while the table scrolls. */
   lastLeftPin: string | undefined;
+  resized: ReadonlySet<string>;
 }
 
 export function DataTableRow<Row extends Record<string, unknown>>({
@@ -92,6 +110,7 @@ export function DataTableRow<Row extends Record<string, unknown>>({
   rowEndCell,
   pageIndex,
   lastLeftPin,
+  resized,
 }: DataTableRowProps<Row>) {
   const labels = useLabels();
   const formatting = useFormatting();
@@ -142,11 +161,13 @@ export function DataTableRow<Row extends Record<string, unknown>>({
           formatting,
           onRowClick !== undefined,
         );
+        const title = cutTitle(c, shownText(c, row, prerendered), resized.has(c.field));
         return (
           <td
             key={c.field}
             dir="auto"
             data-fp-cell=""
+            {...(title ? { title } : {})}
             {...(meta.side === "left" && lastLeftPin === c.field ? { "data-fp-pin-edge": "" } : {})}
             {...(Object.keys(cssVars).length > 0 ? { style: cssVars as React.CSSProperties } : {})}
             className={cn(
