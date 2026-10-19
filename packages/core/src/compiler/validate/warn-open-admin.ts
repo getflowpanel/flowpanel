@@ -1,6 +1,7 @@
 import type { AdminDefinition } from "../../types/config";
 import type { ResourceConfig } from "../../types/resource";
 import { accessAdmitsSignedOut } from "./auth-probe";
+import { printDevWarning } from "./warn-create-fields";
 
 const MESSAGE =
   "[flowpanel] This admin has no access control: auth.access is unset, no " +
@@ -25,7 +26,7 @@ export function warnIfNoAccessControl(config: AdminDefinition, resources: Resour
   if (process.env.NODE_ENV !== "development") return;
   if (config.auth.allowUnauthenticated === true) return;
   if (accessAdmitsSignedOut(config.auth)) {
-    console.warn(SIGNED_OUT_MESSAGE);
+    printDevWarning(SIGNED_OUT_MESSAGE);
     return;
   }
   if (config.auth.access !== undefined) return;
@@ -33,5 +34,5 @@ export function warnIfNoAccessControl(config: AdminDefinition, resources: Resour
   for (const r of resources) {
     if (r.options.access !== undefined) return;
   }
-  console.warn(MESSAGE);
+  printDevWarning(MESSAGE);
 }

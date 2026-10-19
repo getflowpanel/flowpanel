@@ -217,6 +217,18 @@ describe("makeActions.update", () => {
   });
 });
 
+describe("an update that changes nothing", () => {
+  it("writes but records no empty audit event", async () => {
+    const sink = vi.fn(async (_ev: unknown) => {});
+    const { config, resource } = makeConfig({ audit: { enabled: true, sink } });
+    const actions = makeActions(config, resource);
+    await actions.update("u1", { email: "a@b.com" });
+    expect(sink).not.toHaveBeenCalled();
+    await actions.update("u1", { email: "c@d.com" });
+    expect(sink).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("makeActions.delete", () => {
   beforeEach(() => {
     vi.mocked(publishResource).mockReset();
@@ -635,6 +647,80 @@ describe("required fields on the server", () => {
     await expect(makeActions(config, resource).create({})).resolves.toBeTruthy();
   });
 
+  it("judges a create field's hidden function on the values the form starts with", async () => {
+    const note = {
+      name: "name",
+      required: true,
+      hidden: (values: { status?: string }) => values.status === "draft",
+    };
+    const fromField = withFields([{ name: "status", defaultValue: "draft" }, note]);
+    await expect(
+      makeActions(fromField.config, fromField.resource).create({}),
+    ).resolves.toBeTruthy();
+
+    const fromColumn = withFields([{ name: "status" }, note]);
+    (fromColumn.config.adapter as { introspect: unknown }).introspect = () => ({
+      name: "users",
+      columns: [
+        {
+          name: "status",
+          type: "string",
+          nullable: false,
+          unique: false,
+          primaryKey: false,
+          defaultValue: "draft",
+        },
+      ],
+      primaryKey: "id",
+    });
+    await expect(
+      makeActions(fromColumn.config, fromColumn.resource).create({}),
+    ).resolves.toBeTruthy();
+
+    const open = withFields([{ name: "status" }, note]);
+    await expect(makeActions(open.config, open.resource).create({})).rejects.toMatchObject({
+      fieldErrors: { name: "Name is required" },
+    });
+  });
+
+  it("judges an API or import create on its own values over the starting ones", async () => {
+    const note = {
+      name: "name",
+      required: true,
+      hidden: (values: { status?: string }) => values.status === "draft",
+    };
+    const api = withFields([{ name: "status", defaultValue: "draft" }, note]);
+    const actions = makeActions(api.config, api.resource);
+    await expect(actions.create({ status: "published" })).rejects.toMatchObject({
+      fieldErrors: { name: "Name is required" },
+    });
+    await expect(actions.create({ status: "draft" })).resolves.toBeTruthy();
+
+    const locked = withFields([
+      { name: "status", defaultValue: "draft" },
+      { name: "name", readOnly: (values: { status?: string }) => values.status !== "draft" },
+    ]);
+    await expect(
+      makeActions(locked.config, locked.resource).create({ status: "published", name: "x" }),
+    ).rejects.toBeTruthy();
+    await expect(
+      makeActions(locked.config, locked.resource).create({ status: "draft", name: "x" }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("keeps a field read-only on an API create when the client sends the value its predicate checks", async () => {
+    const { config, resource } = withFields([
+      { name: "status", defaultValue: "draft" },
+      {
+        name: "approvedBy",
+        readOnly: (row: { status?: string }) => row.status !== "approved",
+      },
+    ]);
+    await expect(
+      makeActions(config, resource).create({ status: "approved", approvedBy: "x" }),
+    ).rejects.toMatchObject({ code: "field_forbidden", field: "approvedBy" });
+  });
+
   it("lets an edit leave a required field out, keeping the stored value", async () => {
     const { config, resource } = withFields(
       [{ name: "email" }, { name: "name", required: true }],
@@ -657,6 +743,130 @@ describe("required fields on the server", () => {
   });
 });
 
+describe("columns the list edits in place", () => {
+  function withInlineStatus() {
+    const made = makeConfig({
+      schema: z.object({ email: z.string().optional(), status: z.string().optional() }),
+    });
+    made.resource.options.columns = [{ field: "email" }, { field: "status", editable: true }];
+    (made.resource.options as Record<string, unknown>).update = { fields: [{ name: "email" }] };
+    return made;
+  }
+
+  it("are writable through the JSON API, as the list writes them", async () => {
+    const { config, resource } = withInlineStatus();
+    await expect(
+      makeActions(config, resource).update("u1", { status: "open" }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("still refuse a column that is neither a field nor editable", async () => {
+    const { config, resource } = withInlineStatus();
+    await expect(makeActions(config, resource).update("u1", { plan: "pro" })).rejects.toMatchObject(
+      { code: "unknown_field" },
+    );
+  });
+
+  it("stay out of a posted edit form, which lists its own fields", async () => {
+    const { config, resource } = withInlineStatus();
+    await expect(
+      makeActions(config, resource, { fromForm: true }).update("u1", { status: "open" }),
+    ).rejects.toMatchObject({ code: "unknown_field" });
+  });
+
+  it("keep the column's write access", async () => {
+    const { config, resource } = withInlineStatus();
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { status: { write: "owner" } };
+    await expect(
+      makeActions(config, resource).update("u1", { status: "open" }),
+    ).rejects.toMatchObject({ code: "field_forbidden" });
+  });
+});
+
+describe("declared field types on the server", () => {
+  const textSchema = z.object({
+    email: z.string().optional(),
+    site: z.string().nullable().optional(),
+    tint: z.string().nullable().optional(),
+    opensAt: z.string().nullable().optional(),
+  });
+  const fields = [
+    { name: "email", type: "email" },
+    { name: "site", label: "Website", type: "url" },
+    { name: "tint", type: "color" },
+    { name: "opensAt", label: "Opens at", type: "time" },
+  ];
+
+  function typed(mode: "create" | "update" = "create") {
+    const made = makeConfig({ schema: textSchema });
+    (made.resource.options as Record<string, unknown>)[mode] = { fields };
+    return made;
+  }
+
+  it("refuses values a script sends past the browser's checks, every field in one round", async () => {
+    const { config, resource } = typed();
+    await expect(
+      makeActions(config, resource).create({
+        email: "not-an-email",
+        site: "example",
+        tint: "blue",
+        opensAt: "25:00",
+      }),
+    ).rejects.toMatchObject({
+      code: "validation_failed",
+      fieldErrors: {
+        email: "Email must be an email address like name@example.com",
+        site: "Website must be a full web address like https://example.com",
+        tint: "Tint must be a colour like #2563eb",
+        opensAt: "Opens at must be a time like 09:30",
+      },
+    });
+  });
+
+  it("takes only an http or https address for a url field", async () => {
+    const { config, resource } = typed();
+    for (const site of ["javascript:alert(1)", "foo:bar", "mailto:a@b.co"]) {
+      await expect(makeActions(config, resource).create({ site })).rejects.toMatchObject({
+        fieldErrors: { site: "Website must be a full web address like https://example.com" },
+      });
+    }
+  });
+
+  it("accepts well-formed and empty values", async () => {
+    const { config, resource } = typed();
+    await expect(
+      makeActions(config, resource).create({
+        email: "ops@example.com",
+        site: "https://example.com/a",
+        tint: "#2563EB",
+        opensAt: null,
+      }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("keeps a stored value an edit did not change, and refuses a new bad one", async () => {
+    const { config, resource } = typed("update");
+    config.adapter.get = async () => ({ id: "u1", email: "legacy" });
+    const actions = makeActions(config, resource);
+    await expect(actions.update("u1", { email: "legacy" })).resolves.toBeTruthy();
+    await expect(actions.update("u1", { email: "still wrong" })).rejects.toMatchObject({
+      fieldErrors: { email: "Email must be an email address like name@example.com" },
+    });
+  });
+
+  it("leaves a mistyped value out of the field's own validate", async () => {
+    const validate = vi.fn(() => null);
+    const { config, resource } = makeConfig({ schema: textSchema });
+    (resource.options as Record<string, unknown>).create = {
+      fields: [{ name: "email", type: "email", validate }],
+    };
+    await expect(makeActions(config, resource).create({ email: "nope" })).rejects.toMatchObject({
+      fieldErrors: { email: expect.stringContaining("email address") },
+    });
+    expect(validate).not.toHaveBeenCalled();
+  });
+});
+
 describe("readOnly next to fieldAccess", () => {
   it("keeps a role-gated field read-only for a role that passes the gate", async () => {
     const { config, resource } = makeConfig({});
@@ -670,8 +880,8 @@ describe("readOnly next to fieldAccess", () => {
     });
   });
 
-  it("evaluates a function readOnly on create, against an empty row", async () => {
-    const seen = vi.fn((values: Record<string, unknown>) => values.locked !== false);
+  it("evaluates a function readOnly on an API create, against the starting row and the row it would write", async () => {
+    const seen = vi.fn((values: Record<string, unknown>) => values.email !== undefined);
     const { config, resource } = makeConfig({});
     (resource.options as { create?: unknown }).create = {
       fields: [{ name: "email", readOnly: seen }],
@@ -681,6 +891,7 @@ describe("readOnly next to fieldAccess", () => {
       field: "email",
     });
     expect(seen).toHaveBeenCalledWith({});
+    expect(seen).toHaveBeenCalledWith({ email: "a@b.com" });
   });
 
   it("lets a create write a field whose function readOnly is false for a new row", async () => {

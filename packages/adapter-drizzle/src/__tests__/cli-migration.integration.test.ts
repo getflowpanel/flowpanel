@@ -15,7 +15,11 @@ import * as mysql from "mysql2/promise";
 import postgres from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 import { drizzleAdapter } from "../index";
-import { expectAuditLogRoundTrip } from "./audit-log-round-trip";
+import {
+  expectAuditLogRoundTrip,
+  expectOldRowsAfterUpgrade,
+  oldAuditRows,
+} from "./audit-log-round-trip";
 
 const TEMPLATES = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -79,10 +83,14 @@ describe("the 0001_init.sql that flowpanel init writes", () => {
     const { before, upgrade } = upgradeSql("sqlite");
     await adapter.applyMigration?.("0001_init", before);
     sqlite.prepare("INSERT INTO flowpanel_audit_log (action) VALUES ('orders.update')").run();
+    for (const insert of oldAuditRows("sqlite")) sqlite.prepare(insert).run();
     await adapter.applyMigration?.("0002_audit_log_0_4", upgrade);
-    expect(sqlite.prepare("SELECT action, actor_name FROM flowpanel_audit_log").all()).toEqual([
-      { action: "orders.update", actor_name: null },
-    ]);
+    expect(
+      sqlite
+        .prepare("SELECT action, actor_name FROM flowpanel_audit_log WHERE target_id IS NULL")
+        .all(),
+    ).toEqual([{ action: "orders.update", actor_name: null }]);
+    await expectOldRowsAfterUpgrade(adapter.auditLog);
     sqlite.prepare("DELETE FROM flowpanel_audit_log").run();
     await expectAuditLogRoundTrip(adapter.auditLog);
     sqlite.close();
@@ -112,11 +120,13 @@ describe("the 0001_init.sql that flowpanel init writes", () => {
       const { before, upgrade } = upgradeSql("postgresql");
       await adapter.applyMigration?.("0001_init", before);
       await client`INSERT INTO flowpanel_audit_log (action) VALUES ('orders.update')`;
+      for (const insert of oldAuditRows("postgresql")) await client.unsafe(insert);
       await adapter.applyMigration?.("0002_audit_log_0_4", upgrade);
       await client.unsafe(upgrade);
-      expect(await client`SELECT action, actor_name FROM flowpanel_audit_log`).toEqual([
-        { action: "orders.update", actor_name: null },
-      ]);
+      expect(
+        await client`SELECT action, actor_name FROM flowpanel_audit_log WHERE target_id IS NULL`,
+      ).toEqual([{ action: "orders.update", actor_name: null }]);
+      await expectOldRowsAfterUpgrade(adapter.auditLog);
       await client`DELETE FROM flowpanel_audit_log`;
       await expectAuditLogRoundTrip(adapter.auditLog);
       await client.end();
@@ -138,9 +148,13 @@ describe("the 0001_init.sql that flowpanel init writes", () => {
       const { before, upgrade } = upgradeSql("mysql");
       await adapter.applyMigration?.("0001_init", before);
       await pool.query("INSERT INTO flowpanel_audit_log (action) VALUES ('orders.update')");
+      for (const insert of oldAuditRows("mysql")) await pool.query(insert);
       await adapter.applyMigration?.("0002_audit_log_0_4", upgrade);
-      const [kept] = await pool.query("SELECT action, actor_name FROM flowpanel_audit_log");
+      const [kept] = await pool.query(
+        "SELECT action, actor_name FROM flowpanel_audit_log WHERE target_id IS NULL",
+      );
       expect(kept).toEqual([{ action: "orders.update", actor_name: null }]);
+      await expectOldRowsAfterUpgrade(adapter.auditLog);
       await pool.query("DELETE FROM flowpanel_audit_log");
       await expectAuditLogRoundTrip(adapter.auditLog);
       await pool.end();

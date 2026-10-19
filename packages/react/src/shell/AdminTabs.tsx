@@ -17,20 +17,24 @@ import { activeNavHref } from "./active-nav";
 import { Brand, type ShellBrand } from "./Brand";
 import { NavLinkPending } from "./NavLinkPending";
 
-/** How far into the strip's faded edge a tab may reach: its own padding, so its label stays clear of the fade. */
-const FADE_INSET_PX = 12;
+const GAP_PX = 4;
 
-type Edges = { left: number; right: number };
-
-/** The tabs the strip does not show whole, counting a faded edge as not shown. */
-export function tabsCutOff(
-  strip: Edges,
-  tabs: ReadonlyArray<{ href: string; box: Edges }>,
-  faded: { start: boolean; end: boolean },
-): string[] {
-  const left = strip.left + (faded.start ? FADE_INSET_PX : 0) - 1;
-  const right = strip.right - (faded.end ? FADE_INSET_PX : 0) + 1;
-  return tabs.filter(({ box }) => box.left < left || box.right > right).map(({ href }) => href);
+/** The tabs that move into More: every tab after the first ones that fit, the active tab always kept. */
+export function tabsFolded(widths: ReadonlyArray<number>, active: number, room: number): number[] {
+  const total = widths.reduce((sum, width) => sum + width, 0) + GAP_PX * (widths.length - 1);
+  if (total <= room) return [];
+  let used = widths[active] ?? -GAP_PX;
+  let full = false;
+  const folded: number[] = [];
+  widths.forEach((width, index) => {
+    if (index === active) return;
+    if (!full && used + GAP_PX + width <= room) used += GAP_PX + width;
+    else {
+      full = true;
+      folded.push(index);
+    }
+  });
+  return folded;
 }
 
 /** Horizontal tab strip variant of the admin nav. */
@@ -52,51 +56,34 @@ export function AdminTabs({
   const activeHref = activeNavHref(groups, currentPath, rootHref);
   const hasBrand = Boolean(brand?.name ?? brand?.logo);
   const items = groups.flatMap((g) => g.items);
-  const activeRef = useRef<HTMLAnchorElement | null>(null);
   const stripRef = useRef<HTMLUListElement | null>(null);
 
   const [hidden, setHidden] = useState<string[]>([]);
   const hasMore = hidden.length > 0;
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new route, or the More button taking room, brings the active tab back into view.
-  useEffect(() => {
-    const el = activeRef.current;
-    const strip = stripRef.current;
-    if (!el || !strip) return;
-    // Scroll only as far as the active tab needs, so the strip starts on a whole tab.
-    const tabRect = el.getBoundingClientRect();
-    const stripRect = strip.getBoundingClientRect();
-    const right = stripRect.right - FADE_INSET_PX;
-    const left = stripRect.left + FADE_INSET_PX;
-    if (tabRect.right > right) strip.scrollLeft += tabRect.right - right;
-    else if (tabRect.left < left) strip.scrollLeft -= left - tabRect.left;
-  }, [currentPath, hasMore]);
+  const widths = useRef(new Map<string, number>());
+  const activeIndex = items.findIndex((it) => it.href === activeHref);
+  const itemKey = items.map((it) => it.href).join("\n");
 
   useEffect(() => {
     const el = stripRef.current;
     if (!el) return;
+    const hrefs = itemKey.split("\n");
     const sync = () => {
-      const start = el.scrollLeft > 1;
-      const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
-      el.dataset.overflow = start && end ? "both" : start ? "start" : end ? "end" : "none";
-      const cut = tabsCutOff(
-        el.getBoundingClientRect(),
-        Array.from(el.querySelectorAll<HTMLAnchorElement>("a[data-tab-href]")).map((tab) => ({
-          href: tab.dataset.tabHref ?? "",
-          box: tab.getBoundingClientRect(),
-        })),
-        { start, end },
-      );
-      setHidden((current) => (current.join("\n") === cut.join("\n") ? current : cut));
+      for (const tab of el.querySelectorAll<HTMLElement>("li[data-tab-href]")) {
+        if (tab.offsetWidth > 0) widths.current.set(tab.dataset.tabHref ?? "", tab.offsetWidth);
+      }
+      const folded = tabsFolded(
+        hrefs.map((href) => widths.current.get(href) ?? 0),
+        activeIndex,
+        el.clientWidth - 1,
+      ).flatMap((index) => hrefs[index] ?? []);
+      setHidden((current) => (current.join("\n") === folded.join("\n") ? current : folded));
     };
     sync();
-    el.addEventListener("scroll", sync, { passive: true });
     const ro = new ResizeObserver(sync);
     ro.observe(el);
-    return () => {
-      el.removeEventListener("scroll", sync);
-      ro.disconnect();
-    };
-  }, []);
+    return () => ro.disconnect();
+  }, [itemKey, activeIndex]);
 
   return (
     <nav
@@ -104,9 +91,6 @@ export function AdminTabs({
       data-flowpanel-nav=""
       className="fp-sticky fp-top-0 fp-z-40 fp-border-b fp-border-line fp-bg-surface/85 fp-backdrop-blur-md"
     >
-      <p id="admin-tabs-scroll-hint" className="fp-sr-only">
-        {navigation.scrollHint}
-      </p>
       <div className="fp-mx-auto fp-flex fp-max-w-[103rem] fp-items-center fp-gap-2 fp-px-4 sm:fp-gap-6 sm:fp-px-6">
         {hasBrand ? (
           <Brand
@@ -115,38 +99,37 @@ export function AdminTabs({
             className="fp-hidden fp-flex-shrink-0 fp-py-3 sm:fp-flex"
           />
         ) : null}
+        {/* Tabs that do not fit wrap onto hidden lines until the strip knows which fold into More. */}
         <ul
           ref={stripRef}
-          aria-describedby="admin-tabs-scroll-hint"
           className={cn(
-            "fp-scroll-fade-x fp-scrollbar-hide fp-flex fp-flex-1 fp-items-center fp-gap-1 fp-overflow-x-auto",
+            "fp-flex fp-h-11 fp-flex-1 fp-flex-wrap fp-items-center fp-gap-1 fp-overflow-hidden",
             !hasBrand && "-fp-ml-3",
           )}
         >
           {items.map((it) => {
             const active = activeHref === it.href;
             return (
-              <li key={it.href} className="fp-flex-shrink-0">
+              <li
+                key={it.href}
+                data-tab-href={it.href}
+                className={cn("fp-flex-shrink-0", hidden.includes(it.href) && "fp-hidden")}
+              >
                 <Link
                   href={it.href}
                   prefetch={false}
-                  data-tab-href={it.href}
-                  ref={active ? activeRef : undefined}
                   aria-current={active ? "page" : undefined}
-                  // A tab the strip cuts off lives in the More menu, not half drawn beside it.
-                  {...(hidden.includes(it.href) && !active
-                    ? { "aria-hidden": true, tabIndex: -1 }
-                    : {})}
                   className={cn(
                     "fp-relative fp-inline-flex fp-h-11 fp-items-center fp-px-3 fp-text-sm fp-whitespace-nowrap fp-transition-colors",
                     active ? "fp-font-medium fp-text-ink" : "fp-text-soft hover:fp-text-ink",
-                    hidden.includes(it.href) && !active && "fp-invisible",
                   )}
                 >
                   {it.icon ? (
                     <FlowpanelIcon name={it.icon} className="fp-mr-2 fp-h-4 fp-w-4 fp-shrink-0" />
                   ) : null}
-                  {it.label}
+                  <span className="fp-tab-label" data-label={it.label}>
+                    {it.label}
+                  </span>
                   {active ? (
                     <span
                       aria-hidden

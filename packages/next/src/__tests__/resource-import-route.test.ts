@@ -16,14 +16,19 @@ import { publishResource } from "../runtime/publish";
 const createSchema = z.object({ email: z.string().email() });
 
 function makeConfig(
-  opts: { rateLimit?: { driver: "memory"; limit: number; windowMs: number } } = {},
+  opts: {
+    rateLimit?: { driver: "memory"; limit: number; windowMs: number };
+    schema?: z.ZodTypeAny;
+    fields?: unknown[];
+  } = {},
 ) {
   const created: unknown[] = [];
   const adapter: Adapter = {
     kind: "drizzle",
     db: {},
     introspect: () => ({ name: "users", columns: [], primaryKey: "id" }),
-    inferSchema: () => ({ create: createSchema, update: createSchema.partial() }) as never,
+    inferSchema: () =>
+      ({ create: opts.schema ?? createSchema, update: createSchema.partial() }) as never,
     list: async () => ({ rows: [], total: 0, page: 1, pageSize: 10 }),
     get: async () => null,
     create: async (_ref, mctx) => {
@@ -39,6 +44,7 @@ function makeConfig(
     options: {
       columns: [{ field: "id" }, { field: "email" }],
       import: { formats: ["csv", "json"] },
+      ...(opts.fields ? { create: { fields: opts.fields } } : {}),
     },
   } as never;
   const config: ResolvedAdminConfig = {
@@ -124,6 +130,19 @@ describe("importRoute", () => {
     expect(body.failed[0]?.row).toBe(2);
     // Not the generic "Validation failed" — the failing field and its message.
     expect(body.failed[0]?.error).toMatch(/^Email: /);
+  });
+
+  it("refuses a value that does not fit its field's declared type, as a form submit does", async () => {
+    const { config, created } = makeConfig({
+      schema: z.object({ email: z.string() }),
+      fields: [{ name: "email", type: "email" }],
+    });
+    const content = "email\nok@b.com\nnot-an-email\n";
+    const res = await importRoute(config)(post({ format: "csv", content }), params);
+    const body = (await res.json()) as { imported: number; failed: { error: string }[] };
+    expect(body.imported).toBe(1);
+    expect(created).toEqual([{ email: "ok@b.com" }]);
+    expect(body.failed[0]?.error).toBe("Email must be an email address like name@example.com");
   });
 
   it("consumes one rate-limit token per import, not one per row", async () => {

@@ -41,7 +41,7 @@ npm and pnpm install `drizzle-orm` and `drizzle-zod` next to the kit in a Prisma
 
 ## One file per resource
 
-`flowpanel new --dir` writes Drizzle resource files only. On Prisma, run `flowpanel new Order` and move the entry it adds into its own file, then spread a list of them into `resources`:
+`flowpanel new Order --dir src/admin/models` writes the model's resource into its own file, adds it to the directory's `index.ts`, and the first time imports that list into the config and spreads it into `resources`. It also adds the model to `FlowpanelResources`, as `new` without `--dir` does:
 
 ```ts
 // src/admin/models/orders.ts
@@ -60,7 +60,7 @@ import { orders } from "./orders";
 export const resources = [orders];
 ```
 
-The config then reads `resources: [...resources]`, and `new` without `--dir` keeps adding entries to the config itself.
+The config then reads `resources: [...resources]`, and later `new` runs write into the same directory without `--dir`. A foreign key to a model that already has a file there becomes a `reference`, so scaffold referenced models first.
 
 ## Raw SQL
 

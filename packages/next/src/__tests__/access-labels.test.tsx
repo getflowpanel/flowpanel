@@ -134,6 +134,20 @@ describe("a refused page leaves a way out", () => {
     );
   });
 
+  it("leads a refused edit page back to its own list, not the first entry", async () => {
+    await refusal(new FlowpanelAccessError("forbidden"), admin({}, true), {
+      slug: ["users", "1", "edit"],
+      currentPath: "/admin/users/1/edit",
+      navGroups: [
+        { label: "Home", items: [{ label: "Overview", href: "/admin" }] },
+        ...place.navGroups,
+      ],
+    });
+    expect(screen.getByRole("link", { name: "Back to Users" }).getAttribute("href")).toBe(
+      "/admin/users",
+    );
+  });
+
   it("falls back to Reload when there is nowhere else to go", async () => {
     await refusal(new FlowpanelAccessError("forbidden"), admin({}, true), {
       slug: ["users"],
@@ -183,6 +197,7 @@ describe("a session provider that throws", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Something went wrong" })).toBeTruthy();
     expect(screen.getByText("req-42", { exact: false })).toBeTruthy();
     expect(screen.queryByText(/ECONNREFUSED/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
     vi.unstubAllEnvs();
   });
 
@@ -195,6 +210,7 @@ describe("a session provider that throws", () => {
     );
     render(sessionFailedWall(config, "req-43", refusal));
     expect(screen.getByText(refusal.message)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
     cleanup();
     render(sessionFailedWall(config, "req-44", new Error("[flowpanel] /srv/app/lib/auth.ts: no")));
     expect(screen.queryByText(/srv\/app/)).toBeNull();

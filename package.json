@@ -13,6 +13,7 @@
     "check:next-onboarding": "node scripts/check-next-onboarding.mjs",
     "check:release": "node scripts/check-release-consistency.mjs",
     "check:unused": "knip --no-progress",
+    "check:webpack-budget": "node scripts/check-webpack-budget.mjs",
     "docs:generate": "node --import tsx scripts/docs/generate-cli-reference.ts && node --import tsx scripts/docs/generate-init-snippets.ts",
     "docs:llms": "node --import tsx scripts/generate-llms.ts",
     "format": "biome check --write .",

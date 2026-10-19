@@ -70,6 +70,18 @@ function keyedWhere(target: WriteTarget, id: string, ctx: MutationContext<unknow
   return and(eq(target.pkCol, id), ...captureScopeClauses(ctx)) as SQL;
 }
 
+/** A sort that puts empty values last in both directions, whatever the database's own default. */
+function sortTerms(
+  col: AnyColumn,
+  dir: "asc" | "desc",
+  dialect: DrizzleDialect,
+): Array<SQL | AnyColumn> {
+  const nullable = Reflect.get(col, "notNull") !== true;
+  if (!nullable) return [dir === "asc" ? asc(col) : desc(col)];
+  if (dialect === "pg") return [sql`${col} ${sql.raw(dir)} nulls last`];
+  return dir === "asc" ? [sql`${col} is null`, asc(col)] : [desc(col)];
+}
+
 export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB, Table> {
   const dialect = resolveDialect(opts);
   const writes = DIALECT_WRITES[dialect];
@@ -99,7 +111,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
         return col ? [asc(col)] : [];
       });
       const orderBy = [
-        ...(sortCol ? [ctx.sort?.dir === "asc" ? asc(sortCol) : desc(sortCol)] : []),
+        ...(sortCol ? sortTerms(sortCol, ctx.sort?.dir ?? "desc", dialect) : []),
         ...tieCols,
       ];
 

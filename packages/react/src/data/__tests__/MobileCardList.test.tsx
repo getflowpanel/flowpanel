@@ -174,6 +174,29 @@ describe("MobileCardList", () => {
     expect(onRowClick).not.toHaveBeenCalled();
   });
 
+  it("puts every card's actions on their own line once any row has an action button", () => {
+    const actions = () => (
+      <div role="toolbar" aria-label="Row actions">
+        …
+      </div>
+    );
+    const { rerender } = render(
+      <MobileCardList columns={[{ field: "name" }]} rows={rows} rowKey="id" rowEndCell={actions} />,
+    );
+    const holder = () => screen.getAllByRole("toolbar")[0]?.parentElement?.className ?? "";
+    expect(holder()).not.toContain("fp-basis-full");
+    rerender(
+      <MobileCardList
+        columns={[{ field: "name" }]}
+        rows={rows}
+        rowKey="id"
+        rowEndCell={actions}
+        actionsBelow
+      />,
+    );
+    expect(holder()).toContain("fp-basis-full");
+  });
+
   it("shows the field's label, not its raw name, for non-title columns", () => {
     render(
       <MobileCardList

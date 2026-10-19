@@ -8,7 +8,8 @@ import type {
 import { assertWritableInput, runWithRequestContext } from "@flowpanel/core";
 import { declaredWriteFields, writeTarget } from "@flowpanel/core/internal";
 import type { z } from "zod";
-import { fieldFlag } from "../runtime/resolve-form-fields";
+import { columnDefs } from "../runtime/column-defs";
+import { declaredFormFields, fieldFlag } from "../runtime/resolve-form-fields";
 
 export { declaredWriteFields };
 
@@ -154,4 +155,66 @@ export async function applyFieldDefaults(
     }
   }
   return out;
+}
+
+/** The create fields judged on the starting values; for an API write, `readOnly` also on `input` over them and `hidden` only so. */
+export async function createFormFields(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+  input?: unknown,
+): Promise<FieldDef<Record<string, unknown>>[] | undefined> {
+  const fields = declaredFormFields(resource, "create");
+  const judged = (f: FieldDef<Record<string, unknown>>) =>
+    typeof f.hidden === "function" || typeof f.readOnly === "function";
+  if (!fields?.some(judged)) return fields;
+  const starting = await startingValues(config, resource, fields, {}, reqCtx);
+  const given = typeof input === "object" && input !== null && !Array.isArray(input) ? input : null;
+  const merged = given
+    ? await startingValues(config, resource, fields, { ...given }, reqCtx)
+    : starting;
+  return fields.map((f) =>
+    judged(f)
+      ? {
+          ...f,
+          hidden: fieldFlag(f.hidden, merged),
+          readOnly: fieldFlag(f.readOnly, starting) || fieldFlag(f.readOnly, merged),
+        }
+      : f,
+  );
+}
+
+/** `input` over the field and resource defaults, then the columns' database defaults. */
+async function startingValues(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  fields: FieldDef<Record<string, unknown>>[],
+  input: Record<string, unknown>,
+  reqCtx: RequestContext,
+): Promise<Record<string, unknown>> {
+  const values = await applyFieldDefaults(resource, fields, input, reqCtx);
+  for (const column of config.adapter.introspect(writeTarget(resource)).columns) {
+    if (values[column.name] === undefined && column.defaultValue !== undefined) {
+      values[column.name] = column.defaultValue;
+    }
+  }
+  return values;
+}
+
+/** The update's fields plus `extra` columns the form does not list, such as an inline-editable one. */
+export function updateFields(
+  resource: ResourceConfig,
+  extra: readonly string[],
+): FieldDef<Record<string, unknown>>[] | undefined {
+  const fields = declaredFormFields(resource, "update");
+  if (!fields) return fields;
+  const missing = extra.filter((name) => !fields.some((f) => f.name === name));
+  return [...fields, ...missing.map((name) => ({ name }))];
+}
+
+/** Columns the list edits in place: a script may write them wherever the list can. */
+export function editableColumns(resource: ResourceConfig): string[] {
+  return columnDefs(resource).flatMap((column) =>
+    column.editable === true && column.field ? [column.field] : [],
+  );
 }

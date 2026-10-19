@@ -4,7 +4,7 @@ export default defineConfig({
   oxc: { jsx: { runtime: "automatic" } },
   test: {
     ...sharedTestConfig,
-    setupFiles: ["../../vitest.browser-storage.ts"],
+    setupFiles: ["../../vitest.browser-storage.ts", "./vitest.setup-ui.ts"],
     environment: "node",
     include: ["src/**/__tests__/**/*.test.{ts,tsx}"],
   },

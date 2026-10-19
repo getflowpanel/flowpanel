@@ -1,5 +1,6 @@
 import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { errorResult, FlowpanelNotFoundError, resolveFormatting } from "@flowpanel/core";
+import { auditValueRoute } from "./actions/audit-value";
 import { bulkActionRoute } from "./actions/bulk-action";
 import { dashboardActionRoute } from "./actions/dashboard-action";
 import { inlineUpdateRoute } from "./actions/inline-update";
@@ -146,6 +147,7 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
   const getRecordSearch = recordSearchRoute(config);
   const getReferenceSearch = referenceSearchRoute(config);
   const getExport = exportRoute(config);
+  const getAuditValue = auditValueRoute(config);
   const postDrawerAction = drawerActionRoute(config);
   const postRowAction = rowActionRoute(config);
   const postBulkAction = bulkActionRoute(config);
@@ -167,6 +169,7 @@ export function handlers(config: ResolvedAdminConfig): FlowpanelHandlers {
         { segments: ["palette", "search"], handler: getRecordSearch },
         { segments: ["export", ":resource"], handler: getExport },
         { segments: [":resource", "reference", ":field"], handler: getReferenceSearch },
+        { segments: ["audit", ":id", "value"], handler: getAuditValue },
       ] as ReadonlyArray<RoutePattern<never>>,
       req,
       route,

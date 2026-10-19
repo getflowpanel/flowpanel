@@ -13,8 +13,8 @@ import { InlineEditCell } from "../InlineEditCell";
 
 afterEach(cleanup);
 
-const editButtons = () => screen.getAllByRole("button", { name: "Edit Name" });
-const editButton = () => screen.getByRole("button", { name: "Edit Name" });
+const editButtons = () => screen.getAllByRole("button", { name: /Edit Name$/ });
+const editButton = () => screen.getByRole("button", { name: /Edit Name$/ });
 const editing = () => screen.queryByDisplayValue("Alice") !== null;
 
 function inRow(rowClickable: boolean) {
@@ -36,10 +36,10 @@ function inRow(rowClickable: boolean) {
 }
 
 describe("InlineEditCell in a row that does not open", () => {
-  it("is one button named after the action, holding the value and the pencil", () => {
+  it("is one button named by its value and then the action, holding the pencil", () => {
     inRow(false);
     expect(editButtons()).toHaveLength(1);
-    expect(editButton().textContent).toBe("Alice");
+    expect(screen.getByRole("button", { name: "Alice Edit Name" })).toBe(editButton());
     expect(editButton().querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
   });
 
@@ -189,6 +189,119 @@ describe("InlineEditCell's words", () => {
         <InlineEditCell resource="users" id="1" field="full_name" label="Имя" value="Alice" />
       </LabelsProvider>,
     );
-    expect(screen.getByRole("button", { name: "Изменить: Имя" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Alice Изменить: Имя" })).toBeTruthy();
+  });
+});
+
+describe("InlineEditCell with choices", () => {
+  it("offers an enum's declared choices by their labels and saves the picked one", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <InlineEditCell
+        resource="tickets"
+        id="3"
+        field="status"
+        label="Status"
+        value="new"
+        valueType="enum"
+        options={[
+          { value: "new", label: "Neu" },
+          { value: "solved", label: "Gelöst" },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Edit Status$/ }), { detail: 1 });
+    const select = screen.getByRole("combobox", { name: "Status" });
+    expect([...select.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+      "Neu",
+      "Gelöst",
+    ]);
+    fireEvent.change(select, { target: { value: "solved" } });
+    fireEvent.blur(select);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ field: "status", value: "solved" });
+    vi.unstubAllGlobals();
+  });
+
+  it("edits a yes/no column with Yes and No, sending a boolean", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <InlineEditCell
+        resource="users"
+        id="1"
+        field="vip"
+        label="VIP"
+        value={false}
+        valueType="boolean"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Edit VIP$/ }), { detail: 1 });
+    const select = screen.getByRole("combobox", { name: "VIP" });
+    fireEvent.pointerDown(select);
+    fireEvent.change(select, { target: { value: "true" } });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ field: "vip", value: true });
+    vi.unstubAllGlobals();
+  });
+
+  it("saves a pick that came with no key press at once, as a touch picker or assistive tech sends it", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <InlineEditCell
+        resource="tickets"
+        id="3"
+        field="status"
+        label="Status"
+        value="new"
+        valueType="enum"
+        options={[
+          { value: "new", label: "New" },
+          { value: "solved", label: "Solved" },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Edit Status$/ }), { detail: 1 });
+    fireEvent.change(screen.getByRole("combobox", { name: "Status" }), {
+      target: { value: "solved" },
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    vi.unstubAllGlobals();
+  });
+
+  it("moves only the draft on the keyboard and saves on Enter", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <InlineEditCell
+        resource="tickets"
+        id="3"
+        field="status"
+        label="Status"
+        value="new"
+        valueType="enum"
+        options={[
+          { value: "new", label: "New" },
+          { value: "pending", label: "Pending" },
+          { value: "solved", label: "Solved" },
+        ]}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Edit Status$/ }), { detail: 1 });
+    const select = screen.getByRole("combobox", { name: "Status" });
+    fireEvent.keyDown(select, { key: "ArrowDown" });
+    fireEvent.change(select, { target: { value: "pending" } });
+    fireEvent.keyDown(select, { key: "ArrowDown" });
+    fireEvent.change(select, { target: { value: "solved" } });
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.keyDown(select, { key: "Enter" });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ field: "status", value: "solved" });
+    vi.unstubAllGlobals();
   });
 });

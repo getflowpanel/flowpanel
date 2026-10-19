@@ -10,6 +10,7 @@ const Status = enumOf(schema.accountStatus.enumValues, {
 });
 
 export const customers = resource(schema.customers, {
+  icon: "users",
   columns: [
     "id",
     "email",

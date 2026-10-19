@@ -43,4 +43,28 @@ describe("ColumnVisibilityMenu", () => {
     const emailItem = await screen.findByRole("menuitemcheckbox", { name: /email/i });
     expect(emailItem.getAttribute("aria-checked")).toBe("true");
   });
+
+  it("shows every hidden column again in one step, and is off while all show", async () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <ColumnVisibilityMenu
+        columns={columns}
+        visibility={{ email: false, plan: true }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.keyDown(screen.getByRole("button", { name: /columns/i }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Show all columns" }));
+    expect(onChange).toHaveBeenCalledWith({ email: true, plan: true });
+    rerender(
+      <ColumnVisibilityMenu
+        columns={columns}
+        visibility={{ email: true, plan: true }}
+        onChange={onChange}
+      />,
+    );
+    expect(
+      screen.getByRole("menuitem", { name: "Show all columns" }).getAttribute("aria-disabled"),
+    ).toBe("true");
+  });
 });

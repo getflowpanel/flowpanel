@@ -4,12 +4,18 @@ import type { PrismaDmmf } from "./introspect";
 
 const require = createRequire(import.meta.url);
 
+/** One `orderBy` entry: a direction, or for an optional field where its empty values go. */
+export type PrismaOrderBy = Record<
+  string,
+  "asc" | "desc" | { sort: "asc" | "desc"; nulls: "first" | "last" }
+>;
+
 /** Subset of the Prisma model delegate methods FlowPanel invokes. */
 export interface PrismaDelegate {
   findMany: (args: {
     where?: Record<string, unknown>;
     select?: Record<string, boolean>;
-    orderBy?: Record<string, "asc" | "desc"> | Array<Record<string, "asc" | "desc">>;
+    orderBy?: PrismaOrderBy | PrismaOrderBy[];
     skip?: number;
     take?: number;
   }) => Promise<unknown[]>;

@@ -268,6 +268,21 @@ describe("doctor — audit log table", () => {
     });
   });
 
+  it("names the one ALTER for a table missing only diff_preview, with no 0002 to write", async () => {
+    process.env.DATABASE_URL = "postgres://probe.invalid/app";
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": `export default {
+        auditLog: { list: async () => { throw new Error('column "diff_preview" does not exist'); } },
+      };\n`,
+      "flowpanel/migrations/0001_init.sql": await tpl("migration.postgresql.sql.txt"),
+    });
+    const check = await checkNamed("Audit log table");
+    expect(check).toMatchObject({ ok: true, warn: true });
+    expect(check?.hint).toContain("ALTER TABLE flowpanel_audit_log ADD COLUMN diff_preview jsonb;");
+    expect(check?.fix).toBeUndefined();
+  });
+
   it("is quiet for the 0001 that init writes now", async () => {
     await write({
       "package.json": PACKAGE,
@@ -456,17 +471,17 @@ describe("doctor output", () => {
 });
 
 describe("doctor — ESLint plugin note", () => {
-  it("is gone once the flat config loads the plugin", async () => {
+  it("passes once the flat config loads the plugin", async () => {
     await write({
       "package.json": PACKAGE,
       "flowpanel.config.ts": "export default { resources: [] };\n",
       "eslint.config.mjs":
         'import flowpanel from "@flowpanel/eslint-plugin";\nexport default [flowpanel.configs.recommended];\n',
     });
-    expect(await checkNamed("ESLint plugin")).toBeUndefined();
+    expect(await checkNamed("ESLint plugin")).toEqual({ name: "ESLint plugin", ok: true });
   });
 
-  it("is gone when the workspace root above the project loads the plugin", async () => {
+  it("passes when the workspace root above the project loads the plugin", async () => {
     await write({
       "pnpm-workspace.yaml": "packages:\n  - apps/*\n",
       "eslint.config.mjs":
@@ -476,7 +491,10 @@ describe("doctor — ESLint plugin note", () => {
     });
     const { checks } = await runDoctorChecks(path.join(tmp, "apps/admin"), false);
     expect(checks.map((check) => check.name)).toContain("Resources configured");
-    expect(checks.map((check) => check.name)).not.toContain("ESLint plugin");
+    expect(checks.find((check) => check.name === "ESLint plugin")).toEqual({
+      name: "ESLint plugin",
+      ok: true,
+    });
   });
 
   it("stops looking at the workspace root", async () => {
@@ -487,7 +505,7 @@ describe("doctor — ESLint plugin note", () => {
       "repo/apps/admin/flowpanel.config.ts": "export default { resources: [] };\n",
     });
     const { checks } = await runDoctorChecks(path.join(tmp, "repo/apps/admin"), false);
-    expect(checks.map((check) => check.name)).toContain("ESLint plugin");
+    expect(checks.find((check) => check.name === "ESLint plugin")).toMatchObject({ info: true });
   });
 
   it("no longer fails doctor over a destructive action, which the lint rule reports", async () => {

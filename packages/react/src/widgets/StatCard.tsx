@@ -53,7 +53,7 @@ export function StatCard({
           {label}
         </div>
         <CaptionLine caption={caption} />
-        <div className={cn("fp-truncate", FIGURE, toneTextClass[tone])} style={figureSize(display)}>
+        <div className={cn("fp-truncate", FIGURE, toneTextClass[tone])} {...figureSize(display)}>
           {display}
         </div>
       </div>
@@ -84,7 +84,6 @@ export function StatCard({
   return (
     <a
       href={href}
-      aria-label={label}
       className={cn(
         "fp-group fp-block fp-h-full fp-w-full focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
         plain

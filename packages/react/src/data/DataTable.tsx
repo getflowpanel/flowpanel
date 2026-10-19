@@ -2,25 +2,29 @@
 // LOC-OK: one state for the loading, empty, phone and grid branches; the toolbar, head and body live in their own files.
 import * as React from "react";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import { ChunkFailed } from "../lib/chunk-boundary";
 import { cn } from "../lib/cn";
 import { useComponentOverrides } from "../provider/ComponentsContext";
 import { useLabels } from "../provider/LabelsContext";
 import { ShortcutsHint } from "../shell/ShortcutsHint";
-import { layoutColumns, REM_PX, ROW_END_REM, SELECTION_WIDTH_PX } from "./column-sizing";
+import { ColumnVisibilityMenu } from "./ColumnVisibilityMenu";
+import { columnLabel } from "./column-label";
+import { fitPx, layoutColumns, REM_PX, ROW_END_REM, SELECTION_WIDTH_PX } from "./column-sizing";
 import { DataTableBody } from "./DataTableBody";
 import { DataTableHeader } from "./DataTableHeader";
 import { CardListSkeleton, DataTableSkeleton, skeletonRowCount } from "./DataTableSkeleton";
 import { DataTableToolbar, exportSetupOf } from "./DataTableToolbar";
 import type { DataTableDensity } from "./DensityToggle";
 import type { DataTableColumn, DataTableProps } from "./data-table-types";
-import { MobileCardFold } from "./MobileCardFold";
 import { Pagination } from "./Pagination";
+import { phoneCards } from "./phone-cards";
 import { TableEmptyState } from "./TableEmptyState";
 import { TableScroll } from "./TableScroll";
 import { useColumnLayout } from "./useColumnLayout";
 import { useDataTableKeyboard } from "./useDataTableKeyboard";
 import { useDataTableSelection } from "./useDataTableSelection";
 import { useTableLive } from "./useTableLive";
+import { fitToWidest, widestCellPx } from "./widest-cell";
 
 export type {
   DataTableColumn,
@@ -53,6 +57,7 @@ export function DataTable<Row extends Record<string, unknown>>({
   getRowKey,
   prerenderedCells,
   columnVisibility,
+  onColumnVisibilityChange,
   columnWidths,
   onColumnWidthsChange,
   pinnedColumns,
@@ -108,9 +113,16 @@ export function DataTable<Row extends Record<string, unknown>>({
   const live = useTableLive(realtime);
 
   const isMobile = useMediaQuery("(max-width: 639px)");
+  const cards = phoneCards.useLoaded();
+  const cardsFailed = phoneCards.useFailed();
+  const wantsCards = mobileLayout === "card" && isMobile;
+  React.useEffect(() => {
+    if (wantsCards) void phoneCards.ensure();
+  }, [wantsCards]);
 
   const [densityOverride, setDensityOverride] = React.useState<DataTableDensity | null>(null);
   const [densityProp, setDensityProp] = React.useState(density);
+  const [resizeNote, setResizeNote] = React.useState("");
   if (densityProp !== density) {
     setDensityProp(density);
     setDensityOverride(null);
@@ -159,8 +171,30 @@ export function DataTable<Row extends Record<string, unknown>>({
     "fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-shadow-xs fp-overflow-clip";
 
   const exportSetup = exportSetupOf(exportable, columns, orderedVisible);
+  const resetWidths = () => {
+    liveWidthsRef.current = {};
+    setLiveWidths({});
+    onColumnWidthsChange?.({});
+  };
+  const columnsMenu =
+    onColumnWidthsChange || onColumnVisibilityChange ? (
+      <ColumnVisibilityMenu
+        columns={columns
+          .filter((c) => !c.hidden)
+          .map((c) => ({ field: c.field, label: columnLabel(c) }))}
+        visibility={columnVisibility ?? {}}
+        {...(onColumnVisibilityChange ? { onChange: onColumnVisibilityChange } : {})}
+        {...(onColumnWidthsChange
+          ? { onResetWidths: resetWidths, widthsChanged: Object.keys(effectiveWidths).length > 0 }
+          : {})}
+      />
+    ) : null;
   const showToolbar =
-    exportSetup !== null || Boolean(importable) || showDensityToggle || live.configured;
+    exportSetup !== null ||
+    Boolean(importable) ||
+    showDensityToggle ||
+    live.configured ||
+    columnsMenu !== null;
   const toolbar = showToolbar ? (
     <DataTableToolbar
       total={total}
@@ -171,6 +205,7 @@ export function DataTable<Row extends Record<string, unknown>>({
       exportSetup={exportSetup}
       rows={rows}
       tableLabel={inlineEditResource ?? emptyTitle ?? "export"}
+      columnsMenu={columnsMenu}
     />
   ) : null;
 
@@ -234,9 +269,19 @@ export function DataTable<Row extends Record<string, unknown>>({
     );
   }
 
-  const showMobileCardView = mobileLayout === "card" && isMobile;
+  // Cards that cannot load leave the scrolling table, which is already here, with a way to try again.
+  const showMobileCardView = wantsCards && !cardsFailed;
 
   if (showMobileCardView) {
+    if (!cards) {
+      return (
+        <div className={cn(frame, className)} aria-busy="true">
+          {toolbar}
+          <CardListSkeleton orderedVisible={orderedVisible} pageSize={pageSize} />
+        </div>
+      );
+    }
+    const { MobileCardFold } = cards;
     return (
       <div className={cn(frame, className)}>
         {toolbar}
@@ -252,7 +297,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             {...(onRowClick ? { onRowClick } : {})}
             {...(selection ? { selection } : {})}
             {...(onSelectionChange ? { onSelectionChange } : {})}
-            {...(rowEndCell ? { rowEndCell } : {})}
+            {...(rowEndCell ? { rowEndCell, actionsBelow: rowEndCellRem > ROW_END_REM } : {})}
             {...(emptyTitle ? { emptyTitle } : {})}
             {...(emptyDescription ? { emptyDescription } : {})}
             {...(emptyAction ? { emptyAction } : {})}
@@ -272,6 +317,11 @@ export function DataTable<Row extends Record<string, unknown>>({
   return (
     <div className={cn(frame, className)}>
       {toolbar}
+      {wantsCards && cardsFailed ? (
+        <div className="fp-border-b fp-border-line fp-px-3 fp-py-2">
+          <ChunkFailed onRetry={() => void phoneCards.ensure()} />
+        </div>
+      ) : null}
       <TableScroll>
         <table
           ref={tableRef}
@@ -283,7 +333,6 @@ export function DataTable<Row extends Record<string, unknown>>({
             orderedVisible={orderedVisible}
             sort={sort}
             pinMeta={pinMeta}
-            effectiveWidths={effectiveWidths}
             widths={widths}
             leftPins={leftPins}
             rightPins={rightPins}
@@ -293,12 +342,19 @@ export function DataTable<Row extends Record<string, unknown>>({
             onToggleAll={toggleAll}
             onHeaderClick={handleHeaderClick}
             {...(onColumnWidthsChange ? { onColumnWidthsChange } : {})}
+            fitWidth={(c) =>
+              fitToWidest(
+                fitPx(c, { headExtrasRem, raisedPx: raised[c.field] }),
+                widestCellPx(tableRef.current, c.field),
+              )
+            }
             {...(onPinnedColumnsChange ? { onPinnedColumnsChange } : {})}
             resizingRef={resizingRef}
             liveWidthsRef={liveWidthsRef}
             setLiveWidths={setLiveWidths}
             rowEndWidth={rowEndCell ? `${rowEndCellRem}rem` : undefined}
             rowEndCellLabel={rowEndCellLabel}
+            onKeyResize={setResizeNote}
           />
           <DataTableBody<Row>
             rows={rows}
@@ -312,6 +368,7 @@ export function DataTable<Row extends Record<string, unknown>>({
             orderedVisible={orderedVisible}
             pinMeta={pinMeta}
             lastLeftPin={lastLeftPin}
+            resized={new Set(Object.keys(effectiveWidths))}
             colIndexByField={colIndexByField}
             rowPadding={rowPadding}
             selectionEnabled={selectionEnabled}
@@ -324,6 +381,9 @@ export function DataTable<Row extends Record<string, unknown>>({
           />
         </table>
       </TableScroll>
+      <span aria-live="polite" className="fp-sr-only">
+        {resizeNote}
+      </span>
       <div className="fp-flex fp-items-center fp-border-t fp-border-line empty:fp-hidden">
         {opensRows ? <ShortcutsHint /> : null}
         {pagination("fp-flex-1 fp-border-t-0")}

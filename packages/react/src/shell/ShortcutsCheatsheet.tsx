@@ -74,7 +74,7 @@ export function ShortcutsCheatsheet({ open, onOpenChange, shortcuts }: Shortcuts
   );
 }
 
-/** The keys the admin binds: list rows, search, the command palette and this sheet. */
+/** The keys the admin binds: list rows and columns, search, the command palette and this sheet. */
 export function adminShortcuts(labels: ResolvedLabels): ShortcutSpec[] {
   const { shortcuts: words } = labels;
   return [
@@ -83,6 +83,8 @@ export function adminShortcuts(labels: ResolvedLabels): ShortcutSpec[] {
     { group: words.navigation, keys: ["g g"], description: words.first },
     { group: words.navigation, keys: ["G"], description: words.last },
     { group: words.rows, keys: ["Enter"], description: words.open },
+    { group: labels.table.columns, keys: ["⇧ ←", "⇧ →"], description: words.columnWidth },
+    { group: labels.table.columns, keys: ["⇧ Enter"], description: words.columnFit },
     { group: words.general, keys: ["/"], description: words.search },
     { group: words.general, keys: ["⌘ K", "Ctrl K"], description: words.palette },
     { group: words.general, keys: ["?"], description: words.show },

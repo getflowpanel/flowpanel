@@ -3,10 +3,9 @@ import { accessAllows, mergeLabels, resolveOperationAccess } from "@flowpanel/co
 import { writeTarget } from "@flowpanel/core/internal";
 import { CreateDrawer } from "@flowpanel/next/client";
 import { AutoForm } from "@flowpanel/react";
-import { writableColumns } from "../actions/field-pipeline";
+import { createFormFields, writableColumns } from "../actions/field-pipeline";
 import { buildApiHref, buildHref } from "../runtime/href";
 import {
-  declaredFormFields,
   deniedFieldWrites,
   generatedColumnFields,
   hiddenFormFields,
@@ -40,7 +39,7 @@ export async function buildResourceListCreateAction({
 }: ResourceListCreateActionOptions) {
   if (!(await mayCreate(config, resource, reqCtx))) return undefined;
 
-  const declared = declaredFormFields(resource, "create");
+  const declared = await createFormFields(config, resource, reqCtx);
   const denied = await deniedFieldWrites(resource, reqCtx, null);
   const fields = declared
     ? await resolveFormFields(

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { TableDescription } from "../describe-schema";
-import { columnKind, fileBaseOf, renderResourceFile, scaffoldPlural } from "../render-resource";
+import {
+  columnKind,
+  fileBaseOf,
+  renderResourceFile,
+  scaffoldIcon,
+  scaffoldPlural,
+} from "../render-resource";
 
 const USER_VISIT: TableDescription = {
   exportName: "userVisit",
@@ -80,6 +86,7 @@ describe("renderResourceFile", () => {
         "",
         "export const user = resource(schema.user, {",
         '  plural: "Users",',
+        '  icon: "users",',
         "  columns: [",
         '    "id",',
         '    "name",',
@@ -252,5 +259,21 @@ describe("scaffoldPlural", () => {
     ["audit", null],
   ])("labels %s as %s", (table, plural) => {
     expect(scaffoldPlural(table)).toBe(plural);
+  });
+});
+
+describe("the navigation icon a scaffold writes", () => {
+  it("is guessed from the table name, its last word first", () => {
+    expect(scaffoldIcon("users")).toBe("users");
+    expect(scaffoldIcon("order_items")).toBe("package");
+    expect(scaffoldIcon("orders")).toBe("shopping-cart");
+    expect(scaffoldIcon("userVisit")).toBe("users");
+    expect(scaffoldIcon("ai_usage")).toBe("database");
+  });
+
+  it("is left out of a hidden resource, which has no nav entry", () => {
+    expect(renderResourceFile(USER, { hidden: true, schemaImport: "./schema" })).not.toContain(
+      "icon:",
+    );
   });
 });

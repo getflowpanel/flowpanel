@@ -19,6 +19,8 @@ export interface DataTableBodyProps<Row extends Record<string, unknown>> {
   orderedVisible: DataTableColumn<Row>[];
   pinMeta: Map<string, PinMeta>;
   lastLeftPin: string | undefined;
+  /** Columns the reader resized, whose text any width may cut. */
+  resized: ReadonlySet<string>;
   colIndexByField: Map<string, number>;
   prerenderedCells?: (React.ReactNode | undefined)[][];
   rowPadding: string;
@@ -43,6 +45,7 @@ export function DataTableBody<Row extends Record<string, unknown>>({
   orderedVisible,
   pinMeta,
   lastLeftPin,
+  resized,
   colIndexByField,
   prerenderedCells,
   rowPadding,
@@ -99,6 +102,7 @@ export function DataTableBody<Row extends Record<string, unknown>>({
             orderedVisible={orderedVisible}
             pinMeta={pinMeta}
             lastLeftPin={lastLeftPin}
+            resized={resized}
             colIndexByField={colIndexByField}
             {...(prerenderedCells?.[idx] ? { prerenderedRow: prerenderedCells[idx] } : {})}
             rowPadding={rowPadding}

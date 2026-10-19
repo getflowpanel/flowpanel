@@ -68,6 +68,14 @@ describe("the audit table probe", () => {
     });
   });
 
+  it("tells a table missing only the preview column from one missing the 0.4 columns", async () => {
+    const dir = await project(failingWith('column "diff_preview" does not exist'));
+    expect(await withDatabaseUrl(() => readConfigWarnings(dir))).toEqual({
+      warnings: [],
+      auditTable: "preview",
+    });
+  });
+
   it("names a missing table", async () => {
     const dir = await project(failingWith('relation "flowpanel_audit_log" does not exist'));
     expect(await withDatabaseUrl(() => readConfigWarnings(dir))).toEqual({

@@ -1,5 +1,5 @@
 "use client";
-import { FilterBar, type FilterBarSpec } from "@flowpanel/react";
+import { cn, FilterBar, type FilterBarSpec, useLabels } from "@flowpanel/react";
 import * as React from "react";
 import { type ListHistory, useListNavigation } from "./list-navigation";
 
@@ -16,12 +16,11 @@ export interface ResourceListFiltersProps {
   filters: ResourceListFilterSpec[];
 }
 
-export function ResourceListFilters({ filters }: ResourceListFiltersProps) {
+/** The list's filter values, defaults filled in, and the URL changes that set and clear them. */
+function useListFilters(filters: ResourceListFilterSpec[]) {
   const { navigate: go, params } = useListNavigation();
   const typing = React.useRef<{ field: string; at: number } | null>(null);
   const shown = filters.filter((f) => !f.hidden);
-  if (shown.length === 0) return null;
-
   const hidden = new Set(filters.filter((f) => f.hidden).map((f) => f.field));
   const defaulted = new Set(shown.filter((f) => f.defaultValue !== undefined).map((f) => f.field));
   const values: Record<string, string> = {};
@@ -33,6 +32,9 @@ export function ResourceListFilters({ filters }: ResourceListFiltersProps) {
     if (f.defaultValue !== undefined && !params.has(`f_${f.field}`))
       values[f.field] = f.defaultValue;
   }
+  const changed = shown.some(
+    (f) => params.has(`f_${f.field}`) && params.get(`f_${f.field}`) !== (f.defaultValue ?? ""),
+  );
 
   const types = new Map(shown.map((f) => [f.field, f.type]));
   const navigate = (mutate: (next: URLSearchParams) => void, history: ListHistory) =>
@@ -62,7 +64,32 @@ export function ResourceListFilters({ filters }: ResourceListFiltersProps) {
       for (const key of [...next.keys()]) if (key.startsWith("f_")) next.delete(key);
       for (const field of defaulted) next.set(`f_${field}`, "");
     }, "push");
+  return { shown, values, setFilter, clear, clearable: changed && Object.keys(values).length > 0 };
+}
 
+export function ResourceListFilters({ filters }: ResourceListFiltersProps) {
+  const { shown, values, setFilter } = useListFilters(filters);
+  if (shown.length === 0) return null;
   // No margin: the parent `items-center` row owns the spacing.
-  return <FilterBar filters={shown} values={values} onChange={setFilter} onClear={clear} />;
+  return <FilterBar filters={shown} values={values} onChange={setFilter} />;
+}
+
+/** "Clear filters", once the reader has moved the filters off the list's defaults; its place is kept, so it never moves the row. */
+export function ResourceListClearFilters({ filters }: ResourceListFiltersProps) {
+  const labels = useLabels();
+  const { shown, clear, clearable } = useListFilters(filters);
+  if (shown.length === 0) return null;
+  return (
+    <button
+      type="button"
+      onClick={clear}
+      {...(clearable ? {} : { "aria-hidden": true, tabIndex: -1 })}
+      className={cn(
+        !clearable && "fp-invisible",
+        "fp-press fp-h-8 fp-shrink-0 fp-rounded-sm fp-px-1 fp-text-sm fp-text-soft fp-underline fp-underline-offset-4 fp-transition-colors hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+      )}
+    >
+      {labels.filters.clear}
+    </button>
+  );
 }

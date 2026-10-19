@@ -156,7 +156,7 @@ export function TimelineCard({
                 href={chip.href}
                 aria-current={chip.current ? "true" : undefined}
                 className={cn(
-                  "fp-rounded-full fp-border fp-px-2.5 fp-py-0.5 fp-text-xs",
+                  "fp-inline-flex fp-min-h-6 fp-min-w-6 fp-items-center fp-justify-center fp-rounded-full fp-border fp-px-2.5 fp-text-xs",
                   chip.current
                     ? "fp-border-line-strong fp-bg-fill fp-text-ink"
                     : "fp-border-line fp-text-soft hover:fp-bg-canvas",

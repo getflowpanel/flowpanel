@@ -13,7 +13,10 @@ export interface DrizzleLikeDb {
     };
   };
   insert: (ref: Table) => {
-    values: (v: Row) => Promise<unknown> & { returning: () => Promise<Row[]> };
+    values: (v: Row) => Promise<unknown> & {
+      returning: () => Promise<Row[]>;
+      $returningId: () => Promise<Row[]>;
+    };
   };
   update: (ref: Table) => {
     set: (v: Row) => {
@@ -26,6 +29,7 @@ export interface DrizzleLikeDb {
 
 export type DrizzleColumnLike = AnyColumn & {
   primary?: boolean;
+  autoIncrement?: boolean;
   notNull?: boolean;
   isUnique?: boolean;
   dataType?: string;

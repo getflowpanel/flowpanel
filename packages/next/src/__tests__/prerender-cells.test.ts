@@ -217,4 +217,29 @@ describe("prerenderResourceCells", () => {
       editable: true,
     });
   });
+
+  it("sends an editable badge column's choices with the labels its badges show", () => {
+    const out = prerenderResourceCells<Row>(
+      [
+        {
+          field: "email",
+          editable: true,
+          format: {
+            kind: "badge",
+            labels: { new: "Neu", solved: "Gelöst" },
+            tones: { open: "info" },
+          },
+        },
+        { field: "secret", format: { kind: "badge", labels: { a: "A" } } },
+      ],
+      [],
+      reqCtx,
+    );
+    expect(out.columns[0]?.options).toEqual([
+      { value: "new", label: "Neu" },
+      { value: "solved", label: "Gelöst" },
+      { value: "open", label: "open" },
+    ]);
+    expect(out.columns[1]?.options).toBeUndefined();
+  });
 });

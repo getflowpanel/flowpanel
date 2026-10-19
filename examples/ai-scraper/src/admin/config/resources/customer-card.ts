@@ -59,10 +59,7 @@ export const customerCard = {
     }),
   ],
   tabs: [
-    related("monitors", {
-      hide: ["customerId", "targetUrl"],
-      sort: { field: "lastRunAt", dir: "desc" },
-    }),
+    related("monitors", { sort: { field: "lastRunAt", dir: "desc" } }),
     related("products"),
     related("invoices", { sort: { field: "createdAt", dir: "desc" } }),
   ],

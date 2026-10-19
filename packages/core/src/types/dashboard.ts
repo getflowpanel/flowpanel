@@ -93,6 +93,8 @@ export interface DashboardFilter {
 }
 
 export interface DashboardConfig {
+  /** Tells a dashboard from a `page()`, which registers under `pages` instead. */
+  kind?: "dashboard";
   /** Path under `paths.admin`. `"/"` makes this the admin's landing page. */
   path: string;
   /** Nav entry and page title. */
@@ -138,6 +140,8 @@ export interface PageProps {
 
 /** User page registered under `<paths.admin><path>` with a sidebar nav entry. */
 export interface PageConfig {
+  /** Set by `page()`: a page registers under `pages`, not `dashboards`. */
+  kind?: "page";
   /** Path under `paths.admin`. */
   path: string;
   /** Nav entry and page title. */

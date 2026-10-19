@@ -185,9 +185,9 @@ export interface AdminDefinition<
   formatting?: FormattingConfig;
   /** Tables the admin manages. */
   resources?: Resources;
-  /** Widget dashboards. */
-  dashboards?: DashboardConfig[];
-  /** Custom pages rendered inside the shell. */
+  /** Widget dashboards. A `page()` goes in `pages`. */
+  dashboards?: (DashboardConfig | MisplacedPage)[];
+  /** Custom pages rendered inside the shell: `pages: [page({ path, label, component })]`. */
   pages?: PageConfig[];
   /** BullMQ queues surfaced in the admin. */
   queues?: QueueConfig[];
@@ -211,11 +211,18 @@ export interface AdminDefinition<
   };
 }
 
+/** No value has this type: TypeScript names its key when a `page()` lands in `dashboards`. */
+interface MisplacedPage {
+  kind: "page";
+  "a page() is registered in pages: [...], not dashboards": never;
+}
+
 export interface ResolvedAdminConfig<
   Resources extends readonly AnyResourceConfig[] = readonly AnyResourceConfig[],
 > extends AdminDefinition<Resources> {
   readonly __resolved: true;
   readonly resources: Resources;
+  readonly dashboards?: DashboardConfig[];
   readonly resourcesByName: Map<string, ResourceConfig>;
   readonly dashboardsByPath: Map<string, DashboardConfig>;
   readonly pagesByPath: Map<string, PageConfig>;

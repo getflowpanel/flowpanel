@@ -1,106 +1,45 @@
 import type {
   AuditLogEntry,
-  ColumnDef,
-  ColumnFormat,
   RequestContext,
   ResolvedAdminConfig,
-  ResolvedFormatting,
   ResolvedLabels,
   ResourceConfig,
 } from "@flowpanel/core";
-import { formatLabel, mergeLabels, resolveFormatting } from "@flowpanel/core";
-import { writeTarget } from "@flowpanel/core/internal";
+import { formatCount, formatLabel, mergeLabels, resolveFormatting } from "@flowpanel/core";
+import { AuditFullValue } from "@flowpanel/next/client";
 import { TimeAgo } from "@flowpanel/react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import {
-  type AuditTitles,
-  auditTitles,
-  referenceKey,
-  referencesOf,
-} from "../../runtime/audit-titles";
+import { auditTitles } from "../../runtime/audit-titles";
 import {
   type AuditChange,
   describeAuditAction,
+  isAuditValuePreview,
   projectAuditDiff,
   readableDiffFields,
 } from "../../runtime/audit-view";
-import { fieldLabels } from "../../runtime/field-labels";
-import { formFieldsOf } from "../../runtime/form-fields-of";
-import { formatFieldValue } from "../../runtime/format-field-value";
+import { fieldLabels, namedFields } from "../../runtime/field-labels";
 import { buildHref } from "../../runtime/href";
-import { moneyShape } from "../../runtime/money-field";
-import { renderColumnFormat } from "../../runtime/render-column-format";
 import { pluralLabel, singularLabel } from "../../runtime/resource-title";
-
-interface FieldLook {
-  format?: ColumnFormat;
-  /** The `auditTitles` key of the resource the field points at. */
-  reference?: string;
-}
-
-/** Each field's format as the resource's columns and forms declare it; a money field formats as money. */
-function fieldLooks(
-  config: ResolvedAdminConfig,
-  resource: ResourceConfig,
-  formatting: ResolvedFormatting,
-): Map<string, FieldLook> {
-  const looks = new Map<string, FieldLook>();
-  const { columns } = config.adapter.introspect(writeTarget(resource));
-  for (const field of formFieldsOf(resource)) {
-    const name = String(field.name);
-    const look: FieldLook = { ...looks.get(name) };
-    if (field.type === "money") {
-      const shape = moneyShape(
-        field,
-        columns.find((c) => c.name === name),
-        formatting,
-      );
-      const minorUnits = shape.storage === "minor" ? shape.minorUnits : 0;
-      look.format = { kind: "money", currency: shape.currency, minorUnits };
-    }
-    looks.set(name, look);
-  }
-  for (const [field, reference] of referencesOf(resource)) {
-    looks.set(field, { ...looks.get(field), reference: referenceKey(reference) });
-  }
-  for (const column of (resource.options.columns ?? []) as Array<
-    string | ColumnDef<Record<string, unknown>>
-  >) {
-    if (typeof column !== "object" || !column.field) continue;
-    looks.set(column.field, {
-      ...looks.get(column.field),
-      ...(column.format !== undefined ? { format: column.format } : {}),
-    });
-  }
-  return looks;
-}
+import { cn } from "../../utils/cn";
+import { type FieldLook, fieldLooks, shown } from "./audit-values";
 
 /** One rendered event: what happened, to which record, by whom and when, and what changed. */
 export interface AuditFeedItem {
   entry: AuditLogEntry;
   verb: string;
   record: { label: string; href: string | null } | null;
-  changes: Array<{ field: string; label: string; before: ReactNode; after: ReactNode }>;
+  changes: Array<{
+    field: string;
+    label: string;
+    before: ReactNode;
+    after: ReactNode;
+    /** Either side is too long to print whole, so it reads as a block instead of struck inline text. */
+    long: boolean;
+  }>;
   kind: "both" | "after" | "before";
-}
-
-function shown(
-  value: unknown,
-  look: FieldLook | undefined,
-  formatting: ResolvedFormatting,
-  words: { empty: string; yes: string; no: string },
-  references: AuditTitles,
-): ReactNode {
-  if (value === null || value === undefined || value === "") {
-    return <span className="fp-italic fp-text-faint">{words.empty}</span>;
-  }
-  if (typeof value === "boolean" && look?.format === undefined) return value ? words.yes : words.no;
-  const title = look?.reference ? references.get(look.reference)?.get(String(value)) : undefined;
-  if (title !== undefined) return title;
-  return look?.format !== undefined
-    ? renderColumnFormat(look.format, value, formatting)
-    : formatFieldValue(value);
+  /** An old event whose diff was too large to preview; each readable field loads on demand. */
+  tooLarge: boolean;
 }
 
 /** What an event acted on: its record, named once even when its title already says what it is, or the list it exported. */
@@ -162,7 +101,7 @@ export async function auditFeedItems(
       allowed.set(name, {
         fields,
         looks: fieldLooks(config, resource, formatting),
-        labelOf: fieldLabels(resource),
+        labelOf: fieldLabels(resource, [], namedFields(config)),
       });
     }),
   );
@@ -181,13 +120,36 @@ export async function auditFeedItems(
       verb: describeAuditAction(config, entry, labels),
       record,
       kind,
+      tooLarge: entry.diffTooLarge === true && access !== undefined,
       changes: changes.map((change) => {
         const look = access?.looks.get(change.field);
+        const { before, after } = change;
+        const alike =
+          isAuditValuePreview(before) &&
+          isAuditValuePreview(after) &&
+          before.text === after.text &&
+          before.length !== after.length;
+        const side = (value: unknown, which: "before" | "after"): ReactNode =>
+          isAuditValuePreview(value) ? (
+            <AuditFullValue
+              eventId={entry.id}
+              field={change.field}
+              side={which}
+              text={value.text}
+              name={`${access?.labelOf(change.field) ?? change.field}, ${which === "before" ? labels.before : labels.after}`}
+              {...(alike
+                ? { note: formatCount(labels.characters, value.length, formatting.locale) }
+                : {})}
+            />
+          ) : (
+            shown(value, look, formatting, words, titles.references)
+          );
         return {
           field: change.field,
           label: access?.labelOf(change.field) ?? change.field,
-          before: shown(change.before, look, formatting, words, titles.references),
-          after: shown(change.after, look, formatting, words, titles.references),
+          before: side(change.before, "before"),
+          after: side(change.after, "after"),
+          long: isAuditValuePreview(change.before) || isAuditValuePreview(change.after),
         };
       }),
     };
@@ -201,34 +163,49 @@ function Changes({
   item: AuditFeedItem;
   labels: ResolvedLabels["audit"];
 }): ReactNode {
-  if (item.changes.length === 0) return null;
+  if (item.changes.length === 0) {
+    return item.tooLarge ? (
+      <p className="fp-mt-2 fp-text-sm fp-text-soft">{labels.noReadableChanges}</p>
+    ) : null;
+  }
   return (
-    <dl className="fp-mt-2 fp-grid fp-grid-cols-1 fp-gap-x-4 fp-gap-y-1.5 fp-text-sm sm:fp-grid-cols-[minmax(0,11rem)_minmax(0,1fr)]">
-      {item.changes.map((change) => (
-        <div key={change.field} className="fp-contents">
-          <dt className="fp-truncate fp-text-soft">{change.label}</dt>
-          <dd className="fp-flex fp-min-w-0 fp-flex-wrap fp-items-baseline fp-gap-x-2 fp-break-words">
-            {item.kind !== "after" ? (
-              <span className={item.kind === "both" ? "fp-text-faint fp-line-through" : ""}>
-                <span className="fp-sr-only">{labels.before}: </span>
-                {change.before}
-              </span>
-            ) : null}
-            {item.kind === "both" ? (
-              <span aria-hidden="true" className="fp-text-faint">
-                →
-              </span>
-            ) : null}
-            {item.kind !== "before" ? (
-              <span className="fp-text-ink">
-                <span className="fp-sr-only">{labels.after}: </span>
-                {change.after}
-              </span>
-            ) : null}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      {item.tooLarge ? (
+        <p className="fp-mt-2 fp-text-sm fp-text-soft">{labels.changesTooLarge}</p>
+      ) : null}
+      <dl className="fp-mt-2 fp-grid fp-grid-cols-1 fp-gap-x-4 fp-gap-y-1.5 fp-text-sm sm:fp-grid-cols-[minmax(0,11rem)_minmax(0,1fr)]">
+        {item.changes.map((change) => (
+          <div key={change.field} className="fp-contents">
+            <dt className="fp-truncate fp-text-soft">{change.label}</dt>
+            <dd className="fp-flex fp-min-w-0 fp-flex-wrap fp-items-baseline fp-gap-x-2 fp-wrap-anywhere">
+              {item.kind !== "after" ? (
+                <span
+                  className={cn(
+                    "fp-min-w-0",
+                    item.kind === "both" && "fp-text-faint",
+                    item.kind === "both" && !change.long && "fp-line-through",
+                  )}
+                >
+                  <span className="fp-sr-only">{labels.before}: </span>
+                  {change.before}
+                </span>
+              ) : null}
+              {item.kind === "both" ? (
+                <span aria-hidden="true" className="fp-text-faint">
+                  →
+                </span>
+              ) : null}
+              {item.kind !== "before" ? (
+                <span className="fp-min-w-0 fp-text-ink">
+                  <span className="fp-sr-only">{labels.after}: </span>
+                  {change.after}
+                </span>
+              ) : null}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </>
   );
 }
 

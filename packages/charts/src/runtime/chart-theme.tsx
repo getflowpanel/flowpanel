@@ -90,6 +90,12 @@ export const AXIS_TICK_PROPS = {
   minTickGap: 96,
 } as const;
 
+/** Category labels are each worth reading, so only a label that would overlap its neighbour is dropped. */
+export const CATEGORY_TICK_PROPS = {
+  interval: "preserveStartEnd",
+  minTickGap: 4,
+} as const;
+
 export const CHART_SURFACE_PROPS = { accessibilityLayer: false } as const;
 
 export const STATIC_SERIES_PROPS = { isAnimationActive: false } as const;

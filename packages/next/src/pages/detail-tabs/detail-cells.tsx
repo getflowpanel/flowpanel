@@ -13,6 +13,7 @@ import type * as React from "react";
 import { fieldLabels } from "../../runtime/field-labels";
 import { formatFieldValue } from "../../runtime/format-field-value";
 import { buildHref } from "../../runtime/href";
+import { renderMarkdown } from "../../runtime/markdown";
 import { prerenderResourceCells } from "../../runtime/prerender-cells";
 import { renderColumnFormat } from "../../runtime/render-column-format";
 import { resolveReferences } from "../../runtime/resolve-references";
@@ -28,12 +29,13 @@ export function buildDetailCells<Row extends Record<string, unknown>>(
   resource: ResourceConfig,
   row: Row,
   reqCtx: RequestContext,
+  named: Readonly<Record<string, string>> = {},
 ): Map<string, DetailCell> {
   const out = new Map<string, DetailCell>();
   const defs = resource.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>> | undefined;
   if (!defs || defs.length === 0) return out;
   const { columns, prerenderedCells } = prerenderResourceCells<Row>(defs, [row], reqCtx, {
-    labelOf: fieldLabels(resource),
+    labelOf: fieldLabels(resource, [], named),
   });
   columns.forEach((c, i) => {
     const cell: DetailCell = {};
@@ -95,26 +97,36 @@ export interface DetailField {
 
 /**
  * Each field's own `render`, run concurrently for a field the projected row carries; one that
- * throws is logged and left out, so the field shows its formatted value.
+ * throws or renders nothing is left out, so the field shows its formatted value, "—" when empty, as a list does.
  */
 export async function renderDetailFields(
   row: Record<string, unknown>,
   fields: DetailField[],
   reqCtx: RequestContext,
+  markdown: ReadonlySet<string> = new Set(),
 ): Promise<Map<string, React.ReactNode>> {
+  const written = fields
+    .filter((field) => !field.render && markdown.has(field.name) && Object.hasOwn(row, field.name))
+    .flatMap((field) => {
+      const node = renderMarkdown(row[field.name]);
+      return node === null ? [] : [[field.name, node] as const];
+    });
   const rendered = await Promise.all(
     fields
       .filter((field) => field.render && Object.hasOwn(row, field.name))
       .map(async (field): Promise<readonly [string, React.ReactNode] | null> => {
         try {
-          return [field.name, await field.render?.(row as never, reqCtx)];
+          const node = await field.render?.(row as never, reqCtx);
+          return node === null || node === undefined || node === false || node === ""
+            ? null
+            : [field.name, node];
         } catch (error) {
           console.error(`[flowpanel] detail render failed for "${field.name}"`, error);
           return null;
         }
       }),
   );
-  return new Map(rendered.filter((entry) => entry !== null));
+  return new Map([...written, ...rendered.filter((entry) => entry !== null)]);
 }
 
 /** Flatten a declared field list to the fields the row carries; `"*"` or none means all of them. */

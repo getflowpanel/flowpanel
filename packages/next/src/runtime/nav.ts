@@ -1,4 +1,5 @@
 import type {
+  IconName,
   NavGroupRef,
   RequestContext,
   ResolvedAdminConfig,
@@ -25,7 +26,14 @@ export function readableByCaller(
 function groupBuilder() {
   const groups: NavGroup[] = [];
   const byLabel = new Map<string, NavGroup>();
-  const place = (fallback: string, ref: NavGroupRef | undefined, entry: NavEntry): void => {
+  const kindIcons = new Map<NavEntry, IconName>();
+  const place = (
+    fallback: string,
+    ref: NavGroupRef | undefined,
+    entry: NavEntry,
+    kindIcon: IconName,
+  ): void => {
+    kindIcons.set(entry, kindIcon);
     const label = ref === undefined ? fallback : typeof ref === "string" ? ref : ref.label;
     let group = byLabel.get(label);
     if (!group) {
@@ -36,7 +44,18 @@ function groupBuilder() {
     if (typeof ref === "object" && ref.collapsed) group.collapsible = true;
     group.items.push(entry);
   };
-  return { groups, place };
+  /** In a group where some entries have an icon, an entry without one takes its kind's, so no row reads as a sub-item. */
+  const settle = (): NavGroup[] => {
+    for (const group of groups) {
+      if (!group.items.some((item) => item.icon)) continue;
+      group.items = group.items.map((item) => {
+        const icon = item.icon ?? kindIcons.get(item);
+        return icon ? { ...item, icon } : item;
+      });
+    }
+    return groups;
+  };
+  return { groups, place, settle };
 }
 
 /**
@@ -48,45 +67,65 @@ export async function buildNav(
   reqCtx?: RequestContext,
 ): Promise<NavGroup[]> {
   const { navigation, audit } = mergeLabels(config.labels);
-  const { groups, place } = groupBuilder();
+  const { groups, place, settle } = groupBuilder();
 
   for (const d of config.dashboardsByPath.values()) {
     if (reqCtx && !(await accessAllows(d.access, reqCtx))) continue;
-    place(navigation.dashboards, d.navGroup, {
-      label: d.label,
-      href: d.path === "/" ? buildHref(config) : buildPath(config, d.path),
-      ...(d.icon ? { icon: d.icon } : {}),
-    });
+    place(
+      navigation.dashboards,
+      d.navGroup,
+      {
+        label: d.label,
+        href: d.path === "/" ? buildHref(config) : buildPath(config, d.path),
+        ...(d.icon ? { icon: d.icon } : {}),
+      },
+      "layout-dashboard",
+    );
   }
 
   for (const p of config.pagesByPath.values()) {
     if (reqCtx && !(await accessAllows(p.access, reqCtx))) continue;
     const own = p.path === "/" ? buildHref(config) : buildPath(config, p.path);
-    place(navigation.pages, p.navGroup, {
-      label: p.label,
-      href: p.component !== undefined ? own : (p.href ?? buildPath(config, p.path)),
-      ...(p.icon ? { icon: p.icon } : {}),
-    });
+    place(
+      navigation.pages,
+      p.navGroup,
+      {
+        label: p.label,
+        href: p.component !== undefined ? own : (p.href ?? buildPath(config, p.path)),
+        ...(p.icon ? { icon: p.icon } : {}),
+      },
+      "file-text",
+    );
   }
 
   for (const r of config.resourcesByName.values()) {
     if (r.options.hidden) continue;
     if (reqCtx && !(await readableByCaller(r, reqCtx))) continue;
     const name = resourceNavName(r);
-    place(navigation.resources, r.options.navGroup, {
-      label: pluralLabel(r, name),
-      href: buildHref(config, name),
-      ...(r.options.icon ? { icon: r.options.icon } : {}),
-    });
+    place(
+      navigation.resources,
+      r.options.navGroup,
+      {
+        label: pluralLabel(r, name),
+        href: buildHref(config, name),
+        ...(r.options.icon ? { icon: r.options.icon } : {}),
+      },
+      "list",
+    );
   }
 
   for (const [key, q] of config.queuesByKey.entries()) {
     if (q.options.hidden || (reqCtx && !(await accessAllows(q.options.access, reqCtx)))) continue;
-    place(navigation.queues, q.options.navGroup, {
-      label: q.options.label,
-      href: buildHref(config, "queues", key),
-      ...(q.options.icon ? { icon: q.options.icon } : {}),
-    });
+    place(
+      navigation.queues,
+      q.options.navGroup,
+      {
+        label: q.options.label,
+        href: buildHref(config, "queues", key),
+        ...(q.options.icon ? { icon: q.options.icon } : {}),
+      },
+      "inbox",
+    );
   }
 
   if (config.auditLog && (!reqCtx || (await auditReadable(config, reqCtx)))) {
@@ -95,5 +134,5 @@ export async function buildNav(
     });
   }
 
-  return groups;
+  return settle();
 }

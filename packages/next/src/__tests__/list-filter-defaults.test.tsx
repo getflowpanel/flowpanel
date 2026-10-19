@@ -26,7 +26,10 @@ import { DataTableWithDrawerRows, ResourceListFilters } from "@flowpanel/next/cl
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { handlers } from "../handlers";
 import { ResourceListPage } from "../pages/resource-list";
-import { ResourceListFilters as FilterRow } from "../pages/resource-list-filters";
+import {
+  ResourceListClearFilters as ClearRow,
+  ResourceListFilters as FilterRow,
+} from "../pages/resource-list-filters";
 import { findAll } from "./detail-fixture";
 
 let seen: Record<string, unknown> | null = null;
@@ -84,20 +87,42 @@ const config = defineAdmin({
         ],
       },
     ),
+    resource(
+      { __name: "tickets" },
+      {
+        columns: ["email", "plan"],
+        filters: [
+          {
+            field: "plan",
+            type: "multiselect",
+            options: ["free", "pro", "team"],
+            defaultValue: ["free", "pro"],
+          },
+        ],
+      },
+    ),
   ],
 });
 
-async function page(query: string) {
+async function page(query: string, name = "users", cookie?: string) {
   seen = null;
-  const users = config.resourcesByName.get("users");
-  if (!users) throw new Error("users is not registered");
+  const users = config.resourcesByName.get(name);
+  if (!users) throw new Error(`${name} is not registered`);
   const tree = await ResourceListPage({
     config,
     resource: users,
     searchParams: new URLSearchParams(query),
-    req: new Request(`http://localhost/admin/users?${query}`),
+    req: withCookie(new Request(`http://localhost/admin/users?${query}`), cookie),
   });
   return tree as ReactNode;
+}
+
+/** happy-dom drops a `cookie` header as browsers do, so the test hands it to the page directly. */
+function withCookie(req: Request, cookie: string | undefined): Request {
+  if (!cookie) return req;
+  const get = req.headers.get.bind(req.headers);
+  req.headers.get = (name: string) => (name.toLowerCase() === "cookie" ? cookie : get(name));
+  return req;
 }
 
 function hrefOf(node: ReactNode): string | undefined {
@@ -154,12 +179,21 @@ describe("a list filter's defaultValue", () => {
   });
 
   it("counts as narrowing, and clearing writes an empty value so the default stays off", async () => {
-    const table = findAll(await page("sort=email:asc"), DataTableWithDrawerRows)[0] as {
+    const table = findAll(await page("sort=email:asc&f_plan=pro"), DataTableWithDrawerRows)[0] as {
       emptyTitle?: string;
       emptyAction?: ReactNode;
     };
     expect(table.emptyTitle).toBe("Nothing matches the current filters.");
     expect(hrefOf(table.emptyAction)).toBe("/admin/users?sort=email%3Aasc&f_isTest=");
+  });
+
+  it("offers no reset while the list shows its own defaults", async () => {
+    const table = findAll(await page("sort=email:asc"), DataTableWithDrawerRows)[0] as {
+      emptyTitle?: string;
+      emptyAction?: ReactNode;
+    };
+    expect(table.emptyTitle).toBe("Nothing matches this list's default filters.");
+    expect(table.emptyAction).toBeUndefined();
   });
 });
 
@@ -169,6 +203,14 @@ describe("an empty table under default filters", () => {
     const table = findAll(await page(""), DataTableWithDrawerRows)[0] as { emptyTitle?: string };
     expect(table.emptyTitle).toBe("No users");
     expect(counted).toEqual({ role: "user" });
+  });
+
+  it("recognises a multiselect default, which the list reads as a list of values", async () => {
+    rowsInTable = 0;
+    const table = findAll(await page("", "tickets"), DataTableWithDrawerRows)[0] as {
+      emptyTitle?: string;
+    };
+    expect(table.emptyTitle).toBe("No tickets");
   });
 
   it("still says the filters hide rows when the operator set them", async () => {
@@ -194,15 +236,34 @@ describe("ResourceListFilters with a default", () => {
   });
 
   it("writes an empty value when the operator clears a defaulted filter", () => {
-    nav.search = "page=3";
-    render(<FilterRow filters={specs} />);
+    nav.search = "page=3&f_plan=pro";
+    render(<ClearRow filters={specs} />);
     fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(nav.router.push).toHaveBeenCalledWith("/admin/users?f_isTest=", { scroll: false });
   });
 
+  it("offers no clear action while the list shows its defaults", () => {
+    nav.search = "page=3";
+    render(<ClearRow filters={specs} />);
+    expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+  });
+
   it("offers no clear action once the operator has cleared every default", () => {
     nav.search = "f_isTest=";
-    render(<FilterRow filters={specs} />);
+    render(<ClearRow filters={specs} />);
     expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+  });
+});
+
+describe("remembered columns", () => {
+  it("renders the widths and hidden columns from the reader's cookie on the server", async () => {
+    const saved = encodeURIComponent(
+      JSON.stringify({ widths: { email: 260 }, visibility: { plan: false } }),
+    );
+    const table = findAll(
+      await page("", "users", `fp-columns-users=${saved}`),
+      DataTableWithDrawerRows,
+    )[0] as { columnPrefs?: unknown };
+    expect(table.columnPrefs).toEqual({ widths: { email: 260 }, visibility: { plan: false } });
   });
 });

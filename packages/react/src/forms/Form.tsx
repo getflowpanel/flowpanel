@@ -2,7 +2,6 @@
 import {
   type DefaultValue,
   type FieldMetadata,
-  type FormMetadata,
   getFormProps,
   type SubmissionResult,
   useForm,
@@ -17,7 +16,16 @@ import { useToast } from "../feedback/toast-api";
 import { cn } from "../lib/cn";
 import { connectionMessage } from "../lib/connection-message";
 import { useLabels } from "../provider/LabelsContext";
+import {
+  FormActionDispatchContext,
+  FormContext,
+  type FormContextValue,
+  FormReadyContext,
+  useHydrated,
+} from "./form-context";
 import { useLeaveGuard } from "./leave-guard";
+
+export { FormActionDispatchContext, FormContext, type FormContextValue };
 
 export interface FormActionResult {
   ok: boolean;
@@ -34,27 +42,6 @@ type ServerAction = (
   prev: SubmissionResult<string[]> | null | undefined,
   formData: FormData,
 ) => Promise<SubmissionResult<string[]> | null | undefined>;
-
-export interface FormContextValue {
-  form: FormMetadata<Record<string, unknown>>;
-  fields: Record<string, FieldMetadata<unknown>>;
-  isSubmitting: boolean;
-}
-
-const FormCtx = React.createContext<FormContextValue | null>(null);
-
-/** @internal Exposed for test harnesses so Field can be rendered without Form. */
-export const FormContext = FormCtx;
-
-export const FormActionDispatchContext = React.createContext<((formData: FormData) => void) | null>(
-  null,
-);
-
-export function useFormContext(): FormContextValue {
-  const ctx = React.useContext(FormCtx);
-  if (!ctx) throw new Error("Form children must be rendered inside <Form>");
-  return ctx;
-}
 
 export interface FormProps<S extends $ZodType> {
   action: string;
@@ -164,8 +151,9 @@ export function Form<S extends $ZodType>({
   );
 
   const formProps = getFormProps(form);
+  const ready = useHydrated();
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    if (lockRef.current) {
+    if (lockRef.current || !ready) {
       event.preventDefault();
       return;
     }
@@ -178,19 +166,21 @@ export function Form<S extends $ZodType>({
   };
   return (
     <FormActionDispatchContext.Provider value={formAction}>
-      <FormCtx.Provider value={ctxValue}>
-        <form
-          {...formProps}
-          onSubmit={onSubmit}
-          action={formAction}
-          onReset={keepAfterAction}
-          aria-busy={isSubmitting || undefined}
-          className={cn("fp-space-y-4", className)}
-        >
-          {children}
-        </form>
+      <FormContext.Provider value={ctxValue}>
+        <FormReadyContext.Provider value={ready}>
+          <form
+            {...formProps}
+            onSubmit={onSubmit}
+            action={formAction}
+            onReset={keepAfterAction}
+            aria-busy={isSubmitting || undefined}
+            className={cn("fp-space-y-4", className)}
+          >
+            {children}
+          </form>
+        </FormReadyContext.Provider>
         {leaveGuard}
-      </FormCtx.Provider>
+      </FormContext.Provider>
     </FormActionDispatchContext.Provider>
   );
 }

@@ -80,3 +80,22 @@ describe("a failed widget's card", () => {
     expect(getByRole("button", { name: "Copy ID" })).toBeTruthy();
   });
 });
+
+describe("a failed page()", () => {
+  it("keeps the page's own heading above its error card", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { container } = render(
+      <WidgetErrorBoundary
+        widgetId="page:/reports"
+        pageTitle="Reports"
+        failureTitle="Couldn't load Reports"
+      >
+        <Throws digest="42" />
+      </WidgetErrorBoundary>,
+    );
+    expect(container.querySelector("h1")?.textContent).toBe("Reports");
+    expect(container.querySelector("[data-fp-error]")?.textContent).toContain(
+      "Couldn't load Reports",
+    );
+  });
+});

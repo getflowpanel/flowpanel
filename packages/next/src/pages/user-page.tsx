@@ -39,7 +39,7 @@ export function UserPage({
   return (
     <WidgetErrorBoundary
       widgetId={`page:${page.path}`}
-      title={page.label}
+      pageTitle={page.label}
       failureTitle={fillLabel(labels.errors.loadTitle, page.label, labels.dateRange.locale)}
     >
       <Suspense fallback={<SkeletonCard />}>

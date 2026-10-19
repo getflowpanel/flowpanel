@@ -1,5 +1,5 @@
 import type { AuditLogStore } from "@flowpanel/core";
-import { dashboardActionAudit } from "@flowpanel/core/internal";
+import { dashboardActionAudit, storedAuditPreview } from "@flowpanel/core/internal";
 import { expect } from "vitest";
 
 /** What every adapter's `flowpanel_audit_log` store must do on a freshly migrated database. */
@@ -88,4 +88,27 @@ export async function expectAuditLogRoundTrip(store: AuditLogStore | undefined):
   expect(own.entries.map((e) => e.action)).toEqual(["session.signin"]);
   const runs = { resources: [], actions: [sync.action] };
   expect((await store.list({ actorId: "u4", visible: runs, limit: 10, offset: 0 })).total).toBe(2);
+
+  const big = "x".repeat(1_000_000);
+  await store.append({
+    actorId: "u5",
+    action: "orders.update",
+    resource: "orders",
+    targetId: "9",
+    diff: { before: { note: "short" }, after: { note: big } },
+    scope: { tenantId: "t1" },
+    at: later,
+  });
+  const [listed] = (await store.list({ actorId: "u5", limit: 1, offset: 0 })).entries;
+  if (!listed) throw new Error("the large event was not listed");
+  expect(JSON.stringify(listed.diff).length).toBeLessThan(600);
+  const after = listed.diff?.after as Record<string, unknown> | undefined;
+  expect(storedAuditPreview(after?.note)).toEqual({ text: "x".repeat(400), length: 1_000_000 });
+  expect(listed.diff?.before).toEqual({ note: "short" });
+  const tenant1 = { key: '{"tenantId":"t1"}' };
+  const whole = await store.entry({ id: listed.id, scope: tenant1 });
+  expect((whole?.diff?.after as Record<string, unknown> | undefined)?.note).toBe(big);
+  expect(await store.entry({ id: listed.id, scope: { key: '{"tenantId":"t2"}' } })).toBeNull();
+  const elsewhere = { resources: ["users"], actions: [] };
+  expect(await store.entry({ id: listed.id, scope: tenant1, visible: elsewhere })).toBeNull();
 }

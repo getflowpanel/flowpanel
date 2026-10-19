@@ -1,7 +1,8 @@
-import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import {
   FlowpanelOperationDisabledError,
   FlowpanelValidationError,
+  filterReadableProjection,
   mergeLabels,
 } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
@@ -9,7 +10,7 @@ import { actionFailure } from "../runtime/action-failure";
 import { safeErrorMessage } from "../runtime/action-helpers";
 import { applyActionResult } from "../runtime/apply-action-result";
 import { coerceRowByColumns } from "../runtime/coerce-values";
-import { fieldLabels } from "../runtime/field-labels";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
 import { buildHref } from "../runtime/href";
 import { decodeMoneyCells, moneyDigits } from "../runtime/money-field";
 import { resourceNavName } from "../runtime/nav";
@@ -24,6 +25,58 @@ function pick(row: Record<string, unknown>, keys: string[]): Record<string, unkn
   return out;
 }
 
+const headerKey = (text: string) => text.trim().toLowerCase();
+
+/** The fields an import writes, how each is labelled, and whether a header outside them is dropped. */
+function importFields(config: ResolvedAdminConfig, resource: ResourceConfig) {
+  const options = resource.options.import;
+  const allowed = options ? (options.fields as string[] | undefined) : undefined;
+  const { columns } = config.adapter.introspect(writeTarget(resource));
+  const labelOf = fieldLabels(
+    resource,
+    declaredFormFields(resource, "create"),
+    namedFields(config),
+  );
+  const named =
+    allowed ??
+    columns
+      .filter((column) => !column.primaryKey && column.writableOnCreate !== false)
+      .map((column) => column.name);
+  const headerLabels = [fieldLabels(resource, [], namedFields(config)), labelOf];
+  return { columns, labelOf, named, headerLabels, picks: Boolean(allowed) || columns.length > 0 };
+}
+
+/** The import fields this reader may read: an importer never writes a field they cannot see, nor a `sensitive` one. */
+function readableImportFields(
+  resource: ResourceConfig,
+  columns: ReadonlyArray<{ name: string; sensitive?: boolean }>,
+  named: readonly string[],
+  reqCtx: RequestContext,
+): Promise<string[]> {
+  const secret = new Set(columns.filter((column) => column.sensitive).map((column) => column.name));
+  return filterReadableProjection(
+    named.filter((field) => !secret.has(field)),
+    resource.options.fieldAccess,
+    reqCtx,
+  );
+}
+
+/** The headers the import reads, lower-cased, or `null` when it keeps every column. */
+export async function importHeaders(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+): Promise<string[] | null> {
+  const { columns, named, headerLabels, picks } = importFields(config, resource);
+  if (!picks) return null;
+  const shown = await readableImportFields(resource, columns, named, reqCtx);
+  const headers = shown.flatMap((field) => [
+    field,
+    ...headerLabels.map((labelOf) => labelOf(field)),
+  ]);
+  return [...new Set(headers.map(headerKey))];
+}
+
 /** Each cell under its field's name, so a header may be the name, the export's header or the form's label, in any case. */
 function byFieldName(
   row: Record<string, unknown>,
@@ -31,15 +84,14 @@ function byFieldName(
   labelsOf: ReadonlyArray<(name: string) => string>,
 ): Record<string, unknown> {
   const fieldOf = new Map<string, string>();
-  const key = (text: string) => text.trim().toLowerCase();
   for (const labelOf of labelsOf) {
     for (const field of fields)
-      if (!fieldOf.has(key(labelOf(field)))) fieldOf.set(key(labelOf(field)), field);
+      if (!fieldOf.has(headerKey(labelOf(field)))) fieldOf.set(headerKey(labelOf(field)), field);
   }
-  for (const field of fields) fieldOf.set(key(field), field);
+  for (const field of fields) fieldOf.set(headerKey(field), field);
   const out: Record<string, unknown> = {};
   for (const [header, value] of Object.entries(row)) {
-    const field = fieldOf.get(key(header)) ?? header;
+    const field = fieldOf.get(headerKey(header)) ?? header;
     if (!(field in out) || field === header) out[field] = value;
   }
   return out;
@@ -154,16 +206,12 @@ export function importRoute(config: ResolvedAdminConfig) {
       const rows = await readImportRows(req, importOpt.formats ?? ["csv", "json"]);
       if (rows instanceof Response) return rows;
 
-      const allowed = importOpt.fields as string[] | undefined;
-      const { columns } = config.adapter.introspect(writeTarget(resource));
+      const fields = importFields(config, resource);
+      const { columns, labelOf, headerLabels, picks } = fields;
+      const named = picks
+        ? await readableImportFields(resource, columns, fields.named, reqCtx)
+        : fields.named;
       const labels = mergeLabels(config.labels);
-      const labelOf = fieldLabels(resource, declaredFormFields(resource, "create"));
-      const named =
-        allowed ??
-        columns
-          .filter((column) => !column.primaryKey && column.writableOnCreate !== false)
-          .map((column) => column.name);
-      const headerLabels = [fieldLabels(resource), labelOf];
       const digits = moneyDigits(config, resource);
       const actions = makeActions(config, resource, { reqCtx, publish: false });
       let imported = 0;
@@ -175,7 +223,7 @@ export function importRoute(config: ResolvedAdminConfig) {
         }
         try {
           const keyed = byFieldName(rawRow, named, headerLabels);
-          const picked = allowed || columns.length > 0 ? pick(keyed, named) : keyed;
+          const picked = picks ? pick(keyed, named) : keyed;
           const money = decodeMoneyCells(picked, digits, labelOf, labels);
           const coerced = coerceRowByColumns(columns, money.values, labels, undefined, labelOf);
           await actions.create(coerced.values, {

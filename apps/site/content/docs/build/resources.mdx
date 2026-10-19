@@ -55,7 +55,7 @@ resource(schema.customers, {
 
 Here the list header says "Contact", while the create form, the "is already taken" error, the drawer and the History tab all say "Work email". Without the form's label, they would all say "Contact".
 
-A field nobody labels reads its name: `created_at` reads "Created at", `sku` "SKU", `orderId` "Order ID" and `durationMs` "Duration (ms)". A reference drops its key, so `customerId` reads "Customer", and a money column that stores cents drops the suffix, so `amount_cents` reads "Amount".
+A field nobody labels takes its name from `labels.fields`, where the language presets name `id`, `createdAt`, `updatedAt` and `deletedAt` and their snake_case forms, so a German admin's drawer shows "Erstellt am". Any other field reads its name: `created_at` reads "Created at", `sku` "SKU", `orderId` "Order ID" and `durationMs` "Duration (ms)". A reference drops its key, so `customerId` reads "Customer", and a money column that stores cents drops the suffix, so `amount_cents` reads "Amount".
 
 ## Search, filters and sorting
 
@@ -74,6 +74,8 @@ resource(schema.orders, {
 ```
 
 The `search` fields also feed record search in the ⌘K palette. From two typed characters, it searches every resource that has `search` fields and is not `hidden`, through that resource's own list read, so access, scope and field rules apply. It shows up to 5 records per resource, titled by their first two non-empty search fields, and a result opens where the row opens. A resource without `search` is not searched there.
+
+A sorted list puts rows whose sort column is empty last, in both directions, on every database, so "Last seen ↓" starts with the most recent value rather than a run of blanks.
 
 A filter's `defaultValue` applies until the operator changes it; `hidden: true` applies it without a control. A `select` filter on an `enumOf()` column lists the enum's labels. See [Default and hidden filters](/docs/reference/resources#default-and-hidden-filters).
 

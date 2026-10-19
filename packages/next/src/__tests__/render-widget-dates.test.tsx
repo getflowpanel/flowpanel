@@ -3,7 +3,7 @@
 import type { RequestContext, ResolvedAdminConfig, WidgetConfig } from "@flowpanel/core";
 import { resolveFormatting } from "@flowpanel/core";
 import { FormattingProvider, KvCard, StatCard, StatGroupCard } from "@flowpanel/react";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { renderWidget } from "../runtime/render-widget";
@@ -61,6 +61,7 @@ async function painted(widget: WidgetConfig, config: ResolvedAdminConfig): Promi
   const { container } = render(
     <FormattingProvider value={resolveFormatting(config.formatting)}>{node}</FormattingProvider>,
   );
+  await waitFor(() => expect(container.innerHTML).toContain("Joined"));
   const html = container.innerHTML;
   cleanup();
   return html;

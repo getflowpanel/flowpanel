@@ -47,8 +47,8 @@ sidebar shell, English labels, no audit log, in-process realtime and no rate lim
 | `labels?` | `LabelsConfig` | Override built-in UI strings. |
 | `formatting?` | `FormattingConfig` | Locale, timezone and currency for numbers, money and timestamps. |
 | `resources?` | `Resources` | Tables the admin manages. |
-| `dashboards?` | `DashboardConfig[]` | Widget dashboards. |
-| `pages?` | `PageConfig[]` | Custom pages rendered inside the shell. |
+| `dashboards?` | `(DashboardConfig \| MisplacedPage)[]` | Widget dashboards. A `page()` goes in `pages`. |
+| `pages?` | `PageConfig[]` | Custom pages rendered inside the shell: `pages: [page({ path, label, component })]`. |
 | `queues?` | `QueueConfig[]` | BullMQ queues surfaced in the admin. |
 | `commandPalette?` | `CommandPaletteConfig` | What ⌘K offers. |
 | `audit?` | `AuditConfig` | Audit trail for every mutation. |
@@ -313,7 +313,7 @@ sign-in and access-denied screens shown when `auth.signInUrl` or
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `navigation?` | `{ /** The breadcrumb trail above a page heading. */ breadcrumb?: string; /** The tab row of queue boards. */ queueBoards?: string; /** A queue board frame. Use `{label}` for the queue. */ queueBoard?: string; /** The region toasts appear in. */ notifications?: string; /** A toast's close button. */ closeNotification?: string; skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; scrollHint?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; /** The menu holding the nav tabs that do not fit. */ more?: string; }` |  |
+| `navigation?` | `{ /** The breadcrumb trail above a page heading. */ breadcrumb?: string; /** The tab row of queue boards. */ queueBoards?: string; /** A queue board frame. Use `{label}` for the queue. */ queueBoard?: string; /** The region toasts appear in. */ notifications?: string; /** A toast's close button. */ closeNotification?: string; skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; /** The menu holding the nav tabs that do not fit. */ more?: string; }` |  |
 | `table?` | `TableLabels` |  |
 | `dateRange?` | `{ /** The labels' language: the calendar's locale, and whether a label mid-sentence keeps its capital (German does). */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; last12m?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
 | `savedViews?` | `{ save?: string; saveTrigger?: string; name?: string; current?: string; label?: string; yours?: string; saveCurrent?: string; saved?: string; deleted?: string; delete?: string; storageError?: string; }` |  |
@@ -340,6 +340,7 @@ sign-in and access-denied screens shown when `auth.signInUrl` or
 | `shortcuts?` | `ShortcutsLabels` | The `?` keyboard cheat sheet. |
 | `realtime?` | `RealtimeLabels` | A live list's or widget's connection badge. |
 | `audit?` | `AuditLabels` | The record History tab and the Audit log page. |
+| `fields?` | `Record<string, string>` | Labels for fields no column, form or view labels, by field name. The presets name `id`, `createdAt`, `updatedAt` and `deletedAt`, and their snake_case forms. |
 
 #### Language presets
 
@@ -364,7 +365,10 @@ base by itself, so there `labels` holds only the strings you want different;
 `labels: DEFAULT_LABELS` keeps English under a Russian locale. Field and resource
 labels stay yours: write them in the admin's language, and each field label
 reaches every surface, as [Field labels](/docs/build/resources#field-labels)
-describes.
+describes. The one exception is `labels.fields`, which names the system columns
+`id`, `createdAt`, `updatedAt` and `deletedAt` (and `created_at` and the other
+snake_case forms) in the preset's language wherever nothing else labels them; add
+your own keys there for other columns every resource shares.
 
 ### CommandPaletteConfig
 
@@ -414,6 +418,7 @@ What `defineAdmin` returns.
 | --- | --- | --- |
 | `__resolved` | `true` |  |
 | `resources` | `Resources` |  |
+| `dashboards?` | `DashboardConfig[]` |  |
 | `resourcesByName` | `Map<string, ResourceConfig>` |  |
 | `dashboardsByPath` | `Map<string, DashboardConfig>` |  |
 | `pagesByPath` | `Map<string, PageConfig>` |  |
@@ -514,6 +519,7 @@ component against `paths.api` needs the helper. Server code calls the runtime
 through `createFlowpanel(config).request()` instead of fetching its own routes.
 
 ```ts
+"use client";
 import { withDeploymentBasePath } from "@flowpanel/kit/react";
 
 export async function verifyUser(id: string): Promise<Response> {
@@ -2835,6 +2841,9 @@ Without `y`, the chart plots every numeric key of its first row except `x`, whic
 is what `series({ by })` returns. `labels` names the series. `bucket` only formats
 date ticks; aggregate with `series({ grain })`. For amounts stored in cents, set
 `format: "currency"` and `minorUnits: 2`, and the axis and tooltips show money.
+`minorUnits` alone divides the values but prints plain numbers, so `defineAdmin`
+warns about a chart that sets it without `format: "currency"` when the dev server
+starts, and `flowpanel doctor` lists it.
 
 One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
 order. `colors` pins a series to a colour:
@@ -2988,6 +2997,7 @@ Both return their argument, typed.
 
 | Property | Type | Notes |
 | --- | --- | --- |
+| `kind?` | `"dashboard"` | Tells a dashboard from a `page()`, which registers under `pages` instead. |
 | `path` | `string` | Path under `paths.admin`. `"/"` makes this the admin's landing page. |
 | `label` | `string` | Nav entry and page title. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
@@ -3105,6 +3115,7 @@ dashboard({
 
 | Property | Type | Notes |
 | --- | --- | --- |
+| `kind?` | `"page"` | Set by `page()`: a page registers under `pages`, not `dashboards`. |
 | `path` | `string` | Path under `paths.admin`. |
 | `label` | `string` | Nav entry and page title. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
@@ -3136,7 +3147,19 @@ export function ReportsPage({ role, scope, formatting, searchParams }: PageProps
 }
 ```
 
-Register it with `page({ path: "/reports", label: "Reports", component: ReportsPage })`.
+Register it in the config's `pages`, next to `dashboards`:
+
+```ts
+// src/admin/config/pages.ts
+import { page } from "@flowpanel/kit";
+import { ReportsPage } from "@/admin/pages/reports";
+
+export const pages = [page({ path: "/reports", label: "Reports", component: ReportsPage })];
+```
+
+Then pass it to `defineAdmin({ ..., pages })`. A `page()` put in `dashboards` fails to
+compile with `'"a page() is registered in pages: [...], not dashboards"' is missing`,
+and a plain JavaScript config fails at boot with the same advice.
 
 #### PageProps
 
@@ -3849,8 +3872,9 @@ Not listed here: `@flowpanel/kit/client` holds
 | `getRowKey?` | `(row: Row) => string` | When provided, the caller controls row-key extraction; defaults to String(row[rowKey]). |
 | `prerenderedCells?` | `(React.ReactNode \| undefined)[][]` |  |
 | `columnVisibility?` | `Record<string, boolean>` |  |
+| `onColumnVisibilityChange?` | `(visibility: Record<string, boolean>) => void` | Set, the toolbar's Columns menu shows and hides columns. |
 | `columnWidths?` | `Record<string, number>` |  |
-| `onColumnWidthsChange?` | `(widths: Record<string, number>) => void` |  |
+| `onColumnWidthsChange?` | `(widths: Record<string, number>) => void` | Set, a header's edge drags to resize, a double click or Shift+Enter fits it, and the Columns menu resets all. |
 | `pinnedColumns?` | `{ left?: string[]; right?: string[] }` |  |
 | `onPinnedColumnsChange?` | `(pinned: { left?: string[]; right?: string[] }) => void` |  |
 | `realtime?` | `string \| { channel: string; debounceMs?: number }` | Subscribe to an SSE channel and trigger `router.refresh()` on events. |
@@ -3865,7 +3889,7 @@ Not listed here: `@flowpanel/kit/client` holds
 | `mobileLayout?` | `"card" \| "scroll" \| false` | Mobile layout when the viewport is narrower than 640px. |
 | `enteringRowKeys?` | `string[]` | Stable keys that should receive the one-shot, reduced-motion-safe entry treatment. |
 | `exportable?` | `boolean \| { formats?: ("csv" \| "json")[]; fields?: string[]; resource?: string }` | When set, renders an "Export" button in the toolbar. With `resource`, the server exports every row matching the page's filters; without it, the rows on screen are downloaded. |
-| `importable?` | `{ resource: string; formats: ("csv" \| "json")[] }` |  |
+| `importable?` | `{ resource: string; formats: ("csv" \| "json")[]; headers?: string[] }` | Shows Import. `headers` (lower-cased) are the ones it reads; the confirm step names the file's others as skipped. |
 | `showDensityToggle?` | `boolean` |  |
 | `rowLabel?` | `string` | What one row is, mid-sentence ("run"): phone cards read "Open run 36". |
 
@@ -3888,6 +3912,7 @@ Each column of a `DataTable` you render yourself is a `DataTableColumn`. Its wid
 | `format?` | `ColumnFormat` | Declarative formatter mirrored from `ColumnDef.format`. |
 | `secondary?` | `keyof Row & string` | A field of the row shown as a muted second line under the cell. |
 | `content?` | `"long" \| "email" \| "link"` | What a text column holds, which sizes it: long text and an email get more room, a link a little. Field names no longer decide it; set it yourself. |
+| `options?` | `ReadonlyArray<{ value: string; label: string }>` | An editable column's choices, which its inline editor offers as a select. |
 | `textRem?` | `number` | Optional: the widest value in this column, in rem at the table's text size. Its ideal width fits it; without it the column takes its kind's default. |
 
 ### Forms
@@ -3895,6 +3920,7 @@ Each column of a `DataTable` you render yourself is a `DataTableColumn`. Its wid
 | Export | Purpose |
 | --- | --- |
 | `AutoForm` | Renders a resource's create/update fields from `ResolvedField[]` or `ColumnMeta[]`. |
+| `preloadAutoForm` | Starts loading the forms' code once; call it on hover or focus of your own control that opens a form, as New and Edit do. |
 | `Form` | Conform and Zod form wrapper. It POSTs to a route and shows field errors. |
 | `useFormContext` | Reads the current `Form`'s conform metadata; throws outside a `Form`. |
 | `FormField` | One labeled input, switched on its `type` prop (see below). |
@@ -4650,8 +4676,8 @@ export function OrdersPanel({ metadata }: { metadata: FlowpanelClientMetadata })
 }
 ```
 
-`options.fetch` replaces the fetch implementation, `options.baseUrl` puts an origin in
-front of `paths.api`, and `options.headers` go with every request. Requests use
+`options.fetch` replaces the fetch implementation, `options.baseUrl` puts an origin, with its
+`http://` or `https://`, in front of `paths.api`, and `options.headers` go with every request. Requests use
 `credentials: "same-origin"`. `FlowpanelClientMetadata` holds the runtime id, paths
 and protocol version; it is not secret.
 
@@ -4696,6 +4722,10 @@ or 22.12 and newer, which load the kit's ES modules from `require`.
 | `create(input, options?)` | `POST /<resource>` | Created row |
 | `update(id, input, options?)` | `PATCH /<resource>/<id>` | Updated row |
 | `delete(id, options?)` | `DELETE /<resource>/<id>` | `null` on success |
+
+`create` and `update` write the fields the resource's form declares, and `update`
+also writes every `editable: true` column, as the list's inline edit does, under the
+same access. Any other key fails with `unknown_field`.
 
 `FlowpanelListOptions` takes `page`, `pageSize`, `search` and `filters`; every call
 takes `signal` and `headers`. Network errors and malformed responses become an
@@ -4973,15 +5003,20 @@ admin appends each [audit event](/docs/guides/audit-log) to it and reads the rec
 History tabs and the Audit log page from it. The shipped adapters bind every value
 through the same client `flowpanel migrate` uses. `list` returns events newest
 first; with `scope` set, only those whose stored tenant key equals `scope.key`.
-`append` writes one row per id in `targetIds`. Without `auditLog`, an admin with
-`audit` on needs a `sink`.
+`append` writes one row per id in `targetIds`, with the whole diff in `diff` and a
+copy in `diff_preview` whose long values keep their first 400 characters. `list`
+reads only `diff_preview`, so a page of events never moves the whole diffs;
+`entry` reads one event's whole `diff`, under the same `scope` and `visible`
+bounds, for **Show full value**. Without `auditLog`, an admin with `audit` on
+needs a `sink`.
 
 `AuditLogStore`
 
 | Property | Type | Notes |
 | --- | --- | --- |
 | `append` | `(event: AuditEvent) => Promise<void>` |  |
-| `list` | `(query: AuditLogQuery) => Promise<AuditLogPage>` |  |
+| `list` | `(query: AuditLogQuery) => Promise<AuditLogPage>` | A page of events with their bounded diff previews, never the whole stored diffs. |
+| `entry` | `(query: Pick<AuditLogQuery, "scope" \| "visible" \| "id">) => Promise<AuditLogEntry \| null>` | One event, `id` set, with its whole diff, under the same `scope` and `visible` bounds as `list`. |
 | `facets` | `(query: Pick<AuditLogQuery, "scope" \| "visible" \| "from">) => Promise<AuditLogFacets>` | Who acted and what ran among the events `query` selects, newest actors first. |
 
 ### Raw SQL
@@ -5178,8 +5213,8 @@ shape `scope` returns, so the audit log files that user's changes under it.
 #### The opt-out is mandatory
 
 With a global `scope`, every resource declares its own `scope` or
-`scope: "bypass"`. One that does neither throws `FlowpanelAccessError` on its first
-query.
+`scope: "bypass"`. One that does neither stops `defineAdmin` at boot with
+`resource "<name>" scope: the admin has a global scope, so every resource needs its own`.
 
 `ScopeCheckInput`
 
@@ -5188,7 +5223,7 @@ query.
 | `hasGlobal` | `boolean` |  |
 | `resourceScope` | `"bypass" \| ResourceScope \| undefined` |  |
 
-FlowPanel runs this check per request; call it only in your own adapter or route.
+FlowPanel also runs this check per request, in case a resource loses its scope after boot; call it only in your own adapter or route.
 
 ### Publisher
 
@@ -5289,8 +5324,8 @@ The SSE envelope helpers, for reading the stream without FlowPanel's client:
 #### The memory driver in a Redis deployment
 
 The publisher is bound per process from `config.realtime` and rebinds when the
-options change. It warns once when the driver is `memory` while `REDIS_URL` or
-`FLOWPANEL_REDIS_URL` is set:
+options change. It warns once per process, on the first publish or stream, when
+the driver is `memory` while `REDIS_URL` or `FLOWPANEL_REDIS_URL` is set:
 
 ```text
 [flowpanel] realtime driver is memory while REDIS_URL is set — other instances
@@ -5425,14 +5460,18 @@ production admin without real auth, and `devAuth()` in production. See
 #### Did you mean
 
 An unknown name close to a registered one gets a suggestion: a match ignoring case
-and `_`/`-`, else the closest within edit distance two.
+and `_`/`-`, else the closest within edit distance two, where swapping two
+neighbouring letters, as in `nmae`, counts as one edit.
 
 ```text
 [flowpanel] resource "users" columns[0]: it points at column "emial", which the
 adapter does not report. Did you mean "email"? Known columns: "id", "email".
 ```
 
-It covers column, filter, sort, field, tab, reference, view and link names. A link,
+It covers column, search, filter, sort, field, tab, reference, view and link
+names, a reference's `labelField` on its target, a filter's `type` and a column's
+`format`, so a plain JavaScript config or a cast gets the same message TypeScript
+would have shown. A link,
 view or count `where` value must match its filter type: an array needs a
 `multiselect` filter, `{ gte, lte }` a range filter; a bare `Date` is rejected.
 Names computed at run time (function links, `ctx.count`, `ctx.read`, `ctx.rowOf`)
@@ -5857,8 +5896,8 @@ When no `eslint.config.*` in the project, or above it up to the repository or
 workspace root, loads `@flowpanel/eslint-plugin`, `doctor` adds a note
 (a `·` line, `"info": true` in `--json`) that suggests the
 [ESLint plugin](/docs/reference/eslint-plugin); its `audit-row-action-needs-confirm`
-rule flags a destructive action without a `confirm`. A note never fails the run or
-counts as a warning. In `--json`, `hint` appears on failing checks, warnings and
+rule flags a destructive action without a `confirm`. Once a config loads it, the line
+turns into a passing check. A note never fails the run or counts as a warning. In `--json`, `hint` appears on failing checks, warnings and
 notes only.
 
 Mount checks follow route groups, parallel slots and intercepting routes.
@@ -5964,7 +6003,7 @@ the references to it are typed.
 $ pnpm flowpanel new user_visit --dir admin/config/resources --hidden
 ```
 
-`--dir` reads the Drizzle schema and writes `admin/config/resources/user-visit.ts`:
+`--dir` reads the schema and writes `admin/config/resources/user-visit.ts`:
 
 ```ts
 import { enumOf, resource } from "@flowpanel/kit";
@@ -5997,11 +6036,14 @@ also makes it a searchable picker in the generated create and edit forms, so
 scaffold referenced tables first. JSON and long text are left out of the list columns, `name`,
 `title` and `email` become search fields, and the list sorts by `createdAt` or `startedAt`.
 `--hidden` keeps the resource out of the navigation. A table with a singular name,
-such as `user`, gets `plural: "Users"` so the navigation reads as a collection.
+such as `user`, gets `plural: "Users"` so the navigation reads as a collection, and
+every entry in the navigation gets an `icon` guessed from the table's name: `users`
+for customers, `shopping-cart` for orders, `package` for products and line items,
+`database` when nothing fits.
 
-Re-running changes nothing; a different existing file stops it. `--dir` is
-Drizzle only. On Prisma, run `new` without it and move the entry into its own file
-by hand, as [Prisma setup](/docs/introduction/prisma#one-file-per-resource) shows. Without `--dir`, a config whose `resources` comes from a `--dir`
+Re-running changes nothing; a different existing file stops it. On Prisma, `--dir`
+reads `schema.prisma` and writes the model's entry to its own file the same way, as
+[Prisma setup](/docs/introduction/prisma#one-file-per-resource) shows. Without `--dir`, a config whose `resources` comes from a `--dir`
 directory gets the new file there; any other `resources` that is not an array
 literal is left unchanged, and `new` exits `1`.
 
@@ -6051,7 +6093,7 @@ names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its
 
 | Assertion | How it fails |
 | --- | --- |
-| Every navigation answers below 400 | `<route>: responded 500: <the error page's text>` |
+| Every navigation answers below 400 | `<route>: responded 500: <the server's error>` |
 | No render crashed past the admin into Next's error page | `<route>: rendered Next's error page instead of the admin: <its text>` |
 | Every page shows its `main` within 15 seconds | `<route>: rendered no <main> within 15 s` |
 | Nothing wrote to `console.error` | `console.error: <text>` |
@@ -6062,13 +6104,27 @@ names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its
 `[data-fp-error]` marks FlowPanel's error cards: a failed widget, a failed read, a
 failed drawer, a `page()` that threw. A walk that finds no routes fails. Pages count
 as loaded when `main` is visible, since realtime pages never reach network idle. A
-route that answers 500 or shows Next's error page fails at once, with the page's text
-and, in development, the server's error among the console errors, instead of waiting
-for the test's timeout.
+route that answers 500 or shows Next's error page fails at once, instead of waiting
+for the test's timeout. In development the line carries the server's own error, such
+as a `defineAdmin` config error with its near match; a production 500 hides it, so read
+the server log. When the admin's first page fails, that line is the only one, with no
+"found no navigation" after it.
 
 The accessibility scan leaves out iframes. A `queue()` page embeds bull-board, whose
 markup is not the admin's to fix, so an admin with queues passes `a11y: true` on its
 own pages. Check the board separately if it matters to you.
+
+`a11y` also takes an object. `disableRules` skips axe rules by id, for a rule
+that markup of your own, such as a page or a widget, fails while you fix it:
+
+```ts
+import { test } from "@playwright/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
+
+test("the admin is healthy, contrast aside", async ({ page }) => {
+  await smokeAdmin(page, { a11y: { disableRules: ["color-contrast"] } });
+});
+```
 
 `smokeAdmin` opens pages and rows; it submits no forms. A test of your own that submits an invalid form sees the browser log `Failed to load resource: … 422` for the rejected request. That line comes from the browser, not from the admin, so filter it out when you assert a clean console after a submit.
 
@@ -6084,7 +6140,7 @@ after `page.setViewportSize({ width: 390, height: 844 })`.
 | `paths?` | `{ admin?: string }` | Where the admin is mounted: the config's `paths.admin`. Default: `"/admin"`. |
 | `cookie?` | `{ name: string; value: string; domain?: string }` | Session cookie added before the walk, for an admin behind authentication. |
 | `resources?` | `string[]` | Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. |
-| `a11y?` | `boolean` | Run axe against every visited route, leaving out iframes such as a queue's bull-board. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package. Default: `false`. |
+| `a11y?` | `boolean \| SmokeA11yOptions` | Run axe against every visited route, leaving out iframes such as a queue's bull-board. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package. Pass `{ disableRules: ["color-contrast"] }` to scan with every rule except those axe rule ids. Default: `false`. |
 | `maxRows?` | `number` | How many rows of each list the walk opens. Default: `1`. |
 | `tabs?` | `boolean` | On each record page, open every other detail tab as `?tab=<key>` and check it the same way. Default: `true`. |
 

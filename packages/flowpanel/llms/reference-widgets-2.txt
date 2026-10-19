@@ -121,6 +121,9 @@ Without `y`, the chart plots every numeric key of its first row except `x`, whic
 is what `series({ by })` returns. `labels` names the series. `bucket` only formats
 date ticks; aggregate with `series({ grain })`. For amounts stored in cents, set
 `format: "currency"` and `minorUnits: 2`, and the axis and tooltips show money.
+`minorUnits` alone divides the values but prints plain numbers, so `defineAdmin`
+warns about a chart that sets it without `format: "currency"` when the dev server
+starts, and `flowpanel doctor` lists it.
 
 One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
 order. `colors` pins a series to a colour:
@@ -274,6 +277,7 @@ Both return their argument, typed.
 
 | Property | Type | Notes |
 | --- | --- | --- |
+| `kind?` | `"dashboard"` | Tells a dashboard from a `page()`, which registers under `pages` instead. |
 | `path` | `string` | Path under `paths.admin`. `"/"` makes this the admin's landing page. |
 | `label` | `string` | Nav entry and page title. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
@@ -391,6 +395,7 @@ dashboard({
 
 | Property | Type | Notes |
 | --- | --- | --- |
+| `kind?` | `"page"` | Set by `page()`: a page registers under `pages`, not `dashboards`. |
 | `path` | `string` | Path under `paths.admin`. |
 | `label` | `string` | Nav entry and page title. |
 | `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
@@ -422,7 +427,19 @@ export function ReportsPage({ role, scope, formatting, searchParams }: PageProps
 }
 ```
 
-Register it with `page({ path: "/reports", label: "Reports", component: ReportsPage })`.
+Register it in the config's `pages`, next to `dashboards`:
+
+```ts
+// src/admin/config/pages.ts
+import { page } from "@flowpanel/kit";
+import { ReportsPage } from "@/admin/pages/reports";
+
+export const pages = [page({ path: "/reports", label: "Reports", component: ReportsPage })];
+```
+
+Then pass it to `defineAdmin({ ..., pages })`. A `page()` put in `dashboards` fails to
+compile with `'"a page() is registered in pages: [...], not dashboards"' is missing`,
+and a plain JavaScript config fails at boot with the same advice.
 
 #### PageProps
 

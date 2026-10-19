@@ -19,6 +19,8 @@ import { RowActionsMenu } from "../actions/RowActionsMenu";
 import type { SerializedRowAction } from "../actions/row-action";
 import { useListNavigation } from "../pages/list-navigation";
 import { rowIdentity } from "../runtime/row-identity";
+import { useColumnPrefs } from "./column-prefs";
+import type { ColumnPrefs } from "./column-prefs-cookie";
 import { rememberRowCells } from "./table-cells";
 
 /** The trailing column's rem when a row shows actions inline: its padding, each button, and the menu beside them. */
@@ -55,7 +57,7 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   /** Export affordance from `resource.options.export`; the export runs on the server for `resource`. */
   exportable?: boolean | { formats?: ("csv" | "json")[]; fields?: string[] };
   /** Show the import button (from `resource.options.import`). */
-  importable?: { resource: string; formats: ("csv" | "json")[] };
+  importable?: { resource: string; formats: ("csv" | "json")[]; headers?: string[] };
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: ReactNode;
@@ -81,6 +83,10 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   createdRowKey?: string;
   /** What one row is, mid-sentence, for the phone card's link: "Open customer Ann". */
   rowLabel?: string;
+  /** The widths and hidden columns the reader left, read from their cookie on the server. */
+  columnPrefs?: ColumnPrefs;
+  /** The URL path the prefs cookie is scoped to: the list's own page. */
+  columnPrefsPath?: string;
 }
 
 export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
@@ -104,10 +110,13 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
     rowHrefs,
     realtime,
     createdRowKey,
+    columnPrefs: initialPrefs,
+    columnPrefsPath,
     ...rest
   } = props;
   const { open } = useAdminDrawer();
   const { navigate, pending } = useListNavigation();
+  const columnPrefs = useColumnPrefs(resource, initialPrefs, columnPrefsPath);
   const hrefClick = useRowHrefClick(rows, rowHrefs);
   const onRowClick = openDrawerOnRowClick
     ? (row: Row) => {
@@ -180,6 +189,10 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
           )
         }
         inlineEditResource={resource}
+        columnWidths={columnPrefs.widths}
+        onColumnWidthsChange={columnPrefs.setWidths}
+        columnVisibility={columnPrefs.visibility}
+        onColumnVisibilityChange={columnPrefs.setVisibility}
         {...(rest.exportable
           ? {
               exportable: {

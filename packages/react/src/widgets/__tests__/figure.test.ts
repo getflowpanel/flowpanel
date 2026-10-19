@@ -3,11 +3,12 @@ import { figureSize } from "../figure";
 
 describe("a KPI figure's size", () => {
   it("stays 2rem unless its characters would not fit the card", () => {
-    expect(figureSize("$142,594")?.fontSize).toBe("min(2rem, 20.83cqi)");
-    expect(figureSize(12)?.fontSize).toBe("min(2rem, 83.33cqi)");
+    expect(figureSize("$142,594")).toEqual({ "data-fp-figure": "8" });
+    expect(figureSize(12)).toEqual({ "data-fp-figure": "2" });
+    expect(figureSize("x".repeat(60))).toEqual({ "data-fp-figure": "40" });
   });
 
   it("leaves a rendered figure alone", () => {
-    expect(figureSize(null)).toBeUndefined();
+    expect(figureSize(null)).toEqual({});
   });
 });

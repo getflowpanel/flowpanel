@@ -1,5 +1,6 @@
 import { consoleText } from "./console-text";
-import type { SmokeLocator, SmokePage } from "./page";
+import type { SmokeLocator, SmokePage, SmokeResponse } from "./page";
+import { serverErrorText } from "./server-error";
 import type { A11yViolation, SmokeAdminOptions, SmokeAdminReport } from "./types";
 
 const NAV = "nav[data-flowpanel-nav]";
@@ -103,17 +104,27 @@ async function inspect(walk: Walk, route: string): Promise<void> {
   for (const found of await walk.scan()) walk.report.a11yViolations.push({ ...found, route });
 }
 
-async function open(walk: Walk, route: string): Promise<void> {
-  const status = (await walk.page.goto(route))?.status();
+async function bodyError(response: SmokeResponse | null, status: number | undefined) {
+  if (!response || status === undefined || status < 500) return null;
+  return serverErrorText(await response.text().catch(() => ""));
+}
+
+/** Opens `route` and checks it; `false` when the server failed it before the admin rendered. */
+async function open(walk: Walk, route: string): Promise<boolean> {
+  const response = await walk.page.goto(route);
+  const status = response?.status();
   walk.report.visited.push(route);
-  const crash = await nextErrorText(walk.page);
+  const shown = await nextErrorText(walk.page);
+  const fromBody = shown ? null : await bodyError(response, status);
+  const crash = fromBody ?? shown;
   const failed = status !== undefined && status >= 400;
   if (failed || crash !== null) {
     const what = failed ? `responded ${status}` : "rendered Next's error page instead of the admin";
     walk.failures.push(`${route}: ${what}${crash ? `: ${crash}` : ""}`);
   }
-  if (crash !== null || (status !== undefined && status >= 500)) return;
+  if (crash !== null || (status !== undefined && status >= 500)) return false;
   await inspect(walk, route);
+  return true;
 }
 
 /** A row opens as a keyboard user opens it, so a link inside one of its cells is never what gets followed. */
@@ -221,9 +232,9 @@ export async function runSmoke(
     );
   });
 
-  await open(walk, adminPath);
+  const rendered = await open(walk, adminPath);
   const routes = await navRoutes(walk, options.resources);
-  if (routes.length === 0) failures.push(noNavigation(adminPath));
+  if (routes.length === 0 && rendered) failures.push(noNavigation(adminPath));
 
   for (const route of routes) {
     if (route !== adminPath) await open(walk, route);

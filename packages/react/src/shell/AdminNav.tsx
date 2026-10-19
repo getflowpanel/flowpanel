@@ -48,7 +48,9 @@ function NavItems({ items, activeHref }: { items: NavEntry[]; activeHref: string
               {it.icon ? (
                 <FlowpanelIcon name={it.icon} className="fp-h-4 fp-w-4 fp-shrink-0" />
               ) : iconColumn ? (
-                <span aria-hidden className="fp-w-4 fp-shrink-0" />
+                <span aria-hidden className="fp-flex fp-w-4 fp-shrink-0 fp-justify-center">
+                  <span className="fp-h-1 fp-w-1 fp-rounded-full fp-bg-current fp-opacity-60" />
+                </span>
               ) : null}
               <span>{it.label}</span>
               <NavLinkPending className="fp-inset-x-2.5 fp-bottom-0.5 fp-h-[2px]" />

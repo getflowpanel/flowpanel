@@ -10,7 +10,7 @@ Docs: https://flowpanel.tech/docs/introduction/getting-started
 
 | Requirement | Supported range | Note |
 | --- | --- | --- |
-| Node.js | `>=20` | Required by the CLI and the kit. |
+| Node.js | `^20.19.0 || >=22.12.0` | Required by the CLI and the kit. |
 | Next.js | `>=15.5.0 <17.0.0` | App Router only. With `cacheComponents` on, 16.3 or newer. |
 | React | `^19.0.0` | React DOM uses the same major version. |
 | Drizzle ORM | `>=0.45.2 <1.0.0` | Required only when using the Drizzle adapter. |
@@ -51,6 +51,17 @@ pnpm drizzle-kit push
 ```
 
 Then run `init` once more, and `pnpm flowpanel new users` for the first resource. [Build a complete admin](/docs/introduction/founder-admin) starts from an empty app the same way, with a full schema.
+
+With Prisma, `init` looks for the client in `lib/prisma.ts` (under `src/` in a `src/app` project). When it finds none it stops and prints this file; create it, or point `init` at your own module with `--db`:
+
+```ts
+// lib/prisma.ts
+import { PrismaClient } from "@prisma/client";
+
+export const prisma = new PrismaClient();
+```
+
+Push your schema with `pnpm prisma db push`, run `init` again, and add the first model with `pnpm flowpanel new User`. [Prisma setup](/docs/introduction/prisma) covers the rest.
 
 ### Open the config
 

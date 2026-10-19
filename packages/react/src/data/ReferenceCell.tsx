@@ -2,6 +2,7 @@
 import Link, { useLinkStatus } from "next/link";
 import type * as React from "react";
 import { cn } from "../lib/cn";
+import { mayCutText } from "./column-sizing";
 
 export interface ReferenceCellProps {
   label: React.ReactNode;
@@ -15,8 +16,9 @@ export function ReferenceCell({ label, href, className }: ReferenceCellProps) {
     <Link
       href={href}
       prefetch={false}
+      {...(typeof label === "string" && mayCutText(label) ? { title: label } : {})}
       className={cn(
-        "-fp-my-0.5 fp-inline-block fp-max-w-full fp-truncate fp-py-0.5 fp-align-bottom fp-text-ink fp-underline fp-decoration-line fp-underline-offset-2 hover:fp-decoration-faint",
+        "-fp-my-0.5 fp-inline-block fp-min-w-6 fp-max-w-full fp-truncate fp-py-0.5 fp-align-bottom fp-text-ink fp-underline fp-decoration-line fp-underline-offset-2 hover:fp-decoration-faint",
         className,
       )}
       onClick={(e) => e.stopPropagation()}

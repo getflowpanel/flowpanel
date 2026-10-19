@@ -21,6 +21,8 @@ export interface DataTableColumn<Row> {
   secondary?: keyof Row & string;
   /** What a text column holds, which sizes it: long text and an email get more room, a link a little. Field names no longer decide it; set it yourself. */
   content?: "long" | "email" | "link";
+  /** An editable column's choices, which its inline editor offers as a select. */
+  options?: ReadonlyArray<{ value: string; label: string }>;
   /** Optional: the widest value in this column, in rem at the table's text size. Its ideal width fits it; without it the column takes its kind's default. */
   textRem?: number;
 }
@@ -59,7 +61,10 @@ export interface DataTableProps<Row> {
   getRowKey?: (row: Row) => string;
   prerenderedCells?: (React.ReactNode | undefined)[][];
   columnVisibility?: Record<string, boolean>;
+  /** Set, the toolbar's Columns menu shows and hides columns. */
+  onColumnVisibilityChange?: (visibility: Record<string, boolean>) => void;
   columnWidths?: Record<string, number>;
+  /** Set, a header's edge drags to resize, a double click or Shift+Enter fits it, and the Columns menu resets all. */
   onColumnWidthsChange?: (widths: Record<string, number>) => void;
   pinnedColumns?: { left?: string[]; right?: string[] };
   onPinnedColumnsChange?: (pinned: { left?: string[]; right?: string[] }) => void;
@@ -88,7 +93,8 @@ export interface DataTableProps<Row> {
    * row matching the page's filters; without it, the rows on screen are downloaded.
    */
   exportable?: boolean | { formats?: ("csv" | "json")[]; fields?: string[]; resource?: string };
-  importable?: { resource: string; formats: ("csv" | "json")[] };
+  /** Shows Import. `headers` (lower-cased) are the ones it reads; the confirm step names the file's others as skipped. */
+  importable?: { resource: string; formats: ("csv" | "json")[]; headers?: string[] };
   showDensityToggle?: boolean;
   /** What one row is, mid-sentence ("run"): phone cards read "Open run 36". */
   rowLabel?: string;

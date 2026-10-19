@@ -83,10 +83,19 @@ export async function warningChecks(
   const auditTable = "auditTable" in config ? config.auditTable : undefined;
   const columns =
     !upgrade && auditTable === "columns" ? await auditColumnsUpgrade(cwd, dialect) : null;
-  if (upgrade || auditTable) {
+  if (!upgrade && auditTable === "preview") {
+    const type = dialect === "mysql" ? "json" : dialect === "sqlite" ? "text" : "jsonb";
+    checks.push(
+      warning(
+        "Audit log table",
+        true,
+        `flowpanel_audit_log lacks the diff_preview column, which an early 0.4 0001_init.sql left out, so audit events fail to save. Add it in a new migration: \`ALTER TABLE flowpanel_audit_log ADD COLUMN diff_preview ${type};\`, then run \`${pmc.exec} flowpanel migrate\`.`,
+      ),
+    );
+  } else if (upgrade || auditTable) {
     const intent = upgrade?.intent ?? columns;
     const lacks =
-      "lacks the actor_name and scope_key columns 0.4 writes, so audit events fail to save";
+      "lacks the actor_name, scope_key and diff_preview columns 0.4 writes, so audit events fail to save";
     checks.push({
       name: "Audit log table",
       ok: true,
@@ -113,14 +122,16 @@ export async function warningChecks(
     );
   }
 
-  if (!(await usesFlowpanelEslintPlugin(cwd))) {
-    checks.push({
-      name: "ESLint plugin",
-      ok: true,
-      info: true,
-      hint: `Add @flowpanel/eslint-plugin to your ESLint config to catch a destructive action without confirm: ${ESLINT_PLUGIN_DOCS}`,
-    });
-  }
+  checks.push(
+    (await usesFlowpanelEslintPlugin(cwd))
+      ? { name: "ESLint plugin", ok: true }
+      : {
+          name: "ESLint plugin",
+          ok: true,
+          info: true,
+          hint: `Add @flowpanel/eslint-plugin to your ESLint config to catch a destructive action without confirm: ${ESLINT_PLUGIN_DOCS}`,
+        },
+  );
 
   return checks;
 }

@@ -1,4 +1,5 @@
 "use client";
+import { formatLabel } from "@flowpanel/core/labels";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import * as React from "react";
 import { cn } from "../lib/cn";
@@ -17,7 +18,6 @@ export interface DataTableHeaderProps<Row> {
   orderedVisible: DataTableColumn<Row>[];
   sort?: DataTableSort<Row> | null;
   pinMeta: Map<string, PinMeta>;
-  effectiveWidths: Record<string, number>;
   /** Each column's width. */
   widths: ReadonlyMap<string, string>;
   leftPins: string[];
@@ -28,6 +28,8 @@ export interface DataTableHeaderProps<Row> {
   onToggleAll: () => void;
   onHeaderClick: (c: DataTableColumn<Row>) => void;
   onColumnWidthsChange?: (widths: Record<string, number>) => void;
+  /** A column's px width when it fits its widest value. */
+  fitWidth: (column: DataTableColumn<Row>) => number;
   onPinnedColumnsChange?: (pinned: { left?: string[]; right?: string[] }) => void;
   resizingRef: React.MutableRefObject<{ field: string; base: number } | null>;
   liveWidthsRef: React.MutableRefObject<Record<string, number>>;
@@ -35,13 +37,14 @@ export interface DataTableHeaderProps<Row> {
   /** The trailing column's width, when the table has one. */
   rowEndWidth?: string | undefined;
   rowEndCellLabel: string;
+  /** Hears what a keyboard resize did, for the table to read out. */
+  onKeyResize?: (message: string) => void;
 }
 
 export function DataTableHeader<Row>({
   orderedVisible,
   sort,
   pinMeta,
-  effectiveWidths,
   widths,
   leftPins,
   rightPins,
@@ -51,18 +54,46 @@ export function DataTableHeader<Row>({
   onToggleAll,
   onHeaderClick,
   onColumnWidthsChange,
+  fitWidth,
   onPinnedColumnsChange,
   resizingRef,
   liveWidthsRef,
   setLiveWidths,
   rowEndWidth,
   rowEndCellLabel,
+  onKeyResize,
 }: DataTableHeaderProps<Row>) {
   const labels = useLabels();
   const headCells = React.useRef(new Map<string, HTMLTableCellElement>());
   const lastLeftPin = [...orderedVisible]
     .reverse()
     .find((c) => pinMeta.get(c.field)?.side === "left")?.field;
+  const widthOf = (field: string): number =>
+    liveWidthsRef.current[field] ??
+    headCells.current.get(field)?.getBoundingClientRect().width ??
+    120;
+  const setWidth = (field: string, px: number, commit: boolean) => {
+    const next = { ...liveWidthsRef.current, [field]: Math.max(40, Math.round(px)) };
+    liveWidthsRef.current = next;
+    setLiveWidths(next);
+    if (commit) onColumnWidthsChange?.(next);
+    return next[field] as number;
+  };
+  const resizeByKey = (c: DataTableColumn<Row>, px: number) => {
+    const width = setWidth(c.field, px, true);
+    onKeyResize?.(formatLabel(labels.table.columnResized, { label: columnLabel(c), width }));
+  };
+  const onHeadKeyDown = (c: DataTableColumn<Row>) => (event: React.KeyboardEvent) => {
+    if (!event.shiftKey) return;
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      resizeByKey(c, widthOf(c.field) + (event.key === "ArrowLeft" ? -16 : 16));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      resizeByKey(c, fitWidth(c));
+    }
+  };
+  const keys = onColumnWidthsChange ? "Shift+ArrowLeft Shift+ArrowRight Shift+Enter" : undefined;
   return (
     <thead className={LABEL_TEXT}>
       <tr className="fp-border-b fp-border-line">
@@ -117,6 +148,12 @@ export function DataTableHeader<Row>({
               {...(meta.side === "left" && lastLeftPin === c.field
                 ? { "data-fp-pin-edge": "" }
                 : {})}
+              {...(keys
+                ? {
+                    onKeyDown: onHeadKeyDown(c),
+                    ...(c.sortable ? {} : { tabIndex: 0, "aria-keyshortcuts": keys }),
+                  }
+                : {})}
               className={cn(
                 "fp-group fp-overflow-hidden fp-text-ellipsis fp-whitespace-nowrap fp-bg-surface fp-px-4 fp-py-2.5 fp-font-normal fp-select-none",
                 ALIGN_CLASS[c.align ?? "left"],
@@ -125,12 +162,16 @@ export function DataTableHeader<Row>({
                 meta.side === "right" &&
                   "fp-sticky fp-right-[var(--fp-col-pin-right)] fp-top-0 fp-z-[4]",
                 meta.side === "none" && "fp-sticky fp-top-0 fp-z-[3]",
+                keys &&
+                  !c.sortable &&
+                  "focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-inset focus-visible:fp-ring-focus/60",
                 c.className,
               )}
             >
               {c.sortable ? (
                 <button
                   type="button"
+                  aria-keyshortcuts={keys}
                   onClick={() => onHeaderClick(c)}
                   className={cn(
                     "-fp-my-1 fp-inline-flex fp-items-center fp-rounded-sm fp-py-1 fp-transition-colors hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-inset focus-visible:fp-ring-focus/60",
@@ -174,25 +215,18 @@ export function DataTableHeader<Row>({
               ) : null}
               {onColumnWidthsChange ? (
                 <ColumnResizer
+                  title={labels.table.resizeColumn}
                   onResize={(delta) => {
-                    const currentBase =
-                      resizingRef.current?.field === c.field
-                        ? resizingRef.current.base
-                        : (effectiveWidths[c.field] ??
-                          headCells.current.get(c.field)?.getBoundingClientRect().width ??
-                          120);
                     if (resizingRef.current?.field !== c.field) {
-                      resizingRef.current = { field: c.field, base: currentBase };
+                      resizingRef.current = { field: c.field, base: widthOf(c.field) };
                     }
-                    setLiveWidths((w) => ({
-                      ...w,
-                      [c.field]: Math.max(40, currentBase + delta),
-                    }));
+                    setWidth(c.field, resizingRef.current.base + delta, false);
                   }}
                   onResizeEnd={() => {
                     resizingRef.current = null;
                     onColumnWidthsChange?.(liveWidthsRef.current);
                   }}
+                  onFit={() => setWidth(c.field, fitWidth(c), true)}
                 />
               ) : null}
             </th>

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
@@ -26,7 +26,7 @@ beforeAll(async () => {
       inlineEditResource="user"
     />,
   );
-  await screen.findByRole("button", { name: "Edit Name" });
+  await screen.findByRole("button", { name: /Edit Name$/ });
   cleanup();
 });
 
@@ -100,7 +100,7 @@ describe("an editable cell", () => {
     columns: [{ field: "name" as const, editable: true }],
     inlineEditResource: "users",
   };
-  const editButtons = () => screen.getAllByRole("button", { name: "Edit Name" });
+  const editButtons = () => screen.getAllByRole("button", { name: /Edit Name$/ });
   const editing = () => screen.queryByDisplayValue("a") !== null;
 
   it.each([
@@ -109,8 +109,8 @@ describe("an editable cell", () => {
   ])("offers one edit button per cell in %s", (_name, clickable) => {
     render(<DataTable {...editable} {...(clickable ? { onRowClick: vi.fn() } : {})} />);
     expect(editButtons()).toHaveLength(baseProps.rows.length);
-    for (const row of document.querySelectorAll("tbody tr")) {
-      expect(row.querySelectorAll('button[aria-label="Edit Name"]')).toHaveLength(1);
+    for (const row of document.querySelectorAll<HTMLElement>("tbody tr")) {
+      expect(within(row).getAllByRole("button", { name: /Edit Name$/ })).toHaveLength(1);
     }
   });
 

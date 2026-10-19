@@ -12,6 +12,7 @@ export async function smokeAdmin(
   page: Page,
   options: SmokeAdminOptions = {},
 ): Promise<SmokeAdminReport> {
-  const scan = options.a11y ? await createAxeScanner(page) : null;
+  const { a11y } = options;
+  const scan = a11y ? await createAxeScanner(page, a11y === true ? {} : a11y) : null;
   return runSmoke(page as unknown as SmokePage, options, scan);
 }

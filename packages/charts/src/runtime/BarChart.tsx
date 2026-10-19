@@ -18,6 +18,7 @@ import {
   BAR_TOOLTIP_CURSOR,
   buildTooltipProps,
   buildValueTickFormatter,
+  CATEGORY_TICK_PROPS,
   CHART_SURFACE_PROPS,
   GRID_PROPS,
   LEGEND_PROPS,
@@ -87,7 +88,7 @@ export function BarChart({
               dataKey={options.x}
               {...AXIS_STYLE_PROPS}
               tickFormatter={categoryTickFormatter}
-              {...AXIS_TICK_PROPS}
+              {...(options.bucket === undefined ? CATEGORY_TICK_PROPS : AXIS_TICK_PROPS)}
             />
             <YAxis
               {...AXIS_STYLE_PROPS}

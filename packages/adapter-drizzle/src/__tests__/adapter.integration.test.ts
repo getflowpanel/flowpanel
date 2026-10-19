@@ -115,6 +115,17 @@ describe.skipIf(!dockerAvailable)("drizzleAdapter CRUD", () => {
     expect((r.rows[0] as any).age).toBe(20);
   });
 
+  it("puts rows with no value last in both sort directions", async () => {
+    await client`INSERT INTO users (id, email, name) VALUES ('noage', 'noage@e.co', 'No age')`;
+    const last = async (dir: "asc" | "desc") => {
+      const r = await adapter.list(users, ctx({ sort: { field: "age", dir }, pageSize: 50 }));
+      return { first: (r.rows[0] as any).age, last: (r.rows.at(-1) as any).id };
+    };
+    expect(await last("asc")).toEqual({ first: 20, last: "noage" });
+    expect(await last("desc")).toEqual({ first: 44, last: "noage" });
+    await client`DELETE FROM users WHERE id = 'noage'`;
+  });
+
   it("list filter by equality", async () => {
     const r = await adapter.list(users, ctx({ filters: { email: "u5@e.co" } }));
     expect(r.total).toBe(1);

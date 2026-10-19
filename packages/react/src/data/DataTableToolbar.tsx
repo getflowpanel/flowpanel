@@ -1,5 +1,6 @@
 "use client";
 import { formatCount } from "@flowpanel/core/labels";
+import type * as React from "react";
 import { LiveIndicator } from "../atoms/LiveIndicator";
 import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
@@ -14,10 +15,11 @@ export interface DataTableToolbarProps<Row> {
   liveStatus: RealtimeStatus | null;
   density: DataTableDensity | null;
   onDensityChange: (density: DataTableDensity) => void;
-  importable: { resource: string; formats: ("csv" | "json")[] } | undefined;
+  importable: { resource: string; formats: ("csv" | "json")[]; headers?: string[] } | undefined;
   exportSetup: ExportSetup<Row> | null;
   rows: Row[];
   tableLabel: string;
+  columnsMenu?: React.ReactNode;
 }
 
 export interface ExportSetup<Row> {
@@ -58,12 +60,13 @@ export function DataTableToolbar<Row extends Record<string, unknown>>({
   exportSetup,
   rows,
   tableLabel,
+  columnsMenu,
 }: DataTableToolbarProps<Row>) {
   const labels = useLabels();
   const { locale } = useFormatting();
   return (
-    <div className="fp-flex fp-items-center fp-justify-end fp-gap-1 fp-border-b fp-border-line fp-bg-surface fp-px-3 fp-py-1.5">
-      <span className="fp-mr-auto fp-text-xs fp-tabular-nums fp-text-faint">
+    <div className="fp-flex fp-flex-wrap fp-items-center fp-justify-end fp-gap-1 fp-border-b fp-border-line fp-bg-surface fp-px-3 fp-py-1.5">
+      <span className="fp-mr-auto fp-min-w-0 fp-text-xs fp-tabular-nums fp-text-faint">
         {formatCount(
           labels.plurals?.results ?? (total === 1 ? labels.table.result : labels.table.results),
           total,
@@ -73,10 +76,12 @@ export function DataTableToolbar<Row extends Record<string, unknown>>({
       </span>
       {liveStatus ? <LiveIndicator status={liveStatus} /> : null}
       {density ? <DensityToggle density={density} onChange={onDensityChange} /> : null}
+      {columnsMenu}
       {importable ? (
         <ImportButton
           resource={importable.resource}
           formats={importable.formats}
+          {...(importable.headers ? { headers: importable.headers } : {})}
           label={labels.actions.import}
         />
       ) : null}

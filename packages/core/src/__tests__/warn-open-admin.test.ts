@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { resetDevWarningsForTests } from "../compiler/validate/warn-create-fields";
 import type { Adapter, AdminDefinition } from "../index";
 import { defineAdmin, resource } from "../index";
 
@@ -27,6 +28,7 @@ beforeEach(() => {
   originalEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = "development";
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  resetDevWarningsForTests();
 });
 
 afterEach(() => {
@@ -57,7 +59,11 @@ describe("no-access-control warning", () => {
   });
 
   it("is silent when a global scope is configured", () => {
-    defineAdmin({ ...open, scope: () => null });
+    defineAdmin({
+      ...open,
+      scope: () => null,
+      resources: [resource({ __name: "users" }, { columns: [], scope: "bypass" })],
+    });
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -98,6 +104,10 @@ describe("an auth.access that lets a signed-out visitor in", () => {
 
   it("warns for access: true and for a role list holding the signed-out role", () => {
     defineAdmin({ ...open, auth: { ...open.auth, access: true } });
+    expect(warn).toHaveBeenCalledTimes(1);
+    defineAdmin({ ...open, auth: { ...open.auth, access: true } });
+    expect(warn).toHaveBeenCalledTimes(1);
+    resetDevWarningsForTests();
     defineAdmin({ ...open, auth: { ...open.auth, access: ["guest", "admin"] } });
     expect(warn).toHaveBeenCalledTimes(2);
   });

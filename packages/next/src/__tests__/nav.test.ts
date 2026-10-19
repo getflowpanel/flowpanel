@@ -61,7 +61,7 @@ describe("buildNav", () => {
     expect(await buildNav(cfg)).toEqual([]);
   });
 
-  it("groups resources under 'Resources' heading", async () => {
+  it("groups resources under 'Resources' heading, an entry without an icon taking its kind's", async () => {
     const cfg = defineAdmin({
       adapter: fakeAdapter,
       auth: { session: async () => null, role: () => "guest" },
@@ -75,8 +75,17 @@ describe("buildNav", () => {
     expect(nav[0]?.label).toBe("Resources");
     expect(nav[0]?.items).toEqual([
       { label: "Users", href: "/admin/users", icon: "users" },
-      { label: "Jobs", href: "/admin/jobs" },
+      { label: "Jobs", href: "/admin/jobs", icon: "list" },
     ]);
+  });
+
+  it("leaves a group where no entry has an icon without icons", async () => {
+    const cfg = defineAdmin({
+      adapter: fakeAdapter,
+      auth: { session: async () => null, role: () => "guest" },
+      resources: [resource({ __name: "jobs" }, { columns: [], plural: "Jobs" })],
+    });
+    expect((await buildNav(cfg))[0]?.items).toEqual([{ label: "Jobs", href: "/admin/jobs" }]);
   });
 
   it("filters hidden resources", async () => {

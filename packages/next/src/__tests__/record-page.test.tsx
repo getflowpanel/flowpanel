@@ -182,19 +182,19 @@ describe("the record page", () => {
     expect(seen?.previous).toBeNull();
   });
 
-  it("puts the tabs before the aside, side by side only from lg", async () => {
+  it("puts the tabs before the aside, side by side only from lg, the aside at its own width", async () => {
     const { tree } = await renderDetail({
       label: "User",
       columns: ["id"],
       detail: { aside: [stat("Seats", 3)], tabs: twoTabs },
     });
     const layout = first(tree, (el) => el.props["data-record-layout"] !== undefined);
-    expect(layout?.props.className).toContain("lg:fp-grid-cols-12");
+    expect(layout?.props.className).toContain(
+      "lg:fp-grid-cols-[minmax(0,1fr)_clamp(16rem,33%,25rem)]",
+    );
     const [main, side] = layout!.props.children as ReactElement<Props>[];
     expect(main?.type).not.toBe("aside");
-    expect(main?.props.className).toContain("lg:fp-col-span-8");
     expect(side?.type).toBe("aside");
-    expect(side?.props.className).toContain("lg:fp-col-span-4");
   });
 
   it("lays a widgets tab with spans on 12 columns", async () => {

@@ -165,6 +165,16 @@ export function Pipeline({ stages, runsHref, updated }: PipelineProps) {
 
 `StatusDot`, `Sparkline`, `EmptyState`, `Card`, `CardHeader` and `CardContent` come from `@flowpanel/kit/react`. `toneTextClass` and `toneFillClass` map each `Tone` to the built-in classes; import them from `@flowpanel/kit` in a server component, because the React entry is a client boundary. The `*-fp-*` token classes need the [Tailwind token bridge](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes); `toneTextClass` and `toneFillClass` return classes the admin stylesheet already carries.
 
+### Keep heavy code off other pages
+
+The admin is one catch-all route, so Next.js loads every client component it can render on every admin page, lists and forms included. A widget's own code is small; a library it imports comes with it.
+
+- Draw charts with `AreaChart`, `BarChart`, `LineChart` or `PieChart` from `@flowpanel/kit/charts`. They load Recharts the first time one draws and hold the chart's height until then, so a widget with a chart adds no Recharts to list, form and record pages.
+- A chart builder such as `lineChart`, or a type, imported from `@flowpanel/kit` costs nothing in the browser.
+- Import another large client library, such as a map or a rich editor, inside the widget with `next/dynamic`: `const RunMap = dynamic(() => import("./RunMap"), { ssr: false })` in a `"use client"` file. Then only the page that draws it downloads it.
+
+[Production readiness](/docs/guides/production-readiness#page-weight) has the first-load sizes the admin's own pages ship.
+
 ### Options
 
 | Option | Effect |
@@ -229,7 +239,7 @@ export function Preview({ data }: { data: Array<{ day: string; count: number }> 
 }
 ```
 
-The client components in `@flowpanel/kit/charts` do not infer series: pass `y` (one key or a list).
+The client components in `@flowpanel/kit/charts` do not infer series: pass `y` (one key or a list). They load Recharts the first time one draws and show a skeleton of the chart's height until then, so a custom widget that uses one keeps Recharts off pages without a chart. Import them from `@flowpanel/kit/charts`, not from `recharts`, for that reason.
 
 Every option: [Charts reference](/docs/reference/widgets#charts).
 

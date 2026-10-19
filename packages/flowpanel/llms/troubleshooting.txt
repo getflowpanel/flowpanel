@@ -108,6 +108,10 @@ The call is outside a request, or two copies of `@flowpanel/kit` are installed. 
 
 A `page()` component gets the request as props: `session`, `role`, `scope`, `formatting`, `labels` and `searchParams`. It renders after FlowPanel's own request scope, so read these props instead of `getRequestContext()`. A `"use client"` page component gets `session` and `scope` as `null`; read them in a server component. `bindFormat(formatting)` from `@flowpanel/kit` gives the formatters a widget gets as `ctx.format`. See [PageConfig](/docs/reference/widgets#pageconfig).
 
+#### “Encountered a script tag while rendering React component” on an admin 404
+
+In development, with `next-themes` in the root layout, an admin page that is not found, such as `/admin/nope` or a deleted record, logs this React warning. The admin answers with `notFound()`, and Next.js then renders the root layout again on the client, where `next-themes` keeps its theme script. The page is correct and a production build prints nothing; the warning goes once `next-themes` renders its script outside React's tree, so leave it until then.
+
 #### “Which widget is slow”
 
 In development, a page with widgets taking 300 ms or more logs one line, slowest first:

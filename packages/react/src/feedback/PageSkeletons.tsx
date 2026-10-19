@@ -66,11 +66,7 @@ export interface ResourceDetailSkeletonProps {
 
 export function ResourceDetailSkeleton({ rows = 8, className }: ResourceDetailSkeletonProps) {
   return (
-    <div
-      className={cn("fp-max-w-[77rem] fp-space-y-4", className)}
-      aria-busy="true"
-      aria-live="polite"
-    >
+    <div className={cn("fp-space-y-4", className)} aria-busy="true" aria-live="polite">
       <div className="fp-flex fp-items-center fp-justify-between">
         <Skeleton className="fp-h-7 fp-w-72" />
         <Skeleton className="fp-h-9 fp-w-20" />
@@ -100,7 +96,7 @@ export interface DashboardSkeletonProps {
 export function DashboardSkeleton({ metrics = 4, className }: DashboardSkeletonProps) {
   return (
     <div className={cn("fp-space-y-6", className)} aria-busy="true" aria-live="polite">
-      <Skeleton className="fp-h-7 fp-w-56" />
+      <Skeleton className="fp-h-8 fp-w-56" />
       <div className="fp-grid fp-grid-cols-1 fp-gap-3 sm:fp-grid-cols-2 lg:fp-grid-cols-4">
         {Array.from({ length: metrics }).map((_, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: skeleton placeholder.

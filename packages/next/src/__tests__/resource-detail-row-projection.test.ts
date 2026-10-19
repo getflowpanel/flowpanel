@@ -5,6 +5,7 @@ import { KVRow, PageHeader } from "@flowpanel/react";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { ResourceDetailPage } from "../pages/resource-detail";
+import { withoutScope } from "./without-scope";
 
 /**
  * Collects the props of every element of `type` in the RSC-returned tree.
@@ -500,9 +501,10 @@ describe("ResourceDetailPage — row projection", () => {
             },
           },
         ),
-        resource({ __name: "payments" }, { columns: ["id", "userId", "amount"] }),
+        resource({ __name: "payments" }, { columns: ["id", "userId", "amount"], scope: "bypass" }),
       ],
     });
+    withoutScope(config, "payments");
     const resourceCfg = config.resourcesByName.get("users");
     if (!resourceCfg) throw new Error("users resource not registered");
 

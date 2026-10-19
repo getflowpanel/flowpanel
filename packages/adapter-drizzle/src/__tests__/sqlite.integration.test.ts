@@ -150,6 +150,19 @@ describe("drizzleAdapter SQLite CRUD", () => {
     expect((r.rows[0] as any).age).toBe(44);
   });
 
+  it("puts rows with no value last in both sort directions", async () => {
+    sqlite
+      .prepare("INSERT INTO users (id, email, name) VALUES ('noage', 'noage@e.co', 'No age')")
+      .run();
+    const last = async (dir: "asc" | "desc") => {
+      const r = await adapter.list(users, ctx({ sort: { field: "age", dir }, pageSize: 50 }));
+      return { first: (r.rows[0] as any).age, last: (r.rows.at(-1) as any).id };
+    };
+    expect(await last("asc")).toEqual({ first: 20, last: "noage" });
+    expect(await last("desc")).toEqual({ first: 44, last: "noage" });
+    sqlite.prepare("DELETE FROM users WHERE id = 'noage'").run();
+  });
+
   it("get returns a row or null", async () => {
     expect(await adapter.get(users, { ...ctx(), id: "u3" } as any)).toMatchObject({
       id: "u3",

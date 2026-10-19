@@ -31,6 +31,8 @@ export interface FakeRoute {
   noMain?: boolean;
   /** Renders the rows as phone cards instead of a table. */
   cards?: boolean;
+  /** The response body, as the server sent it. */
+  body?: string;
 }
 
 const ORIGIN = "http://localhost:3000";
@@ -153,7 +155,8 @@ export class FakePage implements SmokePage {
       for (const handler of this.handlers) handler({ type: () => "error", text: () => text });
     }
     const status = this.current().status ?? 200;
-    return { status: () => status };
+    const body = this.current().body ?? "";
+    return { status: () => status, text: async () => body };
   }
 
   url(): string {

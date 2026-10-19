@@ -29,8 +29,15 @@ import {
 
 const MIGRATION_FILE = "flowpanel/migrations/0001_init.sql";
 
-const HEADER_HINT = (layout: string) =>
-  `${layout} renders a <header> above every page. The admin's sidebar fills the window's height, so under that header each page scrolls by the header's height. Set shell: "tabs" in flowpanel.config.ts to put the admin's navigation under your header instead.`;
+const HEADER_HINT = (layout: string, tag: string) =>
+  `${layout} renders <${tag}> above every page. The admin's sidebar fills the window's height, so under that header each page scrolls by the header's height. Set shell: "tabs" in flowpanel.config.ts to put the admin's navigation under your header instead.`;
+
+const HEADER_TAG = /<(header|(?:[A-Za-z][\w.]*)?(?:Header|Navbar|NavBar|TopBar|Topbar))[\s/>]/;
+
+/** The header a root layout renders above every page: a `<header>` or a component such as `<SiteHeader />`. */
+export function hostHeaderTag(source: string): string | null {
+  return HEADER_TAG.exec(source)?.[1] ?? null;
+}
 
 export interface InitPlan {
   plan: FilesystemPlan;
@@ -229,9 +236,10 @@ export async function planInit(
   let manualHydrationFix: string | null = null;
   if (hostLayout) {
     const source = await fs.readFile(path.join(cwd, hostLayout), "utf8");
-    if (/<header[\s>]/.test(source)) {
-      warnings.push(HEADER_HINT(hostLayout));
-      run.ui.info(HEADER_HINT(hostLayout));
+    const header = hostHeaderTag(source);
+    if (header) {
+      warnings.push(HEADER_HINT(hostLayout, header));
+      run.ui.info(HEADER_HINT(hostLayout, header));
     }
     const patched = patchLayoutWithSuppressHydration(source);
     if (patched) {

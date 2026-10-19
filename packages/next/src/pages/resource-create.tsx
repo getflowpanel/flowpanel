@@ -2,12 +2,11 @@ import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowp
 import { assertResourceScope, mergeLabels, resolveOperationAccess } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
 import { AutoForm, PageHeader } from "@flowpanel/react";
-import { writableColumns } from "../actions/field-pipeline";
+import { createFormFields, writableColumns } from "../actions/field-pipeline";
 import { buildApiHref, buildHref } from "../runtime/href";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAccessIfSet } from "../runtime/require-access";
 import {
-  declaredFormFields,
   deniedFieldWrites,
   generatedColumnFields,
   hiddenFormFields,
@@ -45,7 +44,7 @@ export async function ResourceCreatePage({
 
   const intro = config.adapter.introspect(writeTarget(resource));
   const action = buildApiHref(config, name, "create");
-  const declared = declaredFormFields(resource, "create");
+  const declared = await createFormFields(config, resource, reqCtx);
   const offered = writableColumns(resource, intro.columns, declared).filter(
     (column) => declared || !systemTimestamp(column),
   );

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { serverErrorText } from "../server-error";
 import { isUnderAdminPath, noNavigation, normalizeAdminPath, runSmoke, withTab } from "../walk";
 import { element, query } from "./fake-dom";
 import { FakePage, type FakeRoute } from "./fake-page";
@@ -144,6 +145,30 @@ describe("runSmoke", () => {
     const page = new FakePage(admin({ "/admin/orders": { navLinks: NAV, status: 500 } }));
 
     await expect(runSmoke(page, {}, null)).rejects.toThrow("/admin/orders: responded 500");
+  });
+
+  it("names the server's config error from a development 500 and blames nothing else", async () => {
+    const message =
+      '[flowpanel] resource "invoices" defaultSort.field: it points at column "createdAtt". Did you mean "createdAt"?';
+    const data = JSON.stringify({ err: { name: "FlowpanelConfigError", message } });
+    const page = new FakePage(
+      admin({
+        "/admin": {
+          status: 500,
+          body: `<html><script id="__NEXT_DATA__" type="application/json">${data}</script></html>`,
+        },
+      }),
+    );
+
+    const error = await runSmoke(page, {}, null).catch((thrown: unknown) => thrown);
+    expect(String(error)).toContain(`/admin: responded 500: ${message}`);
+    expect(String(error)).not.toContain(noNavigation("/admin"));
+  });
+
+  it("finds a FlowPanel error in a streamed 500 body too", () => {
+    const body = String.raw`self.__next_f.push([1,"E:{\"message\":\"[flowpanel] resource \\\"orders\\\" columns[0]: boom\"}"])`;
+    expect(serverErrorText(body)).toBe('[flowpanel] resource "orders" columns[0]: boom');
+    expect(serverErrorText("<html>Internal Server Error</html>")).toBeNull();
   });
 
   it("fails at once with Next's error text when a render crashed past the admin", async () => {

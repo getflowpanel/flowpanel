@@ -98,6 +98,41 @@ export function scaffoldPlural(tableName: string): string | null {
   return humanize([...words, plural].join(" "));
 }
 
+const ICONS: ReadonlyArray<readonly [RegExp, string]> = [
+  [
+    /^(?:users?|customers?|members?|accounts?|people|persons?|contacts?|clients?|employees?|staff)$/,
+    "users",
+  ],
+  [/^(?:orders?|carts?|purchases?|checkouts?)$/, "shopping-cart"],
+  [/^(?:products?|items?|inventory|stocks?|skus?|listings?)$/, "package"],
+  [
+    /^(?:invoices?|payments?|charges?|transactions?|billing|subscriptions?|refunds?|payouts?)$/,
+    "credit-card",
+  ],
+  [/^(?:categories|category|tags?|labels?)$/, "tags"],
+  [/^(?:messages?|emails?|mails?|notifications?)$/, "mail"],
+  [/^(?:events?|logs?|audits?|activit(?:y|ies)|histor(?:y|ies))$/, "history"],
+  [/^(?:settings?|configs?|preferences?)$/, "settings"],
+  [/^(?:posts?|articles?|pages?|docs?|documents?|notes?|comments?)$/, "file-text"],
+  [/^(?:tasks?|jobs?|runs?|tickets?|issues?)$/, "clipboard-list"],
+  [/^(?:monitors?|checks?|alerts?|metrics?|incidents?)$/, "activity"],
+];
+
+/** A navigation icon guessed from a table's name, its last word first: `order_items` gets "package". */
+export function scaffoldIcon(tableName: string): string {
+  const words = tableName
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[\s_-]+/)
+    .filter(Boolean)
+    .reverse();
+  for (const word of words) {
+    const found = ICONS.find(([pattern]) => pattern.test(word));
+    if (found) return found[1];
+  }
+  return "database";
+}
+
 interface Planned {
   kept: Array<{ column: ColumnDescription; kind: ColumnKind }>;
   enums: Array<{ column: ColumnDescription; kind: ColumnKind }>;
@@ -113,7 +148,13 @@ function plan(table: TableDescription): Planned {
 /** The option lines of a scaffolded `resource(...)` call, indented two spaces. */
 function optionLines(
   { kept, enums }: Planned,
-  options: { hidden: boolean; enumConsts: boolean; name?: string; plural?: string | null },
+  options: {
+    hidden: boolean;
+    enumConsts: boolean;
+    name?: string;
+    plural?: string | null;
+    icon: string;
+  },
 ): string[] {
   const search = kept
     .filter(({ column }) => SEARCH_KEYS.includes(column.key) && column.dataType === "string")
@@ -126,6 +167,7 @@ function optionLines(
   if (options.name !== undefined) lines.push(`  name: ${JSON.stringify(options.name)},`);
   if (options.plural) lines.push(`  plural: ${JSON.stringify(options.plural)},`);
   if (options.hidden) lines.push("  hidden: true,");
+  else lines.push(`  icon: ${JSON.stringify(options.icon)},`);
   lines.push("  columns: [");
   for (const { column, kind } of kept) {
     lines.push(`    ${columnSource(column, kind, options.enumConsts)},`);
@@ -156,6 +198,7 @@ export function renderResourceEntry(
       ...options,
       enumConsts: false,
       plural: scaffoldPlural(options.name ?? table.tableName),
+      icon: scaffoldIcon(options.name ?? table.tableName),
     }),
     "})",
   ].join("\n");
@@ -183,6 +226,7 @@ export function renderResourceFile(table: TableDescription, options: RenderOptio
       hidden: options.hidden,
       enumConsts: true,
       plural: scaffoldPlural(table.tableName),
+      icon: scaffoldIcon(table.tableName),
     }),
   );
   lines.push("});", "");

@@ -15,7 +15,7 @@ import { moneyDecimals, parseMoney } from "@flowpanel/core/format";
 import { writeTarget } from "@flowpanel/core/internal";
 import { actionFailure } from "../runtime/action-failure";
 import { coerceRowByColumns } from "../runtime/coerce-values";
-import { fieldLabels } from "../runtime/field-labels";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
 import { moneyExample, moneyShape } from "../runtime/money-field";
 import {
   type RequestBodyError,
@@ -43,6 +43,7 @@ function formFieldDefs(
     resource,
     columns.filter((column) => writable.has(column.name)),
     mode,
+    namedFields(config),
   );
 }
 
@@ -91,7 +92,7 @@ function moneyErrors(
   const { columns } = config.adapter.introspect(writeTarget(resource));
   const errors: Record<string, string> = {};
   const fields = formFieldDefs(resource, config, mode);
-  const labelOf = fieldLabels(resource, fields);
+  const labelOf = fieldLabels(resource, fields, namedFields(config));
   for (const field of fields) {
     if (field.type !== "money") continue;
     const raw = fd.get(field.name);
@@ -137,7 +138,7 @@ function coerceFormData(
     raw,
     labels,
     resolveFormatting(config.formatting).timeZone,
-    fieldLabels(resource, declaredFormFields(resource, mode)),
+    fieldLabels(resource, declaredFormFields(resource, mode), namedFields(config)),
   );
   const values = coerced.values;
   const fieldErrors = { ...coerced.fieldErrors, ...invalidMoney };

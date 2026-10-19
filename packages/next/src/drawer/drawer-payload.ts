@@ -10,8 +10,9 @@ import type {
 } from "@flowpanel/core";
 import { mergeLabels } from "@flowpanel/core";
 import { isColumnDef } from "../runtime/column-defs";
-import { fieldLabels } from "../runtime/field-labels";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
 import { buildHref } from "../runtime/href";
+import { markdownFields, withMarkdown } from "../runtime/markdown";
 import { projectRowFields } from "../runtime/project-row";
 import { filterColumnsByReadableFields, resolveReadableColumns } from "../runtime/readable-fields";
 import { type RecordActions, recordActions } from "../runtime/record-actions";
@@ -109,10 +110,11 @@ function buildFieldFormats(columns: ReadonlyArray<unknown>): Record<string, Colu
 
 /** Field → the label it shows everywhere else, for each field the reader may see. */
 function buildFieldLabels(
+  config: ResolvedAdminConfig,
   resource: ResourceConfig,
   row: Record<string, unknown>,
 ): Record<string, string> {
-  const labelOf = fieldLabels(resource);
+  const labelOf = fieldLabels(resource, [], namedFields(config));
   return Object.fromEntries(Object.keys(row).map((field) => [field, labelOf(field)]));
 }
 
@@ -179,7 +181,7 @@ async function serializeTab(
     return String(col.field ?? "");
   });
   const shown = columns.filter((c) => c);
-  const labelOf = fieldLabels(target);
+  const labelOf = fieldLabels(target, [], namedFields(config));
   return {
     kind: "resource",
     key: tab.key,
@@ -263,14 +265,21 @@ export async function buildDrawerPayload({
     actions: drawerActions,
     prerendered: await prerenderDrawerCells(
       columns,
-      fieldRenders(
-        [drawer.fields, ...(drawer.tabs ?? []).map((t) => ("fields" in t ? t.fields : undefined))],
+      withMarkdown(
+        fieldRenders(
+          [
+            drawer.fields,
+            ...(drawer.tabs ?? []).map((t) => ("fields" in t ? t.fields : undefined)),
+          ],
+          readable,
+        ),
+        markdownFields(resource),
         readable,
       ),
       projectedRow,
       reqCtx,
     ),
-    labels: buildFieldLabels(resource, projectedRow),
+    labels: buildFieldLabels(config, resource, projectedRow),
     formats: buildFieldFormats(columns),
     references: await referenceLinks(config, reqCtx, columns, projectedRow),
     detailHref: resource.options.detail ? buildHref(config, name, id) : null,

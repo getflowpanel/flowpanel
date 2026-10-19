@@ -35,6 +35,8 @@ The actor is `auth.userId` of the session, and their name or email comes from `t
 
 Each record of an audited resource gets a History tab beside its other tabs, newest event first, twenty to a page. Each event shows the action, who and when, and each changed field as `old → new`, formatted the way the list formats that column. A reference shows the record it points at by its `labelField`, when the reader may read that record, else its id.
 
+A long value, such as a 1 MB text edit or a large JSON object, shows its first 400 characters with **Show full value**, which loads the rest in place. One event sends at most 2,000 characters of such previews, so a page of events stays small whatever was stored. The table keeps every value whole in `diff` and a bounded copy in `diff_preview`; History and the Audit log read only the copy. Each value keeps its first 400 characters and one event keeps 4,000 in all, so a page of large edits stays small. An event recorded before 0.4 whose diff was too large to copy shows "Changes too large to preview" above each field the reader may see, and each field's **Show full value** loads it; with no such field it shows "No readable changes". The full value comes from `GET <paths.api>/audit/<event id>/value?field=<field>&side=before|after`, which answers `{ ok: true, value }` with a string as stored and an object as indented JSON, under the same rules as the page: a field, an event or a side the reader may not see answers 404.
+
 A reader sees only the fields their `fieldAccess` lets them read. Hide the tab for one resource with `detail.history`, or stop auditing it with `audit: false`:
 
 ```ts

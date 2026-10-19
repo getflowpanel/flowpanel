@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./hydration";
 
 test("emergency read-only mode hides writes and rejects direct mutations", async ({ page }) => {
   await page.goto("/admin/products");

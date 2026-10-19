@@ -122,4 +122,24 @@ describe("AdminShell — variant prop", () => {
     const active = screen.getByText("Users").closest("a");
     expect(active?.getAttribute("aria-current")).toBe("page");
   });
+
+  it("fills only the height a host header and footer leave, in either shell", () => {
+    for (const variant of ["tabs", "sidebar"] as const) {
+      const { container } = render(
+        <AdminShell
+          variant={variant}
+          navGroups={[{ items: [{ label: "Users", href: "/admin/users" }] }]}
+          currentPath="/admin/users"
+        >
+          <div>content</div>
+        </AdminShell>,
+      );
+      const root = container.firstElementChild?.className ?? "";
+      expect(root).toMatch(
+        variant === "tabs" ? /100dvh-var\(--fp-outside/ : /100dvh-var\(--fp-sticky-top/,
+      );
+      expect(root).not.toContain("fp-min-h-screen");
+      cleanup();
+    }
+  });
 });

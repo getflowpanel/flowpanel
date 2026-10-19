@@ -4,6 +4,7 @@ import * as schema from "@/db/schema";
 const Status = enumOf(schema.monitorStatus.enumValues, { active: "Active", paused: "Paused", error: "Error" });
 
 export const monitors = resource(schema.monitors, {
+  icon: "activity",
   columns: [
     "id",
     { field: "customerId", label: "Customer", reference: { resource: "customers", labelField: "email" } },

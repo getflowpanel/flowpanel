@@ -130,7 +130,9 @@ export declare function AuditPage(): ReactNode;
 export const boardUrl = "/admin/queues/board";
 export declare const emailQueue: Parameters<typeof queue>[0];
 export const adapter = drizzleAdapter({ db, schema });
-export const resources = [resource(schema.customers, { columns: ["email", "plan"] })];
+export const resources = [
+  resource(schema.customers, { columns: ["email", "plan"], scope: "bypass" }),
+];
 export declare function findCustomer(
   db: Db,
   id: number,

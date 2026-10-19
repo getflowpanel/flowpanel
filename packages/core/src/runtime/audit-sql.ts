@@ -6,7 +6,8 @@ import type {
   Scope,
 } from "@flowpanel/core";
 import { isAllTenants } from "../all-tenants";
-import { type AuditSqlDialect, Statement, timestampValue, where } from "./audit-sql-where";
+import { AUDIT_PREVIEW_KEY, AUDIT_TOO_LARGE_KEY, auditDiffPreview } from "./audit-preview";
+import { type AuditSqlDialect, isUuid, Statement, timestampValue, where } from "./audit-sql-where";
 
 export type { AuditSqlDialect };
 
@@ -28,7 +29,7 @@ const TABLE = "flowpanel_audit_log";
 const FACET_LIMIT = 200;
 /** The Audit log counts this many events at most, so a page view never counts a whole history. */
 export const AUDIT_COUNT_CAP = 10_000;
-const VALUES_PER_ROW = 10;
+const VALUES_PER_ROW = 11;
 /** Bound values one statement may carry: Prisma allows 32,767, SQLite builds before 3.32 allow 999. */
 const PLACEHOLDER_LIMIT: Record<AuditSqlDialect, number> = {
   postgresql: 32_767,
@@ -80,10 +81,22 @@ function parsedJson(raw: unknown): unknown {
   }
 }
 
+/** The fields the 0.3 to 0.4 migration listed for an old diff too large to copy, each as an empty preview. */
+function tooLargeSide(fields: unknown): Record<string, unknown> | null {
+  if (!Array.isArray(fields)) return null;
+  return Object.fromEntries(
+    fields
+      .filter((field) => typeof field === "string")
+      .map((field) => [field, { [AUDIT_PREVIEW_KEY]: { text: "", length: 0 } }]),
+  );
+}
+
 /** A stored diff, or `null` for none or one that does not read as `{ before, after }`. */
-function readDiff(raw: unknown): AuditLogEntry["diff"] {
-  const parsed = parsedJson(raw);
-  if (!isRecord(parsed) || !("before" in parsed) || !("after" in parsed)) return null;
+function readDiff(parsed: unknown): AuditLogEntry["diff"] {
+  if (!isRecord(parsed)) return null;
+  const mark = parsed[AUDIT_TOO_LARGE_KEY];
+  if (isRecord(mark)) return { before: tooLargeSide(mark.before), after: tooLargeSide(mark.after) };
+  if (!("before" in parsed) || !("after" in parsed)) return null;
   return { before: parsed.before, after: parsed.after };
 }
 
@@ -91,14 +104,32 @@ function text(raw: unknown): string | null {
   return raw === null || raw === undefined ? null : String(raw);
 }
 
-function selectColumns(dialect: AuditSqlDialect): string {
+/** The columns of one event, with `diff` read from `column`: the bounded preview for a page, the whole diff for one value. */
+function selectColumns(dialect: AuditSqlDialect, column: "diff" | "diff_preview"): string {
   if (dialect === "postgresql") {
-    return "id::text AS id, actor_id, actor_name, action, resource, target_id, diff::text AS diff, to_char(at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS.MS') AS at";
+    return `id::text AS id, actor_id, actor_name, action, resource, target_id, ${column}::text AS diff, to_char(at AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS.MS') AS at`;
   }
   if (dialect === "mysql") {
-    return "id, actor_id, actor_name, action, resource, target_id, CAST(diff AS CHAR) AS diff, CAST(at AS CHAR) AS at";
+    return `id, actor_id, actor_name, action, resource, target_id, CAST(${column} AS CHAR) AS diff, CAST(at AS CHAR) AS at`;
   }
-  return "id, actor_id, actor_name, action, resource, target_id, diff, at";
+  return `id, actor_id, actor_name, action, resource, target_id, ${column} AS diff, at`;
+}
+
+function entryOf(row: Record<string, unknown>): AuditLogEntry {
+  const parsed = parsedJson(row.diff);
+  return {
+    id: String(row.id),
+    actorId: text(row.actor_id),
+    actorName: text(row.actor_name),
+    action: String(row.action),
+    resource: text(row.resource),
+    targetId: text(row.target_id),
+    diff: readDiff(parsed),
+    ...(isRecord(parsed) && Object.hasOwn(parsed, AUDIT_TOO_LARGE_KEY)
+      ? { diffTooLarge: true }
+      : {}),
+    at: readTimestamp(row.at),
+  };
 }
 
 function count(dialect: AuditSqlDialect, raw: unknown): number {
@@ -117,8 +148,11 @@ function insert(
   ids: ReadonlyArray<string | undefined>,
 ): Statement {
   const statement = new Statement().text(
-    `INSERT INTO ${TABLE} (actor_id, actor_name, action, resource, target_id, diff, ip, user_agent, scope_key, at) VALUES `,
+    `INSERT INTO ${TABLE} (actor_id, actor_name, action, resource, target_id, diff, diff_preview, ip, user_agent, scope_key, at) VALUES `,
   );
+  const json = dialect === "postgresql" ? "::jsonb" : "";
+  const diff = jsonText(event.diff);
+  const preview = jsonText(auditDiffPreview(event.diff));
   ids.forEach((targetId, index) => {
     statement.text(index === 0 ? "(" : ", (");
     for (const value of [
@@ -130,7 +164,7 @@ function insert(
     ]) {
       statement.value(value).text(", ");
     }
-    statement.value(jsonText(event.diff), dialect === "postgresql" ? "::jsonb" : "").text(", ");
+    statement.value(diff, json).text(", ").value(preview, json).text(", ");
     for (const value of [event.ip ?? null, event.userAgent ?? null, auditScopeKey(event.scope)]) {
       statement.value(value).text(", ");
     }
@@ -176,7 +210,7 @@ export function sqlAuditLog(dialect: AuditSqlDialect, executor: AuditSqlExecutor
       const limit = bounded(query.limit, 500);
       const offset = bounded(query.offset, Number.MAX_SAFE_INTEGER);
       const page = where(
-        new Statement().text(`SELECT ${selectColumns(dialect)} FROM ${TABLE}`),
+        new Statement().text(`SELECT ${selectColumns(dialect, "diff_preview")} FROM ${TABLE}`),
         dialect,
         query,
       ).text(` ORDER BY at DESC, id DESC LIMIT ${limit} OFFSET ${offset}`);
@@ -188,19 +222,21 @@ export function sqlAuditLog(dialect: AuditSqlDialect, executor: AuditSqlExecutor
       const [rows, totals] = await Promise.all([executor.rows(page), executor.rows(total)]);
       const found = count(dialect, totals[0]?.n);
       return {
-        entries: rows.map((row) => ({
-          id: String(row.id),
-          actorId: text(row.actor_id),
-          actorName: text(row.actor_name),
-          action: String(row.action),
-          resource: text(row.resource),
-          targetId: text(row.target_id),
-          diff: readDiff(row.diff),
-          at: readTimestamp(row.at),
-        })),
+        entries: rows.map(entryOf),
         total: Math.min(found, AUDIT_COUNT_CAP),
         capped: found > AUDIT_COUNT_CAP,
       };
+    },
+
+    async entry(query) {
+      if (dialect === "postgresql" && !isUuid(query.id ?? "")) return null;
+      const statement = where(
+        new Statement().text(`SELECT ${selectColumns(dialect, "diff")} FROM ${TABLE}`),
+        dialect,
+        query,
+      ).text(" LIMIT 1");
+      const [row] = await executor.rows(statement);
+      return row ? entryOf(row) : null;
     },
 
     async facets(query): Promise<AuditLogFacets> {

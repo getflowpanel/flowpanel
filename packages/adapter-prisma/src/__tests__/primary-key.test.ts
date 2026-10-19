@@ -155,3 +155,26 @@ describe("prismaAdapter with an @@id composite key", () => {
     });
   });
 });
+
+describe("prismaAdapter sorting an optional field", () => {
+  it("puts rows with no value last in both directions", async () => {
+    const prisma = makeMockPrisma();
+    prisma._delegate.findMany.mockResolvedValue([]);
+    prisma._delegate.count.mockResolvedValue(0);
+    const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
+    for (const dir of ["asc", "desc"] as const) {
+      await adapter.list("Article", {
+        filters: {},
+        sort: { field: "deletedAt", dir },
+        page: 1,
+        pageSize: 10,
+        search: "",
+      } as never);
+    }
+    const orders = prisma._delegate.findMany.mock.calls.map((call) => call[0]?.orderBy);
+    expect(orders).toEqual([
+      [{ deletedAt: { sort: "asc", nulls: "last" } }],
+      [{ deletedAt: { sort: "desc", nulls: "last" } }],
+    ]);
+  });
+});

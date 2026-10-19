@@ -81,7 +81,7 @@ function recordMenu(tree: ReactNode) {
   return findAll(actions, RecordActionsBar)[0];
 }
 
-function editLink(emphasis?: "primary" | "secondary") {
+function editLink(emphasis?: "primary" | "secondary"): Promise<HTMLElement> {
   render(
     <RecordActionsBar
       resource="users"
@@ -94,14 +94,14 @@ function editLink(emphasis?: "primary" | "secondary") {
       {...(emphasis ? { editEmphasis: emphasis } : {})}
     />,
   );
-  return screen.getByRole("link", { name: "Edit" });
+  return screen.findByRole("link", { name: "Edit" });
 }
 
 describe("the record page's edit button", () => {
   it("is secondary by default", async () => {
     const { tree } = await renderDetail({ label: "User", columns: ["id"] });
     expect(recordMenu(tree)?.editEmphasis).toBeUndefined();
-    expect(editLink().dataset.variant).toBe("outline");
+    expect((await editLink()).dataset.variant).toBe("outline");
   });
 
   it("is primary when update says so", async () => {
@@ -111,6 +111,6 @@ describe("the record page's edit button", () => {
       update: { emphasis: "primary" },
     });
     expect(recordMenu(tree)?.editEmphasis).toBe("primary");
-    expect(editLink("primary").dataset.variant).toBe("default");
+    expect((await editLink("primary")).dataset.variant).toBe("default");
   });
 });

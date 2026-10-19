@@ -46,6 +46,8 @@ export function listEmptyProps(
   plural: string,
   narrowed: {
     filtered: boolean;
+    /** The reader narrowed the list beyond its defaults, so a way back is worth offering. */
+    resettable?: boolean;
     /** Only a search narrowed the list, no filter. */
     searchOnly?: boolean;
     params: URLSearchParams;
@@ -62,14 +64,22 @@ export function listEmptyProps(
     const title =
       (query && empty?.searched) ||
       empty?.filtered ||
-      (searchOnly ? labels.table.noSearchMatch : labels.widget.filtered);
+      (searchOnly
+        ? labels.table.noSearchMatch
+        : narrowed.resettable === false
+          ? labels.table.noDefaultMatch
+          : labels.widget.filtered);
     return {
       emptyTitle: formatLabel(title, { query }),
-      emptyAction: linkButton(
-        clearedHref(config, name, narrowed.params, narrowed.defaulted ?? []),
-        searchOnly ? labels.filters.clearSearch : labels.filters.clear,
-        "outline",
-      ),
+      ...(narrowed.resettable === false
+        ? {}
+        : {
+            emptyAction: linkButton(
+              clearedHref(config, name, narrowed.params, narrowed.defaulted ?? []),
+              searchOnly ? labels.filters.clearSearch : labels.filters.clear,
+              "outline",
+            ),
+          }),
     };
   }
   const creatable = narrowed.creatable === true;

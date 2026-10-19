@@ -39,6 +39,21 @@ Run `pnpm flowpanel migrate --dry-run` before applying. On PostgreSQL and SQLite
 
 Use the Redis driver when more than one process serves the admin, and treat events as refresh signals, not a durable log. Keep the queue board on a protected network, and give `queue()` a strong `boardSecret` that matches the board's `auth.secret`. See [Realtime](/docs/guides/realtime) and [Queues](/docs/guides/queues).
 
+### Page weight
+
+The admin is one catch-all route, but each page type loads its own client code first: a list starts without the forms' code, which then loads while the browser is idle (or when New or Edit is pointed at), and a chart loads Recharts the first time it draws. First-load JavaScript of the demo app in a production build, gzip, measured before the idle form preload:
+
+| Page | Turbopack | webpack |
+| --- | --- | --- |
+| List | 245 KB | 241 KB |
+| Form | 293 KB | 284 KB |
+| Record | 253 KB | 250 KB |
+| Dashboard with charts | 387 KB | 396 KB |
+
+Next.js 16 builds with Turbopack unless you pass `--webpack`; Next.js 15.5 builds with webpack. The admin splits its code the same way under both, and the two land within 3% of each other on every page above. CI holds the demo's webpack admin first load to a budget.
+
+Your own client widgets add to every admin page unless they load their heavy parts on use; see [Keep heavy code off other pages](/docs/customization/custom-widgets#keep-heavy-code-off-other-pages). The admin needs JavaScript in the browser; see [JavaScript is required](/docs/introduction/limits#javascript-is-required).
+
 ### Observability
 
 Log FlowPanel request IDs, alert on auth, scope, rate-limit, adapter and post-commit failures, and document how to turn off writes and restore from backup. See [Errors](/docs/reference/errors).
@@ -306,7 +321,7 @@ The New button follows `access.create`, not the scope, so it cannot know that a 
 
 ### Fail closed
 
-With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither, or whose predicate adds no constraint, throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
+With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither stops `defineAdmin` at boot with a message that names it, and one whose predicate adds no constraint throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
 
 `ctx.sql`, `ctx.db` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself, reading the tenant from `ctx.session`.
 
@@ -403,6 +418,8 @@ The actor is `auth.userId` of the session, and their name or email comes from `t
 ### History on a record
 
 Each record of an audited resource gets a History tab beside its other tabs, newest event first, twenty to a page. Each event shows the action, who and when, and each changed field as `old → new`, formatted the way the list formats that column. A reference shows the record it points at by its `labelField`, when the reader may read that record, else its id.
+
+A long value, such as a 1 MB text edit or a large JSON object, shows its first 400 characters with **Show full value**, which loads the rest in place. One event sends at most 2,000 characters of such previews, so a page of events stays small whatever was stored. The table keeps every value whole in `diff` and a bounded copy in `diff_preview`; History and the Audit log read only the copy. Each value keeps its first 400 characters and one event keeps 4,000 in all, so a page of large edits stays small. An event recorded before 0.4 whose diff was too large to copy shows "Changes too large to preview" above each field the reader may see, and each field's **Show full value** loads it; with no such field it shows "No readable changes". The full value comes from `GET <paths.api>/audit/<event id>/value?field=<field>&side=before|after`, which answers `{ ok: true, value }` with a string as stored and an object as indented JSON, under the same rules as the page: a field, an event or a side the reader may not see answers 404.
 
 A reader sees only the fields their `fieldAccess` lets them read. Hide the tab for one resource with `detail.history`, or stop auditing it with `audit: false`:
 
@@ -644,7 +661,7 @@ FlowPanel 0.4 publishes three packages: `@flowpanel/kit`, `@flowpanel/cli` and `
 pnpm up "@flowpanel/*" --latest
 ```
 
-If 0.3's `init` wrote `flowpanel/migrations/0001_init.sql`, run `migrate` once more. The 0.4 audit log writes two columns, `actor_name` and `scope_key`, that a 0.3 table lacks:
+If 0.3's `init` wrote `flowpanel/migrations/0001_init.sql`, run `migrate` once more. The 0.4 audit log writes three columns, `actor_name`, `scope_key` and `diff_preview`, that a 0.3 table lacks. The `0002` also copies each old event's diff under 8 KB into `diff_preview`; a larger old one shows "Changes too large to preview" in History and the Audit log, with **Show full value** on each of its fields:
 
 ```bash
 pnpm flowpanel migrate
@@ -659,6 +676,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | 0.3 | 0.4 |
 | --- | --- |
 | **Packages and imports** | |
+| Node.js below 20.19, or Node.js 21 | Node.js 20.19+ or 22.12+: the `engines.node` of `@flowpanel/kit` and `@flowpanel/cli` now asks for 20.19 or 22.12 and newer, and Yarn, or npm and pnpm with `engine-strict`, refuse the install on an older one |
 | an import from `@flowpanel/core`, `next`, `react`, `client`, `charts`, `test` or an adapter package | the same names from `@flowpanel/kit` or its subpath: `/next`, `/react`, `/client`, `/charts`, `/test`, `/drizzle`, `/prisma`, `/bullmq` |
 | `areaChart`, `barChart`, `lineChart`, `pieChart` from `@flowpanel/kit/charts` | the same builders from `@flowpanel/kit` |
 | chart components from `@flowpanel/kit/charts/runtime` | the same components from `@flowpanel/kit/charts` |
@@ -698,16 +716,19 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | a numeric key in a resource's `columns` or `filters` | string keys of the row only (`keyof Row & string`) |
 | code that matched error text such as "Duplicate resource name" | every config error is a `FlowpanelConfigError` reading `[flowpanel] <where>: <what is wrong>. <how to fix>.`; match its `where` |
 | a resource or queue named `export` or `palette`, or a dashboard or page at `/audit-log` | other names: these are reserved |
+| a `select`, `radio` or `multiselect` field whose fixed `defaultValue` is not among its fixed `options`, which the form dropped | a default that is one of the options, or `""` or `[]` for no choice: `defineAdmin` now refuses the rest and names the options |
 | `DrawerFieldFormSpec`, a drawer action's `palette`, and the 0.3 `DrawerAction` options | `DrawerAction` takes a `RowAction`'s options apart from `hidden` and `disabled`: `confirm` takes a title, description and button label, and `form` takes `FieldDef`s |
 | `RowAction.hidden` (deprecated) | `when`, which gets the row as `current` with the request context |
 | `labels.noResults`, `labels.searchPlaceholder`, `labels.allOption`, `labels.formError` | `labels.table.noResults`, `table.searchPlaceholder`, `filters.allOption`, `form.error`; `defineAdmin` throws on the old names |
 | `labels.errors.queryTitle` | `labels.errors.loadTitle` and `loadRecordTitle` |
+| `labels.navigation.scrollHint` | removed: the tab strip no longer scrolls, it folds the tabs that do not fit into More; delete the key |
 | a money column format `{ kind: "money", scale: 100 }` (deprecated) | `{ kind: "money", minorUnits: 2 }`, the option a `money` field takes; `defineAdmin` refuses a format that sets both |
 | `ctx.format.money(cents, { scale: 100 })` | `ctx.format.money(cents, { minorUnits: 2 })` |
 | a typed `numeric-range` value on a money column whose format has `minorUnits`, such as `6000:9000` for $60 to $90 in a URL or a string `defaultValue` | major units, the amount the column shows: `60:90`. A `{ gte, lte }` in a `where`, a view, a link's `filter` or a `defaultValue` stays in stored units, and FlowPanel converts it |
 | a CSV of a money column in minor units | Export writes, and import reads, a money column that stores minor units in major units, `59.00` |
 | `delete.confirm` worded for a selection | it titles the Delete of one record too, and takes plural forms, `{ one, other }` with `{n}` |
 | `bulkActions` declared to remove the built-in bulk Delete, or `bulkActions: []` | `delete: { bulk: false }`, or declare your own `delete` bulk action |
+| a resource with no `scope` under an admin-wide `scope`, which 0.3 refused only when a request read it | add `scope: (scope, query) => …` to the resource, or `scope: "bypass"` for a table every tenant shares; `defineAdmin` now refuses it at startup, so `next build`, seed scripts and config tests stop on it too |
 | a resource `scope` function that returns the query unchanged to mean "no tenant" | it now throws; return `allTenants` from the admin-wide `scope` for staff who work across tenants |
 | **Realtime and queues** | |
 | a widget, dashboard or list subscribed to a channel of your own, any channel other than `resource.<name>` | declare it in `realtime.channels`, with `access` if not every operator may see it; `defineAdmin` refuses an undeclared one, and under an admin-wide `scope` its events reach the browser as `{}` unless it is `tenantSafe` |
@@ -745,7 +766,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
 | `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration`; `flowpanel migrate` no longer falls back to them or reads `basePath` |
 | **CLI** | |
-| a 0.3 `flowpanel_audit_log` table without `actor_name` and `scope_key` | run `pnpm flowpanel migrate`, as above |
+| a 0.3 `flowpanel_audit_log` table without `actor_name`, `scope_key` and `diff_preview` | run `pnpm flowpanel migrate`, as above |
 | an extra argument, such as `flowpanel doctor extra`, ignored | every command stops with an error |
 | `migrate` with an unset `DATABASE_URL` falling back to localhost | `migrate` stops before connecting; set the URL your client reads |
 

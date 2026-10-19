@@ -1,6 +1,6 @@
 import type { ResourceConfig } from "@flowpanel/core";
 
-/** The field names a write may carry: the declared form fields, else the resource's columns. */
+/** The field names a write may carry: the declared form fields, else the list's columns and their `secondary` lines. */
 export function declaredWriteFields(
   resource: ResourceConfig,
   fields: ReadonlyArray<{ name: string }> | undefined,
@@ -10,7 +10,8 @@ export function declaredWriteFields(
   for (const column of resource.options.columns ?? []) {
     if (typeof column === "string") names.push(column);
     else if (typeof column === "number" || typeof column === "symbol") names.push(String(column));
-    else if (column.field) names.push(column.field);
+    else if (column.field)
+      names.push(column.field, ...(column.secondary ? [column.secondary] : []));
   }
-  return names;
+  return [...new Set(names)];
 }

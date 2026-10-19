@@ -16,6 +16,7 @@ export interface SmokeLocator {
 
 export interface SmokeResponse {
   status(): number;
+  text(): Promise<string>;
 }
 
 export interface SmokeConsoleMessage {

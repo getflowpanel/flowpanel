@@ -10,6 +10,7 @@ import {
   type ResolvedLabels,
   RU_LABELS,
 } from "../index";
+import { ENGLISH_LABELS } from "./english-labels";
 
 type Tree = string | { [key: string]: Tree };
 
@@ -30,6 +31,7 @@ const SAME_EVERYWHERE = [
   "audit.record",
   "audit.actionOption",
   "heatmap.cell",
+  "fields.id",
 ];
 
 /** Words a language shares with English. */
@@ -86,7 +88,7 @@ const PRESETS: Array<{ name: string; labels: ResolvedLabels; same: string[] }> =
 const PLURAL_FORMS = /\.(zero|one|two|few|many|other)$/;
 
 describe.each(PRESETS)("the $name preset", ({ labels, same }) => {
-  const { plurals: _en, ...english } = DEFAULT_LABELS;
+  const { plurals: _en, ...english } = ENGLISH_LABELS;
   const { plurals, ...translated } = labels;
   const en = paths(english as unknown as Tree);
   const own = paths(translated as unknown as Tree);

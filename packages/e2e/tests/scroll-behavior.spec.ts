@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./hydration";
 
 async function scrollPosition(page: import("@playwright/test").Page): Promise<number> {
   return page.evaluate(() => window.scrollY);

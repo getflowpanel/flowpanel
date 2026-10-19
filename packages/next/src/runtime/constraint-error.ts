@@ -7,7 +7,7 @@ import {
   mergeLabels,
 } from "@flowpanel/core";
 import { writeTarget } from "@flowpanel/core/internal";
-import { fieldLabels } from "./field-labels";
+import { fieldLabels, namedFields } from "./field-labels";
 import { declaredFormFields } from "./resolve-form-fields";
 
 type ViolationKind = "unique" | "reference" | "inUse" | "notNull";
@@ -169,6 +169,7 @@ export function explainConstraint(
       label: fieldLabels(
         resource,
         declaredFormFields(resource, operation === "create" ? "create" : "update"),
+        namedFields(config),
       )(field),
     }),
   });

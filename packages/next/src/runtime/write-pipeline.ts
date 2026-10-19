@@ -10,6 +10,7 @@ import { mergeLabels, reportUnexpectedError, runWithRequestContext } from "@flow
 import { isAuditActive } from "@flowpanel/core/internal";
 import type { z } from "zod";
 import { choiceErrors } from "../actions/field-choices";
+import { typedValueErrors } from "../actions/field-types";
 import { actionFailure, validationFailure } from "./action-failure";
 import {
   actorIdFromSession,
@@ -24,6 +25,7 @@ import {
 import { parseActionInputSchema, validateActionOutput } from "./action-schema";
 import { type ApplyActionResultOptions, applyActionResult } from "./apply-action-result";
 import { type AffectedRows, tenantEvents } from "./audit-tenant";
+import { fieldLabels } from "./field-labels";
 import { resolveRowProjection } from "./project-row";
 import { bindPublisher } from "./publish";
 import { type GuardFrame, type GuardSpec, withResolvedGuards } from "./with-guards";
@@ -130,6 +132,8 @@ export interface WriteEffects {
     diff?: () => Promise<AuditEvent["diff"] | undefined>;
     /** The rows as they were before the write, for a row the write removes. */
     rows?: AffectedRows;
+    /** The write set every value to what the row already held, so there is nothing to record. */
+    unchanged?: boolean;
   };
   /** The resource's `audit: false` opt-out, when the write belongs to one. */
   resourceAudit?: boolean | undefined;
@@ -170,7 +174,11 @@ export async function commitEffects(
   effects: WriteEffects,
 ): Promise<void> {
   if (!result.ok) return;
-  const { diff, rows, ...audit } = effects.audit;
+  const { diff, rows, unchanged, ...audit } = effects.audit;
+  if (unchanged) {
+    await applyActionResult(result, effects.publish);
+    return;
+  }
   const active = isAuditActive(config, effects.resourceAudit);
   const resolvedDiff = diff && active ? await diffOrNone(config, reqCtx, diff) : undefined;
   const event = buildAuditEvent(config, reqCtx, {
@@ -200,16 +208,10 @@ export async function parseDeclaredInput(
   const labels = mergeLabels(config.labels);
   const parsed = await parseActionInputSchema(form, action.inputSchema, input, labels);
   if (parsed.issues) return validationFailure(parsed.issues, reqCtx.requestId);
-  const fieldErrors = await choiceErrors(
-    config,
-    undefined,
-    form,
-    parsed.data,
-    null,
-    reqCtx,
-    labels,
-  );
-  if (!fieldErrors) return parsed.data;
+  const mistyped = typedValueErrors(form, parsed.data, null, labels, fieldLabels(undefined, form));
+  const choices = await choiceErrors(config, undefined, form, parsed.data, null, reqCtx, labels);
+  const fieldErrors = { ...choices, ...mistyped };
+  if (Object.keys(fieldErrors).length === 0) return parsed.data;
   return actionFailure("validation_failed", "Validation failed", {
     fieldErrors,
     ...(reqCtx.requestId ? { requestId: reqCtx.requestId } : {}),

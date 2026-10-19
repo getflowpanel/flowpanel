@@ -12,9 +12,9 @@ import {
 } from "@flowpanel/react";
 import * as React from "react";
 import { cn } from "../utils/cn";
-import { ActionFormDialog } from "./ActionFormDialog";
 import type { ActionFormField, ActionFormFieldErrors } from "./action-form-field";
 import { useActionRunner } from "./use-action-runner";
+import { preloadFormDialog, useFormDialog } from "./use-form-dialog";
 
 /** One action as the menu runs it: where it posts, what it asks first, what it says after. */
 export interface RunnableAction {
@@ -56,8 +56,10 @@ export function ActionMenu({ actions, label, look, leading, onDone, dense }: Act
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<RunnableAction | null>(null);
   const [formAction, setFormAction] = React.useState<RunnableAction | null>(null);
+  const { FormDialog, whenLoaded } = useFormDialog();
   const [menuOpen, setMenuOpen] = React.useState(false);
 
+  const warm = actions.some((a) => a.form && a.form.length > 0) ? preloadFormDialog : undefined;
   const menuActions = actions.filter((a) => a.placement !== "inline");
   const inlineActions = actions.filter((a) => a.placement === "inline");
   if (menuActions.length === 0 && inlineActions.length === 0 && !leading) return null;
@@ -82,7 +84,7 @@ export function ActionMenu({ actions, label, look, leading, onDone, dense }: Act
 
   function onActionClick(action: RunnableAction): void {
     setMenuOpen(false);
-    if (action.form && action.form.length > 0) setFormAction(action);
+    if (action.form && action.form.length > 0) whenLoaded(() => setFormAction(action));
     else if (action.confirm) setConfirming(action);
     else void execute(action);
   }
@@ -119,6 +121,8 @@ export function ActionMenu({ actions, label, look, leading, onDone, dense }: Act
       )}
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
+      onPointerEnter={warm}
+      onFocus={warm}
     >
       {leading}
       {inlineActions.map((a) => (
@@ -178,8 +182,8 @@ export function ActionMenu({ actions, label, look, leading, onDone, dense }: Act
         />
       ) : null}
 
-      {formAction ? (
-        <ActionFormDialog
+      {formAction && FormDialog ? (
+        <FormDialog
           title={formAction.confirm?.title ?? formAction.label}
           {...(formAction.confirm?.description
             ? { description: formAction.confirm.description }

@@ -32,6 +32,8 @@ export interface PrerenderedColumn<Row> {
   content?: "long" | "email" | "link";
   /** The widest value on this page in rem as the cell shows it, which sizes the column. */
   textRem?: number;
+  /** An editable column's choices, labelled as its cells show them. */
+  options?: Array<{ value: string; label: string }>;
 }
 
 export interface PrerenderResult<Row> {
@@ -83,6 +85,21 @@ function shownText<Row>(
   const date = column.type === "date" ? toDateValue(raw) : null;
   if (date) return formatDateValue(date, formatting);
   return typeof raw === "string" || typeof raw === "number" ? String(raw) : "";
+}
+
+/** The values an editable enum or badge column may take, with the labels its badges show. */
+function editChoices(
+  format: ColumnFormat | undefined,
+  enumValues: readonly string[] | undefined,
+): Array<{ value: string; label: string }> | undefined {
+  const badge = typeof format === "object" && format.kind === "badge" ? format : undefined;
+  const values =
+    enumValues ??
+    (badge
+      ? [...new Set([...Object.keys(badge.labels ?? {}), ...Object.keys(badge.tones ?? {})])]
+      : []);
+  if (values.length === 0) return undefined;
+  return values.map((value) => ({ value, label: badge?.labels?.[value] ?? value }));
 }
 
 /** A rendered cell travels in an array, so React asks it for a key; a JSX `render` rarely gives one. */
@@ -166,6 +183,9 @@ export function prerenderResourceCells<Row>(
       else {
         const meta = metaByField?.get(field);
         if (meta) out.type = meta.type;
+        const options =
+          def.editable === true ? editChoices(def.format, meta?.enumValues) : undefined;
+        if (options) out.options = options;
       }
     }
     columns.push(out);

@@ -157,8 +157,10 @@ export async function DashboardPage({
       {dashboard.realtime ? (
         <RealtimeRefresh channels={realtimeChannels(dashboard.realtime)} />
       ) : null}
-      <header className="fp-flex fp-flex-wrap fp-items-center fp-justify-between fp-gap-x-4 fp-gap-y-2">
-        <h1 className="fp-text-xl fp-font-semibold fp-text-ink">{dashboard.label}</h1>
+      <header className="fp-flex fp-flex-wrap fp-items-start fp-justify-between fp-gap-x-4 fp-gap-y-2">
+        <h1 className="fp-text-2xl fp-font-semibold fp-tracking-tight fp-text-ink">
+          {dashboard.label}
+        </h1>
         <div className="fp-flex fp-flex-wrap fp-items-center fp-gap-3">
           {shouldRenderActionsBar(actions.length, dashboard.hideActionsBar) ? (
             <DashboardActionsBar encodedPath={encodedPath} actions={actions} />

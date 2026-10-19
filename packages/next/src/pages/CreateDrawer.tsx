@@ -6,6 +6,7 @@ import {
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
+  preloadAutoForm,
   useUrlState,
 } from "@flowpanel/react";
 import type { ReactNode } from "react";
@@ -25,7 +26,15 @@ export interface CreateDrawerProps {
 /** Opens the list's create drawer from elsewhere on the page, such as an empty list. */
 export function CreateDrawerTrigger({ label }: { label: string }) {
   const url = useUrlState();
-  return <Button onClick={() => url.set({ create: "1" })}>{label}</Button>;
+  return (
+    <Button
+      onClick={() => url.set({ create: "1" })}
+      onPointerEnter={preloadAutoForm}
+      onFocus={preloadAutoForm}
+    >
+      {label}
+    </Button>
+  );
 }
 
 export function CreateDrawer({ label, title, children }: CreateDrawerProps) {
@@ -34,7 +43,13 @@ export function CreateDrawer({ label, title, children }: CreateDrawerProps) {
 
   return (
     <>
-      <Button onClick={() => url.set({ create: "1" })}>{label}</Button>
+      <Button
+        onClick={() => url.set({ create: "1" })}
+        onPointerEnter={preloadAutoForm}
+        onFocus={preloadAutoForm}
+      >
+        {label}
+      </Button>
       <Drawer
         open={open}
         onOpenChange={(next) => {

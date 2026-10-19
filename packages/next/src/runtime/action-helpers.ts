@@ -148,6 +148,14 @@ function sameValue(a: unknown, b: unknown): boolean {
   return false;
 }
 
+/** Whether a write sets any key to something other than what the stored row holds. */
+export function changesRow(
+  current: Record<string, unknown>,
+  values: Record<string, unknown>,
+): boolean {
+  return Object.keys(values).some((key) => !sameValue(current[key], values[key]));
+}
+
 /** Field-by-field before/after diff for an auto-audited mutation. */
 export function computeShallowDiff(
   before: Record<string, unknown> | null,

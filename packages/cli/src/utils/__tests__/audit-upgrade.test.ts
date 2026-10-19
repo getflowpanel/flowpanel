@@ -58,7 +58,7 @@ describe("auditUpgrade", () => {
       path: AUDIT,
       content: await tpl("migration-audit.postgresql.sql.txt"),
     });
-    expect(upgrade?.reason).toContain("lacks the actor_name and scope_key columns");
+    expect(upgrade?.reason).toContain("lacks the actor_name, scope_key and diff_preview columns");
   });
 
   it("adds the PostgreSQL 0002 when the database cannot be told from the config", async () => {

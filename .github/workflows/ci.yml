@@ -125,6 +125,10 @@ jobs:
       - name: Bundle-size budgets (.size-limit.js)
         run: pnpm --filter @flowpanel/kit exec size-limit
 
+      # `pnpm build` above already built the demo with its own `next build --webpack`.
+      - name: Admin first-load JavaScript under webpack (the demo's own build)
+        run: pnpm check:webpack-budget --no-build
+
       - name: Changesets name real workspace packages
         # The version PR consumes every changeset by design, so "each change
         # carries one" is the one thing that cannot hold on that branch.

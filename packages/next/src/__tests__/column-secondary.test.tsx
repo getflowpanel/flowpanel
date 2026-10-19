@@ -130,6 +130,6 @@ describe("a column's secondary field", () => {
       field: "id",
       secondary: "note",
     });
-    expect(table?.rows).toEqual([{ id: "s1", userId: "u1", note: "first" }]);
+    expect(table?.rows).toEqual([{ id: "s1", note: "first" }]);
   });
 });

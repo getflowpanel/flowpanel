@@ -24,6 +24,8 @@ export interface MobileCardListProps<Row> {
   selection?: string[];
   onSelectionChange?: (ids: string[]) => void;
   rowEndCell?: (row: Row, rowIndex: number) => React.ReactNode;
+  /** Some row has an action button beside its menu: every card puts its actions on their own line, so the menu never moves. */
+  actionsBelow?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: React.ReactNode;
@@ -45,6 +47,7 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   selection,
   onSelectionChange,
   rowEndCell,
+  actionsBelow = false,
   emptyTitle,
   emptyDescription,
   emptyAction,
@@ -101,13 +104,18 @@ export function MobileCardList<Row extends Record<string, unknown>>({
   }
 
   // The card's title is its first text column: an id, number, date or badge reads poorly as a heading.
-  const at = Math.max(
-    0,
-    visible.findIndex(
-      (c) => c.format === undefined && !["number", "date", "boolean"].includes(c.type ?? ""),
-    ),
+  const textAt = visible.findIndex(
+    (c) => c.format === undefined && !["number", "date", "boolean"].includes(c.type ?? ""),
   );
+  const at = Math.max(0, textAt);
   const titleCol = visible[at];
+  // A bare id or a referenced record's id says nothing on its own, so the title names what it is.
+  const titleNoun =
+    titleCol?.type === "reference"
+      ? columnLabel(titleCol)
+      : textAt < 0 && rowLabel
+        ? `${rowLabel.charAt(0).toLocaleUpperCase()}${rowLabel.slice(1)}`
+        : null;
   const restCols = visible.filter((_, index) => index !== at);
 
   return (
@@ -145,8 +153,9 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                 className="fp-absolute fp-inset-0 fp-rounded focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60"
               />
             ) : null}
-            <div className="fp-flex fp-items-start fp-justify-between fp-gap-2 fp-px-4 fp-py-3">
-              <div className="fp-flex fp-min-w-0 fp-items-start fp-gap-2">
+            {/* A row menu fits beside the title; wider row actions wrap to their own line under the fields. */}
+            <div className="fp-flex fp-flex-wrap fp-items-start fp-justify-between fp-gap-x-2 fp-gap-y-3 fp-px-4 fp-py-3">
+              <div className="fp-flex fp-min-w-0 fp-flex-[1_1_calc(100%-3rem)] fp-items-start fp-gap-2">
                 {selectionEnabled ? (
                   <Checkbox
                     checked={isSelected}
@@ -165,6 +174,11 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                 <div className="fp-min-w-0 fp-flex-1">
                   {titleCol ? (
                     <div className="fp-line-clamp-2 fp-break-words fp-text-base fp-font-medium fp-text-ink">
+                      {titleNoun ? (
+                        <>
+                          <span className="fp-font-normal fp-text-faint">{titleNoun}</span>{" "}
+                        </>
+                      ) : null}
                       {title}
                     </div>
                   ) : null}
@@ -185,7 +199,16 @@ export function MobileCardList<Row extends Record<string, unknown>>({
                   ) : null}
                 </div>
               </div>
-              {rowEndCell ? <div className="fp-shrink-0">{rowEndCell(r, idx)}</div> : null}
+              {rowEndCell ? (
+                <div
+                  className={cn(
+                    "fp-ml-auto fp-max-w-full [&>[role=toolbar]]:fp-my-0 [&>[role=toolbar]]:fp-flex-wrap",
+                    actionsBelow && "fp-flex fp-basis-full fp-justify-end",
+                  )}
+                >
+                  {rowEndCell(r, idx)}
+                </div>
+              ) : null}
             </div>
           </li>
         );

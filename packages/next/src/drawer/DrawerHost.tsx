@@ -12,12 +12,18 @@ import {
   useApiBase,
   useLabels,
 } from "@flowpanel/react";
-import { useEffect, useRef, useState } from "react";
-import { RecordActionsBar } from "../actions/RecordActionsBar";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { RestoreButton } from "../actions/RestoreButton";
 import { readActionFailure } from "../actions/read-action-failure";
-import { DrawerBody } from "./DrawerBody";
+import { RecordActionsBar } from "../pages/lazy-pages";
+import { WidgetErrorBoundary } from "../runtime/WidgetErrorBoundary";
+import { lazyRetry, retryFailedParts } from "../utils/lazy-retry";
+import type { DrawerBodyProps } from "./DrawerBody";
 import type { DrawerPayload } from "./drawer-route";
+
+const DrawerBody = lazyRetry<DrawerBodyProps>(() =>
+  import("./DrawerBody").then((module) => ({ default: module.DrawerBody })),
+);
 
 /** What was fetched, and for which record: a payload never shows under another record's URL. */
 type Loaded =
@@ -162,7 +168,11 @@ export function DrawerHost() {
                   : {})}
               />
             ) : null}
-            <DrawerBody payload={payload} resource={resource} id={id} />
+            <WidgetErrorBoundary failureTitle={labels.errors.title} onRetry={retryFailedParts}>
+              <Suspense fallback={<LoadingBody label={labels.drawer.loading} />}>
+                <DrawerBody payload={payload} resource={resource} id={id} />
+              </Suspense>
+            </WidgetErrorBoundary>
           </div>
         ) : error ? (
           <div role="alert" data-fp-error="" className="fp-text-sm fp-text-err-ink">

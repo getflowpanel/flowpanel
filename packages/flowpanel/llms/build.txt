@@ -208,7 +208,7 @@ resource(schema.customers, {
 
 Here the list header says "Contact", while the create form, the "is already taken" error, the drawer and the History tab all say "Work email". Without the form's label, they would all say "Contact".
 
-A field nobody labels reads its name: `created_at` reads "Created at", `sku` "SKU", `orderId` "Order ID" and `durationMs` "Duration (ms)". A reference drops its key, so `customerId` reads "Customer", and a money column that stores cents drops the suffix, so `amount_cents` reads "Amount".
+A field nobody labels takes its name from `labels.fields`, where the language presets name `id`, `createdAt`, `updatedAt` and `deletedAt` and their snake_case forms, so a German admin's drawer shows "Erstellt am". Any other field reads its name: `created_at` reads "Created at", `sku` "SKU", `orderId` "Order ID" and `durationMs` "Duration (ms)". A reference drops its key, so `customerId` reads "Customer", and a money column that stores cents drops the suffix, so `amount_cents` reads "Amount".
 
 ### Search, filters and sorting
 
@@ -227,6 +227,8 @@ resource(schema.orders, {
 ```
 
 The `search` fields also feed record search in the ⌘K palette. From two typed characters, it searches every resource that has `search` fields and is not `hidden`, through that resource's own list read, so access, scope and field rules apply. It shows up to 5 records per resource, titled by their first two non-empty search fields, and a result opens where the row opens. A resource without `search` is not searched there.
+
+A sorted list puts rows whose sort column is empty last, in both directions, on every database, so "Last seen ↓" starts with the most recent value rather than a run of blanks.
 
 A filter's `defaultValue` applies until the operator changes it; `hidden: true` applies it without a control. A `select` filter on an `enumOf()` column lists the enum's labels. See [Default and hidden filters](/docs/reference/resources#default-and-hidden-filters).
 
@@ -256,7 +258,7 @@ Docs: https://flowpanel.tech/docs/build/forms
 
 Create and edit forms are generated from the table. Declare `create.fields` and `update.fields` to choose exactly what each form writes; the server rejects any other field.
 
-A generated form follows the list's columns: a column's `label` names its control, a `reference` column is a picker, and a column whose `format` is money, such as `{ kind: "money", minorUnits: 2 }` on `totalCents`, takes the amount in major units, `74.35`, and stores `7435`. A column the database needs a value for is marked required, a column with a plain default such as an enum's `draft` starts there, and the create form leaves out a record timestamp the database fills, such as `created_at default now()` or `updated_at`. A defaulted date the user sets, such as `due_on default current_date`, stays as an optional field.
+A generated form follows the list's columns, a column's `secondary` line included: a column's `label` names its control, a `reference` column is a picker, and a column whose `format` is money, such as `{ kind: "money", minorUnits: 2 }` on `totalCents`, takes the amount in major units, `74.35`, and stores `7435`. A column the database needs a value for is marked required, a column with a plain default such as an enum's `draft` starts there, and the create form leaves out a record timestamp the database fills, such as `created_at default now()` or `updated_at`. A defaulted date the user sets, such as `due_on default current_date`, stays as an optional field.
 
 ### Declare the fields
 
@@ -282,6 +284,10 @@ resource(schema.users, {
 ### Controls
 
 `type` picks the input: text, textarea, number, money, email, password, url, date, datetime, time, boolean, switch, checkbox, select, multiselect, radio, json, markdown, tags, reference, hidden or color. Add `label`, `help` or `placeholder` when the name is not enough.
+
+A `markdown` field edits plain text. The record page and the drawer show it formatted: headings, paragraphs, `-` lists, `**bold**`, `*italic*`, `` `code` `` and links to `https://`, `mailto:` or a path. HTML in the text stays text.
+
+The server checks the value against the type wherever it comes from: the form, the JSON API, a CSV import or an action form. An `email` must be an address the browser's email input accepts, a `url` a full address that starts with `http://` or `https://`, such as `https://example.com`, a `color` a `#rrggbb` value, a `time` a time of day such as `09:30`, and a `number`, `date` or `datetime` field a number or a date. On an edit, a value the row already holds is kept.
 
 `options` takes strings, `{ label, value }` pairs, or a function resolved on the server per request. A `select`, `multiselect` or `radio` field whose column has an `enumOf` format lists the enum's labels without `options`.
 
@@ -320,15 +326,15 @@ The resource schema, `required` and each field's `validate`, a Zod schema or a f
 
 A timestamp column gets a `datetime-local` control that shows the stored time on the admin's clock, `formatting.timeZone` (UTC when unset), and the server reads the posted time in that zone. Saving without touching it keeps the stored seconds. A `type: "date"` field shows the day.
 
-`defaultValue` fills a key the submission left empty, on the server. On a visible field it also pre-fills the control, so the browser sees it. Put trusted values such as the tenant on a `hidden: true` field, or in `create.defaultValues`, to keep them off the page. When both name a key the submission left empty, `create.defaultValues` wins.
+`defaultValue` fills a key the submission left empty, on the server. On a visible field it also pre-fills the control, so the browser sees it. A create field without `defaultValue` starts on its column's literal database default, such as `draft` for `status text default 'draft'`, as a generated form does. Put trusted values such as the tenant on a `hidden: true` field, or in `create.defaultValues`, to keep them off the page. When both name a key the submission left empty, `create.defaultValues` wins. A fixed default of a `select`, `radio` or `multiselect` field must be one of its fixed `options`; `defineAdmin` refuses one that is not and names the options, since the form would start empty.
 
 #### Rejection messages
 
-A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`, and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key. A value outside a select's choices or a schema enum reads `invalidOption`, whatever message the enum carries, so it is in the admin's language; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. The [language presets](/docs/reference/define-config#language-presets) translate the built-in ones, and `{label}` is the field's [one label](/docs/build/resources#field-labels).
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`; one that does not fit its field's `type` reads `invalidEmail`, `invalidUrl`, `invalidColor` or `invalidTime`; and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key. A value outside a select's choices or a schema enum reads `invalidOption`, whatever message the enum carries, so it is in the admin's language; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. The [language presets](/docs/reference/define-config#language-presets) translate the built-in ones, and `{label}` is the field's [one label](/docs/build/resources#field-labels).
 
 ### Restrict fields
 
-`readOnly` and the resource's `fieldAccess` apply to rendering and to writes. The form shows a field the user may not write as read-only, leaves out one they may neither read nor write, and its route drops both from what it saves; an API or programmatic write that carries such a field is rejected. `readOnly` wins over `fieldAccess.write`. A `readOnly` function is called with the stored row, so it can lock a field on edit depending on the record. `hidden` only removes the control. See [Roles and permissions](/docs/guides/permissions).
+`readOnly` and the resource's `fieldAccess` apply to rendering and to writes. The form shows a field the user may not write as read-only, leaves out one they may neither read nor write, and its route drops both from what it saves; an API or programmatic write that carries such a field is rejected. `readOnly` wins over `fieldAccess.write`. A `readOnly` or `hidden` function is called on the server with the stored row on edit, and on create with the values the form starts with: `create.defaultValues`, each field's `defaultValue`, then the column's database default. So `hidden: (row) => row.status === "draft"` hides the field on a new record whose status starts as `draft`. On an import row or a JSON create, `hidden` and `required` are judged on those values with the row's own on top, and a field is read-only when its `readOnly` is true for the starting values or for the row's, so a client cannot unlock a field by sending the value its predicate checks. It runs once per page, not as the user types. `hidden` only removes the control. See [Roles and permissions](/docs/guides/permissions).
 
 ### Submission
 
@@ -733,7 +739,7 @@ resource(schema.users, {
 
 Each row goes through the create path: validation, field access, scope, the adapter, audit and realtime. A read-only or role-restricted field in the file is rejected. A CSV header or JSON key is a field name, the export's header (the column's label) or the create form's label, in any case, so an exported file imports back without editing its first line. A row reports every field's problem at once. A `money` field, or a column whose money format has `minorUnits`, takes the amount in major units, `59.00`, as the export writes it.
 
-Picking a file asks first: "Import customers.csv? 48 rows will be imported." After the import, a file whose rows were all accepted gets a toast. When some rows were refused, a dialog lists each one by its row number with the reason, in the same words as the form, naming each field by its label, and **Download failed rows (CSV)** saves those rows with an `error` column to fix and import again. The words come from `labels.importer`.
+Picking a file asks first: "Import customers.csv? 48 rows will be imported." A column the import does not read, one outside `fields` or, without `fields`, the primary key or a column create cannot write, and a field the importer may not read or that is `sensitive`, is skipped, and the same step names it: "17 rows will be imported. 2 columns will be skipped: ID and Issued at." A skipped field takes its default on create, so add it to `fields` when the file should set it. After the import, a file whose rows were all accepted gets a toast. When some rows were refused, a dialog lists each one by its row number with the reason, in the same words as the form, naming each field by its label, and **Download failed rows (CSV)** saves those rows with an `error` column to fix and import again. The words come from `labels.importer`.
 
 Import enforces request and row caps. Rejected rows are reported, and nothing is silently truncated. For a large one-off migration, use a background job instead.
 

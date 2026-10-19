@@ -1,4 +1,7 @@
 import type { LabelsConfig } from "./config";
+import type { ServerFormLabel } from "./server-defaults";
+
+type FormLabels = NonNullable<LabelsConfig["form"]>;
 
 // LOC-OK: one language's whole chrome string table, kept together so it reads against the other.
 
@@ -13,7 +16,7 @@ export const DEFAULT_LABELS: {
   bulkBar: Required<NonNullable<LabelsConfig["bulkBar"]>>;
   plurals?: NonNullable<LabelsConfig["plurals"]>;
   actions: Required<NonNullable<LabelsConfig["actions"]>>;
-  form: Required<NonNullable<LabelsConfig["form"]>>;
+  form: Required<Omit<FormLabels, ServerFormLabel>> & Pick<FormLabels, ServerFormLabel>;
   notFound: Required<NonNullable<LabelsConfig["notFound"]>>;
   access: Required<NonNullable<LabelsConfig["access"]>>;
   drawer: Required<NonNullable<LabelsConfig["drawer"]>>;
@@ -33,6 +36,7 @@ export const DEFAULT_LABELS: {
   shortcuts: Required<NonNullable<LabelsConfig["shortcuts"]>>;
   realtime: Required<NonNullable<LabelsConfig["realtime"]>>;
   audit: Required<NonNullable<LabelsConfig["audit"]>>;
+  fields?: Readonly<Record<string, string>>;
 } = {
   navigation: {
     breadcrumb: "Breadcrumb",
@@ -47,7 +51,6 @@ export const DEFAULT_LABELS: {
     accountMenu: "Account menu",
     account: "Account",
     signOut: "Sign out",
-    scrollHint: "More destinations are available by horizontal scrolling.",
     dashboards: "Dashboards",
     resources: "Resources",
     pages: "Pages",
@@ -62,6 +65,9 @@ export const DEFAULT_LABELS: {
     resizeColumn: "Resize column",
     columns: "Columns",
     columnOptions: "Column options for {label}",
+    showAllColumns: "Show all columns",
+    resetWidths: "Reset column widths",
+    columnResized: "{label}, {width} px",
     pinLeft: "Pin left",
     pinRight: "Pin right",
     unpin: "Unpin",
@@ -87,6 +93,7 @@ export const DEFAULT_LABELS: {
     emptyDescription: "{label} you create show up here.",
     emptyReadOnlyDescription: "{label} show up here once they are recorded.",
     noSearchMatch: "Nothing matches “{query}”.",
+    noDefaultMatch: "Nothing matches this list's default filters.",
     createFirst: "Create {label}",
     editCell: "Edit {label}",
     saved: "Saved",
@@ -228,6 +235,7 @@ export const DEFAULT_LABELS: {
     inUse: "Other records still point to this one",
     createDisabled: "Create is disabled for this resource.",
     editDisabled: "Editing is disabled for this resource.",
+    loading: "Loading form…",
   },
   notFound: {
     title: "Page not found",
@@ -359,6 +367,10 @@ export const DEFAULT_LABELS: {
     notObject: "This row is not an object.",
     confirmTitle: "Import {file}?",
     rows: { one: "{n} row will be imported.", other: "{n} rows will be imported." },
+    skipped: {
+      one: "{n} column will be skipped: {columns}.",
+      other: "{n} columns will be skipped: {columns}.",
+    },
     confirm: "Import",
     importing: "Importing…",
     unsupported: "This file type can't be imported. Use {formats}.",
@@ -381,6 +393,8 @@ export const DEFAULT_LABELS: {
     rows: "Rows",
     general: "General",
     moveDown: "Move down a row",
+    columnWidth: "Narrow or widen the column",
+    columnFit: "Fit the column to its values",
     moveUp: "Move up a row",
     first: "Jump to the first row",
     last: "Jump to the last row",
@@ -422,6 +436,12 @@ export const DEFAULT_LABELS: {
     after: "After",
     emptyValue: "empty",
     actionOption: "{resource}: {action}",
+    showFullValue: "Show full value",
+    showLess: "Show less",
+    fullValueFailed: "Couldn't load the full value. Try again.",
+    changesTooLarge: "Changes too large to preview",
+    noReadableChanges: "No readable changes",
+    characters: { one: "{n} character", other: "{n} characters" },
   },
 } as const;
 

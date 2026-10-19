@@ -68,14 +68,37 @@ describe("createFlowpanelClient", () => {
     });
 
     const offline = createFlowpanelClient(metadata, {
+      baseUrl: "http://localhost:3000/",
       fetch: async () => {
         throw new Error("secret upstream hostname");
       },
     });
     await expect(offline.resource("customers").get("c1")).resolves.toEqual({
       ok: false,
-      error: { code: "internal", message: "Unable to reach Flowpanel." },
+      error: {
+        code: "internal",
+        message: "Unable to reach Flowpanel at http://localhost:3000/api/flowpanel.",
+      },
     });
+  });
+
+  it("names the address it tried without the credentials a base URL carries", async () => {
+    const offline = createFlowpanelClient(metadata, {
+      baseUrl: "https://user:secret@ops.example.com",
+      fetch: async () => {
+        throw new Error("down");
+      },
+    });
+    const result = await offline.resource("customers").get("c1");
+    expect(result).toMatchObject({
+      error: { message: "Unable to reach Flowpanel at https://ops.example.com/api/flowpanel." },
+    });
+  });
+
+  it("asks for a scheme on a baseUrl that has none", () => {
+    expect(() => createFlowpanelClient(metadata, { baseUrl: "localhost:3000" })).toThrow(
+      "baseUrl must start with http:// or https://",
+    );
   });
 
   it("rejects ambiguous path segments before fetch", () => {

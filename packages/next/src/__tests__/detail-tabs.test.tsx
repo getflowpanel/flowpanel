@@ -27,8 +27,9 @@ const withRelated: Parameters<typeof renderDetail>[0] = {
 
 describe("a related detail tab", () => {
   it("resolves a reference column to the referenced row's label", async () => {
+    const { filter: _unfiltered, ...everyScore } = relatedTab;
     const props = await table(
-      { label: "Customer", columns: ["id"], detail: { tabs: [relatedTab] } },
+      { label: "Customer", columns: ["id"], detail: { tabs: [everyScore] } },
       "?tab=scores",
     );
     const columns = props?.columns as { field: string }[];
@@ -36,6 +37,30 @@ describe("a related detail tab", () => {
     const cells = props?.prerenderedCells as unknown[][];
     expect(ownerIndex).toBeGreaterThanOrEqual(0);
     expect(JSON.stringify(cells[0]?.[ownerIndex])).toContain("ada@example.com");
+  });
+
+  it("drops the column that points back at the record, the same on every row", async () => {
+    const props = await table(
+      { label: "Customer", columns: ["id"], detail: { tabs: [relatedTab] } },
+      "?tab=scores",
+    );
+    const columns = props?.columns as { field: string }[];
+    expect(columns.map((c) => c.field)).toEqual(["id", "value"]);
+  });
+
+  it("keeps a column whose filter allows several values, which differ per row", async () => {
+    const props = await table(
+      {
+        label: "Customer",
+        columns: ["id"],
+        detail: {
+          tabs: [{ ...relatedTab, filter: (row: Row) => ({ userId: row.id, value: [1, 2] }) }],
+        },
+      },
+      "?tab=scores",
+    );
+    const columns = props?.columns as { field: string }[];
+    expect(columns.map((c) => c.field)).toEqual(["id", "value"]);
   });
 
   it("drops a hidden column before the cells are prerendered", async () => {

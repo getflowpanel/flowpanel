@@ -1,10 +1,16 @@
 import type { Adapter } from "@flowpanel/core";
-import { DEFAULT_LABELS, defineAdmin, FlowpanelValidationError, resource } from "@flowpanel/core";
+import {
+  DE_LABELS,
+  DEFAULT_LABELS,
+  defineAdmin,
+  FlowpanelValidationError,
+  resource,
+} from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
 import { drawerRoute } from "../drawer/drawer-route";
 import { auditFeedItems } from "../pages/audit/audit-feed";
 import { explainConstraint } from "../runtime/constraint-error";
-import { fieldLabels } from "../runtime/field-labels";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
 import { declaredFormFields } from "../runtime/resolve-form-fields";
 
@@ -169,5 +175,61 @@ describe("a render-only column labelled for its cell, as in the ADV app", () => 
     expect(taken instanceof FlowpanelValidationError && taken.fieldErrors).toEqual({
       vip: "VIP is already taken",
     });
+  });
+});
+
+describe("system columns in the admin's language", () => {
+  const german = defineAdmin({
+    adapter: {
+      ...adapter,
+      introspect: () => ({
+        name: "tickets",
+        columns: [
+          { name: "id", type: "number", nullable: false, unique: true, primaryKey: true },
+          { name: "subject", type: "string", nullable: false, unique: false, primaryKey: false },
+          { name: "createdAt", type: "date", nullable: false, unique: false, primaryKey: false },
+          { name: "updated_at", type: "date", nullable: false, unique: false, primaryKey: false },
+        ],
+        primaryKey: "id",
+      }),
+      get: async () => ({
+        id: 3,
+        subject: "Login",
+        createdAt: new Date(0),
+        updated_at: new Date(0),
+      }),
+    },
+    auth: { session: async () => null, role: () => "admin" },
+    labels: DE_LABELS,
+    resources: [
+      resource(
+        { __name: "tickets" },
+        {
+          columns: ["subject", "createdAt", { field: "updated_at", label: "Zuletzt" }],
+          drawer: { fields: "*" },
+        },
+      ),
+    ],
+  });
+  const tickets = german.resourcesByName.get("tickets");
+  if (!tickets) throw new Error("fixture: resource not registered");
+
+  it("names id, createdAt and updated_at from the preset unless something labels them", () => {
+    const labelOf = fieldLabels(tickets, [], namedFields(german));
+    expect(["id", "createdAt", "updated_at", "subject"].map(labelOf)).toEqual([
+      "ID",
+      "Erstellt am",
+      "Zuletzt",
+      "Subject",
+    ]);
+  });
+
+  it("reaches a German drawer", async () => {
+    const res = await drawerRoute(german)(
+      new Request("http://localhost/api/flowpanel/drawer/tickets/3"),
+      { params: Promise.resolve({ resource: "tickets", id: "3" }) },
+    );
+    const { labels } = (await res.json()) as { labels: Record<string, string> };
+    expect(labels.createdAt).toBe("Erstellt am");
   });
 });

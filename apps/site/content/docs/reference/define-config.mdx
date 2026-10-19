@@ -232,7 +232,10 @@ base by itself, so there `labels` holds only the strings you want different;
 `labels: DEFAULT_LABELS` keeps English under a Russian locale. Field and resource
 labels stay yours: write them in the admin's language, and each field label
 reaches every surface, as [Field labels](/docs/build/resources#field-labels)
-describes.
+describes. The one exception is `labels.fields`, which names the system columns
+`id`, `createdAt`, `updatedAt` and `deletedAt` (and `created_at` and the other
+snake_case forms) in the preset's language wherever nothing else labels them; add
+your own keys there for other columns every resource shares.
 
 ## CommandPaletteConfig
 
@@ -350,6 +353,7 @@ component against `paths.api` needs the helper. Server code calls the runtime
 through `createFlowpanel(config).request()` instead of fetching its own routes.
 
 ```ts
+"use client";
 import { withDeploymentBasePath } from "@flowpanel/kit/react";
 
 export async function verifyUser(id: string): Promise<Response> {

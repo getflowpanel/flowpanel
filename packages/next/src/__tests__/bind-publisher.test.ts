@@ -6,7 +6,7 @@ vi.mock("@flowpanel/core", async () => {
 });
 
 import { createRealtimeTransport, type Publisher, type ResolvedAdminConfig } from "@flowpanel/core";
-import { bindPublisher, resetPublisherForTests } from "../runtime/publish";
+import { bindPublisher, publish, resetPublisherForTests, subscribe } from "../runtime/publish";
 
 type Closeable = Publisher & { close(): Promise<void> };
 
@@ -84,12 +84,15 @@ describe("bindPublisher — rebinding", () => {
 });
 
 describe("bindPublisher — memory driver diagnostic", () => {
-  it("warns once per process when the driver is memory while REDIS_URL is set", () => {
+  it("warns once per process when the driver is memory while REDIS_URL is set", async () => {
     vi.stubEnv("REDIS_URL", "redis://a:6379");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     bindPublisher(fakeConfig(undefined));
     bindPublisher(fakeConfig({ driver: "memory", keyPrefix: "ignored" }));
+    subscribe("orders", () => {})();
+    await publish("orders");
+    await publish("orders");
 
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String(warn.mock.calls[0]?.[0]);
@@ -98,12 +101,39 @@ describe("bindPublisher — memory driver diagnostic", () => {
     warn.mockRestore();
   });
 
-  it("names FLOWPANEL_REDIS_URL when that is the variable that is set", () => {
+  it("stays quiet in a process that binds and never publishes, as next dev's static-params pass", () => {
+    vi.stubEnv("REDIS_URL", "redis://a:6379");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    bindPublisher(fakeConfig(undefined));
+    bindPublisher(fakeConfig(undefined));
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("stays quiet in a second copy of the runtime that the same process loads", async () => {
+    vi.stubEnv("REDIS_URL", "redis://a:6379");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    bindPublisher(fakeConfig(undefined));
+    await publish("orders");
+
+    Reflect.deleteProperty(globalThis, Symbol.for("@flowpanel/next.publisherStore"));
+    vi.resetModules();
+    const fresh = await import("../runtime/publish");
+    fresh.bindPublisher(fakeConfig(undefined));
+    await fresh.publish("orders");
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    fresh.resetPublisherForTests();
+    warn.mockRestore();
+  });
+
+  it("names FLOWPANEL_REDIS_URL when that is the variable that is set", async () => {
     vi.stubEnv("REDIS_URL", "");
     vi.stubEnv("FLOWPANEL_REDIS_URL", "redis://a:6379");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     bindPublisher(fakeConfig(undefined));
+    await publish("orders");
 
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String(warn.mock.calls[0]?.[0]);
@@ -113,14 +143,16 @@ describe("bindPublisher — memory driver diagnostic", () => {
     warn.mockRestore();
   });
 
-  it("stays quiet when the redis driver is configured, or when no url is in the environment", () => {
+  it("stays quiet when the redis driver is configured, or when no url is in the environment", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     bindPublisher(fakeConfig(undefined));
+    await publish("orders");
     expect(warn).not.toHaveBeenCalled();
 
     vi.stubEnv("REDIS_URL", "redis://a:6379");
     bindPublisher(fakeConfig({ driver: "redis", url: process.env.REDIS_URL }));
+    subscribe("orders", () => {})();
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });

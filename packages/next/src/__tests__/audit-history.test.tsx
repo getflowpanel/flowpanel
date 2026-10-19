@@ -57,6 +57,7 @@ function store(entries: AuditLogEntry[] = [entry()]) {
       const shown = seen(query);
       return { entries: shown, total: shown.length, capped: false };
     },
+    entry: async (query) => seen(query).find((e) => e.id === query.id) ?? null,
     facets: async (query) => ({
       actors: [...new Set(seen(query).map((e) => e.actorId ?? ""))].map((id) => ({
         id,
@@ -322,6 +323,34 @@ describe("an audit event in the feed", () => {
     ip: null,
     userAgent: null,
   };
+
+  it("marks an old event whose diff was too large to preview, so its changes load on demand", async () => {
+    const admin = config({ columns: [...columns] });
+    const [item] = await auditFeedItems(
+      admin,
+      reader,
+      [entry({ diff: null, diffTooLarge: true })],
+      DEFAULT_LABELS.audit,
+      { linkRecords: false },
+    );
+    expect(item?.tooLarge).toBe(true);
+    expect(item?.changes).toEqual([]);
+    const empty = () => ({ __flowpanelPreview: { text: "", length: 0 } });
+    const [listed] = await auditFeedItems(
+      admin,
+      reader,
+      [
+        entry({
+          diff: { before: { plan: empty() }, after: { plan: empty() } },
+          diffTooLarge: true,
+        }),
+      ],
+      DEFAULT_LABELS.audit,
+      { linkRecords: false },
+    );
+    expect(listed?.tooLarge).toBe(true);
+    expect(listed?.changes.map((change) => [change.field, change.long])).toEqual([["plan", true]]);
+  });
 
   it("names an export by the list it exported, linked", async () => {
     const admin = config({ columns: [...columns] });

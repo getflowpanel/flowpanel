@@ -6,7 +6,7 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { formatLabel, runWithRequestContext } from "@flowpanel/core";
-import { fieldLabels } from "../runtime/field-labels";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
 import { requestQueryContext } from "../runtime/query-context";
 import { readRelatedRows } from "../runtime/require-authorized";
 import { columnReferences } from "../runtime/resolve-form-fields";
@@ -81,7 +81,7 @@ export async function choiceErrors(
   const declared = new Map((fields ?? []).map((field) => [field.name, field]));
   const columns = resource ? columnReferences(resource) : new Map();
   const out: Record<string, string> = {};
-  const labelOf = fieldLabels(resource, fields);
+  const labelOf = fieldLabels(resource, fields, namedFields(config));
   for (const [name, value] of Object.entries(values)) {
     const added = addedItems(value, current?.[name]);
     if (added.length === 0) continue;

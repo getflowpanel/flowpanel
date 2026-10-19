@@ -55,6 +55,7 @@ function columnSites(resource: ResourceConfig): ColumnSite[] {
   pushColumnSites(o.columns, "columns", out);
   pushSecondarySites(o.columns, out);
   pushColumnSites(o.filters, "filters", out);
+  pushColumnSites(o.search, "search", out);
   pushColumnSites(o.expose, "expose", out);
   pushColumnSites(o.detail?.expose, "detail.expose", out);
   if (o.defaultSort && typeof o.defaultSort.field === "string") {

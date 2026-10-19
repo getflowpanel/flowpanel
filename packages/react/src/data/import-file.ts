@@ -44,6 +44,12 @@ export function readImportFile(
   return { name, format, content, rowCount: records.length, header, records };
 }
 
+/** The file's columns the import does not read, in file order; `accepted` is lower-cased. */
+export function skippedColumns(header: readonly string[], accepted: readonly string[]): string[] {
+  const reads = new Set(accepted);
+  return header.filter((column) => column.trim() !== "" && !reads.has(column.trim().toLowerCase()));
+}
+
 /** The refused rows as CSV, each with the server's reason in a last `error` column. */
 export function failedRowsCsv(
   file: ImportFile,

@@ -10,7 +10,7 @@ import { Field } from "./Field";
 import { Form } from "./Form";
 import { FormError } from "./FormError";
 import { FormSection } from "./FormSection";
-import { FormSubmit } from "./FormSubmit";
+import { FormFields, FormLoadingNote, FormSubmit } from "./FormSubmit";
 import type { ResolvedField } from "./field-types";
 
 type InputType = NonNullable<React.ComponentProps<typeof Field>["type"]>;
@@ -147,49 +147,51 @@ export function AutoForm({
       {...(redirectTo ? { redirectTo } : {})}
       {...(successMessage ? { successMessage } : {})}
     >
-      {fields ? (
-        groupBlocks(fields).map((block, i) =>
-          block.group ? (
-            // biome-ignore lint/suspicious/noArrayIndexKey: blocks are positional, no stable id.
-            <FormSection key={`${i}-${block.group}`} label={block.group}>
-              <div className={GRID}>
+      <FormFields>
+        {fields ? (
+          groupBlocks(fields).map((block, i) =>
+            block.group ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: blocks are positional, no stable id.
+              <FormSection key={`${i}-${block.group}`} label={block.group}>
+                <div className={GRID}>
+                  {block.items.map((f) => (
+                    <FieldCell key={f.name} field={f} action={action} />
+                  ))}
+                </div>
+              </FormSection>
+            ) : (
+              // biome-ignore lint/suspicious/noArrayIndexKey: blocks are positional, no stable id.
+              <div key={`block-${i}`} className={GRID}>
                 {block.items.map((f) => (
                   <FieldCell key={f.name} field={f} action={action} />
                 ))}
               </div>
-            </FormSection>
-          ) : (
-            // biome-ignore lint/suspicious/noArrayIndexKey: blocks are positional, no stable id.
-            <div key={`block-${i}`} className={GRID}>
-              {block.items.map((f) => (
-                <FieldCell key={f.name} field={f} action={action} />
-              ))}
-            </div>
-          ),
-        )
-      ) : (
-        <div className={GRID}>
-          {introspected.map((c) => {
-            const replaced = columnFields.find((f) => f.name === c.name);
-            return replaced ? (
-              <FieldCell key={c.name} field={replaced} action={action} />
-            ) : (
-              <div key={c.name} className={SPAN_CLASS[12]}>
-                <Field
-                  name={c.name}
-                  label={humanize(c.name)}
-                  type={inputTypeFor(c)}
-                  {...(c.enumValues?.length
-                    ? { options: c.enumValues.map((v) => ({ label: humanize(v), value: v })) }
-                    : {})}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
+            ),
+          )
+        ) : (
+          <div className={GRID}>
+            {introspected.map((c) => {
+              const replaced = columnFields.find((f) => f.name === c.name);
+              return replaced ? (
+                <FieldCell key={c.name} field={replaced} action={action} />
+              ) : (
+                <div key={c.name} className={SPAN_CLASS[12]}>
+                  <Field
+                    name={c.name}
+                    label={humanize(c.name)}
+                    type={inputTypeFor(c)}
+                    {...(c.enumValues?.length
+                      ? { options: c.enumValues.map((v) => ({ label: humanize(v), value: v })) }
+                      : {})}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </FormFields>
       <FormError />
-      <div className="fp-flex fp-items-center fp-gap-3">
+      <div className="fp-flex fp-items-center fp-gap-3" data-fp-form-actions="">
         <FormSubmit>{submitLabel ?? labels.actions.save}</FormSubmit>
         {cancelHref ? (
           <Link
@@ -200,6 +202,7 @@ export function AutoForm({
             {labels.actions.cancel}
           </Link>
         ) : null}
+        <FormLoadingNote />
       </div>
     </Form>
   );

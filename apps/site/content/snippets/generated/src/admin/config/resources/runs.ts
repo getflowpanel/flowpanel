@@ -4,6 +4,7 @@ import * as schema from "@/db/schema";
 const Status = enumOf(schema.runStatus.enumValues, { queued: "Queued", running: "Running", success: "Success", failed: "Failed" });
 
 export const runs = resource(schema.runs, {
+  icon: "clipboard-list",
   columns: [
     "id",
     { field: "monitorId", label: "Monitor", reference: { resource: "monitors", labelField: "name" } },

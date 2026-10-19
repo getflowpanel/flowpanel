@@ -7,6 +7,11 @@ export interface A11yViolation {
   targets?: string[];
 }
 
+export interface SmokeA11yOptions {
+  /** axe rule ids to skip, such as `"color-contrast"` while your own theme is being fixed. */
+  disableRules?: string[];
+}
+
 export interface SmokeAdminOptions {
   /**
    * Where the admin is mounted: the config's `paths.admin`.
@@ -19,9 +24,10 @@ export interface SmokeAdminOptions {
   resources?: string[];
   /**
    * Run axe against every visited route, leaving out iframes such as a queue's bull-board. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package.
+   * Pass `{ disableRules: ["color-contrast"] }` to scan with every rule except those axe rule ids.
    * @defaultValue false
    */
-  a11y?: boolean;
+  a11y?: boolean | SmokeA11yOptions;
   /**
    * How many rows of each list the walk opens.
    * @defaultValue 1

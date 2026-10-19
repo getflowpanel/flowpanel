@@ -31,8 +31,8 @@ sidebar shell, English labels, no audit log, in-process realtime and no rate lim
 | `labels?` | `LabelsConfig` | Override built-in UI strings. |
 | `formatting?` | `FormattingConfig` | Locale, timezone and currency for numbers, money and timestamps. |
 | `resources?` | `Resources` | Tables the admin manages. |
-| `dashboards?` | `DashboardConfig[]` | Widget dashboards. |
-| `pages?` | `PageConfig[]` | Custom pages rendered inside the shell. |
+| `dashboards?` | `(DashboardConfig \| MisplacedPage)[]` | Widget dashboards. A `page()` goes in `pages`. |
+| `pages?` | `PageConfig[]` | Custom pages rendered inside the shell: `pages: [page({ path, label, component })]`. |
 | `queues?` | `QueueConfig[]` | BullMQ queues surfaced in the admin. |
 | `commandPalette?` | `CommandPaletteConfig` | What ⌘K offers. |
 | `audit?` | `AuditConfig` | Audit trail for every mutation. |
@@ -297,7 +297,7 @@ sign-in and access-denied screens shown when `auth.signInUrl` or
 
 | Property | Type | Notes |
 | --- | --- | --- |
-| `navigation?` | `{ /** The breadcrumb trail above a page heading. */ breadcrumb?: string; /** The tab row of queue boards. */ queueBoards?: string; /** A queue board frame. Use `{label}` for the queue. */ queueBoard?: string; /** The region toasts appear in. */ notifications?: string; /** A toast's close button. */ closeNotification?: string; skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; scrollHint?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; /** The menu holding the nav tabs that do not fit. */ more?: string; }` |  |
+| `navigation?` | `{ /** The breadcrumb trail above a page heading. */ breadcrumb?: string; /** The tab row of queue boards. */ queueBoards?: string; /** A queue board frame. Use `{label}` for the queue. */ queueBoard?: string; /** The region toasts appear in. */ notifications?: string; /** A toast's close button. */ closeNotification?: string; skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; /** The menu holding the nav tabs that do not fit. */ more?: string; }` |  |
 | `table?` | `TableLabels` |  |
 | `dateRange?` | `{ /** The labels' language: the calendar's locale, and whether a label mid-sentence keeps its capital (German does). */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; last12m?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
 | `savedViews?` | `{ save?: string; saveTrigger?: string; name?: string; current?: string; label?: string; yours?: string; saveCurrent?: string; saved?: string; deleted?: string; delete?: string; storageError?: string; }` |  |
@@ -324,6 +324,7 @@ sign-in and access-denied screens shown when `auth.signInUrl` or
 | `shortcuts?` | `ShortcutsLabels` | The `?` keyboard cheat sheet. |
 | `realtime?` | `RealtimeLabels` | A live list's or widget's connection badge. |
 | `audit?` | `AuditLabels` | The record History tab and the Audit log page. |
+| `fields?` | `Record<string, string>` | Labels for fields no column, form or view labels, by field name. The presets name `id`, `createdAt`, `updatedAt` and `deletedAt`, and their snake_case forms. |
 
 #### Language presets
 
@@ -348,7 +349,10 @@ base by itself, so there `labels` holds only the strings you want different;
 `labels: DEFAULT_LABELS` keeps English under a Russian locale. Field and resource
 labels stay yours: write them in the admin's language, and each field label
 reaches every surface, as [Field labels](/docs/build/resources#field-labels)
-describes.
+describes. The one exception is `labels.fields`, which names the system columns
+`id`, `createdAt`, `updatedAt` and `deletedAt` (and `created_at` and the other
+snake_case forms) in the preset's language wherever nothing else labels them; add
+your own keys there for other columns every resource shares.
 
 ### CommandPaletteConfig
 
@@ -398,6 +402,7 @@ What `defineAdmin` returns.
 | --- | --- | --- |
 | `__resolved` | `true` |  |
 | `resources` | `Resources` |  |
+| `dashboards?` | `DashboardConfig[]` |  |
 | `resourcesByName` | `Map<string, ResourceConfig>` |  |
 | `dashboardsByPath` | `Map<string, DashboardConfig>` |  |
 | `pagesByPath` | `Map<string, PageConfig>` |  |
@@ -498,6 +503,7 @@ component against `paths.api` needs the helper. Server code calls the runtime
 through `createFlowpanel(config).request()` instead of fetching its own routes.
 
 ```ts
+"use client";
 import { withDeploymentBasePath } from "@flowpanel/kit/react";
 
 export async function verifyUser(id: string): Promise<Response> {

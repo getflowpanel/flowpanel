@@ -71,8 +71,8 @@ export function OrdersPanel({ metadata }: { metadata: FlowpanelClientMetadata })
 }
 ```
 
-`options.fetch` replaces the fetch implementation, `options.baseUrl` puts an origin in
-front of `paths.api`, and `options.headers` go with every request. Requests use
+`options.fetch` replaces the fetch implementation, `options.baseUrl` puts an origin, with its
+`http://` or `https://`, in front of `paths.api`, and `options.headers` go with every request. Requests use
 `credentials: "same-origin"`. `FlowpanelClientMetadata` holds the runtime id, paths
 and protocol version; it is not secret.
 
@@ -117,6 +117,10 @@ or 22.12 and newer, which load the kit's ES modules from `require`.
 | `create(input, options?)` | `POST /<resource>` | Created row |
 | `update(id, input, options?)` | `PATCH /<resource>/<id>` | Updated row |
 | `delete(id, options?)` | `DELETE /<resource>/<id>` | `null` on success |
+
+`create` and `update` write the fields the resource's form declares, and `update`
+also writes every `editable: true` column, as the list's inline edit does, under the
+same access. Any other key fails with `unknown_field`.
 
 `FlowpanelListOptions` takes `page`, `pageSize`, `search` and `filters`; every call
 takes `signal` and `headers`. Network errors and malformed responses become an

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./hydration";
 
 test("@public-demo public demo explains its private interactive contract", async ({ page }) => {
   await page.goto("/admin/products");

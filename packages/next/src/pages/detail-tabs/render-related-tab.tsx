@@ -8,7 +8,7 @@ import type {
 import { mergeLabels, resolveFormatting } from "@flowpanel/core";
 import { RelatedTabTable } from "@flowpanel/next/client";
 import type { ReactNode } from "react";
-import { fieldLabels } from "../../runtime/field-labels";
+import { fieldLabels, namedFields } from "../../runtime/field-labels";
 import { declaredFieldSet, parsePage } from "../../runtime/parse-list-params";
 import { prerenderResourceCells } from "../../runtime/prerender-cells";
 import { projectRowFields } from "../../runtime/project-row";
@@ -87,7 +87,12 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   }
 
   const intro = config.adapter.introspect(target.ref);
-  const hidden = new Set(tab.hide ?? []);
+  const filters = tab.filter ? tab.filter(row) : {};
+  // A column a filter pins to one value, such as the one that points back here, says the same on every row.
+  const pinned = Object.entries(filters).filter(
+    ([, value]) => value === null || typeof value !== "object",
+  );
+  const hidden = new Set([...(tab.hide ?? []), ...pinned.map(([field]) => field)]);
   const targetCols = (
     target.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>> | undefined
   )?.filter((c) => !hidden.has(typeof c === "object" ? String(c.field ?? "") : String(c)));
@@ -107,7 +112,6 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
       dir: "asc",
     };
 
-  const filters = tab.filter ? tab.filter(row) : {};
   const read = (page: number) =>
     readRelatedPage(config, target, reqCtx, {
       filters,
@@ -154,7 +158,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
     {
       metaByField,
       formatting: resolveFormatting(config.formatting),
-      labelOf: fieldLabels(target),
+      labelOf: fieldLabels(target, [], namedFields(config)),
     },
   );
   for (const column of columns) column.sortable = sortable.has(column.field);
