@@ -17,7 +17,7 @@ export interface QueueOptions {
    * The board server's `auth.secret`. The page then adds a link signed for this queue that expires
    * in a minute, so the secret itself never reaches the browser.
    */
-  boardSecret?: string;
+  boardSecret?: string | undefined;
   /** Optional explicit key; defaults to queue.name. */
   key?: string;
   /** Who may see and open this queue page. */

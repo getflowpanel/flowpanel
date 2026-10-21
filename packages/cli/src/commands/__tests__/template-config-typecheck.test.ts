@@ -381,7 +381,7 @@ describe("generated config templates", () => {
   it("the placeholder comment names the package manager's binary and no host-specific example", async () => {
     const rendered = (await renderDrizzle()).replaceAll("pnpm flowpanel", "npx flowpanel");
     expect(rendered).toContain(
-      '// npx flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })',
+      '// npx flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "createdAt"] })',
     );
     expect(rendered).not.toContain("adminUserRow");
   });

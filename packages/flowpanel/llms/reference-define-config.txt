@@ -524,11 +524,10 @@ formatting: { locale: "ru-RU", timeZone: "Europe/Moscow", currency: "RUB" },
 
 `locale` governs the `number` and `money` column formats and the date shape;
 `currency` is the default for a `money` column that names none, and a column's own
-`currency` still wins. A set `timeZone` is the one clock of the admin: server
-strings, chart ticks and every `LocalTime` render in it, before and after
-hydration. Left unset, the server and the first paint use UTC and a `LocalTime`
-switches to the reader's own zone after hydration. A `LocalTime` given its own
-`fallbackTimeZone` keeps that switch either way.
+`currency` still wins. `timeZone` is the one clock of the admin: server strings,
+chart ticks, forms, exports and every `LocalTime` render in it, before and after
+hydration. Left unset, it is UTC. A `LocalTime` given its own `fallbackTimeZone`
+renders in that zone first and switches to the reader's own zone after hydration.
 
 With no `locale`, dates print as `YYYY-MM-DD HH:mm` and numbers use `en-US` grouping.
 

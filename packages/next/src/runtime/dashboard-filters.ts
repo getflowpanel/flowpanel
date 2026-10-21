@@ -1,5 +1,6 @@
 import type { DashboardConfig, DashboardFilter, WidgetContext } from "@flowpanel/core";
 import { isEnumDef } from "@flowpanel/core/internal";
+import { logCaught } from "./caught-error";
 import { dropTimelinePages } from "./timeline-pages";
 
 /** A dashboard filter as its select shows it: plain choices and the value in the URL. */
@@ -33,7 +34,7 @@ async function choices(filter: DashboardFilter, ctx: WidgetContext) {
           : filter.options;
     return options.map((option) => ({ label: option.label, value: String(option.value) }));
   } catch (error) {
-    console.error(`[flowpanel] dashboard filter options failed for "${filter.key}":`, error);
+    logCaught(`[flowpanel] dashboard filter options failed for "${filter.key}":`, error);
     return [];
   }
 }

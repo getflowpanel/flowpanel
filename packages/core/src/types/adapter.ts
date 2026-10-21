@@ -14,6 +14,8 @@ export interface ColumnMeta {
   primaryKey: boolean;
   /** A `number` column that holds whole numbers only, such as `integer` or `bigint`; `false` for decimals and floats. */
   integer?: boolean;
+  /** A SQL `date` column of `date` type: a calendar day, which reads as midnight UTC and has no time or zone. */
+  dateOnly?: boolean;
   /** Allowed values, for `enum` columns. */
   enumValues?: readonly string[];
   /** Foreign key target, when the column references another table. */

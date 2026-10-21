@@ -5,7 +5,16 @@ kind: how-to
 metaTitle: Prisma admin panel setup
 ---
 
-The Prisma adapter reads model metadata from DMMF and runs queries through your Prisma Client. Import it from `@flowpanel/kit/prisma` and run `prisma generate` first. It supports Prisma 5 and 6; [Prisma 7](#prisma-7) is not supported yet. Version ranges are in [Getting started](/docs/introduction/getting-started#before-you-start).
+The Prisma adapter reads model metadata from your Prisma Client and runs queries through it. Import it from `@flowpanel/kit/prisma` and run `prisma generate` first. It supports Prisma 5 and 6; [Prisma 7](#prisma-7) is not supported yet. Version ranges are in [Getting started](/docs/introduction/getting-started#before-you-start).
+
+## Generators
+
+Both client generators of Prisma 5 and 6 work. The adapter reads the schema from the client you pass as `prismaAdapter({ prisma })`.
+
+- `prisma-client-js` writes the client into `@prisma/client`. Import `PrismaClient` and the model types from there, or from the `output` directory when its `generator` block sets one.
+- `prisma-client`, which Prisma 6.19's `prisma init` writes, needs an `output`, such as `"../app/generated/prisma"`. Import `PrismaClient` and the model types from that directory's `client` module, such as `@/app/generated/prisma/client`.
+
+`init` prints `lib/prisma.ts` with the right import, and `flowpanel new` registers each model in `FlowpanelResources` from the same module. `doctor` fails when the schema sets an `output` but the client module the config imports still reads `@prisma/client`, which stops with `@prisma/client did not initialize yet` however often you run `prisma generate`.
 
 ## Prisma 7
 
@@ -13,7 +22,7 @@ Prisma 7's generated client no longer carries the field metadata in `Prisma.dmmf
 
 On Prisma 7, `init` and `doctor` stop with `@prisma/client is unsupported`, followed by the version they found and the supported range, `>=5.0.0 <7.0.0`. A hand-written config fails when the admin loads, with `prismaAdapter: Prisma.dmmf has no field metadata`.
 
-Stay on Prisma 6, keep the `prisma-client-js` generator in `schema.prisma`, and generate the client again:
+Stay on Prisma 6, with either [generator](#generators), and generate the client again:
 
 ```bash
 pnpm add @prisma/client@6
@@ -34,6 +43,10 @@ Use the PascalCase model name, `"User"`, not the delegate `"user"`. Without `nam
 Columns with `@default(...)` or `@updatedAt` are optional in the create form, and Prisma or the database fills them. A `Decimal` comes back as a string at its `@db.Decimal` scale, so `49.90` reads `"49.90"`. Prisma 5 does not report the scale, so there it reads `"49.9"`.
 
 Pagination is offset-based and integer primary keys are coerced from the URL. Search uses Prisma's `contains`; the provider and collation decide case sensitivity. Soft delete works with a nullable field such as `deletedAt`.
+
+## db push and migrate dev
+
+`flowpanel migrate` creates `_flowpanel_migrations` and `flowpanel_audit_log`, which `schema.prisma` does not declare, so `prisma db push` offers to drop them and `prisma migrate dev` offers to reset the database. Declare both as `@@ignore` models, as [Keep your ORM away from FlowPanel's tables](/docs/guides/audit-log#keep-your-orm-away-from-flowpanels-tables) shows; Prisma Client and FlowPanel's resources leave them out.
 
 ## Packages you did not ask for
 

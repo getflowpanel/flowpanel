@@ -1,13 +1,15 @@
 // @vitest-environment happy-dom
 
+import { resolveFormatting } from "@flowpanel/core/format";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
 }));
 
 import { ToastContext } from "../../feedback/toast-api";
+import { FormattingProvider } from "../../provider/FormattingContext";
 import { LabelsProvider } from "../../provider/LabelsContext";
 import { InlineEditCell } from "../InlineEditCell";
 
@@ -303,5 +305,70 @@ describe("InlineEditCell with choices", () => {
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(JSON.parse(String(init.body))).toEqual({ field: "status", value: "solved" });
     vi.unstubAllGlobals();
+  });
+});
+
+describe("InlineEditCell on a timestamp, read in New York", () => {
+  const hostZone = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "America/New_York";
+  });
+  afterAll(() => {
+    if (hostZone === undefined) delete process.env.TZ;
+    else process.env.TZ = hostZone;
+  });
+
+  async function edit(typed: string, formatting = resolveFormatting(), calendarDay = false) {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <FormattingProvider value={formatting}>
+        <InlineEditCell
+          resource="orders"
+          id="1"
+          field="paidAt"
+          label="Paid at"
+          value={calendarDay ? "2026-10-19T00:00:00.000Z" : "2026-10-18T22:25:00.000Z"}
+          valueType="date"
+          calendarDay={calendarDay}
+        />
+      </FormattingProvider>,
+    );
+    const shown = screen.getByRole("button", { name: /Edit Paid at$/ }).textContent;
+    fireEvent.click(screen.getByRole("button", { name: /Edit Paid at$/ }), { detail: 1 });
+    const input = screen.getByLabelText("Paid at") as HTMLInputElement;
+    const filled = input.value;
+    fireEvent.change(input, { target: { value: typed } });
+    fireEvent.blur(input);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    vi.unstubAllGlobals();
+    return { shown, filled, sent: JSON.parse(String(init.body)).value };
+  }
+
+  it("fills the editor with the cell's UTC time and sends what was typed for the server to read on that clock", async () => {
+    const { shown, filled, sent } = await edit("2026-10-18T22:30");
+    expect(shown).toContain("2026-10-18 22:25");
+    expect(filled).toBe("2026-10-18T22:25");
+    expect(sent).toBe("2026-10-18T22:30");
+  });
+
+  it("fills the editor on a configured formatting.timeZone", async () => {
+    const { filled, sent } = await edit(
+      "2026-10-19T01:30",
+      resolveFormatting({ timeZone: "Europe/Moscow" }),
+    );
+    expect(filled).toBe("2026-10-19T01:25");
+    expect(sent).toBe("2026-10-19T01:30");
+  });
+
+  it("edits a SQL date column as its calendar day, in no zone", async () => {
+    const { filled, sent } = await edit(
+      "2026-10-25",
+      resolveFormatting({ timeZone: "America/New_York" }),
+      true,
+    );
+    expect(filled).toBe("2026-10-19");
+    expect(sent).toBe("2026-10-25");
   });
 });

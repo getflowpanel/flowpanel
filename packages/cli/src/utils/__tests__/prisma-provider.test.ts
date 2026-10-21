@@ -2,7 +2,11 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { detectPrismaProvider } from "../prisma-provider";
+import {
+  detectClientGenerator,
+  detectPrismaProvider,
+  prismaClientModule,
+} from "../prisma-provider";
 
 const roots: string[] = [];
 
@@ -116,5 +120,61 @@ describe("detectPrismaProvider", () => {
       "prisma/schema.prisma": datasource("mysql"),
     });
     expect(await detectPrismaProvider(dir)).toEqual({ status: "found", provider: "mysql" });
+  });
+});
+
+// What `prisma init` writes on Prisma 6.19.
+const NEW_GENERATOR =
+  'generator client {\n  provider = "prisma-client"\n  output   = "../app/generated/prisma"\n}\n';
+
+describe("detectClientGenerator", () => {
+  it("finds the prisma-client generator Prisma 6.19's init writes", async () => {
+    const dir = await project({ "prisma/schema.prisma": NEW_GENERATOR + datasource("postgresql") });
+    expect(await detectClientGenerator(dir)).toEqual({
+      provider: "prisma-client",
+      file: "prisma/schema.prisma",
+      output: { written: "../app/generated/prisma", dir: "app/generated/prisma" },
+    });
+  });
+
+  it("names the module the client and model types come from, for either generator", async () => {
+    const generated = await detectClientGenerator(
+      await project({ "prisma/schema.prisma": NEW_GENERATOR }),
+    );
+    expect(prismaClientModule(generated, "lib/prisma.ts", "root")).toBe(
+      "@/app/generated/prisma/client",
+    );
+    expect(prismaClientModule(generated, "lib/prisma.ts", "none")).toBe(
+      "../app/generated/prisma/client",
+    );
+    expect(prismaClientModule(generated, "flowpanel.config.ts", "strip-src")).toBe(
+      "./app/generated/prisma/client",
+    );
+    const js = await detectClientGenerator(
+      await project({
+        "prisma/schema.prisma": 'generator client {\n  provider = "prisma-client-js"\n}\n',
+      }),
+    );
+    expect(prismaClientModule(js, "lib/prisma.ts", "root")).toBe("@prisma/client");
+    expect(prismaClientModule(null, "lib/prisma.ts", "root")).toBe("@prisma/client");
+  });
+
+  it("prefers a prisma-client-js generator in any schema file", async () => {
+    const dir = await project({
+      "prisma/schema/a.prisma": NEW_GENERATOR,
+      "prisma/schema/b.prisma": 'generator js {\n  provider = "prisma-client-js"\n}\n',
+    });
+    expect(await detectClientGenerator(dir)).toEqual({
+      provider: "prisma-client-js",
+      file: "prisma/schema/b.prisma",
+    });
+  });
+
+  it("ignores a commented-out generator and other generators", async () => {
+    const dir = await project({
+      "prisma/schema.prisma":
+        '// generator client {\n//   provider = "prisma-client"\n// }\ngenerator zod {\n  provider = "zod-prisma-types"\n}\n',
+    });
+    expect(await detectClientGenerator(dir)).toBeNull();
   });
 });

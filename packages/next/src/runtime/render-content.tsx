@@ -91,12 +91,19 @@ export async function renderContent(
         active: key === queueKey,
       });
     }
-    const boardUrl = await boardLink(queue, queueKey);
+    const unsigned = "boardSecret" in queue.options && !queue.options.boardSecret;
     return (
       <QueuePage
-        queue={{ ...queue, options: { ...queue.options, boardUrl } }}
+        label={queue.options.label}
+        boardUrl={await boardLink(queue, queueKey)}
         navigation={navigation}
         labels={mergeLabels(config.labels).navigation}
+        {...(unsigned && process.env.NODE_ENV !== "production"
+          ? {
+              devNote:
+                "Development note: boardSecret is empty for this queue, so this page cannot sign a link and the board would answer 401. Set BOARD_SECRET where the admin runs to the board's auth.secret, then reload.",
+            }
+          : {})}
       />
     );
   }

@@ -52,11 +52,7 @@ export function DashboardRefresh({
       className="fp-whitespace-nowrap fp-text-xs fp-text-faint"
       aria-live="polite"
       suppressHydrationWarning
-      title={absoluteTime(
-        new Date(renderedAt),
-        formatting.locale,
-        formatting.timeZoneSource === "config" ? formatting.timeZone : undefined,
-      )}
+      title={absoluteTime(new Date(renderedAt), formatting.locale, formatting.timeZone)}
     >
       {formatLabel(labels.widget.updated, { ago: ago(labels, now - renderedAt) })}
     </span>

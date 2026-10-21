@@ -100,4 +100,13 @@ describe("an audit event's record and references", () => {
     ]);
     expect(item?.record?.label).toBe("Note n1");
   });
+
+  it("link a record only while it is there to open", async () => {
+    const [kept, gone] = await items([
+      entry({}),
+      entry({ id: "e2", action: "members.delete", targetId: "6", diff: null }),
+    ]);
+    expect(kept?.record?.href).toBe("/admin/members/7f3a9c1e");
+    expect(gone?.record).toEqual({ label: "Member 6", href: null });
+  });
 });

@@ -78,7 +78,7 @@ export function BarChart({
               dataKey={options.x}
               {...AXIS_STYLE_PROPS}
               tickFormatter={categoryTickFormatter}
-              {...AXIS_TICK_PROPS}
+              minTickGap={AXIS_TICK_PROPS.minTickGap}
               interval={0}
             />
           </>

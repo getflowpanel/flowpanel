@@ -1,4 +1,5 @@
 import type { AuditConfig, AuditEvent, AuditLogStore } from "@flowpanel/core";
+import { loggableError } from "./describe-error";
 
 interface AuditTarget {
   audit?: AuditConfig | undefined;
@@ -24,6 +25,6 @@ export async function emitAudit(config: AuditTarget, event: AuditEvent): Promise
   try {
     await write(event);
   } catch (err) {
-    console.error("[flowpanel] audit write failed:", err);
+    console.error("[flowpanel] audit write failed:", loggableError(err));
   }
 }

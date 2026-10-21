@@ -338,7 +338,10 @@ describe("withGuards — handler errors", () => {
     expect(res.status).toBe(500);
     expect(res.headers.get("x-request-id")).toBe("req_log");
     expect(log).toHaveBeenCalledOnce();
-    expect(log).toHaveBeenCalledWith("[flowpanel] create failed, requestId req_log:", thrown);
+    expect(log).toHaveBeenCalledWith(
+      "[flowpanel] create failed, requestId req_log:",
+      expect.objectContaining({ message: expect.stringMatching(/^duplicate key/) }),
+    );
     log.mockRestore();
   });
 });

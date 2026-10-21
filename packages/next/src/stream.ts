@@ -8,6 +8,7 @@ import {
   resolveOperationAccess,
 } from "@flowpanel/core";
 import { encodeEnvelope } from "@flowpanel/core/publish";
+import { connection } from "next/server";
 import { actorIdFromSession } from "./runtime/action-helpers";
 import { bindPublisher, subscribe } from "./runtime/publish";
 import { CHANNEL_PATTERN, channelResource } from "./runtime/realtime-channels";
@@ -28,6 +29,15 @@ export interface StreamOptions {
 }
 
 const warned = new Set<string>();
+
+/** Holds `next build`'s prerender of this route before auth runs; a call from outside Next has no request to wait for. */
+async function waitForRequest(): Promise<void> {
+  try {
+    await connection();
+  } catch (err) {
+    if (!(err instanceof Error && err.message.includes("outside a request scope"))) throw err;
+  }
+}
 
 function warnUndeclared(channel: string): void {
   if (process.env.NODE_ENV === "production" || warned.has(channel)) return;
@@ -117,6 +127,7 @@ export function stream(
   const maxAgeMs = opts.maxAgeMs ?? MAX_AGE_MS;
 
   return async function streamGET(req: Request): Promise<Response> {
+    await waitForRequest();
     bindPublisher(config);
 
     const report = (err: unknown, requestId: string) =>

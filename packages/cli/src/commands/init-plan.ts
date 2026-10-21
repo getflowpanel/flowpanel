@@ -263,7 +263,7 @@ export async function planInit(
   );
   const conflicts = plan.operations.filter((operation) => operation.kind === "conflict");
   if (conflicts.length > 0) {
-    run.fail(conflictMessage(conflicts.map((operation) => operation.path)), {
+    run.fail(conflictMessage(conflicts), {
       applied: false,
       plan: publicPlan(plan),
     });

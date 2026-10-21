@@ -214,7 +214,7 @@ function controlOf(column: ColumnMeta): FieldType {
   if (column.enumValues?.length) return "select";
   if (column.type === "number") return "number";
   if (column.type === "boolean") return "checkbox";
-  if (column.type === "date") return "datetime";
+  if (column.type === "date") return column.dateOnly ? "date" : "datetime";
   if (column.type === "json") return "json";
   return "text";
 }

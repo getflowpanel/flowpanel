@@ -118,7 +118,11 @@ or 22.12 and newer, which load the kit's ES modules from `require`.
 
 `create` and `update` write the fields the resource's form declares, and `update`
 also writes every `editable: true` column, as the list's inline edit does, under the
-same access. Any other key fails with `unknown_field`.
+same access. Any other key fails with `unknown_field`. A timestamp is ISO 8601 text with
+seconds and an offset, such as `2026-10-18T22:30:00Z` or `…+03:00` (`JSON.stringify` of a
+`Date` gives this; `22:30Z` and `+0300` are refused), and a SQL `date` column also takes
+`YYYY-MM-DD`; `null` clears a nullable column only, and text without a zone, a number or
+a boolean fails validation.
 
 `FlowpanelListOptions` takes `page`, `pageSize`, `search` and `filters`; every call
 takes `signal` and `headers`. Network errors and malformed responses become an

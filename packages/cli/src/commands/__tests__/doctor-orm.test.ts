@@ -52,4 +52,41 @@ describe("doctor — ORM adapter check", () => {
     expect(check.hint).toContain("drizzle-orm");
     expect(check.hint).toContain("@prisma/client");
   });
+
+  async function prismaProject(generator: string, client: string): Promise<Check | undefined> {
+    await fs.mkdir(path.join(tmp, "prisma"));
+    await fs.mkdir(path.join(tmp, "lib"));
+    await fs.writeFile(path.join(tmp, "prisma/schema.prisma"), generator);
+    await fs.writeFile(path.join(tmp, "lib/prisma.ts"), client);
+    await fs.writeFile(
+      path.join(tmp, "flowpanel.config.ts"),
+      'import { prisma } from "./lib/prisma";\nexport default { prisma };\n',
+    );
+    await seedPkg({ "@prisma/client": "^6.19.0" });
+    const { checks } = await runDoctorChecks(tmp, false);
+    return checks.find((c) => c.name === "Prisma client import matches the generator");
+  }
+
+  const NEW_GENERATOR =
+    'generator client {\n  provider = "prisma-client"\n  output   = "../app/generated/prisma"\n}\n';
+
+  it("fails a client that imports @prisma/client while prisma-client generates elsewhere", async () => {
+    const check = await prismaProject(
+      NEW_GENERATOR,
+      'import { PrismaClient } from "@prisma/client";\nexport const prisma = new PrismaClient();\n',
+    );
+    expect(check).toEqual({
+      name: "Prisma client import matches the generator",
+      ok: false,
+      hint: 'prisma/schema.prisma uses the prisma-client generator (output "../app/generated/prisma"), but lib/prisma.ts imports @prisma/client. Import PrismaClient from "../app/generated/prisma/client" instead.',
+    });
+  });
+
+  it("passes a client that imports the generator's output", async () => {
+    const check = await prismaProject(
+      NEW_GENERATOR,
+      'import { PrismaClient } from "../app/generated/prisma/client";\nexport const prisma = new PrismaClient();\n',
+    );
+    expect(check).toEqual({ name: "Prisma client import matches the generator", ok: true });
+  });
 });

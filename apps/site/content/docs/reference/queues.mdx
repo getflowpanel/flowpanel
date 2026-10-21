@@ -5,14 +5,14 @@ kind: reference
 ---
 
 `queue(ref, options)` registers a BullMQ queue as a navigation entry whose page
-embeds [bull-board](https://github.com/felixmosh/bull-board). Setup and security:
+embeds [bull-board](https://github.com/felixmosh/bull-board). Setup, the queues module and security:
 [Queues](/docs/guides/queues).
 
 <ApiSignature path="../../packages/core/src/builders/queue.ts" name="queue" />
 
 ```ts
 import { defineAdmin, queue } from "@flowpanel/kit";
-import { emailQueue } from "@/lib/queues";
+import { emailQueue } from "@/server/queues";
 
 export default defineAdmin({
   adapter,
@@ -92,7 +92,7 @@ To count jobs in a widget, wrap the same `Queue` instances with `bullmqAdapter`:
 
 ```ts
 import { bullmqAdapter } from "@flowpanel/kit/bullmq";
-import { emailQueue, scrapeQueue } from "@/lib/queues";
+import { emailQueue, scrapeQueue } from "@/server/queues";
 
 export const jobs = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
 ```

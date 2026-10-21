@@ -152,4 +152,19 @@ describe("resolveOperationAccess", () => {
       /Unknown resource operation/,
     );
   });
+
+  it("applies a single rule to every operation, never widening it", async () => {
+    const { resolveOperationAccess } = await import("../policy/access");
+    const isAdmin = () => true;
+    for (const operation of ["read", "create", "update", "delete"] as const) {
+      expect(resolveOperationAccess("admin", operation)).toBe("admin");
+      expect(resolveOperationAccess(["admin", "ops"], operation)).toEqual(["admin", "ops"]);
+      expect(resolveOperationAccess(false, operation)).toBe(false);
+      expect(resolveOperationAccess(isAdmin, operation)).toBe(isAdmin);
+      expect(resolveOperationAccess({ read: true }, operation)).toBe(
+        operation === "read" ? true : undefined,
+      );
+    }
+    expect(resolveOperationAccess(undefined, "delete")).toBeUndefined();
+  });
 });

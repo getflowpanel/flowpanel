@@ -1,6 +1,6 @@
 import type { ColumnMeta, ResolvedLabels } from "@flowpanel/core";
 import { formatLabel, humanize } from "@flowpanel/core";
-import { parseWallTime } from "./form-dates";
+import { parseWallTime } from "@flowpanel/core/internal";
 
 export interface CoerceRowResult {
   /** The row with column-typed values swapped in for coercible string cells. */

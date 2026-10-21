@@ -224,6 +224,41 @@ describe("reportFatal on an unreachable database", () => {
     expect(err.join("")).not.toContain("at postgres");
   });
 
+  function serverError(code: string, message: string): Error {
+    return drizzleFailure(Object.assign(new Error(message), { code }));
+  }
+
+  it("names a refused login without printing the failed SQL", () => {
+    for (const code of ["28P01", "28000"]) {
+      err.length = 0;
+      reportFatal(serverError(code, 'password authentication failed for user "admin"'));
+      expect(err.join("").split("\n")[0]).toContain(
+        `The database at db.internal:6543 refused the login (${code}). Check the user and password in DATABASE_URL.`,
+      );
+      expect(err.join("")).not.toContain("Failed query");
+      expect(err.join("")).not.toContain("hunter2");
+    }
+  });
+
+  it("names a database that does not exist, and an unreachable server for 08001", () => {
+    reportFatal(serverError("3D000", 'database "app" does not exist'));
+    expect(err.join("").split("\n")[0]).toContain(
+      "The database server at db.internal:6543 has no database by the name in DATABASE_URL (3D000).",
+    );
+    err.length = 0;
+    reportFatal(serverError("08001", "could not establish connection"));
+    expect(err.join("").split("\n")[0]).toContain(
+      "Cannot reach the database at db.internal:6543 (08001). Check DATABASE_URL.",
+    );
+    expect(err.join("")).not.toContain("CREATE TABLE");
+  });
+
+  it("shows the SQL behind a refused login under FLOWPANEL_DEBUG=1", () => {
+    process.env.FLOWPANEL_DEBUG = "1";
+    reportFatal(serverError("28P01", "password authentication failed"));
+    expect(err.join("")).toContain("Failed query: CREATE TABLE IF NOT EXISTS");
+  });
+
   it("does not treat an unrelated failure as a connection problem", () => {
     reportFatal(new Error('relation "users" does not exist'));
     expect(err.join("")).toContain('relation "users" does not exist');

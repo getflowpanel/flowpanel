@@ -2,10 +2,12 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { findAdminConfig } from "../scaffold/config-target";
 import { auditColumnsUpgrade, auditUpgrade } from "../utils/audit-upgrade";
+import { connectionEnvRead, unsetEnv } from "../utils/db-env";
 import { fileExists, type PmCommands } from "../utils/detect";
 import { configDialect } from "../utils/sql-dialect";
 import type { Check } from "./check";
 import type { ConfigWarnings } from "./config-warnings";
+import { drizzleKitDropsFlowpanelTables } from "./drizzle-kit";
 import { findSessionStub, type SessionStub } from "./session-module";
 
 const ESLINT_PLUGIN_DOCS = "https://flowpanel.tech/docs/reference/eslint-plugin";
@@ -105,19 +107,39 @@ export async function warningChecks(
         : columns
           ? `flowpanel_audit_log ${lacks}. Run \`${pmc.exec} flowpanel doctor --fix\`, which writes ${columns.path}, then \`${pmc.exec} flowpanel migrate\`.`
           : `flowpanel_audit_log ${auditTable === "table" ? "does not exist, so audit events fail to save" : lacks}. Run \`${pmc.exec} flowpanel migrate\`.`,
-      ...(intent ? { fix: async () => intent } : {}),
+      ...(intent ? { fix: async () => [intent] } : {}),
     });
   }
 
   const migrations = await fs
     .readdir(path.join(cwd, "flowpanel/migrations"))
     .catch(() => [] as string[]);
-  if (migrations.some((file) => file.endsWith(".sql"))) {
+  const read = await connectionEnvRead(cwd);
+  const names =
+    read.length > 0
+      ? read
+      : migrations.some((file) => file.endsWith(".sql"))
+        ? ["DATABASE_URL"]
+        : [];
+  if (names.length > 0) {
+    const unset = unsetEnv(names);
     checks.push(
       warning(
-        "DATABASE_URL set",
-        !process.env.DATABASE_URL,
-        `flowpanel/migrations has SQL files and DATABASE_URL is not set. Add it to .env.local, then run \`${pmc.exec} flowpanel migrate\`.`,
+        `${names[0]} set`,
+        unset !== null,
+        `${names[0]} is ${unset?.state}, so the admin and \`${pmc.exec} flowpanel migrate\` cannot reach your database. Add it to .env.local or .env.`,
+      ),
+    );
+  }
+
+  const drizzleKit = await drizzleKitDropsFlowpanelTables(cwd);
+  if (drizzleKit) {
+    const { file, tables } = drizzleKit;
+    checks.push(
+      warning(
+        "drizzle-kit leaves FlowPanel's tables alone",
+        tables.length > 0,
+        `${file} lets \`drizzle-kit push\` drop ${tables.join(" and ")}, the tables \`${pmc.exec} flowpanel migrate\` creates. Add ${tables.map((table) => `"!${table}"`).join(", ")} to tablesFilter in its defineConfig.`,
       ),
     );
   }

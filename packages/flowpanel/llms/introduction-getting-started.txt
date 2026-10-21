@@ -32,7 +32,7 @@ With npm, run `npx @flowpanel/cli init` and then `npx flowpanel <command>`. Yarn
 
 #### Without an ORM yet
 
-FlowPanel reads your tables through Drizzle or Prisma. In a project with neither, `init` writes nothing and prints what to add: `pnpm add drizzle-orm pg` and `pnpm add -D @types/pg`, or Prisma 6. Run `init` again. When it finds no database client or schema, it prints a starter `server/lib/db.ts` and `server/lib/db/schema.ts` (under `src/` in a `src/app` project) with a `users` table; create them, or point `init` at your own modules with `--db` and `--schema`. Create the table before you open the admin, for example with drizzle-kit, which reads `DATABASE_URL` from `.env` through its config:
+FlowPanel reads your tables through Drizzle or Prisma. In a project with neither, `init` writes nothing and prints what to add: `pnpm add drizzle-orm pg` and `pnpm add -D @types/pg`, or Prisma 6. Run `init` again. When it finds no database client or schema, it prints a starter `server/lib/db.ts` and `server/lib/db/schema.ts` (under `src/` in a `src/app` project) with a `users` table whose `id` the database generates. They use node-postgres, or `mysql2` or `better-sqlite3` when that is the driver installed; [Drizzle setup](/docs/introduction/drizzle#connect-the-database) shows all three. Create them, or point `init` at your own modules with `--db` and `--schema`. When `.env` lacks `DATABASE_URL`, the PostgreSQL and MySQL starter clients point at a host that never resolves rather than a database on localhost: in `next dev` the admin answers "Check DATABASE_URL", in production each read shows its "Couldn't load …" card, and `next build` still runs without it, as in a Docker image build. Create the table before you open the admin, for example with drizzle-kit, which reads `DATABASE_URL` from `.env` through its config:
 
 ```ts
 // drizzle.config.ts
@@ -40,10 +40,13 @@ import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
   dialect: "postgresql",
-  schema: "./src/server/lib/db/schema.ts",
+  schema: "./server/lib/db/schema.ts",
   dbCredentials: { url: process.env.DATABASE_URL! },
+  tablesFilter: ["!_flowpanel_migrations", "!flowpanel_audit_log"],
 });
 ```
+
+In a `src/app` project, the schema path is `./src/server/lib/db/schema.ts`. On MySQL set `dialect: "mysql"`; on SQLite set `dialect: "sqlite"` and `dbCredentials: { url: "local.db" }`. `tablesFilter` keeps `drizzle-kit push` from dropping the two tables `flowpanel migrate` creates, which your schema does not declare.
 
 ```bash
 pnpm add -D drizzle-kit
@@ -52,7 +55,7 @@ pnpm drizzle-kit push
 
 Then run `init` once more, and `pnpm flowpanel new users` for the first resource. [Build a complete admin](/docs/introduction/founder-admin) starts from an empty app the same way, with a full schema.
 
-With Prisma, `init` looks for the client in `lib/prisma.ts` (under `src/` in a `src/app` project). When it finds none it stops and prints this file; create it, or point `init` at your own module with `--db`:
+With Prisma, run `pnpm prisma generate` first. `init` looks for the client in `lib/prisma.ts` (under `src/` in a `src/app` project). When it finds none it stops and prints this file; create it, or point `init` at your own module with `--db`. With the `prisma-client` generator that Prisma 6.19's `prisma init` writes, the file imports `PrismaClient` from the generator's `output` instead, such as `@/app/generated/prisma/client`:
 
 ```ts
 // lib/prisma.ts
@@ -61,7 +64,7 @@ import { PrismaClient } from "@prisma/client";
 export const prisma = new PrismaClient();
 ```
 
-Push your schema with `pnpm prisma db push`, run `init` again, and add the first model with `pnpm flowpanel new User`. [Prisma setup](/docs/introduction/prisma) covers the rest.
+Push your schema with `pnpm prisma db push`, run `init` again, and add the first model with `pnpm flowpanel new User`. Once you run `flowpanel migrate`, declare its tables in `schema.prisma` as [the Audit log guide](/docs/guides/audit-log#keep-your-orm-away-from-flowpanels-tables) shows, or the next `db push` offers to drop them. [Prisma setup](/docs/introduction/prisma) covers the rest.
 
 ### Open the config
 
@@ -102,7 +105,7 @@ export default defineAdmin({
   },
 
   resources: [
-    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })
+    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "createdAt"] })
   ],
 });
 ```
@@ -140,7 +143,7 @@ export default defineAdmin({
   },
 
   resources: [
-    // pnpm flowpanel new <model>  adds an entry; or write resource("User", { columns: ["email", "name", "createdAt"] })
+    // pnpm flowpanel new <model>  adds an entry; or write resource("User", { columns: ["email", "createdAt"] })
   ],
 });
 ```
@@ -199,7 +202,7 @@ resources: [
   }),
 ],
 ```
-A Prisma resource is a model name, so bind it to the generated type: add `interface FlowpanelResources { users: import("@prisma/client").User }` inside the `declare module "@flowpanel/kit"` block. The columns are then checked against the model. `flowpanel new` does this for you.
+A Prisma resource is a model name, so bind it to the generated type: add `interface FlowpanelResources { users: import("@prisma/client").User }` inside the `declare module "@flowpanel/kit"` block. With the `prisma-client` generator the type comes from its output, such as `import("@/app/generated/prisma/client").User`. The columns are then checked against the model. `flowpanel new` does this for you.
 
 ### Start the admin
 
@@ -236,7 +239,7 @@ Paths start with `src/` in a `src/app` project.
 pnpm flowpanel migrate
 ```
 
-Run this before you turn on the audit log with `audit: { enabled: true }`; skip it otherwise. The command applies `flowpanel/migrations` through the database client in `flowpanel.config.ts` and creates `_flowpanel_migrations` and `flowpanel_audit_log`, the table behind each record's History tab and the Audit log page. `init` writes the SQL for your database: PostgreSQL, MySQL or SQLite. See [Audit log](/docs/guides/audit-log).
+Run this before you turn on the audit log with `audit: { enabled: true }`; skip it otherwise. The command applies `flowpanel/migrations` through the database client in `flowpanel.config.ts` and creates `_flowpanel_migrations` and `flowpanel_audit_log`, the table behind each record's History tab and the Audit log page. `init` writes the SQL for your database: PostgreSQL, MySQL or SQLite. Your ORM's schema push does not know these tables and offers to drop them: exclude them with `tablesFilter` in `drizzle.config.ts`, as above, or declare them in `schema.prisma` as [Keep your ORM away from FlowPanel's tables](/docs/guides/audit-log#keep-your-orm-away-from-flowpanels-tables) shows. See [Audit log](/docs/guides/audit-log).
 
 ### Next
 

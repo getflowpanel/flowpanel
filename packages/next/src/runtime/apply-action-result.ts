@@ -1,5 +1,6 @@
 import type { ActionResult } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
+import { logCaught } from "./caught-error";
 import { publish, publishResource } from "./publish";
 
 export interface ApplyActionResultOptions {
@@ -29,7 +30,7 @@ export async function applyActionResult(
       for (const ch of channels) await publish(ch);
     }
   } catch (error) {
-    console.error("[flowpanel] realtime effect failed", error);
+    logCaught("[flowpanel] realtime effect failed", error);
   }
 
   if (refresh === false || opts.pathname === undefined) return;
@@ -37,7 +38,7 @@ export async function applyActionResult(
     try {
       revalidatePath(path);
     } catch (error) {
-      console.error("[flowpanel] revalidation effect failed", error);
+      logCaught("[flowpanel] revalidation effect failed", error);
     }
   }
 }

@@ -3,6 +3,7 @@ import { FlowpanelError, mergeLabels } from "@flowpanel/core";
 import { RefreshButton, RequestId } from "@flowpanel/next/client";
 import { unstable_rethrow } from "next/navigation";
 import type * as React from "react";
+import { logCaught } from "./caught-error";
 import { isConnectionError } from "./connection-error";
 import { FailureCard } from "./failure-card";
 import { fillLabel } from "./resource-title";
@@ -87,10 +88,8 @@ export async function readOrCard<T>(
   } catch (err) {
     if (err instanceof FlowpanelError || isControlFlow(err)) throw err;
     const requestId = site.requestId ?? crypto.randomUUID();
-    console.error(
-      `[flowpanel] ${site.resource}: ${site.operation} failed (request ${requestId})`,
-      err,
-    );
-    return { failed: true, card: <QueryErrorCard site={{ ...site, requestId }} cause={err} /> };
+    logCaught(`[flowpanel] ${site.resource}: ${site.operation} failed (request ${requestId})`, err);
+    // Called, not rendered: the dev renderer serializes a component's props, and `config` holds the database client.
+    return { failed: true, card: QueryErrorCard({ site: { ...site, requestId }, cause: err }) };
   }
 }

@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import pc from "picocolors";
-import { printConfigWarnings } from "../doctor/config-warnings";
+import { type ConfigWarnings, printConfigWarnings } from "../doctor/config-warnings";
 import { type Check, runDoctorChecks } from "../doctor/run-checks";
 import { publicPlan } from "../plan/filesystem-plan";
 import { log } from "../utils/log";
@@ -18,6 +18,12 @@ function jsonCheck({ name, ok, warn, info, hint }: Check) {
     ...(info ? { info: true } : {}),
     ...(hint && (!ok || warn || info) ? { hint } : {}),
   };
+}
+
+/** Every `!` line doctor printed: the checks that warn and the config's own warnings. */
+export function warningCount(checks: readonly Check[], config: ConfigWarnings): number {
+  const own = "unreadable" in config ? 0 : config.warnings.length;
+  return checks.filter((check) => check.warn).length + own;
 }
 
 export function doctorCommand(cli: Command): void {
@@ -43,7 +49,7 @@ export function doctorCommand(cli: Command): void {
         quiet: opts.json ?? false,
         ...(opts.path ? { adminPath: opts.path } : {}),
       });
-      const warned = checks.filter((check) => check.warn).length;
+      const warned = warningCount(checks, configWarnings);
 
       if (opts.json) {
         writeJson({

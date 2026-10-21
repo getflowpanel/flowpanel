@@ -217,3 +217,33 @@ describe("a trimmed Prisma 7 DMMF", () => {
     expect(checkedDmmf(testDmmf)).toBe(testDmmf);
   });
 });
+
+describe("a DateTime field mapped to @db.Date", () => {
+  it("is marked date-only, and a plain DateTime is not", () => {
+    const field = (name: string, nativeType: readonly [string, readonly string[]] | null) => ({
+      name,
+      kind: "scalar" as const,
+      type: name === "id" ? "Int" : "DateTime",
+      isId: name === "id",
+      isRequired: true,
+      isUnique: name === "id",
+      isList: false,
+      hasDefaultValue: false,
+      nativeType,
+    });
+    const dmmf: PrismaDmmf = {
+      datamodel: {
+        models: [
+          {
+            name: "Event",
+            fields: [field("id", null), field("day", ["Date", []]), field("at", null)],
+          },
+        ],
+        enums: [],
+      },
+    };
+    const byName = Object.fromEntries(introspect("Event", dmmf).columns.map((c) => [c.name, c]));
+    expect(byName.day).toMatchObject({ type: "date", dateOnly: true });
+    expect(byName.at?.dateOnly).toBeUndefined();
+  });
+});

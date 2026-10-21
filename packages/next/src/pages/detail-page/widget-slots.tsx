@@ -7,6 +7,7 @@ import type {
 import { WidgetErrorBoundary } from "@flowpanel/next/client";
 import { ErrorCard } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { logCaught } from "../../runtime/caught-error";
 import { isControlFlow } from "../../runtime/query-error";
 import { renderWidget, type WidgetFrame } from "../../runtime/render-widget";
 import { visibleWidgets } from "../../runtime/widget-access";
@@ -48,7 +49,7 @@ export async function renderSlots(
         return { className, owner, node };
       } catch (failure) {
         if (isControlFlow(failure)) throw failure;
-        console.error(`[flowpanel] widget ${describeOwner(owner)} failed`, failure);
+        logCaught(`[flowpanel] widget ${describeOwner(owner)} failed`, failure);
         const node = (
           <ErrorCard
             error={asError(failure)}

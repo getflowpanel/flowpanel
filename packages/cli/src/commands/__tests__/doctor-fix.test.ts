@@ -82,6 +82,40 @@ describe("runDoctorChecks --fix", () => {
     expect(content).toContain('import config from "../../flowpanel.config";');
   });
 
+  it("removes the runtime and dynamic exports of 0.3 route files under cacheComponents", async () => {
+    await fs.writeFile(
+      path.join(tmp, "package.json"),
+      JSON.stringify({ dependencies: { next: "16.4.0", "drizzle-orm": "^0.45.0" } }),
+    );
+    await fs.mkdir(path.join(tmp, "node_modules/next"), { recursive: true });
+    await fs.writeFile(
+      path.join(tmp, "node_modules/next/package.json"),
+      JSON.stringify({ name: "next", version: "16.4.0" }),
+    );
+    await fs.writeFile(
+      path.join(tmp, "next.config.ts"),
+      "export default { cacheComponents: true };\n",
+    );
+    const api = path.join(tmp, "app/api/flowpanel/[...route]/route.ts");
+    const sse = path.join(tmp, "app/api/flowpanel/stream/route.ts");
+    await fs.mkdir(path.dirname(api), { recursive: true });
+    await fs.mkdir(path.dirname(sse), { recursive: true });
+    await fs.writeFile(
+      api,
+      'export const { GET } = flowpanel.handlers;\nexport const runtime = "nodejs";\n',
+    );
+    await fs.writeFile(
+      sse,
+      'export const GET = stream(config);\nexport const runtime = "nodejs";\nexport const dynamic = "force-dynamic";\n',
+    );
+    const { checks } = await runDoctorChecks(tmp, true, { quiet: true });
+    expect(await fs.readFile(api, "utf8")).toBe("export const { GET } = flowpanel.handlers;\n");
+    expect(await fs.readFile(sse, "utf8")).toBe("export const GET = stream(config);\n");
+    expect(
+      checks.find((c) => c.name === "Admin files build under cacheComponents")?.hint ?? "",
+    ).not.toContain("remove");
+  });
+
   it("writes a resolvable config import (no bare @/flowpanel.config with no alias)", async () => {
     // No tsconfig.json in this fixture → aliasMode "none" → `@/flowpanel.config`
     // would not resolve. The fix must emit a relative path instead.

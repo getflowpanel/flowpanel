@@ -82,6 +82,17 @@ describe("coerceRowByColumns", () => {
     expect(fieldErrors.bornAt).toBe("Born at must be a date");
   });
 
+  it("refuses a datetime-local value whose day or time does not exist, instead of rolling it over", () => {
+    const { values, fieldErrors } = coerce(
+      columns,
+      { bornAt: "2026-02-30T25:99" },
+      DEFAULT_LABELS,
+      "Europe/Moscow",
+    );
+    expect(fieldErrors.bornAt).toBe("Born at must be a date");
+    expect(values.bornAt).toBe("2026-02-30T25:99");
+  });
+
   it("leaves string/unknown-kind columns untouched", () => {
     const { values, fieldErrors } = coerceRowByColumns(columns, { email: "a@b.com" });
     expect(values.email).toBe("a@b.com");

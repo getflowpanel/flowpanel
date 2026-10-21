@@ -70,6 +70,9 @@ function BoundaryFallback({
       {...(title ? { heading: title } : {})}
       title={failureTitle ?? errors.widgetTitle}
       hint={error.digest ? `${errors.widgetHint} ${errors.reportHint}` : errors.widgetHint}
+      devHint={
+        developing && error.name === "WidgetConnectionFailure" ? errors.connectionHint : null
+      }
       detail={developing && error.message ? { summary: errors.details, text: error.message } : null}
       plain={plain}
       actions={

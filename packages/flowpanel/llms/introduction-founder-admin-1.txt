@@ -130,8 +130,11 @@ export default defineConfig({
   dialect: "postgresql",
   schema: "./src/db/schema.ts",
   dbCredentials: { url: process.env.DATABASE_URL! },
+  tablesFilter: ["!_flowpanel_migrations", "!flowpanel_audit_log"],
 });
 ```
+
+`tablesFilter` keeps `drizzle-kit push` away from the two tables `flowpanel migrate` creates for the audit log, which the schema does not declare; without it, `push` offers to drop them.
 
 A few rows, so each step has something to show:
 
@@ -253,7 +256,7 @@ export default defineAdmin({
   },
 
   resources: [
-    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })
+    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "createdAt"] })
   ],
 });
 ```
@@ -442,10 +445,11 @@ export const customers = resource(schema.customers, {
     { field: "createdAt", type: "daterange" },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
+  delete: { softDelete: "deletedAt" },
 });
 ```
 
-A select filter on an enum-formatted column lists the enum's labels, so it needs no `options`.
+A select filter on an enum-formatted column lists the enum's labels, so it needs no `options`. `delete.softDelete` makes Delete set `deletedAt` instead of removing the customer, and lists and dashboard counts then leave the row out.
 
 You should see coloured status badges and a status filter with four labels.
 
@@ -789,6 +793,7 @@ export const customers = resource(schema.customers, {
     { field: "createdAt", type: "daterange" },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
+  delete: { softDelete: "deletedAt" },
   detail: customerCard,
 });
 ```
@@ -836,7 +841,7 @@ import { StatusDot } from "@flowpanel/kit/react";
 export function CrawlQueue({ waiting, failed }: { waiting: number; failed: number }) {
   const tone: Tone = failed > 0 ? "err" : waiting > 100 ? "warn" : "ok";
   return (
-    <p className="flex items-center gap-2 text-sm">
+    <p style={{ display: "flex", alignItems: "center", gap: 8, margin: 0, fontSize: 14 }}>
       <StatusDot tone={tone} />
       <span className={toneTextClass[tone]}>
         {waiting} waiting · {failed} failed
@@ -846,7 +851,7 @@ export function CrawlQueue({ waiting, failed }: { waiting: number; failed: numbe
 }
 ```
 
-Its numbers come from your queue. Until you connect one, return numbers that change on every read, so you can watch the card refresh in step 10:
+The layout is a plain `style`, so the card needs no Tailwind; `toneTextClass` returns a class the admin stylesheet carries. Its numbers come from your queue. Until you connect one, return numbers that change on every read, so you can watch the card refresh in step 10:
 
 ```ts
 // src/server/lib/queue.ts

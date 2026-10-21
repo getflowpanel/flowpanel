@@ -61,7 +61,7 @@ export const ordersResource = resource(orders, {
 | `bulkActions?` | `BulkAction<Row, any, any>[]` | Actions applied to a selection of rows. |
 | `scope?` | `"bypass" \| ResourceScope` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
 | `scopeOf?` | `(row: Row) => Scope` | The tenant a row belongs to, as `scope` returns it; files `allTenants` staff's audit events under it. |
-| `access?` | `ResourceAccess<Row>` | Canonical operation-level authorization. |
+| `access?` | `ResourceAccess<Row> \| AccessRule` | Who may read, create, update and delete: `{ read, create, update, delete }`, or one rule such as `"admin"` for all four. |
 | `fieldAccess?` | `FieldAccessMap<Row>` | Canonical read/write policy for declared fields. |
 | `export?` | `\| { formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[]; /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */ maxRows?: number; /** Who may export, on top of the resource's `read` rule. Everyone who may read by default. */ access?: AccessRule; } \| false` | Export button, off unless set: every row matching the list's filters, search and sort, as the user may read them. `formats` defaults to `["csv"]`; `fields` defaults to the columns. |
 | `import?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Import button. Off unless set; rows are created through the normal write path. |

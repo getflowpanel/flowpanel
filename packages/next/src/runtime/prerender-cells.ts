@@ -1,4 +1,5 @@
 import type { ColumnDef, ColumnFormat, ColumnMeta, RequestContext } from "@flowpanel/core";
+import { humanize } from "@flowpanel/core";
 import {
   columnFormatKind,
   DEFAULT_FORMATTING,
@@ -32,7 +33,7 @@ export interface PrerenderedColumn<Row> {
   content?: "long" | "email" | "link";
   /** The widest value on this page in rem as the cell shows it, which sizes the column. */
   textRem?: number;
-  /** An editable column's choices, labelled as its cells show them. */
+  /** An enum or editable column's choices, labelled as its cells show them. */
   options?: Array<{ value: string; label: string }>;
 }
 
@@ -82,6 +83,8 @@ function shownText<Row>(
     );
   }
   if (typeof raw === "boolean") return "✓";
+  const choice = column.options?.find((option) => option.value === raw);
+  if (choice) return choice.label;
   const date = column.type === "date" ? toDateValue(raw) : null;
   if (date) return formatDateValue(date, formatting);
   return typeof raw === "string" || typeof raw === "number" ? String(raw) : "";
@@ -99,7 +102,28 @@ function editChoices(
       ? [...new Set([...Object.keys(badge.labels ?? {}), ...Object.keys(badge.tones ?? {})])]
       : []);
   if (values.length === 0) return undefined;
-  return values.map((value) => ({ value, label: badge?.labels?.[value] ?? value }));
+  return values.map((value) => ({ value, label: badge?.labels?.[value] ?? humanize(value) }));
+}
+
+/** A SQL `date` column reads as its calendar day, not as a midnight-UTC instant on the admin's clock. */
+export const CALENDAR_DAY: ColumnFormat = { kind: "date", calendarDay: true };
+
+/** A SQL `date` column's format: its declared date format as a calendar day, unless that sets `calendarDay: false`. */
+function dayFormat(format: ColumnFormat | undefined): ColumnFormat | undefined {
+  if (format === undefined || format === "date") return CALENDAR_DAY;
+  if (typeof format !== "object" || format.kind !== "date" || format.calendarDay === false) {
+    return format;
+  }
+  return { ...format, calendarDay: true };
+}
+
+/** An enum column's values with the labels its form's select shows. */
+function enumChoices(
+  meta: ColumnMeta | undefined,
+): Array<{ value: string; label: string }> | undefined {
+  return meta?.enumValues?.length
+    ? meta.enumValues.map((value) => ({ value, label: humanize(value) }))
+    : undefined;
 }
 
 /** A rendered cell travels in an array, so React asks it for a key; a JSX `render` rarely gives one. */
@@ -147,6 +171,9 @@ export function prerenderResourceCells<Row>(
       if (content) col.content = content;
       const meta = metaByField?.get(field);
       if (meta) col.type = meta.type;
+      const options = enumChoices(meta);
+      if (options) col.options = options;
+      if (meta?.dateOnly) col.format = CALENDAR_DAY;
       columns.push(col);
       renderFns.push(null);
       continue;
@@ -183,8 +210,14 @@ export function prerenderResourceCells<Row>(
       else {
         const meta = metaByField?.get(field);
         if (meta) out.type = meta.type;
+        const day = meta?.dateOnly && !def.render ? dayFormat(out.format) : undefined;
+        if (day) out.format = day;
         const options =
-          def.editable === true ? editChoices(def.format, meta?.enumValues) : undefined;
+          def.editable === true
+            ? editChoices(def.format, meta?.enumValues)
+            : def.format === undefined && !def.render
+              ? enumChoices(meta)
+              : undefined;
         if (options) out.options = options;
       }
     }

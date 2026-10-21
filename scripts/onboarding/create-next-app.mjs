@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { constants } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
@@ -6,21 +7,6 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { assertInstalledFromTarballs, fetchFrom, run, startNext, writer } from "./shared.mjs";
 
-const SCHEMA = `import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").notNull(),
-  name: text("name"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-`;
-const DB = `import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
-import * as schema from "./schema";
-
-export const db = drizzle(new Pool({ connectionString: process.env.DATABASE_URL }), { schema });
-`;
 const AUTH = `type Session = { user: { id: string; role: string } };
 
 export async function getSession(req: Request): Promise<Session | null> {
@@ -30,7 +16,41 @@ export async function getSession(req: Request): Promise<Session | null> {
 `;
 const REJECTED_UNDER_CACHE_COMPONENTS = /^export const (runtime|dynamic|revalidate|fetchCache)\b/m;
 
-async function withDatabase(adminUrl, consumer, work) {
+/** Runs a command that is expected to fail, returning its exit status and output. */
+function runToFailure(binary, args, { cwd, env }) {
+  const result = spawnSync(binary, args, { cwd, env, encoding: "utf8", timeout: 600_000 });
+  assert.notEqual(
+    result.status,
+    0,
+    `${binary} ${args.join(" ")} should have failed\n${result.stdout}`,
+  );
+  return result;
+}
+
+/** The starting files and the CREATE TABLE that init prints when it finds no Drizzle client or schema. */
+function starterFiles(message) {
+  const files = {};
+  let current = null;
+  for (const line of message.split("\n")) {
+    const file = /^ {2}(\S+\.ts)$/.exec(line)?.[1];
+    if (file) {
+      current = file;
+      files[current] = [];
+    } else if (current && (line === "" || line.startsWith("    "))) {
+      files[current].push(line.slice(4));
+    } else current = null;
+  }
+  const sql = /^ {4}(CREATE TABLE users .+;)$/m.exec(message)?.[1];
+  assert.ok(sql, message);
+  return {
+    sql,
+    files: Object.fromEntries(
+      Object.entries(files).map(([file, lines]) => [file, `${lines.join("\n").trimEnd()}\n`]),
+    ),
+  };
+}
+
+async function withDatabase(adminUrl, consumer, createTable, work) {
   const { Client } = createRequire(path.join(consumer, "package.json"))("pg");
   const name = `fp_onboarding_${randomBytes(4).toString("hex")}`;
   const admin = new Client({ connectionString: adminUrl });
@@ -41,9 +61,7 @@ async function withDatabase(adminUrl, consumer, work) {
   try {
     const app = new Client({ connectionString: url.href });
     await app.connect();
-    await app.query(
-      "create table users (id uuid primary key default gen_random_uuid(), email text not null, name text, created_at timestamp not null default now())",
-    );
+    await app.query(createTable);
     await app.end();
     return await work(url.href);
   } finally {
@@ -98,8 +116,6 @@ export async function checkCreateNextApp({ pm, nextVersion, sandbox, consumer, e
   const base = await access(path.join(consumer, "src/app"), constants.F_OK)
     .then(() => "src/")
     .catch(() => "");
-  await write(`${base}db/schema.ts`, SCHEMA);
-  await write(`${base}db/index.ts`, DB);
   await write(`${base}lib/auth.ts`, AUTH);
   sh(pm, ["install", "--ignore-scripts", ...(pm === "npm" ? ["--no-audit", "--no-fund"] : [])]);
 
@@ -111,20 +127,17 @@ export async function checkCreateNextApp({ pm, nextVersion, sandbox, consumer, e
   console.log(`Next ${installedNext}, cacheComponents ${cacheComponents ? "on" : "off"}`);
 
   const cli = path.join(consumer, "node_modules/@flowpanel/cli/dist/index.mjs");
-  const initialized = JSON.parse(
-    sh(process.execPath, [
-      cli,
-      "init",
-      "--yes",
-      "--json",
-      "--db",
-      "@/db",
-      "--schema",
-      "@/db/schema",
-      "--auth",
-      "@/lib/auth",
-    ]),
+  const initArgs = [cli, "init", "--yes", "--json", "--auth", "@/lib/auth"];
+  const missing = JSON.parse(
+    runToFailure(process.execPath, initArgs, { cwd: consumer, env }).stdout,
   );
+  const starter = starterFiles(missing.error);
+  assert.deepEqual(Object.keys(starter.files).sort(), [
+    `${base}server/lib/db.ts`,
+    `${base}server/lib/db/schema.ts`,
+  ]);
+  for (const [file, content] of Object.entries(starter.files)) await write(file, content);
+  const initialized = JSON.parse(sh(process.execPath, initArgs));
   assert.equal(initialized.adminPath, "/admin");
   await assertInstalledFromTarballs(consumer, tarballs, ["@flowpanel/kit", "@flowpanel/cli"]);
   const appDir = `${base}app`;
@@ -144,7 +157,38 @@ export async function checkCreateNextApp({ pm, nextVersion, sandbox, consumer, e
   const added = JSON.parse(sh(process.execPath, [cli, "new", "users", "--json"]));
   assert.equal(added.applied, true);
 
-  await withDatabase(adminUrl, consumer, async (databaseUrl) => {
+  const { DATABASE_URL: _unused, ...withoutUrl } = env;
+  const closedPort = {
+    ...withoutUrl,
+    NODE_ENV: "production",
+    PGHOST: "127.0.0.1",
+    PGPORT: "54354",
+  };
+  const unset = spawnSync(process.execPath, [cli, "doctor", "--json"], {
+    cwd: consumer,
+    env: closedPort,
+    encoding: "utf8",
+    timeout: 600_000,
+  });
+  const unsetChecks = JSON.parse(unset.stdout).checks;
+  assert.ok(
+    unsetChecks.find((check) => check.name === "flowpanel.config.ts evaluates")?.ok,
+    unset.stdout,
+  );
+  assert.ok(unsetChecks.find((check) => check.name === "DATABASE_URL set")?.warn, unset.stdout);
+  console.log("a production build and start without DATABASE_URL, as in a Docker image build");
+  sh(pm, ["run", "build"], closedPort);
+  const unconfigured = await startNext(consumer, "start", [], closedPort);
+  try {
+    await withoutDatabase(unconfigured);
+  } catch (error) {
+    console.error(unconfigured.log());
+    throw error;
+  } finally {
+    await unconfigured.stop();
+  }
+
+  await withDatabase(adminUrl, consumer, starter.sql, async (databaseUrl) => {
     const prodEnv = { ...env, NODE_ENV: "production", DATABASE_URL: databaseUrl };
     sh(process.execPath, [cli, "migrate"], prodEnv);
     const doctor = JSON.parse(sh(process.execPath, [cli, "doctor", "--json"], prodEnv));
@@ -162,8 +206,21 @@ export async function checkCreateNextApp({ pm, nextVersion, sandbox, consumer, e
     }
   });
   console.log(
-    `✓ create-next-app@${nextVersion} (Next ${installedNext}, cacheComponents ${cacheComponents ? "on" : "off"}), ${pm}: init, new, migrate, doctor, next build, sign-in wall, records created through the API and the form route, list page and 404 passed`,
+    `✓ create-next-app@${nextVersion} (Next ${installedNext}, cacheComponents ${cacheComponents ? "on" : "off"}), ${pm}: init's starter files, init, new, the admin's card and the API error without DATABASE_URL, migrate, doctor, next build, sign-in wall, users created through the API and the form route, list page and 404 passed`,
   );
+}
+
+/** Without DATABASE_URL the admin still renders, with the failed read's card, and the API answers its JSON error. */
+async function withoutDatabase(server) {
+  const asAdmin = { "x-fixture-user": "fixture-admin" };
+  const list = await fetchFrom(server.origin, "/admin/users", { headers: asAdmin });
+  assert.equal(list.status, 200);
+  assert.match(await list.text(), /Couldn(?:'|&#x27;|&#39;)t load users/);
+  const api = await fetchFrom(server.origin, "/api/flowpanel/users", { headers: asAdmin });
+  assert.equal(api.status, 500);
+  const body = await api.json();
+  assert.equal(body.ok, false);
+  assert.equal(body.error.code, "internal");
 }
 
 async function exercise(server, cacheComponents) {
@@ -184,13 +241,12 @@ async function exercise(server, cacheComponents) {
   const json = await fetch(`${api}/users`, {
     method: "POST",
     headers: { ...asAdmin, "content-type": "application/json", origin: server.origin },
-    body: JSON.stringify({ email: "ann@example.com", name: "Ann" }),
+    body: JSON.stringify({ email: "ann@example.com" }),
   });
   assert.equal(json.status, 200, await json.clone().text());
   assert.equal((await json.json()).ok, true);
   const form = new FormData();
   form.set("email", "bob@example.com");
-  form.set("name", "Bob");
   const posted = await fetch(`${api}/users/create`, {
     method: "POST",
     headers: { ...asAdmin, origin: server.origin },

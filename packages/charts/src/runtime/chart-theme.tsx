@@ -84,10 +84,11 @@ export const LINE_TOOLTIP_CURSOR = {
 /** Hover cursor for bar charts — a faint band highlight. */
 export const BAR_TOOLTIP_CURSOR = { fill: "hsl(var(--fp-text-1) / 0.06)" } as const;
 
-/** Recharts drops ticks to satisfy `minTickGap`, so a narrow chart's axis thins out on its own. */
+/** Every n-th tick counted back from the latest date, evenly; the right padding gives that last label room, or Recharts drops every tick but it. */
 export const AXIS_TICK_PROPS = {
-  interval: "preserveStartEnd",
+  interval: "equidistantPreserveEnd",
   minTickGap: 96,
+  padding: { left: 0, right: 24 },
 } as const;
 
 /** Category labels are each worth reading, so only a label that would overlap its neighbour is dropped. */

@@ -3,6 +3,7 @@ import {
   accessAllows,
   FlowpanelAccessError,
   FlowpanelAuthError,
+  FlowpanelError,
   FlowpanelRateLimitError,
   mergeLabels,
   resolveOperationAccess,
@@ -13,9 +14,10 @@ import { decodeAtom } from "./href";
 import { readableByCaller } from "./nav";
 import { matchPage } from "./page-routing";
 import { type PageParams, pageRequest, resolveCatchAllSegments, toSearchParams } from "./page-url";
+import { isControlFlow } from "./query-error";
 import { recordTitle } from "./record-title";
 import { buildRequestContext } from "./request-setup";
-import { pluralLabel, singularTitle } from "./resource-title";
+import { pluralLabel, singularLabel, singularTitle } from "./resource-title";
 
 /** The part of Next's `Metadata` the admin fills. */
 export interface FlowpanelMetadata {
@@ -68,7 +70,11 @@ async function titleFor(
     if (!(await allowedForCaller(resource, "update", reqCtx))) return undefined;
     return singularTitle(labels.form.editTitle, resource, name, labels.dateRange.locale);
   }
-  return (await recordTitle(config, resource, name, id, reqCtx)) ?? labels.notFound.title;
+  const title = await recordTitle(config, resource, name, id, reqCtx).catch((err: unknown) => {
+    if (err instanceof FlowpanelError || isControlFlow(err)) throw err;
+    return singularLabel(resource, name);
+  });
+  return title ?? labels.notFound.title;
 }
 
 /** The title of the wall the page shows for this error, as `handleRenderError` picks it. */
@@ -106,16 +112,21 @@ export function flowpanelMetadata(config: ResolvedAdminConfig) {
   }): Promise<FlowpanelMetadata> {
     const slug = resolveCatchAllSegments(await params).map(decodeAtom);
     let req: Request | undefined;
+    let admitted = false;
     try {
       const sp = toSearchParams(await searchParams);
       req = (await pageRequest(config, slug, sp)).req;
       const reqCtx = await buildRequestContext({ req, config });
+      admitted = true;
       if (reqCtx.session === null) {
         return { title: mergeLabels(config.labels).access.signInTitle, robots: NO_INDEX };
       }
       const title = await titleFor(config, slug, reqCtx);
       return title === undefined ? { robots: NO_INDEX } : { title, robots: NO_INDEX };
     } catch (err) {
+      if (!admitted && !(err instanceof FlowpanelError) && !isControlFlow(err)) {
+        return { title: mergeLabels(config.labels).errors.title, robots: NO_INDEX };
+      }
       const title = await wallTitle(err, config, req);
       return title === undefined ? { robots: NO_INDEX } : { title, robots: NO_INDEX };
     }

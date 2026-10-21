@@ -1,4 +1,5 @@
 import { type DetailTab, formatLabel, type WidgetContext } from "@flowpanel/core";
+import { logCaught } from "../../runtime/caught-error";
 
 type Row = Record<string, unknown>;
 
@@ -19,7 +20,7 @@ export async function tabCountLabels(
         });
         return [tab.key, label] as const;
       } catch (cause) {
-        console.error(`[flowpanel] count for tab "${tab.key}" failed`, cause);
+        logCaught(`[flowpanel] count for tab "${tab.key}" failed`, cause);
         return [tab.key, tab.label] as const;
       }
     }),

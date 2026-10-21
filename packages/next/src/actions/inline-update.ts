@@ -1,5 +1,8 @@
 import type { ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import { mergeLabels, resolveFormatting } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
 import { actionFailure } from "../runtime/action-failure";
+import { coerceRowByColumns } from "../runtime/coerce-values";
 import { columnDefs } from "../runtime/column-defs";
 import { readJsonObject, requestBodyErrorResponse } from "../runtime/request-body";
 import { guardedRoute, lookupResource } from "../runtime/write-pipeline";
@@ -27,11 +30,17 @@ export function inlineUpdateRoute(config: ResolvedAdminConfig) {
       if (!isEditableColumn(resource, field)) {
         return actionFailure("field_forbidden", `column '${field}' is not editable`);
       }
-      await makeActions(config, resource, { reqCtx }).update(
-        id,
+      // A timestamp arrives as the `datetime-local` text the cell showed, on the admin's clock, as a form posts it.
+      const coerced = coerceRowByColumns(
+        config.adapter.introspect(writeTarget(resource)).columns.filter((c) => c.type === "date"),
         { [field]: value },
-        { inline: field },
+        mergeLabels(config.labels),
+        resolveFormatting(config.formatting).timeZone,
       );
+      await makeActions(config, resource, { reqCtx }).update(id, coerced.values, {
+        inline: field,
+        decodeErrors: coerced.fieldErrors,
+      });
       return Response.json({ ok: true });
     },
   });

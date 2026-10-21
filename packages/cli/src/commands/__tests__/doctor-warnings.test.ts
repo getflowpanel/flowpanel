@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createProgram } from "../../program";
 import { CLI_VERSION } from "../../utils/kit";
 import { tpl } from "../../utils/template";
-import { type Check, runDoctorChecks } from "../doctor";
+import { type Check, runDoctorChecks, warningCount } from "../doctor";
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 30_000 });
 
@@ -215,6 +215,69 @@ describe("doctor — DATABASE_URL warning", () => {
     await write({ "package.json": PACKAGE, "flowpanel.config.ts": "export default {};\n" });
     expect(await checkNamed("DATABASE_URL set")).toBeUndefined();
   });
+
+  it("names the variable the database client reads, migrations or not", async () => {
+    await write({
+      "package.json": PACKAGE,
+      "flowpanel.config.ts": 'import { db } from "./db";\nexport default { db };\n',
+      "db.ts": "export const db = connect(process.env.POSTGRES_URL);\n",
+    });
+    const check = await checkNamed("POSTGRES_URL set");
+    expect(check).toMatchObject({ ok: true, warn: true });
+    expect(check?.hint).toContain("POSTGRES_URL is not set");
+    expect(check?.hint).toContain("cannot reach your database");
+    process.env.POSTGRES_URL = "postgres://u:p@db.internal:5432/app";
+    try {
+      expect(await checkNamed("POSTGRES_URL set")).toEqual({ name: "POSTGRES_URL set", ok: true });
+    } finally {
+      delete process.env.POSTGRES_URL;
+    }
+  });
+});
+
+describe("doctor — drizzle-kit and FlowPanel's tables", () => {
+  const NAME = "drizzle-kit leaves FlowPanel's tables alone";
+  const INITIALISED = { "package.json": PACKAGE, "flowpanel.config.ts": "export default {};\n" };
+  const config = (filter: string) =>
+    `import { defineConfig } from "drizzle-kit";\nexport default defineConfig({ dialect: "postgresql", schema: "./db/schema.ts"${filter} });\n`;
+
+  it("warns when drizzle.config.ts has no tablesFilter", async () => {
+    await write({ ...INITIALISED, "drizzle.config.ts": config("") });
+    const check = await checkNamed(NAME);
+    expect(check).toMatchObject({ ok: true, warn: true });
+    expect(check?.hint).toContain(
+      "drizzle.config.ts lets `drizzle-kit push` drop _flowpanel_migrations and flowpanel_audit_log",
+    );
+    expect(check?.hint).toContain(
+      'Add "!_flowpanel_migrations", "!flowpanel_audit_log" to tablesFilter',
+    );
+  });
+
+  it("names only the table a filter still lets push drop", async () => {
+    await write({
+      ...INITIALISED,
+      "drizzle.config.ts": config(', tablesFilter: ["!_flowpanel_migrations"]'),
+    });
+    expect((await checkNamed(NAME))?.hint).toContain('Add "!flowpanel_audit_log" to tablesFilter');
+  });
+
+  it("passes a filter that excludes both, by name, by glob or by listing only the app's tables", async () => {
+    for (const filter of [
+      ', tablesFilter: ["!_flowpanel_migrations", "!flowpanel_audit_log"]',
+      ", tablesFilter: ['!*flowpanel*']",
+      ', tablesFilter: ["users", "posts_*"]',
+    ]) {
+      await write({ ...INITIALISED, "drizzle.config.ts": config(filter) });
+      expect(await checkNamed(NAME)).toEqual({ name: NAME, ok: true });
+    }
+  });
+
+  it("stays quiet without a drizzle config or with a filter it cannot read", async () => {
+    await write(INITIALISED);
+    expect(await checkNamed(NAME)).toBeUndefined();
+    await write({ "drizzle.config.ts": config(", tablesFilter: filters") });
+    expect(await checkNamed(NAME)).toBeUndefined();
+  });
 });
 
 describe("doctor — resource tables", () => {
@@ -248,7 +311,7 @@ describe("doctor — audit log table", () => {
     expect(check).toMatchObject({ ok: true, warn: true });
     expect(check?.hint).toContain("is from 0.3");
     expect(check?.hint).toContain("npx flowpanel migrate");
-    expect((await check?.fix?.())?.path).toBe("flowpanel/migrations/0002_audit_log_0_4.sql");
+    expect((await check?.fix?.())?.[0]?.path).toBe("flowpanel/migrations/0002_audit_log_0_4.sql");
   });
 
   it("offers the 0002 when the table lacks the columns and the 0001 is already 0.4's", async () => {
@@ -262,10 +325,12 @@ describe("doctor — audit log table", () => {
     });
     const check = await checkNamed("Audit log table");
     expect(check?.hint).toContain("doctor --fix");
-    expect(await check?.fix?.()).toEqual({
-      path: "flowpanel/migrations/0002_audit_log_0_4.sql",
-      content: await tpl("migration-audit.postgresql.sql.txt"),
-    });
+    expect(await check?.fix?.()).toEqual([
+      {
+        path: "flowpanel/migrations/0002_audit_log_0_4.sql",
+        content: await tpl("migration-audit.postgresql.sql.txt"),
+      },
+    ]);
   });
 
   it("names the one ALTER for a table missing only diff_preview, with no 0002 to write", async () => {
@@ -604,5 +669,17 @@ describe("doctor — tsc check", () => {
     expect(after.checks.find((check) => check.name === "SSE route")?.ok).toBe(true);
     expect(after.checks.find((check) => check.name === "tsc --noEmit")?.ok).toBe(true);
     expect(after.bad).toBe(0);
+  });
+});
+
+describe("doctor's summary", () => {
+  it("counts the config's own warnings with the checks that warn", () => {
+    const checks = [
+      { name: "Session module", ok: true, warn: true },
+      { name: "Routes", ok: true },
+    ] as Check[];
+    const queue = 'queue "email": boardSecret is empty, so its page cannot sign the board link';
+    expect(warningCount(checks, { warnings: [queue] })).toBe(2);
+    expect(warningCount(checks, { unreadable: "SyntaxError" })).toBe(1);
   });
 });

@@ -17,6 +17,7 @@ import { installedKitVersion, kitCompatibilityError, pinnedSpec } from "../utils
 import { cacheComponentsChecks } from "./cache-components";
 import type { Check } from "./check";
 import { type ConfigWarnings, firstLine, readConfigWarnings } from "./config-warnings";
+import { prismaClientCheck } from "./prisma-client";
 import { countKitInstances, fixPrecondition, staleEjectMarkers } from "./probes";
 import { routeFileChecks } from "./route-file-checks";
 import { stackChecks } from "./stack-checks";
@@ -80,6 +81,8 @@ async function gatherFileChecks(cwd: string, options: DoctorOptions): Promise<Ga
   );
   add("Admin mount configuration", !mount.error, mount.error);
   checks.push(...(await routeFileChecks({ cwd, appDir, aliasMode, mount, pmc })));
+  if (compatibilityReport.orm === "prisma")
+    checks.push(...(await prismaClientCheck(cwd, aliasMode)));
 
   checks.push(
     ...(await cacheComponentsChecks(cwd, compatibilityReport.findings, appDir, mount, aliasMode)),
@@ -170,7 +173,7 @@ export async function runDoctorChecks(
         (!check.ok || check.warn) && check.fix ? [check.fix] : [],
       );
       try {
-        const intents: FileIntent[] = await Promise.all(fixes.map((fix) => fix()));
+        const intents: FileIntent[] = (await Promise.all(fixes.map((fix) => fix()))).flat();
         plan = await createFilesystemPlan(cwd, intents);
         if (options.applyFixes !== false) {
           const written = await applyFilesystemPlan(plan);

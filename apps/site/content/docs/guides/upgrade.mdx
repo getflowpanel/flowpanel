@@ -11,13 +11,19 @@ FlowPanel 0.4 publishes three packages: `@flowpanel/kit`, `@flowpanel/cli` and `
 pnpm up "@flowpanel/*" --latest
 ```
 
-If 0.3's `init` wrote `flowpanel/migrations/0001_init.sql`, run `migrate` once more. The 0.4 audit log writes three columns, `actor_name`, `scope_key` and `diff_preview`, that a 0.3 table lacks. The `0002` also copies each old event's diff under 8 KB into `diff_preview`; a larger old one shows "Changes too large to preview" in History and the Audit log, with **Show full value** on each of its fields:
+Then, in this order:
+
+1. Change your config and code as [What to change](#what-to-change) lists. TypeScript reports the removed names, and `defineAdmin` names each leftover when the app or a CLI command loads the config.
+2. Run `pnpm flowpanel doctor --fix`. 0.3's `init` wrote `export const runtime = "nodejs"` into the route files under `app/api/flowpanel`, and `export const dynamic = "force-dynamic"` into the stream route. Next.js refuses both when `cacheComponents` is on, which `create-next-app` turns on from Next.js 16.4; `doctor --fix` removes them, and adds `not-found.tsx` and the page exports 0.4 needs. `doctor` lists anything it cannot fix.
+3. If 0.3's `init` wrote `flowpanel/migrations/0001_init.sql`, run `migrate` once more:
 
 ```bash
 pnpm flowpanel migrate
 ```
 
-It writes `0002_audit_log_0_4.sql` beside the 0.3 file and applies it. On MySQL and SQLite, where 0.3's PostgreSQL SQL never ran, it replaces `0001_init.sql` with the one for your database instead. `pnpm flowpanel doctor` warns until the table has the columns.
+`migrate` loads `flowpanel.config.ts`, so it stops on an unchanged 0.3 config, for example on `requireRole`; that is why the config comes first. The 0.4 audit log writes three columns, `actor_name`, `scope_key` and `diff_preview`, that a 0.3 table lacks. `migrate` writes `0002_audit_log_0_4.sql` beside the 0.3 file and applies it; the `0002` also copies each old event's diff under 8 KB into `diff_preview`, and a larger old one shows "Changes too large to preview" in History and the Audit log, with **Show full value** on each of its fields. On MySQL and SQLite, where 0.3's PostgreSQL SQL never ran, it replaces `0001_init.sql` with the one for your database instead. `pnpm flowpanel doctor` warns until the table has the columns.
+
+If you push your schema with `drizzle-kit push` or `prisma db push`, keep them from dropping FlowPanel's tables: see [Keep your ORM away from FlowPanel's tables](/docs/guides/audit-log#keep-your-orm-away-from-flowpanels-tables).
 
 ## What to change
 
@@ -38,7 +44,7 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | `toCsv` and `toJson` from `@flowpanel/kit/drizzle` | the list's Export, which streams the file on the server; map rows yourself for a file of your own |
 | `DEFAULT_SHORTCUTS` from `@flowpanel/kit/react` | `<ShortcutsCheatsheet>` without `shortcuts`, which lists the admin's keys in its labels' language |
 | **Access** | |
-| `requireRole: "admin"` on a resource | `access: { read: "admin", create: "admin", update: "admin", delete: "admin" }` |
+| `requireRole: "admin"` on a resource | `access: "admin"`, or `access: { read: "admin", create: "admin", update: "admin", delete: "admin" }` to set each operation |
 | `requireRole` on a row, bulk, drawer or dashboard action | `access: "admin"` (a role, a list of roles, or a function) |
 | `auth: { requireRole: "admin" }`, `withClerk({ requireRole: "admin" })` and the other auth presets | `auth: { access: "admin" }`, `withClerk({ access: "admin" })` |
 | `requireRole` on a `dashboard()`, `page()` or `queue()` | `access` on the same object; a queue now also takes a function |
@@ -115,8 +121,10 @@ Each row is one change from 0.3 that can break an app, with what to write instea
 | `get` throwing for an id that cannot be the key, such as `abc` for an `Int` id | it returns `null`, and the record page shows not found |
 | `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
 | `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration`; `flowpanel migrate` no longer falls back to them or reads `basePath` |
+| a number of epoch milliseconds for a Prisma `DateTime` in the JSON API or a JSON import | ISO 8601 text with seconds and an offset, as `JSON.stringify` of a `Date` gives, or `YYYY-MM-DD` for a `@db.Date` field |
 | **CLI** | |
 | a 0.3 `flowpanel_audit_log` table without `actor_name`, `scope_key` and `diff_preview` | run `pnpm flowpanel migrate`, as above |
+| `export const runtime` or `export const dynamic` in the route files 0.3's `init` wrote | nothing: run `pnpm flowpanel doctor --fix`, which removes them; `next build` refuses them under `cacheComponents` |
 | an extra argument, such as `flowpanel doctor extra`, ignored | every command stops with an error |
 | `migrate` with an unset `DATABASE_URL` falling back to localhost | `migrate` stops before connecting; set the URL your client reads |
 

@@ -44,11 +44,7 @@ export function TimeAgo({ date, locale: localeProp, tickMs = 60_000 }: TimeAgoPr
         <time
           suppressHydrationWarning
           dateTime={target.toISOString()}
-          title={absoluteTime(
-            target,
-            locale,
-            formatting.timeZoneSource === "config" ? formatting.timeZone : undefined,
-          )}
+          title={absoluteTime(target, locale, formatting.timeZone)}
         >
           {rtf.format(Math.round(diff / ms), unit)}
         </time>

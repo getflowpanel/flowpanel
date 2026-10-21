@@ -11,6 +11,26 @@ A queue adds a navigation entry whose page embeds a bull-board server in an ifra
 pnpm add bullmq ioredis @bull-board/api @bull-board/express express
 ```
 
+## Create the queues
+
+The admin, the board and your workers share one module of BullMQ queues. BullMQ needs `maxRetriesPerRequest: null` on the Redis connection:
+
+```ts fragment="needs bullmq and ioredis installed"
+// server/queues.ts
+import { Queue } from "bullmq";
+import IORedis from "ioredis";
+
+// Without REDIS_URL, every Redis call fails with "ENOTFOUND REDIS_URL-is-not-set.invalid." instead of reaching a Redis on localhost.
+const url = process.env.REDIS_URL || "redis://REDIS_URL-is-not-set.invalid.";
+const connection = new IORedis(url, { maxRetriesPerRequest: null });
+
+export const emailQueue = new Queue("email", { connection });
+
+export const queuesByName = { email: emailQueue };
+```
+
+`queuesByName` is what the board serves, keyed by queue name; `queue(emailQueue)` keys the admin page by the same name. Set `REDIS_URL` wherever the admin, the board and the workers run; without it, `next build` still runs and their logs name the unset variable.
+
 ## Register a queue
 
 ```ts
@@ -60,4 +80,4 @@ Wrap the same queue instances with `bullmqAdapter` and call BullMQ methods from 
 
 ## Verify and troubleshoot
 
-Test the admin role gate and the board URL separately: a missing, expired or wrongly signed link returns 401. An unreachable `boardUrl` leaves the iframe empty and the rest of the admin working.
+Test the admin role gate and the board URL separately: a missing, expired or wrongly signed link returns 401. When `boardSecret` is written but empty, as with `process.env.BOARD_SECRET` unset where the admin runs, `next dev` and `flowpanel doctor` warn that the page cannot sign the board link, and the queue page shows that note outside production instead of the iframe. An unreachable `boardUrl` leaves the iframe empty and the rest of the admin working.

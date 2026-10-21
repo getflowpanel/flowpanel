@@ -13,7 +13,7 @@ export interface LocalTimeProps {
   options?: Intl.DateTimeFormatOptions;
   /**
    * Zone for the server and first-paint render; after hydration the reader's zone takes over.
-   * Without it, `formatting.timeZone` is used and stays after hydration too when the admin set one.
+   * Without it, `formatting.timeZone` is used throughout.
    */
   fallbackTimeZone?: string;
   /** Rendered when `date` is null/invalid. Default `"—"`. */
@@ -30,7 +30,7 @@ const DEFAULT_OPTIONS: Intl.DateTimeFormatOptions = {
   hour12: false,
 };
 
-/** Absolute timestamp in the admin's configured time zone, or the viewer's when none is set. */
+/** Absolute timestamp in `formatting.timeZone`, UTC until the admin sets one. */
 export function LocalTime({
   date,
   locale,
@@ -50,8 +50,10 @@ export function LocalTime({
   React.useEffect(() => setMounted(true), []);
 
   const resolvedLocale = locale ?? formatting.dateLocale;
-  const resolvedFallbackZone = fallbackTimeZone ?? formatting.timeZone;
-  const fixedZone = fallbackTimeZone === undefined && formatting.timeZoneSource === "config";
+  const zone =
+    mounted && fallbackTimeZone !== undefined
+      ? undefined
+      : (fallbackTimeZone ?? formatting.timeZone);
   const usingDefaults = locale === undefined && options === undefined;
 
   const text = React.useMemo(() => {
@@ -59,32 +61,16 @@ export function LocalTime({
     return formatDateTime(
       target,
       resolvedLocale,
-      {
-        ...(options ?? DEFAULT_OPTIONS),
-        ...(mounted && !fixedZone ? {} : { timeZone: resolvedFallbackZone }),
-      },
+      { timeZone: zone, ...(options ?? DEFAULT_OPTIONS) },
       usingDefaults ? " " : ", ",
     );
-  }, [
-    target,
-    resolvedLocale,
-    options,
-    mounted,
-    fixedZone,
-    resolvedFallbackZone,
-    placeholder,
-    usingDefaults,
-  ]);
+  }, [target, resolvedLocale, options, zone, placeholder, usingDefaults]);
 
   if (!target) return <span {...(className ? { className } : {})}>{placeholder}</span>;
   return (
     <time
       dateTime={target.toISOString()}
-      title={absoluteTime(
-        target,
-        formatting.locale,
-        mounted && !fixedZone ? undefined : resolvedFallbackZone,
-      )}
+      title={absoluteTime(target, formatting.locale, zone)}
       {...(className ? { className } : {})}
     >
       {text}

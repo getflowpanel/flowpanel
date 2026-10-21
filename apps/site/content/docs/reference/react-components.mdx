@@ -160,7 +160,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
 | `StatusDot` | Small dot in any `Tone`, `ok` by default. |
 | `LiveIndicator` | Realtime connection status indicator for a `RealtimeStatus`. |
-| `LocalTime` | Absolute timestamp in the configured `formatting.timeZone`, or the viewer's zone after hydration when none is set. |
+| `LocalTime` | Absolute timestamp in `formatting.timeZone`, UTC until set. With `fallbackTimeZone`, that zone first and the reader's zone after hydration. |
 | `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
 | `Sparkline` | Minimal inline trend line for a numeric series. |
 | `Mono` | Monospace inline text, for IDs and code-like values. |

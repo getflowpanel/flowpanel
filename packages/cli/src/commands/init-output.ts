@@ -70,10 +70,19 @@ export function authNotice(outcome: AuthOutcome, pmc: PmCommands): string | null
   }
 }
 
-export function conflictMessage(paths: readonly string[]): string {
+/** The files init refuses to overwrite, each with the content it would have written there. */
+export function conflictMessage(files: ReadonlyArray<{ path: string; content: string }>): string {
   return [
-    "Nothing was written. Move these files aside, or merge the generated changes into them by hand:",
-    ...paths.map((file) => `  ${file}`),
+    "Nothing was written. Move these files aside, or merge what init would write into them by hand:",
+    ...files.flatMap((file) => [
+      "",
+      `  ${file.path}`,
+      ...file.content
+        .trimEnd()
+        .split("\n")
+        .map((line) => (line ? `    ${line}` : "")),
+    ]),
+    "",
     "FlowPanel does not overwrite files it did not write.",
   ].join("\n");
 }
@@ -104,6 +113,8 @@ export interface MissingModule {
   /** Project-relative file the guessed specifier would resolve to. */
   file: string;
   flag: string;
+  /** The Prisma client's module, as that file imports it. */
+  client?: string;
 }
 
 const MODULE_NAMES: Record<MissingModule["kind"], string> = {
@@ -112,38 +123,112 @@ const MODULE_NAMES: Record<MissingModule["kind"], string> = {
   prisma: "Prisma client",
 };
 
-const STARTER_MODULES: Record<MissingModule["kind"], string[]> = {
-  db: [
-    'import { drizzle } from "drizzle-orm/node-postgres";',
-    'import * as schema from "./db/schema";',
-    "",
-    "export const db = drizzle({ connection: { connectionString: process.env.DATABASE_URL }, schema });",
-  ],
-  schema: [
-    'import { pgTable, text, timestamp } from "drizzle-orm/pg-core";',
-    "",
-    'export const users = pgTable("users", {',
-    '  id: text("id").primaryKey(),',
-    '  email: text("email").notNull(),',
-    '  createdAt: timestamp("created_at").notNull().defaultNow(),',
-    "});",
-  ],
-  prisma: [
-    'import { PrismaClient } from "@prisma/client";',
-    "",
-    "export const prisma = new PrismaClient();",
-  ],
+/** The Drizzle driver the starting files are written for: the one installed, PostgreSQL's when none or several are. */
+export type StarterDriver = "pg" | "mysql2" | "better-sqlite3";
+
+interface Starter {
+  db: string[];
+  schema: string[];
+  createTable: string;
+  tool: string;
+}
+
+const UNSET_COMMENT =
+  "// Without DATABASE_URL every query fails into the admin's error card instead of a blank page.";
+
+const STARTERS: Record<StarterDriver, Starter> = {
+  pg: {
+    db: [
+      'import { drizzle } from "drizzle-orm/node-postgres";',
+      'import * as schema from "./db/schema";',
+      "",
+      UNSET_COMMENT,
+      'const connectionString = process.env.DATABASE_URL || "postgresql://DATABASE_URL-is-not-set.invalid./db";',
+      "",
+      "export const db = drizzle({ connection: { connectionString }, schema });",
+    ],
+    schema: [
+      'import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";',
+      "",
+      'export const users = pgTable("users", {',
+      '  id: uuid("id").primaryKey().defaultRandom(),',
+      '  email: text("email").notNull(),',
+      '  createdAt: timestamp("created_at").notNull().defaultNow(),',
+      "});",
+    ],
+    createTable:
+      "CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text NOT NULL, created_at timestamp NOT NULL DEFAULT now());",
+    tool: "psql",
+  },
+  mysql2: {
+    db: [
+      'import { drizzle } from "drizzle-orm/mysql2";',
+      'import * as schema from "./db/schema";',
+      "",
+      UNSET_COMMENT,
+      'const uri = process.env.DATABASE_URL || "mysql://DATABASE_URL-is-not-set.invalid./db";',
+      "",
+      'export const db = drizzle({ connection: { uri }, schema, mode: "default" });',
+    ],
+    schema: [
+      'import { int, mysqlTable, timestamp, varchar } from "drizzle-orm/mysql-core";',
+      "",
+      'export const users = mysqlTable("users", {',
+      '  id: int("id").primaryKey().autoincrement(),',
+      '  email: varchar("email", { length: 255 }).notNull(),',
+      '  createdAt: timestamp("created_at").notNull().defaultNow(),',
+      "});",
+    ],
+    createTable:
+      "CREATE TABLE users (id int AUTO_INCREMENT PRIMARY KEY, email varchar(255) NOT NULL, created_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP);",
+    tool: "the mysql client",
+  },
+  "better-sqlite3": {
+    db: [
+      'import Database from "better-sqlite3";',
+      'import { drizzle } from "drizzle-orm/better-sqlite3";',
+      'import * as schema from "./db/schema";',
+      "",
+      'export const db = drizzle({ client: new Database("local.db"), schema });',
+    ],
+    schema: [
+      'import { sql } from "drizzle-orm";',
+      'import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";',
+      "",
+      'export const users = sqliteTable("users", {',
+      '  id: integer("id").primaryKey({ autoIncrement: true }),',
+      '  email: text("email").notNull(),',
+      '  createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`(unixepoch())`),',
+      "});",
+    ],
+    createTable:
+      "CREATE TABLE users (id integer PRIMARY KEY AUTOINCREMENT, email text NOT NULL, created_at integer NOT NULL DEFAULT (unixepoch()));",
+    tool: "sqlite3 local.db",
+  },
 };
 
-const USERS_TABLE =
-  "CREATE TABLE users (id text PRIMARY KEY, email text NOT NULL, created_at timestamp NOT NULL DEFAULT now());";
+function starterLines(entry: MissingModule, starter: Starter): string[] {
+  const { kind } = entry;
+  if (kind === "prisma") {
+    return [
+      `import { PrismaClient } from "${entry.client ?? "@prisma/client"}";`,
+      "",
+      "export const prisma = new PrismaClient();",
+    ];
+  }
+  return kind === "db" ? starter.db : starter.schema;
+}
 
-/** What to do when the modules init guessed do not exist: starting files, or the flags that point at yours. */
+/** What to do when the modules init guessed do not exist: starting files for the installed driver, or the flags that point at yours. */
 export function missingModuleMessage(
   missing: readonly MissingModule[],
   pmc: PmCommands,
-  installed: { pg: boolean } = { pg: false },
+  driver: { name: StarterDriver; installed: boolean; unbuilt?: boolean } = {
+    name: "pg",
+    installed: false,
+  },
 ): string {
+  const starter = STARTERS[driver.name];
   const names = missing.map((entry) => MODULE_NAMES[entry.kind]).join(" and ");
   const flags = missing.map((entry) => `${entry.flag} <module>`).join(" and ");
   return [
@@ -152,15 +237,18 @@ export function missingModuleMessage(
     ...missing.flatMap((entry) => [
       "",
       `  ${entry.file}`,
-      ...STARTER_MODULES[entry.kind].map((line) => (line ? `    ${line}` : "")),
-      ...(entry.kind === "db" && !installed.pg
-        ? ["", `  It needs the pg driver: ${pmc.addDisplay("pg", false)}`]
+      ...starterLines(entry, starter).map((line) => (line ? `    ${line}` : "")),
+      ...(entry.kind === "db" && !driver.installed
+        ? ["", `  It needs the ${driver.name} driver: ${pmc.addDisplay(driver.name, false)}`]
+        : []),
+      ...(entry.kind === "db" && driver.unbuilt
+        ? ["", `  ${driver.name} is not built yet: run pnpm approve-builds and select it.`]
         : []),
       ...(entry.kind === "schema"
         ? [
             "",
-            "  Then create its table in your database, for example with psql:",
-            `    ${USERS_TABLE}`,
+            `  Then create its table in your database, for example with ${starter.tool}:`,
+            `    ${starter.createTable}`,
           ]
         : []),
     ]),

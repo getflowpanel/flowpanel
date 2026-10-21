@@ -18,7 +18,8 @@ export function renderDefaultCell<Row extends Record<string, unknown>>(
     return <ArrayCell value={Array.isArray(v) ? (v as ReadonlyArray<unknown>) : null} />;
   }
   if (c.type === "json") return <JsonCell value={r[c.field]} />;
-  return renderCellValue(r[c.field], formatting);
+  const choice = c.options?.find((option) => option.value === r[c.field]);
+  return choice ? choice.label : renderCellValue(r[c.field], formatting);
 }
 
 /** A cell with its column's `secondary` field as a muted second line, when the row has one. */

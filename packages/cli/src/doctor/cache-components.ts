@@ -8,6 +8,8 @@ import { configImportFor, type PathAliasMode } from "../utils/detect";
 import type { Check } from "./check";
 
 const REJECTED_EXPORT = /^export\s+const\s+(runtime|dynamic|revalidate|fetchCache)\s*=/gm;
+const LITERAL_EXPORT =
+  /^export\s+const\s+(?:runtime|dynamic|revalidate|fetchCache)\s*=\s*(?:"[^"\n]*"|'[^'\n]*'|\d+|true|false)[ \t]*;?[ \t]*(?:\r?\n|$)/gm;
 const READS_REQUEST = /\b(?:headers|cookies)\(\)/;
 const BLOCKING = /^export\s+const\s+instant\s*=\s*false\b/m;
 
@@ -70,7 +72,18 @@ export async function cacheComponentsChecks(
     layout: `${adminDir}/layout.tsx`,
     page,
   });
-  const fix = await blockingPageFix(cwd, page, configImportFor(path.dirname(page), aliasMode));
+  const pageFix = await blockingPageFix(cwd, page, configImportFor(path.dirname(page), aliasMode));
+  const removals = await literalExportRemovals(cwd, [
+    `${apiDir}/[...route]/route.ts`,
+    `${apiDir}/stream/route.ts`,
+    `${adminDir}/not-found.tsx`,
+    `${adminDir}/layout.tsx`,
+    ...(pageFix ? [] : [page]),
+  ]);
+  const fix =
+    pageFix || removals.length > 0
+      ? async () => [...removals, ...(pageFix ? [await pageFix()] : [])]
+      : null;
   checks.push({
     name: "Admin files build under cacheComponents",
     ok: problems.length === 0,
@@ -78,6 +91,19 @@ export async function cacheComponentsChecks(
     ...(fix ? { fix } : {}),
   });
   return checks;
+}
+
+/** Drops the one-line `runtime`, `dynamic`, `revalidate` and `fetchCache` exports 0.3 wrote; a file with any other form stays yours. */
+async function literalExportRemovals(cwd: string, files: string[]): Promise<FileIntent[]> {
+  const intents: FileIntent[] = [];
+  for (const file of files) {
+    const current = await fs.readFile(path.join(cwd, file), "utf8").catch(() => null);
+    if (current === null || !new RegExp(REJECTED_EXPORT.source, "m").test(current)) continue;
+    const content = current.replace(LITERAL_EXPORT, "");
+    if (new RegExp(REJECTED_EXPORT.source, "m").test(content)) continue;
+    intents.push({ path: file, content, expectedContent: current });
+  }
+  return intents;
 }
 
 /** Rewrites a catch-all page an earlier `init` wrote without `instant = false`; a page you edited stays yours. */

@@ -53,12 +53,61 @@ describe("widget owners", () => {
     expect((failure as Error).message).toBe(
       "«Конвейер» (custom, /system section 2 widget 1): pipeline view missing",
     );
+    expect((failure as Error).name).toBe("WidgetFailure");
     expect(failure).toMatchObject({
       kind: "custom",
       label: "Конвейер",
       where: "/system",
       position: "section 2 widget 1",
     });
+  });
+
+  it("keeps a refused connection in the message and a driver's parameters out of it", async () => {
+    const timer = pageTimer("/system", 1, { log: () => {} });
+    const refused = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:54389"), {
+      code: "ECONNREFUSED",
+    });
+    const failure = await timer
+      .run(conveyor, async () => {
+        throw new Error("Failed query: select count(*) from runs\nparams: ann@example.com", {
+          cause: refused,
+        });
+      })
+      .catch((error: unknown) => error);
+    expect((failure as Error).message).toBe(
+      "«Конвейер» (custom, /system section 2 widget 1): Failed query: select count(*) from runs\n" +
+        "  caused by: Error [ECONNREFUSED]: connect ECONNREFUSED 127.0.0.1:54389",
+    );
+    expect((failure as Error).cause).toBeInstanceOf(Error);
+    expect((failure as Error).name).toBe("WidgetConnectionFailure");
+  });
+
+  it("logs no driver error, and so no query parameters, in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const timer = pageTimer("/system", 1, { log: () => {} });
+    const failure = await timer
+      .run(conveyor, async () => {
+        throw Object.assign(new Error("Failed query: select 1\nparams: ann@example.com"), {
+          params: ["ann@example.com"],
+        });
+      })
+      .catch((error: unknown) => error);
+    expect((failure as Error).cause).toBeUndefined();
+    expect((failure as Error).message).not.toContain("ann@example.com");
+  });
+
+  it("hands the widget boundary no AggregateError in development", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const timer = pageTimer("/system", 1, { log: () => {} });
+    const refused = new AggregateError([new Error("connect ECONNREFUSED ::1:5432")], "");
+    const failure = await timer
+      .run(conveyor, async () => {
+        throw new Error("Failed query", { cause: refused });
+      })
+      .catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(WidgetFailure);
+    expect(refused).not.toBeInstanceOf(AggregateError);
+    expect(refused.errors).toHaveLength(1);
   });
 
   it("lets Next's redirect and not-found throws through unchanged", async () => {

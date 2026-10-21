@@ -18,6 +18,7 @@ export interface PackageManifest {
   optionalDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   packageManager?: string;
+  scripts?: Record<string, string>;
 }
 
 export interface DependencyInspection {

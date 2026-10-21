@@ -14,8 +14,12 @@ const LONG_TEXT =
 export function columnKind(column: ColumnDescription): ColumnKind {
   if (column.primary && /(?:UUID|Uuid|Cuid)$/.test(column.columnType)) return "skip";
   if (column.dataType === "json" || column.dataType === "buffer") return "skip";
-  if (column.length !== undefined && column.length > 200) return "skip";
-  if (/Text$/.test(column.columnType) && LONG_TEXT.test(column.key)) return "skip";
+  // Columns are the create form's fields too, so a value every insert needs is never left out for width.
+  const insertNeedsIt = column.notNull === true && column.hasDefault === false;
+  if (!insertNeedsIt && column.length !== undefined && column.length > 200) return "skip";
+  if (!insertNeedsIt && /Text$/.test(column.columnType) && LONG_TEXT.test(column.key)) {
+    return "skip";
+  }
   if (/Timestamp|DateTime/.test(column.columnType)) return "timestamp";
   if (/Date(String)?$/.test(column.columnType)) return "date";
   if (column.enumValues) return "enum";

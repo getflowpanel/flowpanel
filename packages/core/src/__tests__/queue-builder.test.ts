@@ -55,4 +55,38 @@ describe("defineAdmin — queues", () => {
       });
     expect(build).toThrow(/queue "scraper": two queues use this key/);
   });
+
+  it("warns when a queue's boardSecret is written but empty, and only then", () => {
+    const build = (options: { boardSecret?: string | undefined }) =>
+      defineAdmin({
+        adapter: {
+          kind: "drizzle",
+          db: {},
+          introspect: () => ({ name: "x", columns: [], primaryKey: "id" }),
+          inferSchema: () => ({}) as never,
+          list: async () => ({ rows: [], total: 0, page: 1, pageSize: 20 }),
+          get: async () => null,
+          create: async () => ({}),
+          update: async () => ({}),
+          delete: async () => undefined,
+        },
+        auth: { session: async () => null, role: () => "guest" },
+        queues: [
+          queue(
+            { name: "email" },
+            {
+              label: "Email",
+              boardUrl: "http://x/email",
+              ...options,
+            },
+          ),
+        ],
+      }).warnings.filter((line) => line.startsWith("queue "));
+    expect(build({ boardSecret: undefined })).toEqual([
+      'queue "email": boardSecret is empty, so its page cannot sign the board link and the board answers 401. Is BOARD_SECRET set where the admin runs?',
+    ]);
+    expect(build({ boardSecret: "" })).toHaveLength(1);
+    expect(build({ boardSecret: "s3cret" })).toEqual([]);
+    expect(build({})).toEqual([]);
+  });
 });

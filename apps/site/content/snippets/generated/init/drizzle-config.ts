@@ -30,6 +30,6 @@ export default defineAdmin({
   },
 
   resources: [
-    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })
+    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "createdAt"] })
   ],
 });

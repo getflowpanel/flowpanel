@@ -21,6 +21,7 @@ export {
   sqlAuditLog,
 } from "../runtime/audit-sql";
 export { clientIpFrom } from "../runtime/client-ip";
+export { describeError, loggableError } from "../runtime/describe-error";
 export { didYouMean } from "../suggest";
 export { SERVER_LABELS, type ServerFormLabel } from "../types/labels/server-defaults";
 export { CHART_HEIGHT, type ChartBox, chartBox } from "./chart-box";
@@ -58,6 +59,7 @@ export {
   timelineKindsOf,
   writeTimelineCursor,
 } from "./timeline-merge";
+export { parseWallTime, wallTimeIn } from "./wall-time";
 export { assertColumn, normalizeWhere, whereValue, withRange } from "./where";
 export { declaredWriteFields } from "./write-fields";
 export { writeTarget } from "./write-target";

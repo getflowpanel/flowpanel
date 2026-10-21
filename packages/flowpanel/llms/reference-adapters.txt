@@ -135,6 +135,7 @@ Returned by `introspect`. `kind: "view"` makes a resource read-only unless it se
 | `unique` | `boolean` |  |
 | `primaryKey` | `boolean` |  |
 | `integer?` | `boolean` | A `number` column that holds whole numbers only, such as `integer` or `bigint`; `false` for decimals and floats. |
+| `dateOnly?` | `boolean` | A SQL `date` column of `date` type: a calendar day, which reads as midnight UTC and has no time or zone. |
 | `enumValues?` | `readonly string[]` | Allowed values, for `enum` columns. |
 | `references?` | `{ table: string; column: string }` | Foreign key target, when the column references another table. |
 | `maxLength?` | `number` |  |

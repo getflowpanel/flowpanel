@@ -5,7 +5,7 @@ const GETTING_STARTED_URL =
 
 const SNIPPET = `resource(schema.users, {
   label: "Users",
-  columns: ["email", "name", "createdAt"],
+  columns: ["email", "createdAt"],
 }),`;
 
 const BLOCK =

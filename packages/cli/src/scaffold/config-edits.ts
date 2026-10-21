@@ -2,6 +2,7 @@ import * as path from "node:path";
 import { type ArrayLiteralExpression, Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
 import { lineIndent } from "../eject/add-resource";
 import { aliasOf, detectPathAlias } from "../utils/detect";
+import { prismaClientModuleFor } from "../utils/prisma-provider";
 
 function parse(source: string): SourceFile {
   return new Project({ useInMemoryFileSystem: true }).createSourceFile("config.ts", source);
@@ -17,13 +18,18 @@ function insertLineBefore(source: string, closeBrace: number, line: string): str
  * Registers a Prisma model's row under its resource name in the config's `FlowpanelResources`,
  * so its columns, filters, reads and the references to it are typed. Unchanged when the config has no `declare module "@flowpanel/kit"` block.
  */
-export function addPrismaResourceType(source: string, name: string, model: string): string {
+export function addPrismaResourceType(
+  source: string,
+  name: string,
+  model: string,
+  clientModule = "@prisma/client",
+): string {
   const block = parse(source)
     .getModules()
     .find((module) => module.getName().replace(/^["']|["']$/g, "") === "@flowpanel/kit");
   const body = block?.getBody();
   if (!block || !body || !Node.isModuleBlock(body)) return source;
-  const entry = `${/^[A-Za-z_$][\w$]*$/.test(name) ? name : JSON.stringify(name)}: import("@prisma/client").${model};`;
+  const entry = `${/^[A-Za-z_$][\w$]*$/.test(name) ? name : JSON.stringify(name)}: import(${JSON.stringify(clientModule)}).${model};`;
   const registry = body.getInterface("FlowpanelResources");
   if (registry) {
     if (registry.getProperty(name) || registry.getProperty(JSON.stringify(name))) return source;
@@ -36,6 +42,18 @@ export function addPrismaResourceType(source: string, name: string, model: strin
     block.getEnd() - 1,
     `${indent}interface FlowpanelResources {\n${indent}  ${entry}\n${indent}}`,
   );
+}
+
+/** `addPrismaResourceType` with the model types read from where `file` imports the Prisma client; no name, no change. */
+export async function typePrismaModel(
+  cwd: string,
+  file: string,
+  source: string,
+  name: string | null | undefined,
+  model: string,
+): Promise<string> {
+  if (!name) return source;
+  return addPrismaResourceType(source, name, model, await prismaClientModuleFor(cwd, file));
 }
 
 export type WireResult =

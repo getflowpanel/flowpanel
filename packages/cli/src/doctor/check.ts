@@ -8,6 +8,6 @@ export interface Check {
   /** A passing check with a suggestion; it never counts as a failure or a warning. */
   info?: boolean;
   hint?: string;
-  /** If present, this check is auto-fixable. Returns the intended write. */
-  fix?: () => Promise<FileIntent>;
+  /** If present, this check is auto-fixable. Returns the intended writes. */
+  fix?: () => Promise<FileIntent[]>;
 }

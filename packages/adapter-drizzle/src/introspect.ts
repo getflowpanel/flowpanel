@@ -29,6 +29,7 @@ export function introspect(table: unknown): ResourceIntrospection {
     };
     if (isLiteral(raw.default)) meta.defaultValue = raw.default;
     if (raw.enumValues) meta.enumValues = raw.enumValues;
+    if (/^(?:Pg|MySql)Date$/.test(String(raw.columnType))) meta.dateOnly = true;
     if (meta.type === "number") meta.integer = isInteger(raw);
     if (raw.primary) primaryKey = name;
     columns.push(meta);

@@ -199,7 +199,7 @@ itself is invalid.
 
 ## Errors the routes produce themselves
 
-The generated UI routes (actions, forms, drawers, inline edits, import and restore) answer every failure as `{ ok: false, error, code, requestId?, fieldErrors? }`: `error` is a string to show, `code` a `FlowpanelErrorCode`, and `requestId` is set once the guards have run. Some errors come from the routes themselves:
+The generated UI routes (actions, forms, drawers, inline edits, import, restore and export) answer every failure as `{ ok: false, error, code, requestId?, fieldErrors? }`: `error` is a string to show, `code` a `FlowpanelErrorCode`, and `requestId` is set once the guards have run. Some errors come from the routes themselves:
 
 | Status | `error` | When |
 | --- | --- | --- |

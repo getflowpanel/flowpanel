@@ -1,5 +1,6 @@
 import type { RequestContext } from "@flowpanel/core";
 import { createElement, Fragment, isValidElement, type ReactNode } from "react";
+import { logCaught } from "../runtime/caught-error";
 import type { FieldRender } from "./serialize-fields";
 
 let renderToStaticMarkupFn: ((node: ReactNode) => string) | null = null;
@@ -56,7 +57,7 @@ export async function prerenderEach(
         if (holdsClientComponent(node)) return null;
         return [name, renderToStaticMarkup(createElement(Fragment, null, node))];
       } catch (error) {
-        console.error(`[flowpanel] drawer render failed for "${name}"`, error);
+        logCaught(`[flowpanel] drawer render failed for "${name}"`, error);
         return null;
       }
     }),

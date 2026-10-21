@@ -95,11 +95,7 @@ export function RelativeTimeCell({
     <time
       suppressHydrationWarning
       dateTime={date.toISOString()}
-      title={absoluteTime(
-        date,
-        formatting.locale,
-        formatting.timeZoneSource === "config" ? formatting.timeZone : undefined,
-      )}
+      title={absoluteTime(date, formatting.locale, formatting.timeZone)}
     >
       {formatRelativeValue(date, formatting)}
     </time>

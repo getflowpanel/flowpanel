@@ -10,6 +10,7 @@ import type {
 import { formatLabel, mergeLabels, runWithRequestContext } from "@flowpanel/core";
 import type { CardDate } from "@flowpanel/react";
 import { safeErrorMessage } from "../runtime/action-helpers";
+import { logCaught } from "../runtime/caught-error";
 import { inAmount } from "../runtime/minor-units";
 import {
   declaredFieldName,
@@ -255,7 +256,7 @@ export async function serializeWidget(
     }
   } catch (err) {
     const label = widgetLabel(w);
-    console.error(
+    logCaught(
       `[flowpanel] drawer widget ${label ? `«${label}» ` : ""}(${w.kind}) failed (request ${reqCtx.requestId})`,
       err,
     );

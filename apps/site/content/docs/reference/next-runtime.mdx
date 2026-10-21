@@ -142,8 +142,8 @@ All paths are relative to `/api/flowpanel`.
 | --- | --- | --- |
 | `GET` | `/<resource>` | Typed list result for custom clients |
 | `GET` | `/<resource>/<id>` | One projected row |
-| `POST` | `/<resource>` | Create (JSON API) |
-| `PATCH` / `PUT` | `/<resource>/<id>` | Update (JSON API) |
+| `POST` | `/<resource>` | Create (JSON API), with dates as for `PATCH` |
+| `PATCH` / `PUT` | `/<resource>/<id>` | Update (JSON API); a date is ISO 8601 text with seconds and an offset, such as `2026-10-18T22:30:00Z`, or `YYYY-MM-DD` for a SQL `date` column |
 | `DELETE` | `/<resource>/<id>` | Delete (JSON API) |
 | `GET` | `/drawer/<resource>/<id>` | Drawer payload for one row |
 | `GET` | `/<resource>/reference/<field>` | Options for a reference picker |

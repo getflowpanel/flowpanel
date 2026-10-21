@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 
+import { resolveFormatting } from "@flowpanel/core/format";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { FormattingProvider } from "../../../provider/FormattingContext";
 import { LabelsProvider } from "../../../provider/LabelsContext";
 import { DateRangeFilter } from "../DateRangeFilter";
 
@@ -142,5 +144,37 @@ describe("DateRangeFilter", () => {
       .getAllByRole("button")
       .filter((button) => button.getAttribute("aria-pressed") === "true");
     expect(pressed.map((button) => button.textContent)).toEqual(["Last 7 days"]);
+  });
+});
+
+describe("DateRangeFilter's today, read in New York late in the evening", () => {
+  const hostZone = process.env.TZ;
+  beforeAll(() => {
+    process.env.TZ = "America/New_York";
+  });
+  afterAll(() => {
+    if (hostZone === undefined) delete process.env.TZ;
+    else process.env.TZ = hostZone;
+  });
+
+  const today = (timeZone?: string) => {
+    vi.setSystemTime(new Date("2026-08-13T03:30:00.000Z"));
+    const onChange = vi.fn();
+    render(
+      <FormattingProvider value={resolveFormatting(timeZone ? { timeZone } : {})}>
+        <DateRangeFilter value={null} onChange={onChange} />
+      </FormattingProvider>,
+    );
+    openPicker();
+    fireEvent.click(screen.getByRole("button", { name: "Today" }));
+    return onChange.mock.calls[0]?.[0];
+  };
+
+  it("is the admin's day in UTC, not the reader's", () => {
+    expect(today()).toBe("2026-08-13:2026-08-13");
+  });
+
+  it("is the configured zone's day when formatting.timeZone is set", () => {
+    expect(today("America/New_York")).toBe("2026-08-12:2026-08-12");
   });
 });

@@ -54,7 +54,15 @@ const SOCKET_CODES = [
   "ENETUNREACH",
 ] as const;
 const PRISMA_CODES = ["P1001", "P1002", "P1017"] as const;
-const CONNECTION_CODES: readonly string[] = [...SOCKET_CODES, ...PRISMA_CODES];
+const LOGIN_CODES: readonly string[] = ["28P01", "28000", "P1000", "ER_ACCESS_DENIED_ERROR"];
+const NO_DATABASE_CODES: readonly string[] = ["3D000", "P1003", "ER_BAD_DB_ERROR"];
+const CONNECTION_CODES: readonly string[] = [
+  ...SOCKET_CODES,
+  ...PRISMA_CODES,
+  "08001",
+  ...LOGIN_CODES,
+  ...NO_DATABASE_CODES,
+];
 const SOCKET_CODE_PATTERN = new RegExp(`\\b(${SOCKET_CODES.join("|")})\\b`);
 const DEFAULT_PORTS: Record<string, string> = {
   "postgres:": "5432",
@@ -159,7 +167,7 @@ export function describeFatal(err: unknown): {
 } {
   const messages = messageChain(err).map(redactDiagnostic);
   const debug = Boolean(process.env.FLOWPANEL_DEBUG);
-  const unreachable = connectionFailure(err);
+  const refused = connectionFailure(err);
   if (!process.env.DATABASE_URL && messageChain(err).some(looksLikeMissingDbUrl)) {
     return {
       message: "Could not connect to the database: DATABASE_URL is not set.",
@@ -170,10 +178,15 @@ export function describeFatal(err: unknown): {
       ],
     };
   }
-  if (unreachable) {
-    const where = unreachable.endpoint ? ` at ${unreachable.endpoint}` : "";
+  if (refused) {
+    const { code, endpoint } = refused;
+    const where = endpoint ? ` at ${endpoint}` : "";
     return {
-      message: `Cannot reach the database${where} (${unreachable.code}). Check DATABASE_URL.`,
+      message: LOGIN_CODES.includes(code)
+        ? `The database${where} refused the login (${code}). Check the user and password in DATABASE_URL.`
+        : NO_DATABASE_CODES.includes(code)
+          ? `The database server${where} has no database by the name in DATABASE_URL (${code}). Create it, or correct the name.`
+          : `Cannot reach the database${where} (${code}). Check DATABASE_URL.`,
       details: debug ? messages : [],
       hints: [],
     };

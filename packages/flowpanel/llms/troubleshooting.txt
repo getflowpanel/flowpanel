@@ -100,6 +100,10 @@ Next.js routes files before FlowPanel's catch-all. Delete or move the ejected ro
 
 ### Runtime
 
+#### “next dev never answers while the database is down”
+
+With `object null is not iterable at AggregateError` in the log, this is a Next.js 16.4 bug, fixed in the 16.5 canaries. FlowPanel's own pages avoid it; a page of yours that awaits the database can hang the same way. Use `127.0.0.1` instead of `localhost` in `DATABASE_URL` to avoid it.
+
 #### “getRequestContext() called outside of a request scope”
 
 The call is outside a request, or two copies of `@flowpanel/kit` are installed. Use `tryGetRequestContext()` where the context is optional, and align FlowPanel package versions (`pnpm list @flowpanel/kit`). See [Request-scoped access](/docs/reference/contexts#request-scoped-access).

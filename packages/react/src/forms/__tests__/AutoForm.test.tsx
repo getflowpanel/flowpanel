@@ -31,6 +31,21 @@ describe("AutoForm", () => {
     expect(screen.queryByLabelText(/^id$/i)).toBeNull(); // PK hidden
   });
 
+  it("gives a SQL date column a date control and a timestamp a datetime one", () => {
+    const date = { nullable: true, unique: false, primaryKey: false, type: "date" as const };
+    render(
+      <AutoForm
+        action="/api/x"
+        columns={[
+          { ...date, name: "birthday", dateOnly: true },
+          { ...date, name: "lastSeenAt" },
+        ]}
+      />,
+    );
+    expect(screen.getByLabelText(/birthday/i).getAttribute("type")).toBe("date");
+    expect(screen.getByLabelText(/last seen at/i).getAttribute("type")).toBe("datetime-local");
+  });
+
   it("hides explicitly hidden fields", () => {
     render(<AutoForm action="/api/x" columns={cols} hide={["age", "active"]} />);
     expect(screen.queryByLabelText(/age/i)).toBeNull();

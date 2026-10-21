@@ -7,6 +7,7 @@ import { PageHeader } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ResourceDetailPage } from "../pages/resource-detail";
+import { ResourceEditPage } from "../pages/resource-edit";
 import { ResourceListPage } from "../pages/resource-list";
 import { FailureCard, type FailureCardProps } from "../runtime/failure-card";
 import { QueryErrorCard, type QuerySite, readOrCard } from "../runtime/query-error";
@@ -106,6 +107,29 @@ afterEach(() => {
 });
 
 describe("a page whose adapter read failed", () => {
+  it("logs a refused pg connection and hands the page no AggregateError", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failure = Object.assign(
+      new AggregateError(
+        [
+          Object.assign(new Error("connect ECONNREFUSED ::1:54359"), { code: "ECONNREFUSED" }),
+          Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:54359"), {
+            code: "ECONNREFUSED",
+          }),
+        ],
+        "",
+      ),
+      { code: "ECONNREFUSED" },
+    );
+    const text = await listText(
+      adapterThatFails("list", new Error("Failed query", { cause: failure })),
+    );
+    expect(text).toContain("Check DATABASE_URL");
+    expect(log.mock.calls[0]?.[1]).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(AggregateError);
+  });
+
   it("says what could not load, keeps the page's header and offers a retry", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const text = await listText(adapterThatFails("list", new Error('column "emial" not found')));
@@ -165,6 +189,25 @@ describe("a page whose adapter read failed", () => {
     const text = await detailText(adapterThatFails("get", new Error("boom")));
     expect(text).toContain("Couldn't load this user");
     expect(text).toContain("Request req-88");
+  });
+
+  it("covers the edit page's read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const config = admin(adapterThatFails("get", new Error("boom")));
+    const users = config.resourcesByName.get("users");
+    if (!users) throw new Error("fixture: resource not registered");
+    const tree = await ResourceEditPage({
+      config,
+      resource: users,
+      name: "users",
+      id: "u1",
+      req: new Request("http://localhost/admin/users/u1/edit", {
+        headers: { "x-request-id": "req-99" },
+      }),
+    });
+    expect(findType(tree, PageHeader)?.props.title).toBe("Edit user");
+    expect(textOf(tree)).toContain("Couldn't load this user");
+    expect(textOf(tree)).toContain("Request req-99");
   });
 
   it("says the database refused the connection instead of blaming the schema", async () => {
@@ -232,6 +275,20 @@ describe("what the card must not swallow", () => {
       throw Object.assign(new Error("boom"), { digest: "2338412745" });
     });
     expect(outcome.failed).toBe(true);
+  });
+
+  it("hands the renderer a card that carries neither the config nor the error", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const cause = new Error("boom");
+    const outcome = await readOrCard(site, async () => {
+      throw cause;
+    });
+    if (!outcome.failed) throw new Error("expected a card");
+    expect(outcome.card.type).toBe(FailureCard);
+    const held = JSON.stringify(outcome.card.props, (_key, value) =>
+      value === site.config || value === cause ? "LEAKED" : value,
+    );
+    expect(held).not.toContain("LEAKED");
   });
 
   it("returns the value untouched when the read succeeds", async () => {

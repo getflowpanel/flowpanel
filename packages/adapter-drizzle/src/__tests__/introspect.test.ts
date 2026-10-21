@@ -97,3 +97,32 @@ describe("introspect: composite primary keys", () => {
     expect(introspect(users).keyColumns).toBeUndefined();
   });
 });
+
+describe("introspect: a SQL date column", () => {
+  it("is marked date-only on PostgreSQL and MySQL, and a timestamp is not", async () => {
+    const pg = await import("drizzle-orm/pg-core");
+    const mysql = await import("drizzle-orm/mysql-core");
+    const byName = (table: unknown) =>
+      Object.fromEntries(introspect(table).columns.map((column) => [column.name, column]));
+    const pgCols = byName(
+      pg.pgTable("events", {
+        id: pg.integer("id").primaryKey(),
+        day: pg.date("day", { mode: "date" }),
+        dayText: pg.date("day_text"),
+        at: pg.timestamp("at"),
+      }),
+    );
+    expect(pgCols.day).toMatchObject({ type: "date", dateOnly: true });
+    expect(pgCols.dayText?.type).toBe("string");
+    expect(pgCols.at?.dateOnly).toBeUndefined();
+    const myCols = byName(
+      mysql.mysqlTable("events", {
+        id: mysql.int("id").primaryKey(),
+        day: mysql.date("day"),
+        at: mysql.datetime("at"),
+      }),
+    );
+    expect(myCols.day).toMatchObject({ type: "date", dateOnly: true });
+    expect(myCols.at?.dateOnly).toBeUndefined();
+  });
+});

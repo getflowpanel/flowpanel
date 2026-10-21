@@ -18,6 +18,7 @@ import { Suspense } from "react";
 import { missingRecordCopy, NotFound } from "./pages/not-found";
 import { accountUser } from "./runtime/account-user";
 import { buildServerRequest } from "./runtime/build-server-request";
+import { plainAggregates } from "./runtime/caught-error";
 import { buildHref, decodeAtom } from "./runtime/href";
 import { buildNav } from "./runtime/nav";
 import {
@@ -96,6 +97,7 @@ export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = 
       const admitted = reqCtx !== undefined;
       if (!admitted && !(err instanceof FlowpanelError) && !isControlFlow(err)) {
         const requestId = requestIdFrom(req);
+        plainAggregates(err);
         await reportUnexpectedError(
           err,
           { requestId, route: "page", method: "GET", url: req.url, ip: null, userAgent: null },

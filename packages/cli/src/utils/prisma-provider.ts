@@ -1,5 +1,6 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { detectPathAlias, type PathAliasMode, specifierFrom } from "./detect";
 
 export type PrismaProvider = "postgresql" | "mysql" | "sqlite";
 
@@ -71,6 +72,59 @@ export async function findPrismaSchemaFiles(cwd: string): Promise<string[]> {
     if (files.length > 0) return files;
   }
   return [];
+}
+
+interface ClientGenerator {
+  provider: "prisma-client-js" | "prisma-client";
+  /** The schema file that declares it, project-relative. */
+  file: string;
+  /** `output` as written in the schema, and the project-relative directory it names. */
+  output?: { written: string; dir: string };
+}
+
+/** The client generator of the project's Prisma schema; `prisma-client-js` wins over the newer `prisma-client`. */
+export async function detectClientGenerator(cwd: string): Promise<ClientGenerator | null> {
+  let found: ClientGenerator | null = null;
+  for (const file of await findPrismaSchemaFiles(cwd)) {
+    const source = stripLineComments(await fs.readFile(file, "utf8").catch(() => ""));
+    for (const block of source.matchAll(/generator\s+\w+\s*\{([^}]*)\}/g)) {
+      const provider = /\bprovider\s*=\s*"([^"]+)"/.exec(block[1] ?? "")?.[1];
+      if (provider !== "prisma-client-js" && provider !== "prisma-client") continue;
+      const written = /\boutput\s*=\s*"([^"]+)"/.exec(block[1] ?? "")?.[1];
+      const projectPath = (target: string) => path.relative(cwd, target).split(path.sep).join("/");
+      const generator: ClientGenerator = {
+        provider,
+        file: projectPath(file),
+        ...(written
+          ? { output: { written, dir: projectPath(path.resolve(path.dirname(file), written)) } }
+          : {}),
+      };
+      if (provider === "prisma-client-js") return generator;
+      found ??= generator;
+    }
+  }
+  return found;
+}
+
+/** The module `PrismaClient` and the model types come from: the generator's `output`, or `@prisma/client`. */
+export function prismaClientModule(
+  generator: ClientGenerator | null,
+  fromFile: string,
+  mode: PathAliasMode,
+): string {
+  if (!generator?.output) return "@prisma/client";
+  const dir = generator.output.dir;
+  return specifierFrom(
+    fromFile,
+    generator.provider === "prisma-client" ? `${dir}/client` : dir,
+    mode,
+  );
+}
+
+/** Where project file `file` imports the Prisma model types from. */
+export async function prismaClientModuleFor(cwd: string, file: string): Promise<string> {
+  const relative = path.relative(cwd, file).split(path.sep).join("/");
+  return prismaClientModule(await detectClientGenerator(cwd), relative, await detectPathAlias(cwd));
 }
 
 /** The provider of the project's Prisma `datasource`, read from the schema `prisma` itself would load. */

@@ -4,22 +4,22 @@ import type { ColumnMeta, ResourceIntrospection } from "../../types/adapter";
 import type { ResourceConfig } from "../../types/resource";
 
 /** A column an insert must carry: not nullable, not generated, not defaulted. */
-function isRequiredInput(column: ColumnMeta): boolean {
+function needsValue(column: ColumnMeta): boolean {
   return (
     !column.nullable &&
     column.generated !== true &&
     column.hasDefault !== true &&
-    column.primaryKey === false &&
     column.writableOnCreate !== false
   );
 }
 
-/** What a create write can carry: the offered fields plus the server's own defaults. */
-function filledOnCreate(resource: ResourceConfig): Set<string> {
+/** What a create write can carry: the offered fields plus the server's own defaults; a key only when declared. */
+function filledOnCreate(resource: ResourceConfig, key: boolean): Set<string> {
   const create = resource.options.create;
-  const filled = new Set(declaredWriteFields(resource, create?.fields));
-  for (const name of Object.keys(create?.defaultValues ?? {})) filled.add(name);
-  return filled;
+  const offered = key
+    ? (create?.fields ?? []).map((field) => field.name)
+    : declaredWriteFields(resource, create?.fields);
+  return new Set([...offered, ...Object.keys(create?.defaultValues ?? {})]);
 }
 
 /** One line per required column a create form cannot fill, in config order. */
@@ -30,14 +30,25 @@ export function createFieldWarnings(
 ): string[] {
   if (resource.options.create?.disabled === true) return [];
   if (resolveOperationAccess(resource.options.access, "create") === false) return [];
-  const filled = filledOnCreate(resource);
-  return introspection.columns
-    .filter((column) => isRequiredInput(column) && !filled.has(column.name))
-    .map(
-      (column) =>
-        `resource ${name}: create is enabled but required column \`${column.name}\` ` +
+  const filled = filledOnCreate(resource, false);
+  const keyFilled = filledOnCreate(resource, true);
+  return introspection.columns.flatMap((column) => {
+    if (!needsValue(column)) return [];
+    if (column.primaryKey) {
+      if (keyFilled.has(column.name)) return [];
+      return [
+        `resource ${name}: create is enabled but primary key \`${column.name}\` has no default ` +
+          "and no create field; creation will always fail. Give it a database default " +
+          "(such as `uuid().defaultRandom()`, `serial()` or Prisma's `@default(uuid())`) " +
+          "or a Drizzle `$defaultFn`, or add it to `create.fields`",
+      ];
+    }
+    if (filled.has(column.name)) return [];
+    return [
+      `resource ${name}: create is enabled but required column \`${column.name}\` ` +
         "has no field; creation will always fail",
-    );
+    ];
+  });
 }
 
 const PRINTED = Symbol.for("@flowpanel/core.printedDevWarnings");

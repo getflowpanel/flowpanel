@@ -267,20 +267,20 @@ describe("a date in a card", () => {
     ],
   ];
 
-  it.each(cards)("%s paints the server zone, then the viewer's", (_name, card) => {
+  it.each(cards)("%s paints UTC on the server and keeps it after hydration", (_name, card) => {
     expect(renderToStaticMarkup(card)).toContain(
       '<time dateTime="2026-09-22T23:30:00.000Z" title="Sep 22, 2026, 11:30:00 PM UTC">2026-09-22 23:30</time>',
     );
     const { container } = render(card);
-    expect(container.querySelector("time")?.textContent).toBe("2026-09-23 06:30");
+    expect(container.querySelector("time")?.textContent).toBe("2026-09-22 23:30");
   });
 
   it.each(cards)("%s keeps a configured zone after hydration", (_name, card) => {
     const { container } = render(
-      <FormattingProvider value={resolveFormatting({ timeZone: "UTC" })}>
+      <FormattingProvider value={resolveFormatting({ timeZone: "Asia/Tokyo" })}>
         {card}
       </FormattingProvider>,
     );
-    expect(container.querySelector("time")?.textContent).toBe("2026-09-22 23:30");
+    expect(container.querySelector("time")?.textContent).toBe("2026-09-23 08:30");
   });
 });

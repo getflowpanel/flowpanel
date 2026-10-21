@@ -42,7 +42,7 @@ export interface AuditFeedItem {
   tooLarge: boolean;
 }
 
-/** What an event acted on: its record, named once even when its title already says what it is, or the list it exported. */
+/** What an event acted on: its record, named once even when its title already says what it is and linked while it exists, or the list it exported. */
 function recordOf(
   config: ResolvedAdminConfig,
   entry: AuditLogEntry,
@@ -66,7 +66,10 @@ function recordOf(
       named && title
         ? title
         : formatLabel(labels.record, { label: kind, id: title ?? entry.targetId }),
-    href: resource ? buildHref(config, entry.resource, entry.targetId) : null,
+    href:
+      resource && titles.present.get(entry.resource)?.has(entry.targetId)
+        ? buildHref(config, entry.resource, entry.targetId)
+        : null,
   };
 }
 

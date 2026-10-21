@@ -1,5 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { WidgetConfig } from "@flowpanel/core";
+import { describeError } from "@flowpanel/core/internal";
+import { plainAggregates } from "./caught-error";
+import { isConnectionError } from "./connection-error";
 import { isControlFlow } from "./query-error";
 
 /** Which widget ran: its kind, its card title, the page and its place on the page. */
@@ -43,10 +46,15 @@ export class WidgetFailure extends Error {
   readonly kind: string;
   readonly label: string | null;
 
+  /** Each cause by its first line; production drops the cause itself, whose driver error Next would log with its query parameters. */
   constructor(owner: WidgetOwner, cause: unknown) {
-    const reason = cause instanceof Error ? cause.message : String(cause);
-    super(`${describeOwner(owner)}: ${reason}`, { cause });
-    this.name = "WidgetFailure";
+    const reason = describeError(cause).replace(/^Error: /, "");
+    super(
+      `${describeOwner(owner)}: ${reason}`,
+      process.env.NODE_ENV === "production" ? undefined : { cause },
+    );
+    // The widget boundary reads this name, which the dev renderer carries to the browser, to show the connection hint.
+    this.name = isConnectionError(cause) ? "WidgetConnectionFailure" : "WidgetFailure";
     this.where = owner.where;
     this.position = owner.position;
     this.kind = owner.kind;
@@ -112,6 +120,7 @@ export function pageTimer(
           return await render();
         } catch (cause) {
           if (cause instanceof WidgetFailure || isControlFlow(cause)) throw cause;
+          plainAggregates(cause);
           throw new WidgetFailure(owner, cause);
         } finally {
           settle({ owner, ms: now() - started, hits: frame.hits });

@@ -1,5 +1,5 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
-import { defineAdmin, queue, RU_LABELS, resource } from "@flowpanel/core";
+import { defineAdmin, FlowpanelConfigError, queue, RU_LABELS, resource } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/headers", () => ({
@@ -71,6 +71,20 @@ describe("the page title", () => {
     expect(await titleOf(["users", "missing"], named())).toBe("Page not found");
   });
 
+  it("names a record page by its resource when the record cannot be read", async () => {
+    const down = defineAdmin({
+      adapter: {
+        ...adapter,
+        get: async () => {
+          throw Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" });
+        },
+      },
+      auth: { session: async () => ({ id: "u1" }) as never, role: () => "admin" },
+      resources: [resource({ __name: "users" }, { labelOne: "User", columns: ["id"] })],
+    });
+    expect(await titleOf(["users", "u1"], down)).toBe("User");
+  });
+
   it("says not found for a page that does not exist", async () => {
     expect(await titleOf(["nowhere"])).toBe("Page not found");
   });
@@ -124,6 +138,24 @@ describe("the page title", () => {
     expect(await titleOf([], signedOut)).toBe("Sign in required");
     expect(await titleOf(["users"], signedOut)).toBe("Sign in required");
     expect(await titleOf(["nowhere"], signedOut)).toBe("Sign in required");
+  });
+
+  it("names the error wall when auth.session throws, as a development stub does in production", async () => {
+    const stub = defineAdmin({
+      adapter,
+      auth: {
+        session: async () => {
+          throw new FlowpanelConfigError(
+            "auth.session",
+            "the development session stub refuses to run in production.",
+          );
+        },
+        role: () => "admin",
+      },
+      resources: [resource({ __name: "users" }, { columns: ["id"] })],
+    });
+    expect(await titleOf(["users"], stub)).toBe("Something went wrong");
+    expect(await titleOf([], stub)).toBe("Something went wrong");
   });
 
   it("keeps every admin page out of search engines", async () => {

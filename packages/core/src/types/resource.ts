@@ -373,8 +373,8 @@ export interface ResourceOptions<Row> {
   scope?: "bypass" | ResourceScope;
   /** The tenant a row belongs to, as `scope` returns it; files `allTenants` staff's audit events under it. */
   scopeOf?: (row: Row) => Scope;
-  /** Canonical operation-level authorization. */
-  access?: ResourceAccess<Row>;
+  /** Who may read, create, update and delete: `{ read, create, update, delete }`, or one rule such as `"admin"` for all four. */
+  access?: ResourceAccess<Row> | AccessRule;
   /** Canonical read/write policy for declared fields. */
   fieldAccess?: FieldAccessMap<Row>;
 

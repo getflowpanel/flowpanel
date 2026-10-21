@@ -23,7 +23,7 @@ function inputTypeFor(meta: ColumnMeta): InputType {
     case "boolean":
       return "checkbox";
     case "date":
-      return "datetime-local";
+      return meta.dateOnly ? "date" : "datetime-local";
     case "json":
       return "json";
     default:

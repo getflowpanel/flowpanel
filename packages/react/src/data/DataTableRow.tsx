@@ -20,6 +20,11 @@ const InlineEditCell = lazyRetry<InlineEditCellProps>(() =>
   import("./InlineEditCell").then((module) => ({ default: module.InlineEditCell })),
 );
 
+/** A `format: { kind: "date", calendarDay: true }` column, as a SQL `date` column gets by default. */
+function isCalendarDay(format: DataTableColumn<Record<string, unknown>>["format"]): boolean {
+  return typeof format === "object" && format.kind === "date" && format.calendarDay === true;
+}
+
 function renderCellContent<Row extends Record<string, unknown>>(
   c: DataTableColumn<Row>,
   r: Row,
@@ -42,6 +47,7 @@ function renderCellContent<Row extends Record<string, unknown>>(
             {...(c.label ? { label: c.label } : {})}
             value={r[c.field]}
             {...(c.type ? { valueType: c.type } : {})}
+            {...(isCalendarDay(c.format) ? { calendarDay: true } : {})}
             {...(c.options ? { options: c.options } : {})}
             display={() => shown}
             rowClickable={rowClickable}
@@ -64,6 +70,8 @@ function shownText<Row extends Record<string, unknown>>(
   if (typeof prerendered === "string") return prerendered;
   if (prerendered !== undefined || c.render || c.format !== undefined) return undefined;
   const value = row[c.field];
+  const choice = c.options?.find((option) => option.value === value);
+  if (choice) return choice.label;
   return c.type !== "reference" && typeof value === "string" ? value : undefined;
 }
 

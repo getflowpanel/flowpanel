@@ -1,21 +1,19 @@
-import type { FieldDef } from "@flowpanel/core";
-import { formatCalendarDay, zonedTime, zoneParts } from "@flowpanel/core/internal";
+import type { ColumnMeta, FieldDef } from "@flowpanel/core";
+import { formatCalendarDay, wallTimeIn, zoneParts } from "@flowpanel/core/internal";
 
 export type DateInput = "date" | "datetime-local";
-
-const WALL_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
-const pad = (n: number) => String(n).padStart(2, "0");
 
 /** The date control a form field renders, or `undefined` for any other control. */
 export function dateInputFor(
   field: Pick<FieldDef<Record<string, unknown>>, "type"> | undefined,
-  columnType: string | undefined,
+  column: Pick<ColumnMeta, "type" | "dateOnly"> | undefined,
 ): DateInput | undefined {
   if (field) {
     if (field.type === "date") return "date";
     return field.type === "datetime" ? "datetime-local" : undefined;
   }
-  return columnType === "date" ? "datetime-local" : undefined;
+  if (column?.type !== "date") return undefined;
+  return column.dateOnly ? "date" : "datetime-local";
 }
 
 /**
@@ -29,19 +27,9 @@ export function dateInputValue(value: unknown, input: DateInput, timeZone: strin
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return input === "date" ? value : `${value}T00:00`;
   }
-  const calendarDay = input === "date" && instant.getTime() % 86_400_000 === 0;
-  const p = zoneParts(instant, calendarDay ? "UTC" : timeZone);
-  const day = formatCalendarDay(p);
-  return input === "date" ? day : `${day}T${pad(p.hour)}:${pad(p.minute)}`;
-}
-
-/** A `datetime-local` value read on the admin's wall clock; `null` for any other text. */
-export function parseWallTime(text: string, timeZone: string): Date | null {
-  const m = WALL_TIME.exec(text);
-  if (!m) return null;
-  const [hour, minute, second] = [Number(m[4]), Number(m[5]), Number(m[6] ?? 0)];
-  const ms = ((hour * 60 + minute) * 60 + second) * 1000;
-  return zonedTime({ year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) }, ms, timeZone);
+  if (input === "datetime-local") return wallTimeIn(instant, timeZone);
+  const calendarDay = instant.getTime() % 86_400_000 === 0;
+  return formatCalendarDay(zoneParts(instant, calendarDay ? "UTC" : timeZone));
 }
 
 const MINUTE = 60_000;

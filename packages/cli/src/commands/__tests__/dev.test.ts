@@ -4,9 +4,17 @@ import fs from "node:fs/promises";
 import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { stripVTControlCharacters as strip } from "node:util";
 import { describe, expect, it, vi } from "vitest";
 import { PNP_UNSUPPORTED } from "../../utils/compatibility";
-import { devPreflight, findBoardScript, isPortFree, pipeWithPrefix, startNext } from "../dev";
+import {
+  devPreflight,
+  findBoardScript,
+  isPortFree,
+  pipeWithPrefix,
+  reportBoardExit,
+  startNext,
+} from "../dev";
 
 function fakeChild(): { child: ChildProcess; stdout: EventEmitter; stderr: EventEmitter } {
   const stdout = new EventEmitter();
@@ -303,6 +311,25 @@ describe("startNext", () => {
         else process.env[key] = value;
       }
       await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("reportBoardExit", () => {
+  it("says the board stopped, that Next.js keeps running, and how to start without it", () => {
+    const board = new EventEmitter() as unknown as ChildProcess;
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    try {
+      const { out } = capture(() => {
+        reportBoardExit(board, "pnpm flowpanel dev --no-board");
+        board.emit("exit", 1, null);
+      });
+      expect(out.map((line) => strip(line))).toEqual([
+        "[flowpanel] The queue board stopped with exit code 1; Next.js keeps running. Fix the error above and restart, or run pnpm flowpanel dev --no-board to start without the board.\n",
+      ]);
+      expect(exit).not.toHaveBeenCalled();
+    } finally {
+      exit.mockRestore();
     }
   });
 });

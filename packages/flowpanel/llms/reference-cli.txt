@@ -75,7 +75,8 @@ Detects Next.js, the ORM (Drizzle if both are installed) and the auth helper,
 installs `@flowpanel/kit` and `@flowpanel/cli`, and writes the wiring files. In a
 terminal it asks for the app name and the paths of the db, schema and auth modules,
 shows the plan, and waits for a yes. A module path that does not resolve is asked
-again with the reason. When no session helper exists, it also asks whether to write
+again with the reason; the guessed db or schema path with no file there stops `init`
+and prints a starting file for it, as under `--yes`. When no session helper exists, it also asks whether to write
 an open development identity; the answer defaults to no.
 
 ```text
@@ -206,7 +207,13 @@ What varies:
   command.
 - **No Drizzle client, schema or Prisma client at the guessed paths**: exits `1`
   with a starting file for each and the `--db` and `--schema` flags that point at
-  yours.
+  yours. The starter `users` table has a `uuid` key the database generates, so the
+  admin can create rows. Without `DATABASE_URL`, the starter Drizzle client points
+  at a host that never resolves instead of `localhost`: `next build` runs, the admin
+  shows "Check DATABASE_URL" (in production, the failed read's card) and the API
+  answers its JSON error, while `migrate` and `doctor` still say the URL is unset.
+  With the `prisma-client` generator, the starter `lib/prisma.ts` imports
+  `PrismaClient` from the generator's `output`.
 - **No terminal and no `--yes`, `--dry-run` or `--json`**: exits `1`. Pass `--yes`
   in CI.
 - **A failed install**: keeps the files, prints the commands to run by hand, and
@@ -215,8 +222,9 @@ What varies:
 
 Re-running `init` keeps `flowpanel.config.ts` (or `.tsx`) and skips matching files, and says
 `Already set up; nothing changed.` when there is nothing to write. A conflicting
-file stops it with nothing written and every conflicting path listed. `--yes`
-accepts detected paths; it never overwrites.
+file stops it with nothing written and every conflicting path listed with the
+content `init` would write there, so you can merge it by hand; `--dry-run` prints
+the same. `--yes` accepts detected paths; it never overwrites.
 
 ### flowpanel migrate
 
@@ -243,8 +251,12 @@ the config imports `db` or `prisma` from, plus the Prisma schema; a variable wit
 fallback in code, such as `?? "file:local.db"`, is not required. When the database
 cannot be reached, the first line is `Cannot reach the database at
 <host>:<port> (<code>). Check DATABASE_URL.` for Drizzle and Prisma alike;
-the code is the socket error or Prisma's `P1001`, `P1002` or `P1017`.
-`FLOWPANEL_DEBUG=1` adds the failed SQL and the stack trace. Under `--json` the
+the code is the socket error, PostgreSQL's `08001`, or Prisma's `P1001`, `P1002`
+or `P1017`. A refused login (`28P01`, `28000`, `P1000`, `ER_ACCESS_DENIED_ERROR`)
+reads `The database at <host>:<port> refused the login (<code>). Check the user and
+password in DATABASE_URL.`, and a database name the server does not have (`3D000`,
+`P1003`, `ER_BAD_DB_ERROR`) says so the same way. In each case the failed SQL is
+left out; `FLOWPANEL_DEBUG=1` adds it and the stack trace. Under `--json` the
 failure is a JSON document with an `error` field, and `applied` is `false` when
 nothing ran.
 
@@ -284,8 +296,10 @@ Runs these checks:
 - with `cacheComponents` on: Next.js 16.3 or newer, no `runtime`, `dynamic`,
   `revalidate` or `fetchCache` export in the generated routes and admin page, and
   `instant = false` in the catch-all admin page and in an admin layout that reads the
-  request. `--fix` adds it to a catch-all page `init` wrote; a page you edited gets
-  the hint only
+  request. `--fix` adds it to a catch-all page `init` wrote, and removes a one-line
+  `export const runtime = "nodejs"` or `dynamic = "force-dynamic"`, as 0.3's `init`
+  wrote them, from these files; a page you edited, or another form of the export,
+  gets the hint only
 - `tsc --noEmit` passes. When `.next/types` is missing, `doctor` runs `next typegen`
   first, so the route and layout types Next generates exist. When `next typegen`
   fails, the `tsc` hint shows its error first, then what `tsc` reported
@@ -294,8 +308,10 @@ Runs these checks:
 
 More checks warn without failing the run: a session module that is still the
 closed stub (`getSession` returns `null`) or the open development identity from
-`init --dev-auth`, an empty `resources` array, a missing `DATABASE_URL` while
-`flowpanel/migrations/` holds SQL files, an audit table from 0.3 that lacks the 0.4
+`init --dev-auth`, an empty `resources` array, an unset connection variable that
+the database client reads (`DATABASE_URL` while `flowpanel/migrations/` holds SQL
+files, when `doctor` finds no other), a `drizzle.config.*` whose `tablesFilter` lets
+`drizzle-kit push` drop `_flowpanel_migrations` or `flowpanel_audit_log`, an audit table from 0.3 that lacks the 0.4
 columns (`--fix` writes the `0002` migration), and, with `DATABASE_URL` set, a
 resource whose table the database does not have, counted through the config's adapter. A warning prints as a yellow `!` line and
 carries `"warn": true` in `--json`. A check that crashes is a warning too, with
@@ -364,8 +380,9 @@ $ pnpm flowpanel dev --port 3000
 
 A port counts as busy when anything answers on `127.0.0.1` or `::1`.
 Output is prefixed `[next]` and `[board]`; when Next.js is ready, `dev` prints the
-admin URL. When one process exits, both stop.
-`--no-board` skips the queue board. The board runs with `tsx` from your project, so
+admin URL. When Next.js exits, the board stops too. When the board exits, for example
+with `BOARD_SECRET is required`, Next.js keeps running and `dev` prints one line that
+says the board stopped and how to start without it. `--no-board` skips the queue board. The board runs with `tsx` from your project, so
 install it as a dev dependency (`pnpm add -D tsx`) when you use queues.
 
 ### flowpanel new

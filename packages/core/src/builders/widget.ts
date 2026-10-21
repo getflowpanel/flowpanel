@@ -41,19 +41,12 @@ function countSource(source: MetricCount, options: MetricOptions): MetricCountSo
 }
 
 /**
- * A single big number that counts rows of a resource. The value is `ctx.count(count, where,
- * { range })`, `compare` counts the period before, and the card links to the counted rows.
+ * A single big-number widget: a query, or `{ count }` rows of a resource. A count's value is
+ * `ctx.count(count, where, { range })`, `compare` counts the period before, and the card links to the counted rows.
  */
 export function metric<N extends ResourceName>(
   label: string,
-  source: MetricCount<N>,
-  options?: MetricOptions,
-): MetricWidget;
-/** A single big-number widget. */
-export function metric(label: string, query: MetricQuery, options?: MetricOptions): MetricWidget;
-export function metric(
-  label: string,
-  source: MetricQuery | MetricCount,
+  source: MetricQuery | MetricCount<N>,
   options: MetricOptions = {},
 ): MetricWidget {
   if (typeof source === "function") {

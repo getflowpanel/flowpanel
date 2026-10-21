@@ -21,6 +21,7 @@ import { dateInputFor, dateInputValue } from "../runtime/form-dates";
 import { buildApiHref, buildHref } from "../runtime/href";
 import { moneyInputValue, moneyShape } from "../runtime/money-field";
 import { projectRowFields, selectKnownFields } from "../runtime/project-row";
+import { readOrCard } from "../runtime/query-error";
 import { buildRequestContext } from "../runtime/request-setup";
 import { requireAccessIfSet } from "../runtime/require-access";
 import {
@@ -31,7 +32,7 @@ import {
   hiddenFormFields,
   resolveFormFields,
 } from "../runtime/resolve-form-fields";
-import { singularTitle } from "../runtime/resource-title";
+import { singularLabel, singularTitle } from "../runtime/resource-title";
 import { scopeBinding } from "../runtime/scope-binding";
 
 export interface ResourceEditPageProps {
@@ -108,9 +109,27 @@ export async function ResourceEditPage({
     select,
     ...scopeBinding(resource, reqCtx),
   };
-  const row = (await runWithRequestContext(reqCtx, () =>
-    config.adapter.get(resource.ref, ctx),
-  )) as Record<string, unknown> | null;
+  const editTitle = singularTitle(labels.form.editTitle, resource, name, labels.dateRange.locale);
+  const read = await readOrCard(
+    {
+      config,
+      resource: name,
+      operation: "get",
+      label: singularLabel(resource, name),
+      record: true,
+      ...(reqCtx.requestId ? { requestId: reqCtx.requestId } : {}),
+    },
+    async () => runWithRequestContext(reqCtx, () => config.adapter.get(resource.ref, ctx)),
+  );
+  if (read.failed) {
+    return (
+      <>
+        <PageHeader title={editTitle} />
+        {read.card}
+      </>
+    );
+  }
+  const row = read.value as Record<string, unknown> | null;
   if (!row) notFound();
 
   const action = buildApiHref(config, name, id, "edit");
@@ -133,7 +152,7 @@ export async function ResourceEditPage({
     : columns.map((column) => column.name);
   const formatting = resolveFormatting(config.formatting);
   const { timeZone } = formatting;
-  const columnTypes = new Map(written.columns.map((column) => [column.name, column.type]));
+  const columnsByName = new Map(written.columns.map((column) => [column.name, column]));
   const declaredByName = new Map(declared?.map((field) => [field.name, field]));
   const formFields =
     declared ?? generatedFormFields(resource, columns, "update", namedFields(config));
@@ -153,7 +172,7 @@ export async function ResourceEditPage({
         }
         const input = dateInputFor(
           declared ? (declaredByName.get(field) ?? {}) : undefined,
-          columnTypes.get(field),
+          columnsByName.get(field),
         );
         return [field, input ? dateInputValue(value, input, timeZone) : value];
       }),
@@ -161,9 +180,7 @@ export async function ResourceEditPage({
 
   return (
     <>
-      <PageHeader
-        title={singularTitle(labels.form.editTitle, resource, name, labels.dateRange.locale)}
-      />
+      <PageHeader title={editTitle} />
       <div className="fp-max-w-xl fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-p-6 fp-shadow-xs">
         <AutoForm
           action={action}

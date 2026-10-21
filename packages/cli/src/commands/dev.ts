@@ -146,10 +146,20 @@ export function devCommand(cli: Command): void {
 
       next.on("exit", (code) => shutdown(code ?? 0));
       const board = children[1];
-      if (wantBoard && board) {
-        board.on("exit", (code) => shutdown(code ?? 0));
-      }
+      if (wantBoard && board) reportBoardExit(board, `${pmc.exec} flowpanel dev --no-board`);
     });
+}
+
+/** Next keeps running when the board stops; one line says so and how to start without it. */
+export function reportBoardExit(board: ChildProcess, withoutBoard: string): void {
+  board.on("exit", (code, signal) => {
+    const why = signal ? `on ${signal}` : `with exit code ${code ?? 0}`;
+    process.stdout.write(
+      pc.yellow(
+        `[flowpanel] The queue board stopped ${why}; Next.js keeps running. Fix the error above and restart, or run ${withoutBoard} to start without the board.\n`,
+      ),
+    );
+  });
 }
 
 export function pipeWithPrefix(

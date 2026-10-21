@@ -17,14 +17,21 @@ export async function requireAccess(rule: AccessRule, context: AccessContext): P
   if (rule === undefined || !(await accessAllows(rule, context))) throw new FlowpanelAccessError();
 }
 
-/** The rule a resource's `access` sets for one operation; `undefined` allows it. */
+function isOperationMap<Row>(
+  access: ResourceAccess<Row> | AccessRule,
+): access is ResourceAccess<Row> {
+  return typeof access === "object" && access !== null && !Array.isArray(access);
+}
+
+/** The rule a resource's `access` sets for one operation; a single rule covers all four, and `undefined` allows it. */
 export function resolveOperationAccess<Row>(
-  access: ResourceAccess<Row> | undefined,
+  access: ResourceAccess<Row> | AccessRule | undefined,
   operation: ResourceOperation,
 ): AccessRule | undefined {
   if (!OPERATIONS.has(operation))
     throw new Error(`Unknown resource operation: ${String(operation)}`);
-  return access?.[operation];
+  if (access === undefined) return undefined;
+  return isOperationMap(access) ? access[operation] : access;
 }
 
 const OPERATIONS = new Set<unknown>(["read", "create", "update", "delete"]);

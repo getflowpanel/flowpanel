@@ -1,6 +1,7 @@
 import type {
   ColumnDef,
   ColumnFormat,
+  ColumnMeta,
   DetailTab,
   FieldDef,
   RequestContext,
@@ -10,11 +11,12 @@ import type {
 } from "@flowpanel/core";
 import { ReferenceCell } from "@flowpanel/react";
 import type * as React from "react";
+import { logCaught } from "../../runtime/caught-error";
 import { fieldLabels } from "../../runtime/field-labels";
 import { formatFieldValue } from "../../runtime/format-field-value";
 import { buildHref } from "../../runtime/href";
 import { renderMarkdown } from "../../runtime/markdown";
-import { prerenderResourceCells } from "../../runtime/prerender-cells";
+import { CALENDAR_DAY, prerenderResourceCells } from "../../runtime/prerender-cells";
 import { renderColumnFormat } from "../../runtime/render-column-format";
 import { resolveReferences } from "../../runtime/resolve-references";
 
@@ -22,29 +24,36 @@ export interface DetailCell {
   label?: string;
   format?: ColumnFormat;
   node?: React.ReactNode;
+  /** An enum column's values with the labels the list and the form show. */
+  options?: ReadonlyArray<{ value: string; label: string }>;
 }
 
-/** Field → the list page's own label / render / format for that column. */
+/** Field → the list page's own label / render / format for that column; a SQL `date` field reads as its calendar day either way. */
 export function buildDetailCells<Row extends Record<string, unknown>>(
   resource: ResourceConfig,
   row: Row,
   reqCtx: RequestContext,
   named: Readonly<Record<string, string>> = {},
+  metaByField?: ReadonlyMap<string, ColumnMeta>,
 ): Map<string, DetailCell> {
   const out = new Map<string, DetailCell>();
-  const defs = resource.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>> | undefined;
-  if (!defs || defs.length === 0) return out;
+  const defs = (resource.options.columns ?? []) as ReadonlyArray<keyof Row | ColumnDef<Row>>;
   const { columns, prerenderedCells } = prerenderResourceCells<Row>(defs, [row], reqCtx, {
     labelOf: fieldLabels(resource, [], named),
+    ...(metaByField ? { metaByField } : {}),
   });
   columns.forEach((c, i) => {
     const cell: DetailCell = {};
     if (c.label !== undefined) cell.label = c.label;
     if (c.format !== undefined) cell.format = c.format;
+    if (c.options !== undefined) cell.options = c.options;
     const node = prerenderedCells?.[0]?.[i];
     if (node !== undefined) cell.node = node;
     out.set(c.field as string, cell);
   });
+  for (const [name, meta] of metaByField ?? []) {
+    if (meta.dateOnly && !out.has(name)) out.set(name, { format: CALENDAR_DAY });
+  }
   return out;
 }
 
@@ -86,7 +95,8 @@ export function detailValue(
 ): React.ReactNode {
   if (cell?.node !== undefined) return cell.node;
   if (cell?.format !== undefined) return renderColumnFormat(cell.format, value, formatting);
-  return formatFieldValue(value);
+  const choice = cell?.options?.find((option) => option.value === value);
+  return choice ? choice.label : formatFieldValue(value);
 }
 
 export interface DetailField {
@@ -121,7 +131,7 @@ export async function renderDetailFields(
             ? null
             : [field.name, node];
         } catch (error) {
-          console.error(`[flowpanel] detail render failed for "${field.name}"`, error);
+          logCaught(`[flowpanel] detail render failed for "${field.name}"`, error);
           return null;
         }
       }),

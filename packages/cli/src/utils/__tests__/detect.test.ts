@@ -14,6 +14,7 @@ import {
   detectSchema,
   platformBin,
   pmCommands,
+  specifierFrom,
 } from "../detect";
 
 describe("detect*", () => {
@@ -234,6 +235,17 @@ describe("aliasOf", () => {
   });
   it("strips .ts and .tsx extensions", () => {
     expect(aliasOf("src/db/client.tsx", "strip-src")).toBe("@/db/client");
+  });
+});
+
+describe("specifierFrom", () => {
+  it("imports a project path through @/ and one outside the project relatively", () => {
+    expect(specifierFrom("lib/prisma.ts", "app/generated/prisma/client", "root")).toBe(
+      "@/app/generated/prisma/client",
+    );
+    expect(specifierFrom("lib/prisma.ts", "../shared/prisma/client", "root")).toBe(
+      "../../shared/prisma/client",
+    );
   });
 });
 

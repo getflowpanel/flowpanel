@@ -74,16 +74,60 @@ describe("missingModuleMessage", () => {
     expect(message).toContain("  src/server/lib/db.ts\n    import { drizzle }");
     expect(message).toContain("https://flowpanel.tech/docs/introduction/getting-started");
     expect(message).toContain("Then create its table in your database, for example with psql:");
-    expect(message).toContain("CREATE TABLE users (id text PRIMARY KEY");
+    expect(message).toContain("CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),");
+    expect(message).toContain('id: uuid("id").primaryKey().defaultRandom(),');
+    expect(message).toContain(
+      '    const connectionString = process.env.DATABASE_URL || "postgresql://DATABASE_URL-is-not-set.invalid./db";',
+    );
+    expect(message).toContain(
+      "    export const db = drizzle({ connection: { connectionString }, schema });",
+    );
+    expect(message).not.toContain("throw");
   });
 
   it("asks for the pg driver only when it is not installed", () => {
     const missing = [{ kind: "db" as const, file: "src/server/lib/db.ts", flag: "--db" }];
-    expect(missingModuleMessage(missing, pmCommands("pnpm"), { pg: true })).not.toContain(
-      "pg driver",
+    expect(
+      missingModuleMessage(missing, pmCommands("pnpm"), { name: "pg", installed: true }),
+    ).not.toContain("pg driver");
+    expect(
+      missingModuleMessage(missing, pmCommands("pnpm"), { name: "pg", installed: false }),
+    ).toContain("It needs the pg driver: pnpm add pg");
+  });
+
+  const both = [
+    { kind: "db" as const, file: "server/lib/db.ts", flag: "--db" },
+    { kind: "schema" as const, file: "server/lib/db/schema.ts", flag: "--schema" },
+  ];
+
+  it("writes a mysql2 client, a MySQL table and its CREATE TABLE when mysql2 is the driver", () => {
+    const message = missingModuleMessage(both, pmCommands("pnpm"), {
+      name: "mysql2",
+      installed: true,
+    });
+    expect(message).toContain(
+      '    const uri = process.env.DATABASE_URL || "mysql://DATABASE_URL-is-not-set.invalid./db";',
     );
-    expect(missingModuleMessage(missing, pmCommands("pnpm"), { pg: false })).toContain(
-      "It needs the pg driver: pnpm add pg",
+    expect(message).toContain(
+      '    export const db = drizzle({ connection: { uri }, schema, mode: "default" });',
+    );
+    expect(message).toContain('    export const users = mysqlTable("users", {');
+    expect(message).toContain("for example with the mysql client:");
+    expect(message).not.toContain("pg");
+  });
+
+  it("writes a better-sqlite3 client and asks for the native build pnpm skipped", () => {
+    const message = missingModuleMessage(both, pmCommands("pnpm"), {
+      name: "better-sqlite3",
+      installed: true,
+      unbuilt: true,
+    });
+    expect(message).toContain(
+      '    export const db = drizzle({ client: new Database("local.db"), schema });',
+    );
+    expect(message).toContain("CREATE TABLE users (id integer PRIMARY KEY AUTOINCREMENT,");
+    expect(message).toContain(
+      "  better-sqlite3 is not built yet: run pnpm approve-builds and select it.",
     );
   });
 });
@@ -119,9 +163,22 @@ describe("authNotice", () => {
 });
 
 describe("conflictMessage", () => {
-  it("lists every path and ends on the rule", () => {
-    const lines = conflictMessage(["flowpanel.config.ts", "src/app/admin/layout.tsx"]).split("\n");
-    expect(lines.slice(1, 3)).toEqual(["  flowpanel.config.ts", "  src/app/admin/layout.tsx"]);
+  it("shows every path with the content init would write there, and ends on the rule", () => {
+    const lines = conflictMessage([
+      { path: "flowpanel.config.ts", content: "export default 1;\n" },
+      { path: "src/app/admin/layout.tsx", content: "import a;\n\nexport default 2;\n" },
+    ]).split("\n");
+    expect(lines.slice(1, 10)).toEqual([
+      "",
+      "  flowpanel.config.ts",
+      "    export default 1;",
+      "",
+      "  src/app/admin/layout.tsx",
+      "    import a;",
+      "",
+      "    export default 2;",
+      "",
+    ]);
     expect(lines.at(-1)).toBe("FlowPanel does not overwrite files it did not write.");
   });
 });

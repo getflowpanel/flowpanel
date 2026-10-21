@@ -99,3 +99,27 @@ describe("a failed page()", () => {
     );
   });
 });
+
+function Fails({ name }: { name: string }): React.ReactNode {
+  throw Object.assign(new Error("«Runs» (metric, / section 1 widget 1): Failed query"), { name });
+}
+
+describe("a widget whose database is down", () => {
+  const card = (name: string) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { container } = render(
+      <WidgetErrorBoundary widgetId="w1" title="Runs">
+        <Fails name={name} />
+      </WidgetErrorBoundary>,
+    );
+    return container.textContent ?? "";
+  };
+
+  it("says to check DATABASE_URL outside production, as every other page does", () => {
+    expect(card("WidgetConnectionFailure")).toContain("Check DATABASE_URL");
+  });
+
+  it("keeps the hint off a widget that failed for another reason", () => {
+    expect(card("WidgetFailure")).not.toContain("Check DATABASE_URL");
+  });
+});

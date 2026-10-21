@@ -662,6 +662,42 @@ describe("init end to end", () => {
     await expect(fs.access(path.join(project, "flowpanel.config.ts"))).rejects.toThrow();
   });
 
+  it("writes the starting files for the installed MySQL or SQLite driver instead of pg's", async () => {
+    await fs.rm(path.join(project, "src/server/lib/db.ts"));
+    await fs.rm(path.join(project, "src/server/lib/db/schema.ts"));
+    await writeModule(project, "mysql2", { version: "3.24.6" });
+    const mysql = await initRun({}, ["init", "--yes"]);
+    expect(mysql.code).toBe(1);
+    expect(mysql.stderr).toContain('    import { drizzle } from "drizzle-orm/mysql2";\n');
+    expect(mysql.stderr).toContain("CREATE TABLE users (id int AUTO_INCREMENT PRIMARY KEY,");
+    expect(mysql.stderr).not.toContain("pg driver");
+
+    await fs.rm(path.join(project, "node_modules/mysql2"), { recursive: true });
+    await writeModule(project, "better-sqlite3", { version: "13.0.3" });
+    const sqlite = await initRun({}, ["init", "--yes"]);
+    expect(sqlite.code).toBe(1);
+    expect(sqlite.stderr).toContain('    import { drizzle } from "drizzle-orm/better-sqlite3";\n');
+    expect(sqlite.stderr).toContain("for example with sqlite3 local.db:");
+    expect(sqlite.stderr).not.toContain("approve-builds");
+  });
+
+  it("asks pnpm 10 to approve the build of a better-sqlite3 that compiles on install", async () => {
+    await fs.rm(path.join(project, "src/server/lib/db.ts"));
+    const manifest = JSON.parse(await fs.readFile(path.join(project, "package.json"), "utf8"));
+    await fs.writeFile(
+      path.join(project, "package.json"),
+      JSON.stringify({ ...manifest, packageManager: "pnpm@10.33.0" }),
+    );
+    const install = "prebuild-install || node-gyp rebuild --release";
+    await writeModule(project, "better-sqlite3", { version: "12.4.1", scripts: { install } });
+    const unbuilt = await initRun({}, ["init", "--yes"]);
+    expect(unbuilt.stderr).toContain(
+      "  better-sqlite3 is not built yet: run pnpm approve-builds and select it.",
+    );
+    await writeModule(project, "better-sqlite3", { version: "13.0.3" });
+    expect((await initRun({}, ["init", "--yes"])).stderr).not.toContain("approve-builds");
+  });
+
   it("prints the mount fallback as a warning line when piped", async () => {
     await fs.mkdir(path.join(project, "src/app/(dashboard)/admin"), { recursive: true });
     await fs.writeFile(
@@ -679,7 +715,7 @@ describe("init end to end", () => {
     expect(result.stdout).toContain("Admin: http://localhost:3000/flowpanel");
   });
 
-  it("lists every conflicting path when piped and changes nothing", async () => {
+  it("lists every conflicting path with what init would write there, also under --dry-run, and changes nothing", async () => {
     const own = 'export default { paths: { admin: "/admin", api: "/api/flowpanel" } };\n';
     await fs.writeFile(path.join(project, "flowpanel.config.ts"), own);
     await fs.mkdir(path.join(project, "src/app/admin"), { recursive: true });
@@ -690,9 +726,16 @@ describe("init end to end", () => {
     expect(result.stderr).not.toContain("  flowpanel.config.ts\n");
     expect(result.stderr).toContain("  src/app/admin/layout.tsx\n");
     expect(result.stderr).toContain("  src/app/admin/not-found.tsx\n");
+    expect(result.stderr).toContain(
+      '  src/app/admin/layout.tsx\n    import { ThemeScript } from "@flowpanel/kit/react";\n',
+    );
+    expect(result.stderr).toContain("    export default flowpanel.notFound;\n");
     expect(result.stderr.trimEnd().split("\n").at(-1)).toBe(
       "FlowPanel does not overwrite files it did not write.",
     );
+    const dryRun = await initRun({}, ["init", "--dry-run"]);
+    expect(dryRun.code).toBe(1);
+    expect(dryRun.stderr).toBe(result.stderr);
     expect(await fs.readFile(path.join(project, "flowpanel.config.ts"), "utf8")).toBe(own);
     await expect(fs.access(path.join(project, "src/app/api"))).rejects.toThrow();
   });
@@ -877,6 +920,21 @@ describe("init on a Prisma host", () => {
       "prismaAdapter supports postgresql, mysql and sqlite; your Prisma schema uses mongodb.",
     );
     await expect(fs.access(path.join(project, "flowpanel.config.ts"))).rejects.toThrow();
+  });
+
+  it("on Prisma 6.19's prisma-client generator, prints a client that imports its output", async () => {
+    await usePrisma(
+      'generator client {\n  provider = "prisma-client"\n  output   = "../src/generated/prisma"\n}\n\ndatasource db {\n  provider = "postgresql"\n  url = env("DATABASE_URL")\n}\n',
+    );
+    const ok = await initRun(installed);
+    expect(ok.code).toBe(0);
+    await fs.rm(path.join(project, "flowpanel.config.ts"));
+    await fs.rm(path.join(project, "src/lib/prisma.ts"));
+    const result = await initRun(installed, ["init", "--yes"]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(
+      '  src/lib/prisma.ts\n    import { PrismaClient } from "@/generated/prisma/client";\n',
+    );
   });
 
   it("falls back to postgresql with a warning when it finds no datasource", async () => {

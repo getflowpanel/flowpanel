@@ -125,6 +125,12 @@ type FlowpanelResult<T> =
   | { ok: false; error: FlowpanelResultError };
 ```
 
+The JSON resource API (`GET`/`POST`/`PATCH`/`DELETE <paths.api>/<resource>`) fails as
+`{ ok: false, error: { code, message, requestId } }`. The routes the generated UI posts
+to (actions, create and edit forms, drawers, inline edits, import, restore and export)
+fail as `{ ok: false, error, code, requestId?, fieldErrors? }`; see
+[Errors](/docs/reference/errors).
+
 `FlowpanelResultMeta` carries the request id and optional warnings.
 `FlowpanelResultError` carries a stable `FlowpanelErrorCode`, a safe message,
 optional field errors and request id. `FLOWPANEL_ERROR_STATUS` is the canonical

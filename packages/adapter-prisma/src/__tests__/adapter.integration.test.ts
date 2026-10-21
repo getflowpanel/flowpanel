@@ -58,6 +58,15 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     await prisma.$disconnect();
   });
 
+  it("reads the schema off the client, extended or not, without a dmmf option", async () => {
+    for (const client of [prisma, prisma.$extends({})]) {
+      const adapter = prismaAdapter({ prisma: client, provider: "sqlite" });
+      expect(adapter.introspect("TestUser")).toEqual(
+        prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" }).introspect("TestUser"),
+      );
+    }
+  });
+
   it("list paginates: 5 seeded rows, page=1 size=3 → total 5, rows 3", async () => {
     // Seed 5 rows
     for (let i = 1; i <= 5; i++) {

@@ -39,7 +39,7 @@ describe("LocalTime", () => {
     expect(el?.getAttribute("dateTime")).toBe(new Date(iso).toISOString());
   });
 
-  it("formats visible text in the viewer's local zone (no pinned timeZone) after mount", () => {
+  it("keeps UTC after mount when no time zone is configured, whatever the viewer's zone", () => {
     const iso = "2026-05-29T12:34:56.000Z";
     const options: Intl.DateTimeFormatOptions = {
       hour: "2-digit",
@@ -48,10 +48,9 @@ describe("LocalTime", () => {
       hour12: false,
     };
     const { container } = render(<LocalTime date={iso} locale="ru-RU" options={options} />);
-    // After effects flush the component must use the runtime's local zone —
-    // i.e. exactly `Intl` with NO `timeZone` pinned. This is what makes the
-    // displayed clock match the device instead of the server.
-    const expected = new Intl.DateTimeFormat("ru-RU", options).format(new Date(iso));
+    const expected = new Intl.DateTimeFormat("ru-RU", { ...options, timeZone: "UTC" }).format(
+      new Date(iso),
+    );
     expect(container.querySelector("time")?.textContent).toBe(expected);
   });
 
@@ -134,24 +133,16 @@ describe("LocalTime", () => {
     });
   });
 
-  it("switches to the viewer's zone after mount when no time zone is configured", () => {
+  it("renders the same UTC text before and after mount when no time zone is configured", () => {
     const iso = "2026-05-29T12:34:56.000Z";
-    const options: Intl.DateTimeFormatOptions = {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    };
     const tree = (
       <FormattingProvider value={resolveFormatting({ locale: "en-CA" })}>
-        <LocalTime date={iso} options={options} />
+        <LocalTime date={iso} />
       </FormattingProvider>
     );
-    expect(renderToStaticMarkup(tree)).toContain(
-      new Intl.DateTimeFormat("en-CA", { ...options, timeZone: "UTC" }).format(new Date(iso)),
-    );
+    expect(renderToStaticMarkup(tree)).toContain("2026-05-29 12:34");
     const { container } = render(tree);
-    expect(container.querySelector("time")?.textContent).toBe(
-      new Intl.DateTimeFormat("en-CA", options).format(new Date(iso)),
-    );
+    expect(container.querySelector("time")?.textContent).toBe("2026-05-29 12:34");
+    expect(container.querySelector("time")?.getAttribute("title")).toContain("UTC");
   });
 });

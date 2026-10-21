@@ -45,6 +45,7 @@ async function titlesOf(
   ids: ReadonlySet<string>,
   ctx: DetailHeaderContext,
   labelField?: string,
+  found?: Set<string>,
 ): Promise<Map<string, string>> {
   const titles = new Map<string, string>();
   const resource = config.resourcesByName.get(name);
@@ -59,6 +60,7 @@ async function titlesOf(
   });
   const title = (resource.options.detail as DetailOptions<Row> | undefined)?.title;
   for (const row of rows ?? []) {
+    found?.add(String(row[pk]));
     const declared = title ? shownText(await title(row, ctx)) : undefined;
     const picked = labelField ? shownText(row[labelField]) : undefined;
     const text = picked ?? declared ?? labelValue(row);
@@ -76,13 +78,17 @@ function add(map: Map<string, Set<string>>, key: string, value: unknown): void {
   map.set(key, (map.get(key) ?? new Set()).add(String(value)));
 }
 
-/** Each event's record and each referenced record in its diff, by title, as this reader may read them. */
+/** Each event's record and each referenced record in its diff, by title, and the records still there, as this reader may read them. */
 export async function auditTitles(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
   entries: readonly AuditLogEntry[],
   withRecords: boolean,
-): Promise<{ records: AuditTitles; references: AuditTitles }> {
+): Promise<{
+  records: AuditTitles;
+  references: AuditTitles;
+  present: Map<string, Set<string>>;
+}> {
   const targets = new Map<string, Set<string>>();
   const referenced = new Map<string, Set<string>>();
   const labelFields = new Map<string, string | undefined>();
@@ -107,16 +113,19 @@ export async function auditTitles(
   };
   const records: AuditTitles = new Map();
   const references: AuditTitles = new Map();
+  const present = new Map<string, Set<string>>();
   await Promise.all([
     ...[...targets].map(async ([name, ids]) => {
-      records.set(name, await titlesOf(config, reqCtx, name, ids, ctx));
+      const found = new Set<string>();
+      present.set(name, found);
+      records.set(name, await titlesOf(config, reqCtx, name, ids, ctx, undefined, found));
     }),
     ...[...referenced].map(async ([key, ids]) => {
       const [name = ""] = key.split("\u0000");
       references.set(key, await titlesOf(config, reqCtx, name, ids, ctx, labelFields.get(key)));
     }),
   ]);
-  return { records, references };
+  return { records, references, present };
 }
 
 /** The key `auditTitles` files a reference's titles under. */

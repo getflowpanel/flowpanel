@@ -225,6 +225,40 @@ describe("renderContent — admin-wide access", () => {
       { label: "Scraper", href: "/admin/queues/scraper", active: true },
       { label: "Billing", href: "/admin/queues/billing", active: false },
     ]);
+    expect(isValidElement(node) && node.props).toMatchObject({
+      label: "Scraper",
+      boardUrl: "http://localhost:3001",
+    });
+    expect(isValidElement(node) && node.props).not.toHaveProperty("queue");
+  });
+
+  it("explains an empty boardSecret in development instead of framing the board's 401", async () => {
+    const queue: QueueConfig = {
+      __kind: "queue",
+      ref: {} as never,
+      options: { label: "Email", boardUrl: "http://localhost:3001/email", boardSecret: undefined },
+    };
+    const config = makeConfig({
+      auth: {
+        session: async () => ({ user: { id: "u1", role: "admin" } }),
+        role: () => "admin",
+        access: "admin",
+      },
+      queuesByKey: new Map([["email", queue]]),
+    } as never);
+    const render = async () => {
+      const node = await renderContent(
+        config,
+        ["queues", "email"],
+        new URLSearchParams(),
+        new Request("http://localhost/admin/queues/email"),
+      );
+      return isValidElement(node) ? (node.props as { devNote?: string }).devNote : undefined;
+    };
+    expect(await render()).toMatch(/boardSecret is empty[\s\S]*Set BOARD_SECRET/);
+    vi.stubEnv("NODE_ENV", "production");
+    expect(await render()).toBeUndefined();
+    vi.unstubAllEnvs();
   });
 });
 

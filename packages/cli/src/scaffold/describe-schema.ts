@@ -18,6 +18,7 @@ interface DrizzleColumn {
   columnType: string;
   primary: boolean;
   notNull: boolean;
+  hasDefault: boolean;
   enumValues?: readonly string[];
   enum?: unknown;
   length?: number;
@@ -47,6 +48,8 @@ export interface ColumnDescription {
   columnType: string;
   primary: boolean;
   notNull?: boolean;
+  /** A database or `$defaultFn` default, so an insert may leave the column out. */
+  hasDefault?: boolean;
   length?: number;
   enumValues?: readonly string[];
   /** The schema export that holds the column's `pgEnum`. */
@@ -154,6 +157,7 @@ export async function describeSchema(cwd: string, schemaFile: string): Promise<T
           columnType: column.columnType,
           primary: column.primary,
           notNull: column.notNull,
+          hasDefault: column.hasDefault,
           ...(column.length === undefined ? {} : { length: column.length }),
           ...(column.enumValues && column.enumValues.length > 0
             ? { enumValues: column.enumValues }

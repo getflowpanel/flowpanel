@@ -190,6 +190,23 @@ describe("columnKind", () => {
     expect(columnKind({ ...base, key: "title", columnType: "PgText" })).toBe("plain");
   });
 
+  it("keeps a wide column every insert needs, because the columns are the create form's fields", () => {
+    const required = { primary: false, dataType: "string", notNull: true, hasDefault: false };
+    expect(columnKind({ ...required, key: "email", columnType: "MySqlVarChar", length: 255 })).toBe(
+      "plain",
+    );
+    expect(columnKind({ ...required, key: "notes", columnType: "PgText" })).toBe("plain");
+    expect(
+      columnKind({
+        ...required,
+        hasDefault: true,
+        key: "bio",
+        columnType: "PgVarchar",
+        length: 500,
+      }),
+    ).toBe("skip");
+  });
+
   it("tells a day from a timestamp in every dialect", () => {
     const base = { key: "at", primary: false, dataType: "date" };
     expect(columnKind({ ...base, columnType: "PgTimestamp" })).toBe("timestamp");

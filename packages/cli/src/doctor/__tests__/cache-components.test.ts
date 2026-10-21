@@ -95,11 +95,40 @@ describe("cacheComponents", () => {
       ok: false,
       hint: `${PAGE}: add \`export const instant = false;\``,
     });
-    expect(await check?.fix?.()).toEqual({
-      path: PAGE,
-      content: await adminPageSource(PAGE_CONFIG, true),
-      expectedContent: before,
-    });
+    expect(await check?.fix?.()).toEqual([
+      {
+        path: PAGE,
+        content: await adminPageSource(PAGE_CONFIG, true),
+        expectedContent: before,
+      },
+    ]);
+  });
+
+  it("removes the segment exports 0.3 route files carry with --fix, and leaves any other form alone", async () => {
+    await write("next.config.ts", CONFIG);
+    const api = 'export const { GET } = flowpanel.handlers;\nexport const runtime = "nodejs";\n';
+    const sse =
+      'export const GET = stream(config);\nexport const runtime = "nodejs";\nexport const dynamic = "force-dynamic";\n';
+    const own = "export const GET = 1;\nexport const revalidate = compute();\n";
+    await write("app/api/fp/[...route]/route.ts", api);
+    await write("app/api/fp/stream/route.ts", sse);
+    await write("app/admin/not-found.tsx", own);
+    await write("app/admin/layout.tsx", `export const instant = false;\n\n${LAYOUT}`);
+    await write(PAGE, await adminPageSource(PAGE_CONFIG, true));
+    const check = (await checksFor("16.4.0"))[1];
+    expect(check?.ok).toBe(false);
+    expect(await check?.fix?.()).toEqual([
+      {
+        path: "app/api/fp/[...route]/route.ts",
+        content: "export const { GET } = flowpanel.handlers;\n",
+        expectedContent: api,
+      },
+      {
+        path: "app/api/fp/stream/route.ts",
+        content: "export const GET = stream(config);\n",
+        expectedContent: sse,
+      },
+    ]);
   });
 
   it("leaves a catch-all page you edited to you", async () => {

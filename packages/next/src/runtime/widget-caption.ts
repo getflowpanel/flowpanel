@@ -1,5 +1,6 @@
 import type { CaptionOptions, WidgetCaption, WidgetConfig, WidgetContext } from "@flowpanel/core";
 import { formatLabel } from "@flowpanel/core";
+import { logCaught } from "./caught-error";
 import { warnOnce } from "./widget-reads";
 
 /** A caption still being computed, so it runs beside the widget's own query. */
@@ -28,7 +29,7 @@ async function freshAt(
   try {
     return await at(ctx);
   } catch (error) {
-    console.error("[flowpanel] freshness.at failed:", error);
+    logCaught("[flowpanel] freshness.at failed:", error);
     return null;
   }
 }

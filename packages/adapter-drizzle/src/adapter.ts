@@ -62,6 +62,20 @@ function writeTarget(ref: Table): WriteTarget {
   return { ref, cols, pk, pkCol: cols[pk] };
 }
 
+/** mysql2 writes a `Date` on the server's clock, a day early west of UTC, so a MySQL `date` column gets its UTC day as text. */
+function calendarDays(
+  target: WriteTarget,
+  input: Record<string, unknown>,
+): Record<string, unknown> {
+  const days = Object.entries(input).filter(
+    ([key, value]) => value instanceof Date && target.cols[key]?.columnType === "MySqlDate",
+  );
+  if (days.length === 0) return input;
+  const out = { ...input };
+  for (const [key, value] of days) out[key] = (value as Date).toISOString().slice(0, 10);
+  return out;
+}
+
 /** The row a delete or restore addresses, inside the caller's scope. */
 function keyedWhere(target: WriteTarget, id: string, ctx: MutationContext<unknown>): SQL {
   if (!target.pkCol) {
@@ -153,7 +167,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
 
     async create(ref, ctx: MutationContext<unknown>) {
       const target = writeTarget(ref);
-      const input = ctx.input as Record<string, unknown>;
+      const input = calendarDays(target, ctx.input as Record<string, unknown>);
       const scope = captureScopeClauses(ctx);
       return scope.length === 0
         ? writes.insert(getDb(ctx), target, input)
@@ -163,7 +177,7 @@ export function drizzleAdapter<DB>(opts: DrizzleAdapterOptions<DB>): Adapter<DB,
     async update(ref, ctx: MutationContext<unknown>) {
       const target = writeTarget(ref);
       if (!ctx.id) throw new Error("update requires ctx.id");
-      const input = ctx.input as Record<string, unknown>;
+      const input = calendarDays(target, ctx.input as Record<string, unknown>);
       const scope = captureScopeClauses(ctx);
       if (scope.length > 0) return writes.scopedUpdate(getDb(ctx), target, input, ctx.id, scope);
       return writes.update(getDb(ctx), target, input, ctx.id, keyedWhere(target, ctx.id, ctx));

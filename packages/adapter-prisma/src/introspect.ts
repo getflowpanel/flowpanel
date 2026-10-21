@@ -77,6 +77,7 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
     };
 
     if (meta.type === "number") meta.integer = field.type === "Int" || field.type === "BigInt";
+    if (field.type === "DateTime" && field.nativeType?.[0] === "Date") meta.dateOnly = true;
     const literal = field.default;
     if (
       typeof literal === "string" ||

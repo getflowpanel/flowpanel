@@ -10,9 +10,17 @@ import { connectionMessage } from "../lib/connection-message";
 import { humanize } from "../lib/humanize";
 import { isReply, readReply, textOf } from "../lib/json-reply";
 import { useApiBase } from "../provider/ApiBaseContext";
+import { useFormatting } from "../provider/FormattingContext";
 import { useLabels } from "../provider/LabelsContext";
 import { BooleanCell } from "./FormatCells";
 import { editorClass, InlineEditSelect } from "./InlineEditSelect";
+import {
+  type CellValueType,
+  type EditKind,
+  inputStringToValue,
+  inputTypeFor,
+  valueToInputString,
+} from "./inline-edit-values";
 
 const PENCIL_REVEAL =
   "fp-opacity-0 group-hover/row:fp-opacity-100 group-hover/edit:fp-opacity-100 group-focus-within/edit:fp-opacity-100 [@media(hover:none)]:fp-opacity-100";
@@ -25,7 +33,9 @@ export interface InlineEditCellProps {
   /** The column's label, for the edit button's accessible name. Defaults to the humanized field. */
   label?: string;
   value: unknown;
-  valueType?: "string" | "number" | "boolean" | "date" | "enum" | "array" | "json" | "reference";
+  valueType?: CellValueType;
+  /** A SQL `date` column: edited as a calendar day, with no time and no zone. */
+  calendarDay?: boolean;
   /** The choices to pick from, which turn the editor into a select; a yes/no column gets its own. */
   options?: ReadonlyArray<{ value: string; label: string }>;
   /** Custom display formatter when not in edit mode. Defaults to `String(value)`. */
@@ -42,6 +52,7 @@ export function InlineEditCell({
   label,
   value,
   valueType,
+  calendarDay,
   options,
   display,
   rowClickable = false,
@@ -51,9 +62,11 @@ export function InlineEditCell({
   const toast = useToast();
   const apiBase = useApiBase();
   const labels = useLabels();
+  const { timeZone } = useFormatting();
+  const kind: EditKind = calendarDay && valueType === "date" ? "day" : valueType;
   const editLabel = formatLabel(labels.table.editCell, { label: label ?? humanize(field) });
   const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState<string>(() => valueToInputString(value, valueType));
+  const [draft, setDraft] = React.useState<string>(() => valueToInputString(value, kind, timeZone));
   const [pending, setPending] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const selectRef = React.useRef<HTMLSelectElement>(null);
@@ -78,8 +91,8 @@ export function InlineEditCell({
   async function save(next = draft) {
     if (!open.current) return;
     open.current = false;
-    const parsed = inputStringToValue(next, valueType);
-    const original = valueToInputString(value, valueType);
+    const parsed = inputStringToValue(next, kind);
+    const original = valueToInputString(value, kind, timeZone);
     if (next === original) {
       setEditing(false);
       return;
@@ -104,14 +117,14 @@ export function InlineEditCell({
 
   function cancel() {
     open.current = false;
-    setDraft(valueToInputString(value, valueType));
+    setDraft(valueToInputString(value, kind, timeZone));
     setEditing(false);
   }
 
   if (!editing) {
     const edit = (e: React.SyntheticEvent) => {
       e.stopPropagation();
-      setDraft(valueToInputString(value, valueType));
+      setDraft(valueToInputString(value, kind, timeZone));
       open.current = true;
       setEditing(true);
     };
@@ -180,7 +193,7 @@ export function InlineEditCell({
       <InlineEditSelect
         ref={selectRef}
         label={label ?? humanize(field)}
-        current={valueToInputString(value, valueType)}
+        current={valueToInputString(value, kind, timeZone)}
         choices={choices}
         draft={draft}
         disabled={pending}
@@ -196,7 +209,8 @@ export function InlineEditCell({
   return (
     <input
       ref={inputRef}
-      type={inputTypeFor(valueType)}
+      aria-label={label ?? humanize(field)}
+      type={inputTypeFor(kind)}
       value={draft}
       disabled={pending}
       onChange={(e) => setDraft(e.target.value)}
@@ -233,47 +247,6 @@ async function sendEdit(
     failureMessage(labels.errors, result.code, textOf(result.error)) ??
     labels.form.error
   );
-}
-
-function inputTypeFor(t: InlineEditCellProps["valueType"]): React.HTMLInputTypeAttribute {
-  switch (t) {
-    case "number":
-      return "number";
-    case "date":
-      return "datetime-local";
-    default:
-      return "text";
-  }
-}
-
-function valueToInputString(v: unknown, t: InlineEditCellProps["valueType"]): string {
-  if (v === null || v === undefined) return "";
-  if (t === "date") {
-    const d = v instanceof Date ? v : new Date(String(v));
-    if (Number.isNaN(d.getTime())) return "";
-    return localDateTimeString(d);
-  }
-  return String(v);
-}
-
-/** Format a `Date` as `YYYY-MM-DDTHH:mm` in the local zone for a `datetime-local` input. */
-function localDateTimeString(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-function inputStringToValue(draft: string, t: InlineEditCellProps["valueType"]): unknown {
-  if (draft === "") return null;
-  if (t === "boolean") return draft === "true";
-  if (t === "number") {
-    const n = Number(draft);
-    return Number.isFinite(n) ? n : draft;
-  }
-  if (t === "date") {
-    const d = new Date(draft);
-    return Number.isNaN(d.getTime()) ? draft : d.toISOString();
-  }
-  return draft;
 }
 
 function formatDisplay(v: unknown, t: InlineEditCellProps["valueType"]): React.ReactNode {

@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { cn } from "../lib/cn";
+import { useFormatting } from "../provider/FormattingContext";
 
 export interface CalendarRange {
   from: Date | null;
@@ -24,8 +25,10 @@ export function fromISODate(value: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+/** Today on the admin's clock, `formatting.timeZone`, as a local-calendar date like the grid's days. */
+export function todayIn(timeZone: string): Date {
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone, dateStyle: "short" }).format(new Date());
+  return fromISODate(day) ?? new Date();
 }
 
 export function addDays(d: Date, n: number): Date {
@@ -80,39 +83,24 @@ export function monthTitle(d: Date, locale: string): string {
   return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`;
 }
 
-/** Ranges are built on demand so "today" is read at click time, not at import time. */
+/** Ranges are built from the admin's today, read at click time, not at import time. */
 export const RANGE_PRESETS: {
   key: "today" | "last7d" | "last30d" | "thisMonth" | "lastMonth";
-  range: () => CalendarRange;
+  range: (today: Date) => CalendarRange;
 }[] = [
-  {
-    key: "today",
-    range: () => ({ from: startOfDay(new Date()), to: startOfDay(new Date()) }),
-  },
-  {
-    key: "last7d",
-    range: () => ({ from: addDays(startOfDay(new Date()), -6), to: startOfDay(new Date()) }),
-  },
-  {
-    key: "last30d",
-    range: () => ({ from: addDays(startOfDay(new Date()), -29), to: startOfDay(new Date()) }),
-  },
+  { key: "today", range: (today) => ({ from: today, to: today }) },
+  { key: "last7d", range: (today) => ({ from: addDays(today, -6), to: today }) },
+  { key: "last30d", range: (today) => ({ from: addDays(today, -29), to: today }) },
   {
     key: "thisMonth",
-    range: () => {
-      const now = new Date();
-      return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: startOfDay(now) };
-    },
+    range: (today) => ({ from: new Date(today.getFullYear(), today.getMonth(), 1), to: today }),
   },
   {
     key: "lastMonth",
-    range: () => {
-      const now = new Date();
-      return {
-        from: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-        to: new Date(now.getFullYear(), now.getMonth(), 0),
-      };
-    },
+    range: (today) => ({
+      from: new Date(today.getFullYear(), today.getMonth() - 1, 1),
+      to: new Date(today.getFullYear(), today.getMonth(), 0),
+    }),
   },
 ];
 
@@ -148,7 +136,7 @@ export function Calendar({
   const days = React.useMemo(() => monthGrid(month, weekStart), [month, weekStart]);
   const weekdayFmt = React.useMemo(() => new Intl.DateTimeFormat(loc, { weekday: "short" }), [loc]);
   const dayFmt = React.useMemo(() => new Intl.DateTimeFormat(loc, { dateStyle: "long" }), [loc]);
-  const today = startOfDay(new Date());
+  const today = todayIn(useFormatting().timeZone);
 
   // One listener per grid rather than 84 closures across two months: the day is read back off the cell.
   const dayFrom = (e: React.SyntheticEvent) => {

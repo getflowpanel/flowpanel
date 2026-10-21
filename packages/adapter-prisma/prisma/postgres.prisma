@@ -28,3 +28,10 @@ model TestOrder {
 
   @@map("test_orders")
 }
+
+model CalendarEvent {
+  id  Int       @id
+  day DateTime? @db.Date
+
+  @@map("calendar_events")
+}

@@ -14,7 +14,7 @@ import {
   type CalendarRange,
   monthTitle,
   RANGE_PRESETS,
-  startOfDay,
+  todayIn,
   toISODate,
 } from "../Calendar";
 import { activePresetOf } from "./date-range-preset";
@@ -34,14 +34,15 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
   const { dateRange } = useLabels();
   const { timeZone } = useFormatting();
   const committed = parseDateRangeValue(value, timeZone);
+  const today = () => todayIn(timeZone);
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState<CalendarRange>(committed);
   const [hovered, setHovered] = React.useState<Date | null>(null);
   const [month, setMonth] = React.useState(() => {
-    const anchor = committed.from ?? new Date();
+    const anchor = committed.from ?? today();
     return new Date(anchor.getFullYear(), anchor.getMonth(), 1);
   });
-  const [focused, setFocused] = React.useState(() => committed.from ?? startOfDay(new Date()));
+  const [focused, setFocused] = React.useState(() => committed.from ?? today());
   const gridRef = React.useRef<HTMLDivElement>(null);
   const focusPending = React.useRef(false);
 
@@ -97,20 +98,20 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
       day: "numeric",
       year: "numeric",
     });
-    const thisYear = new Date().getFullYear();
+    const thisYear = todayIn(timeZone).getFullYear();
     const show = (d: Date) => (d.getFullYear() === thisYear ? fmt : withYear).format(d);
     if (committed.from && committed.to) return `${show(committed.from)} – ${show(committed.to)}`;
     if (committed.from) return formatLabel(dateRange.from, { date: show(committed.from) });
     if (committed.to) return formatLabel(dateRange.until, { date: show(committed.to) });
     return null;
-  }, [committed.from, committed.to, locale, dateRange.from, dateRange.until]);
+  }, [committed.from, committed.to, locale, dateRange.from, dateRange.until, timeZone]);
   const named = isDateRangePreset(value) ? value : null;
   const trigger = named ? dateRange[named] : rangeText;
   const shown = trigger ?? dateRange.any;
 
   const activePreset = React.useMemo(
-    () => activePresetOf(named, committed.from, committed.to),
-    [named, committed.from, committed.to],
+    () => activePresetOf(named, committed.from, committed.to, todayIn(timeZone)),
+    [named, committed.from, committed.to, timeZone],
   );
 
   const commit = (next: CalendarRange) => {
@@ -142,7 +143,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
           setOpen(next);
           if (next) {
             setDraft(committed);
-            const anchor = committed.from ?? startOfDay(new Date());
+            const anchor = committed.from ?? today();
             setMonth(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
             setFocused(anchor);
           }
@@ -190,7 +191,7 @@ export function DateRangeFilter({ label, value, onChange }: DateRangeFilterProps
                   <li key={p.key}>
                     <button
                       type="button"
-                      onClick={() => commit(p.range())}
+                      onClick={() => commit(p.range(today()))}
                       aria-pressed={isActive}
                       className={cn(
                         "fp-press fp-flex fp-w-full fp-items-center fp-justify-between fp-gap-2 fp-whitespace-nowrap fp-rounded fp-px-3 fp-py-2 fp-text-left fp-text-sm fp-transition-colors focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",

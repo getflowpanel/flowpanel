@@ -169,6 +169,34 @@ describe("init wizard wiring", () => {
     );
   });
 
+  it("stops on the guessed Prisma client path with nothing there and prints the starting file", async () => {
+    const manifest = JSON.parse(await fs.readFile(path.join(project, "package.json"), "utf8"));
+    delete manifest.dependencies["drizzle-orm"];
+    manifest.dependencies["@prisma/client"] = "6.19.3";
+    await fs.rm(path.join(project, "node_modules/drizzle-orm"), { recursive: true });
+    await fs.rm(path.join(project, "src/server"), { recursive: true });
+    await write({
+      "package.json": JSON.stringify(manifest),
+      "node_modules/@prisma/client/package.json": JSON.stringify({
+        name: "@prisma/client",
+        version: "6.19.3",
+      }),
+      "prisma/schema.prisma": 'datasource db {\n  provider = "postgresql"\n}\n',
+    });
+    const printed: string[] = [];
+    vi.mocked(process.stdout.write).mockImplementation((chunk: unknown) => {
+      printed.push(String(chunk));
+      return true;
+    });
+    await expect(init()).rejects.toThrow("exit 1");
+    expect(textCalls("Prisma client module, as an import path (exports prisma)")).toHaveLength(1);
+    expect(textCalls("Session module, as an import path (exports getSession)")).toHaveLength(0);
+    const output = printed.join("");
+    expect(output).toContain("src/lib/prisma.ts");
+    expect(output).toContain("export const prisma = new PrismaClient();");
+    expect(await exists("flowpanel.config.ts")).toBe(false);
+  });
+
   it("asks the schema question again, and the auth question when the module lacks getSession", async () => {
     await write({ "src/server/lib/auth.ts": "export const nothing = 1;\n" });
     answers["Drizzle schema module, as an import path"] = ["@/nowhere", "@/server/lib/db/schema"];

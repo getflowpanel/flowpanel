@@ -39,8 +39,8 @@ export default [
     path: "dist/react/forms/AutoForm.mjs",
     import: "{ AutoForm }",
     modifyEsbuildConfig: firstRenderOnly,
-    // 0.4.0 launch, merged: zod and Conform load here, not with the list; the inert fields, their loading status and the larger switch; measured 39.66 KB.
-    limit: "39.7 KB",
+    // 0.4.0: zod and Conform load here, not with the list; inert fields, their loading status, the larger switch and the SQL date control; measured 39.78 KB.
+    limit: "39.8 KB",
   },
   {
     name: "@flowpanel/kit/react on-demand menus, popovers and selects",

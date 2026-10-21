@@ -31,7 +31,7 @@ queue(emailQueue, { label: "Emails", boardUrl, access: "admin" });
 
 ## A resource or action
 
-`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. A resource the caller may not `read` leaves the navigation and rejects its routes. New and Import show only to a role that may `create`, Edit only to one that may `update`, and opening the list, record, create or edit URL without the rule shows the same in-admin screen.
+`access` on a resource sets a rule per operation: `read`, `create`, `update`, `delete`. One rule, such as `access: "admin"`, a list of roles, `false` or a function, applies to all four. A resource the caller may not `read` leaves the navigation and rejects its routes. New and Import show only to a role that may `create`, Edit only to one that may `update`, and opening the list, record, create or edit URL without the rule shows the same in-admin screen.
 
 An action with its own `access` runs under that rule alone, the same one that shows it in the UI. An action without one runs under the resource's `update` rule.
 

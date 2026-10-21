@@ -21,7 +21,7 @@ export interface DataTableColumn<Row> {
   secondary?: keyof Row & string;
   /** What a text column holds, which sizes it: long text and an email get more room, a link a little. Field names no longer decide it; set it yourself. */
   content?: "long" | "email" | "link";
-  /** An editable column's choices, which its inline editor offers as a select. */
+  /** The column's choices: a cell shows a value's label, and an inline editor offers them as a select. */
   options?: ReadonlyArray<{ value: string; label: string }>;
   /** Optional: the widest value in this column, in rem at the table's text size. Its ideal width fits it; without it the column takes its kind's default. */
   textRem?: number;

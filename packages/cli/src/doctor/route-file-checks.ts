@@ -61,7 +61,7 @@ export async function routeFileChecks(input: RouteFileInput): Promise<Check[]> {
       : null;
     const fix = exists
       ? {}
-      : { fix: async () => makeFix(relDest, templateName, configImport, cacheComponents) };
+      : { fix: async () => [await makeFix(relDest, templateName, configImport, cacheComponents)] };
     const hint = `Run: ${pmc.exec} flowpanel doctor --fix`;
     if (file.optional) {
       checks.push({ name: file.label, ok: true, ...(exists ? {} : { warn: true, hint }), ...fix });

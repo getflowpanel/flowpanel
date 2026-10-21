@@ -238,8 +238,84 @@ describe("prerenderResourceCells", () => {
     expect(out.columns[0]?.options).toEqual([
       { value: "new", label: "Neu" },
       { value: "solved", label: "Gelöst" },
-      { value: "open", label: "open" },
+      { value: "open", label: "Open" },
     ]);
     expect(out.columns[1]?.options).toBeUndefined();
+  });
+
+  it("labels an enum column's values as its form's select does", () => {
+    const status: ColumnMeta = {
+      name: "secret",
+      type: "string",
+      nullable: false,
+      unique: false,
+      primaryKey: false,
+      enumValues: ["paid", "past_due"],
+    };
+    const labelled = [
+      { value: "paid", label: "Paid" },
+      { value: "past_due", label: "Past due" },
+    ];
+    const metaByField = new Map([["secret", status]]);
+    const bare = prerenderResourceCells<Row>(["secret"], [], reqCtx, { metaByField });
+    expect(bare.columns[0]?.options).toEqual(labelled);
+    const declared = prerenderResourceCells<Row>(
+      [{ field: "secret" }, { field: "secret", format: "badge" }],
+      [],
+      reqCtx,
+      { metaByField },
+    );
+    expect(declared.columns[0]?.options).toEqual(labelled);
+    expect(declared.columns[1]?.options).toBeUndefined();
+  });
+
+  it("shows a SQL date column as its calendar day unless the column says otherwise", () => {
+    const day: ColumnMeta = {
+      name: "secret",
+      type: "date",
+      nullable: true,
+      unique: false,
+      primaryKey: false,
+      dateOnly: true,
+    };
+    const metaByField = new Map([["secret", day]]);
+    const calendarDay = { kind: "date", calendarDay: true };
+    expect(
+      prerenderResourceCells<Row>(["secret"], [], reqCtx, { metaByField }).columns[0]?.format,
+    ).toEqual(calendarDay);
+    const declared = prerenderResourceCells<Row>(
+      [{ field: "secret" }, { field: "secret", format: "relative" }],
+      [],
+      reqCtx,
+      { metaByField },
+    );
+    expect(declared.columns[0]?.format).toEqual(calendarDay);
+    expect(declared.columns[1]?.format).toBe("relative");
+  });
+
+  it("keeps a SQL date column a calendar day under a declared date format, unless it opts out", () => {
+    const day: ColumnMeta = {
+      name: "secret",
+      type: "date",
+      nullable: true,
+      unique: false,
+      primaryKey: false,
+      dateOnly: true,
+    };
+    const { columns } = prerenderResourceCells<Row>(
+      [
+        { field: "secret", format: "date" },
+        { field: "secret", format: { kind: "date", time: true } },
+        { field: "secret", format: { kind: "date", calendarDay: false } },
+      ],
+      [],
+      reqCtx,
+      { metaByField: new Map([["secret", day]]) },
+    );
+    expect(columns.map((column) => column.format)).toEqual([
+      { kind: "date", calendarDay: true },
+      { kind: "date", time: true, calendarDay: true },
+      { kind: "date", calendarDay: false },
+    ]);
   });
 });

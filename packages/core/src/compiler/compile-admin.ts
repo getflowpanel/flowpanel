@@ -8,10 +8,10 @@ import type { AdminDefinition, ResolvedAdminConfig } from "../types/config";
 import { FlowpanelConfigError } from "../types/config-error";
 import type { DashboardConfig, PageConfig } from "../types/dashboard";
 import { DEFAULT_LABELS, type LabelsConfig, mergeLabels } from "../types/labels";
-import type { QueueConfig } from "../types/queue";
 import type { AnyResourceConfig, ResourceConfig } from "../types/resource";
 import { resolveAuditLog } from "./audit-log";
 import { withBuiltinBulkDelete } from "./builtin-bulk-delete";
+import { compileQueues } from "./compile-queues";
 import { resolveDetailWidgets } from "./detail-widgets";
 import { withEnumOptions } from "./enum-options";
 import { tryIntrospect } from "./introspect";
@@ -216,27 +216,7 @@ export function compileAdmin<const Resources extends readonly AnyResourceConfig[
     pagesByPath.set(path, page);
   }
 
-  const queuesByKey = new Map<string, QueueConfig>();
-  for (const [index, queue] of (config.queues ?? []).entries()) {
-    const name = queue.ref?.name;
-    const key = queue.options.key ?? name;
-    if (!key) {
-      throw new FlowpanelConfigError(
-        `queues[${index}]`,
-        "the queue has no name to key it by. Set key in its options.",
-      );
-    }
-    if (queuesByKey.has(key)) {
-      throw new FlowpanelConfigError(
-        `queue "${key}"`,
-        "two queues use this key. Give each queue its own key.",
-      );
-    }
-    assertNotReservedName("queue", key, "key");
-    routeNames.add("queue", key);
-    routeNames.addPath("queue", `/queues/${key}`, key);
-    queuesByKey.set(key, queue);
-  }
+  const queuesByKey = compileQueues(config.queues, routeNames, warnings);
 
   for (const [name, current] of resourcesByName) {
     const resolved = resolveDetailWidgets(name, resolveRelatedTabs(name, current, resourcesByName));

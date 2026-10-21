@@ -38,4 +38,12 @@ describe("connectionEnvNames", () => {
       ),
     ).toEqual(["DATABASE_URL", "POSTGRES_URL"]);
   });
+
+  it("still asks for a variable whose fallback is init's never-resolving .invalid host", () => {
+    expect(
+      connectionEnvNames(
+        'const connectionString = process.env.DATABASE_URL || "postgresql://DATABASE_URL-is-not-set.invalid./db";',
+      ),
+    ).toEqual(["DATABASE_URL"]);
+  });
 });

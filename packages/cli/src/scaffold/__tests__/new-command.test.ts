@@ -19,7 +19,7 @@ import * as schema from "@/db/schema";
 
 export default defineAdmin({
   resources: [
-    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })
+    // pnpm flowpanel new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "createdAt"] })
   ],
 });
 `;
@@ -116,7 +116,7 @@ declare module "@flowpanel/kit" {
 export default defineAdmin({
   adapter: prismaAdapter({ prisma, provider: "postgresql" }),
   resources: [
-    // pnpm flowpanel new <model>  adds an entry; or write resource("User", { columns: ["email", "name", "createdAt"] })
+    // pnpm flowpanel new <model>  adds an entry; or write resource("User", { columns: ["email", "createdAt"] })
   ],
 });
 `;
@@ -176,6 +176,20 @@ describe("flowpanel new on a Prisma config", () => {
       '  interface FlowpanelResources {\n    users: import("@prisma/client").User;\n  }\n}',
     );
     expect(result.stdout).toContain('Using the User model for "users".');
+  });
+
+  it("types the model from the prisma-client generator's output, where its client lives", async () => {
+    const generator =
+      'generator client {\n  provider = "prisma-client"\n  output   = "../app/generated/prisma"\n}\n\n';
+    const result = await run(
+      ["users"],
+      { ...files, "prisma/schema.prisma": generator + PRISMA_SCHEMA },
+      ["flowpanel.config.ts"],
+    );
+    expect(result.exit).toBeNull();
+    expect(result.contents["flowpanel.config.ts"]).toContain(
+      '    users: import("@/app/generated/prisma/client").User;',
+    );
   });
 
   it("names an unmapped model like a table and points its foreign key at the registered resource", async () => {

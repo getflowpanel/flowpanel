@@ -1,8 +1,5 @@
-import { createRequire } from "node:module";
 import { FlowpanelAccessError, resolveScopeApplier } from "@flowpanel/core";
 import type { PrismaDmmf } from "./introspect";
-
-const require = createRequire(import.meta.url);
 
 /** One `orderBy` entry: a direction, or for an optional field where its empty values go. */
 export type PrismaOrderBy = Record<
@@ -187,23 +184,31 @@ export function migrationsTableDdl(provider: string): string {
 END $$`;
 }
 
-export function loadDmmf(): PrismaDmmf {
-  let dmmf: unknown;
-  try {
-    dmmf = require("@prisma/client").Prisma.dmmf;
-  } catch {
-    throw new Error(
-      "prismaAdapter: could not load DMMF from @prisma/client. " +
-        "Make sure @prisma/client is installed, the schema uses the prisma-client-js generator, " +
-        "and `prisma generate` has been run.",
-    );
-  }
-  return checkedDmmf(dmmf);
+type RuntimeDataModel = { models?: Record<string, object>; enums?: Record<string, object> };
+
+const named = <T>(entries: Record<string, object>) =>
+  Object.entries(entries).map(([name, value]) => ({ name, ...value })) as T[];
+
+/** Every generated client, `prisma-client-js` or `prisma-client`, carries its schema as `_runtimeDataModel`. */
+export function loadDmmf(prisma: unknown): PrismaDmmf {
+  const model = (prisma as { _runtimeDataModel?: RuntimeDataModel } | null)?._runtimeDataModel;
+  return checkedDmmf(
+    model?.models && {
+      datamodel: { models: named(model.models), enums: named(model.enums ?? {}) },
+    },
+  );
 }
 
-/** Prisma 7 trims `Prisma.dmmf` to names and types; introspection needs ids, nullability and defaults. */
+/** Prisma 7 trims the data model to names and types; introspection needs ids, nullability and defaults. */
 export function checkedDmmf(dmmf: unknown): PrismaDmmf {
-  const field = (dmmf as PrismaDmmf | undefined)?.datamodel?.models?.[0]?.fields?.[0];
+  if (!Array.isArray((dmmf as PrismaDmmf | undefined)?.datamodel?.models)) {
+    throw new Error(
+      "prismaAdapter: found no Prisma schema. Run `prisma generate` and pass the client your app creates, " +
+        '`prisma: new PrismaClient()`, imported from "@prisma/client" with the prisma-client-js generator ' +
+        'or from the generator\'s `output` (such as "@/app/generated/prisma/client") with prisma-client.',
+    );
+  }
+  const field = (dmmf as PrismaDmmf).datamodel.models[0]?.fields?.[0];
   if (field !== undefined && typeof field.isId !== "boolean") {
     throw new Error(
       "prismaAdapter: Prisma.dmmf has no field metadata (isId, isRequired, defaults). " +

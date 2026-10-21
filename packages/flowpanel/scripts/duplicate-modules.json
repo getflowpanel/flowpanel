@@ -23,6 +23,7 @@
   "core/src/locales/ru.ts",
   "core/src/money-input.ts",
   "core/src/naive-timestamp.ts",
+  "core/src/runtime/describe-error.ts",
   "core/src/runtime/envelope.ts",
   "core/src/runtime/redis-publisher.ts",
   "core/src/suggest.ts",

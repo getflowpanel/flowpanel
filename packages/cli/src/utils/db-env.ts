@@ -8,7 +8,9 @@ const ENV_READ =
   /\bprocess\.env\.([A-Za-z_]\w*)|\bprocess\.env\[\s*["'](\w+)["']\s*\]|\benv\.([A-Z][A-Z0-9_]*)\b|\benv\(\s*["'](\w+)["']\s*\)/g;
 const CONNECTION_NAME = /URL|URI|DSN|CONNECTION/i;
 const NOT_DATABASE = /REDIS|KV|BOARD|PUBLIC|AUTH|APP_URL/i;
-const LITERAL_FALLBACK = /^\s*!?\s*(?:\?\?|\|\|)(?!\s*(?:process\.env\b|env[.(]))/;
+// A fallback to a reserved `.invalid` host only makes every query fail, so the variable still counts as unset.
+const LITERAL_FALLBACK =
+  /^\s*!?\s*(?:\?\?|\|\|)(?!\s*(?:process\.env\b|env[.(]|["'`][^"'`]*\.invalid\b))/;
 const DB_IMPORT =
   /import\s+(?:\{[^}]*\b(?:db|prisma)\b[^}]*\}|(?:db|prisma)(?:\s*,\s*\{[^}]*\})?|\*\s+as\s+(?:db|prisma))\s+from\s+["']([^"']+)["']/g;
 
@@ -25,15 +27,8 @@ export function connectionEnvNames(source: string): string[] {
   return [...names].filter((name) => !fallback.has(name));
 }
 
-/**
- * Why `migrate` must not connect yet: the database client would read an unset or empty URL, and
- * drivers then fall back to their defaults (pg: localhost:5432), which can be another database.
- */
-export async function missingConnectionEnv(
-  cwd: string,
-  dialect: SqlDialect | null,
-  migrateCommand: string,
-): Promise<string | null> {
+/** The connection variables the config's database client reads, e.g. `DATABASE_URL`. */
+export async function connectionEnvRead(cwd: string): Promise<string[]> {
   const config = await findAdminConfig(cwd);
   const sources: string[] = [];
   if (config) {
@@ -48,15 +43,33 @@ export async function missingConnectionEnv(
       }
     }
   }
-  const read = [...new Set(sources.flatMap(connectionEnvNames))];
-  const empty = read.every((name) => !process.env[name]?.trim()) ? read[0] : undefined;
-  if (empty === undefined) return null;
+  return [...new Set(sources.flatMap(connectionEnvNames))];
+}
+
+/** The first of `names` when none of them holds a value, with whether it is unset or empty. */
+export function unsetEnv(names: readonly string[]): { name: string; state: string } | null {
+  const name = names.every((candidate) => !process.env[candidate]?.trim()) ? names[0] : undefined;
+  if (name === undefined) return null;
+  return { name, state: process.env[name] === undefined ? "not set" : "empty" };
+}
+
+/**
+ * Why `migrate` must not connect yet: the database client would read an unset or empty URL, and
+ * drivers then fall back to their defaults (pg: localhost:5432), which can be another database.
+ */
+export async function missingConnectionEnv(
+  cwd: string,
+  dialect: SqlDialect | null,
+  migrateCommand: string,
+): Promise<string | null> {
+  const unset = unsetEnv(await connectionEnvRead(cwd));
+  if (unset === null) return null;
+  const { name: empty, state } = unset;
   const example =
     dialect === "mysql"
       ? "mysql://user:password@host:3306/db"
       : dialect === "sqlite"
         ? "file:./local.db"
         : "postgres://user:password@host:5432/db";
-  const state = process.env[empty] === undefined ? "not set" : "empty";
   return `${empty} is ${state}, so the database client would connect to its driver's default instead of your database. Add ${empty}=${example} to .env.local, or pass it inline: ${empty}=… ${migrateCommand}`;
 }

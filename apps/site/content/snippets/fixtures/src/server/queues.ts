@@ -1,5 +1,8 @@
-import { emailQueue, type Queue, scrapeQueue } from "../lib/queues";
+import type { bullmqAdapter } from "@flowpanel/kit/bullmq";
 
-export { emailQueue, scrapeQueue };
+export type Queue = Parameters<typeof bullmqAdapter>[0][string];
+
+export declare const emailQueue: Queue;
+export declare const scrapeQueue: Queue;
 
 export const queuesByName: Record<string, Queue> = { email: emailQueue, scrape: scrapeQueue };

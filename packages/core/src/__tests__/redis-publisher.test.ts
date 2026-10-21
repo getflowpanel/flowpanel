@@ -331,6 +331,14 @@ describe("createRealtimeTransport — redis driver connections", () => {
     expect(() => createRealtimeTransport({ driver: "redis" })).toThrow(/url/);
   });
 
+  it("names an empty url and the variable it usually comes from", () => {
+    for (const url of [undefined, "", "  "]) {
+      expect(() => createRealtimeTransport({ driver: "redis", url: url as string })).toThrow(
+        /got an empty url\. Is REDIS_URL set/,
+      );
+    }
+  });
+
   it("explains itself when a client without duplicate() has to subscribe", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const host = fakeConnection();

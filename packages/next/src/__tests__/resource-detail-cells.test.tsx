@@ -84,6 +84,83 @@ describe("ResourceDetailPage — column pipeline", () => {
     expect(value.props.status).toBe("starter");
   });
 
+  it("shows an enum value by the label the list and the form show", async () => {
+    const config = defineAdmin({
+      adapter: {
+        ...mkAdapter(ROW),
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: [
+            { name: "id", type: "string", nullable: false, unique: true, primaryKey: true },
+            {
+              name: "plan",
+              type: "string",
+              nullable: false,
+              unique: false,
+              primaryKey: false,
+              enumValues: ["starter", "pro"],
+            },
+          ],
+        }),
+      },
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [resource({ __name: "users" }, { columns: ["id", "plan"] } as never)],
+    });
+    const users = config.resourcesByName.get("users");
+    if (!users) throw new Error("users resource not registered");
+    const node = await ResourceDetailPage({
+      config,
+      resource: users,
+      name: "users",
+      id: "22",
+      req: new Request("http://localhost/admin/users/22"),
+    });
+    expect(findAllElements(node, KVRow).find((r) => r.label === "Plan")?.value).toBe("Starter");
+  });
+
+  it("shows a SQL date field the list leaves out as its calendar day in New York", async () => {
+    const config = defineAdmin({
+      adapter: {
+        ...mkAdapter({ id: "22", dueOn: new Date("2026-10-19T00:00:00.000Z") }),
+        introspect: () => ({
+          name: "users",
+          primaryKey: "id",
+          columns: [
+            { name: "id", type: "string", nullable: false, unique: true, primaryKey: true },
+            {
+              name: "dueOn",
+              type: "date",
+              nullable: true,
+              unique: false,
+              primaryKey: false,
+              dateOnly: true,
+            },
+          ],
+        }),
+      },
+      auth: { session: async () => null, role: () => "admin" },
+      formatting: { timeZone: "America/New_York" },
+      resources: [
+        resource({ __name: "users" }, {
+          columns: ["id"],
+          detail: { tabs: [{ key: "overview", label: "Overview", fields: ["id", "dueOn"] }] },
+        } as never),
+      ],
+    });
+    const users = config.resourcesByName.get("users");
+    if (!users) throw new Error("users resource not registered");
+    const node = await ResourceDetailPage({
+      config,
+      resource: users,
+      name: "users",
+      id: "22",
+      req: new Request("http://localhost/admin/users/22"),
+    });
+    const due = findAllElements(node, KVRow).find((r) => r.label === "Due on");
+    expect(due?.value).toBe("2026-10-19");
+  });
+
   it("uses the column's own render for the value", async () => {
     const node = await renderDetail({
       columns: [

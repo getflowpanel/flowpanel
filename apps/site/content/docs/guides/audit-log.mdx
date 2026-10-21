@@ -21,6 +21,71 @@ audit: { enabled: true },
 
 `flowpanel migrate` creates `flowpanel_audit_log` through the database client in `flowpanel.config.ts`, with SQL for PostgreSQL, MySQL or SQLite. Both shipped adapters write to it through the same client. With a custom adapter that has no `auditLog`, `defineAdmin` refuses to start until you pass a `sink`.
 
+## Keep your ORM away from FlowPanel's tables
+
+`flowpanel migrate` creates two tables beside yours: `_flowpanel_migrations`, which records the applied files, and `flowpanel_audit_log`. They have the same names on PostgreSQL, MySQL and SQLite. Your schema does not declare them, so `drizzle-kit push` and `prisma db push` offer to drop them, and the audit history with them.
+
+With Drizzle, leave them out of `drizzle.config.ts` with `tablesFilter`. `pnpm flowpanel doctor` warns while the config lets `push` drop them:
+
+```ts
+// drizzle.config.ts
+import { defineConfig } from "drizzle-kit";
+
+export default defineConfig({
+  dialect: "postgresql",
+  schema: "./server/lib/db/schema.ts",
+  dbCredentials: { url: process.env.DATABASE_URL! },
+  tablesFilter: ["!_flowpanel_migrations", "!flowpanel_audit_log"],
+});
+```
+
+With Prisma, declare both tables in `schema.prisma` with `@@ignore`: `db push` then sees them as part of your schema, and Prisma Client leaves them out. After `flowpanel migrate`, `pnpm prisma db pull --print` prints the two models for your database without changing any file; copy them into `schema.prisma` and add `@@ignore` to each. On PostgreSQL they read:
+
+```prisma
+model flowpanel_migrations {
+  id         String   @id @db.VarChar(255)
+  applied_at DateTime @default(now()) @db.Timestamp(6)
+
+  @@map("_flowpanel_migrations")
+  @@ignore
+}
+
+model flowpanel_audit_log {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_id     String?
+  actor_name   String?
+  action       String
+  resource     String?
+  target_id    String?
+  diff         Json?
+  diff_preview Json?
+  ip           String?
+  user_agent   String?
+  scope_key    String?
+  at           DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([at(sort: Desc)])
+  @@index([actor_id, at(sort: Desc)], map: "flowpanel_audit_log_actor_idx")
+  @@index([resource, target_id, at(sort: Desc)], map: "flowpanel_audit_log_target_idx")
+  @@index([scope_key, at(sort: Desc)], map: "flowpanel_audit_log_scope_idx")
+  @@ignore
+}
+```
+
+`pnpm prisma db push` then reports the database already in sync. Copy the models again after a `flowpanel migrate` that changes the table, as the 0.4 upgrade does.
+
+`prisma migrate dev` compares the database with its migration history too, and offers to reset the database while FlowPanel's tables are in neither. With the models in place, record the tables as a migration that has already run:
+
+```bash
+name="$(date +%Y%m%d%H%M%S)_flowpanel"
+mkdir -p "prisma/migrations/$name"
+printf 'CREATE TABLE IF NOT EXISTS _flowpanel_migrations (id varchar(255) NOT NULL PRIMARY KEY, applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP);\n' > "prisma/migrations/$name/migration.sql"
+cat flowpanel/migrations/*.sql >> "prisma/migrations/$name/migration.sql"
+pnpm prisma migrate resolve --applied "$name"
+```
+
+A fresh database then gets the tables from `prisma migrate deploy`, and `flowpanel migrate` finds them in place.
+
 ## What is recorded
 
 Creates, updates (form and inline), deletes, restores, exports, and row, bulk, drawer and dashboard actions each record one event after the write commits. A bulk action records one row per selected record, so each record's History shows it.

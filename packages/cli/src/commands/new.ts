@@ -7,7 +7,7 @@ import { findSplitResourcesDir } from "../eject/edit-config";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
 import type { FilesystemPlan } from "../plan/types";
-import { addPrismaResourceType, dirSpecifier, wireResourcesDir } from "../scaffold/config-edits";
+import { dirSpecifier, typePrismaModel, wireResourcesDir } from "../scaffold/config-edits";
 import { findAdminConfig } from "../scaffold/config-target";
 import { describeSchema } from "../scaffold/describe-schema";
 import { planNewIntoDir, planPrismaModelIntoDir } from "../scaffold/plan-new";
@@ -125,7 +125,7 @@ async function newIntoDir(cwd: string, resource: string, dir: string, opts: NewO
     (spec) => importsDir.has(spec),
   );
   const wired = wiring.kind === "wired" ? wiring.source : configSource;
-  const typed = prisma ? addPrismaResourceType(wired, prisma.name, prisma.model) : wired;
+  const typed = await typePrismaModel(cwd, config.file, wired, prisma?.name, prisma?.model ?? "");
   if (typed !== configSource) {
     intents.push({
       path: path.relative(cwd, config.file),
@@ -287,7 +287,7 @@ export function newCommand(cli: Command): void {
           kind,
           filename: relative,
         });
-        const updated = prismaName ? addPrismaResourceType(added, prismaName, resourceName) : added;
+        const updated = await typePrismaModel(cwd, found.file, added, prismaName, resourceName);
         const plan = await createFilesystemPlan(cwd, [
           { path: relative, content: updated, expectedContent: source },
         ]);

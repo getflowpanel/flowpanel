@@ -112,10 +112,12 @@ function watchErrors(connection: RedisLike, seen: Set<string>): () => void {
 
 /** Build a Redis-backed publisher. Nothing connects until the first publish or subscribe. */
 export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublisher {
-  if (opts.client === undefined && opts.url === undefined) {
+  if (opts.client === undefined && !opts.url?.trim()) {
     throw new FlowpanelConfigError(
       "realtime",
-      'the "redis" driver needs a connection. Set url, or pass an ioredis-compatible instance as client.',
+      "url" in opts
+        ? 'the "redis" driver got an empty url. Is REDIS_URL set where this process runs? Set it, or pass an ioredis-compatible instance as client.'
+        : 'the "redis" driver needs a connection. Set url, or pass an ioredis-compatible instance as client.',
     );
   }
   const keyPrefix = opts.keyPrefix ?? "flowpanel";

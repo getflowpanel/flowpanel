@@ -52,7 +52,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
   const prisma = opts.prisma as PrismaClientLike;
 
   function getDmmf(): PrismaDmmf {
-    if (!_dmmf) _dmmf = opts.dmmf ? checkedDmmf(opts.dmmf) : loadDmmf();
+    if (!_dmmf) _dmmf = opts.dmmf ? checkedDmmf(opts.dmmf) : loadDmmf(prisma);
     return _dmmf;
   }
 

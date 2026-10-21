@@ -540,11 +540,10 @@ formatting: { locale: "ru-RU", timeZone: "Europe/Moscow", currency: "RUB" },
 
 `locale` governs the `number` and `money` column formats and the date shape;
 `currency` is the default for a `money` column that names none, and a column's own
-`currency` still wins. A set `timeZone` is the one clock of the admin: server
-strings, chart ticks and every `LocalTime` render in it, before and after
-hydration. Left unset, the server and the first paint use UTC and a `LocalTime`
-switches to the reader's own zone after hydration. A `LocalTime` given its own
-`fallbackTimeZone` keeps that switch either way.
+`currency` still wins. `timeZone` is the one clock of the admin: server strings,
+chart ticks, forms, exports and every `LocalTime` render in it, before and after
+hydration. Left unset, it is UTC. A `LocalTime` given its own `fallbackTimeZone`
+renders in that zone first and switches to the reader's own zone after hydration.
 
 With no `locale`, dates print as `YYYY-MM-DD HH:mm` and numbers use `en-US` grouping.
 
@@ -621,7 +620,7 @@ export const ordersResource = resource(orders, {
 | `bulkActions?` | `BulkAction<Row, any, any>[]` | Actions applied to a selection of rows. |
 | `scope?` | `"bypass" \| ResourceScope` | How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. |
 | `scopeOf?` | `(row: Row) => Scope` | The tenant a row belongs to, as `scope` returns it; files `allTenants` staff's audit events under it. |
-| `access?` | `ResourceAccess<Row>` | Canonical operation-level authorization. |
+| `access?` | `ResourceAccess<Row> \| AccessRule` | Who may read, create, update and delete: `{ read, create, update, delete }`, or one rule such as `"admin"` for all four. |
 | `fieldAccess?` | `FieldAccessMap<Row>` | Canonical read/write policy for declared fields. |
 | `export?` | `\| { formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[]; /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */ maxRows?: number; /** Who may export, on top of the resource's `read` rule. Everyone who may read by default. */ access?: AccessRule; } \| false` | Export button, off unless set: every row matching the list's filters, search and sort, as the user may read them. `formats` defaults to `["csv"]`; `fields` defaults to the columns. |
 | `import?` | `{ formats?: ("csv" \| "json")[]; fields?: (keyof Row & string)[] } \| false` | Import button. Off unless set; rows are created through the normal write path. |
@@ -3183,12 +3182,12 @@ Docs: https://flowpanel.tech/docs/reference/queues
 Documented types: queue, QueueOptions, QueueConfig
 
 `queue(ref, options)` registers a BullMQ queue as a navigation entry whose page
-embeds [bull-board](https://github.com/felixmosh/bull-board). Setup and security:
+embeds [bull-board](https://github.com/felixmosh/bull-board). Setup, the queues module and security:
 [Queues](/docs/guides/queues).
 
 ```ts
 import { defineAdmin, queue } from "@flowpanel/kit";
-import { emailQueue } from "@/lib/queues";
+import { emailQueue } from "@/server/queues";
 
 export default defineAdmin({
   adapter,
@@ -3250,7 +3249,7 @@ A request without a valid link, cookie or bearer gets `401`. `auth.token` and
 | `hidden?` | `boolean` | Keep the queue route registered but omit it from primary navigation. |
 | `navGroup?` | `NavGroupRef` | Sidebar group for this queue. Default: the Queues group. |
 | `boardUrl` | `string` | Full URL (e.g., http://localhost:3001/queue/email) to the bull-board UI. |
-| `boardSecret?` | `string` | The board server's `auth.secret`. The page then adds a link signed for this queue that expires in a minute, so the secret itself never reaches the browser. |
+| `boardSecret?` | `string \| undefined` | The board server's `auth.secret`. The page then adds a link signed for this queue that expires in a minute, so the secret itself never reaches the browser. |
 | `key?` | `string` | Optional explicit key; defaults to queue.name. |
 | `access?` | `AccessRule` | Who may see and open this queue page. |
 
@@ -3285,7 +3284,7 @@ To count jobs in a widget, wrap the same `Queue` instances with `bullmqAdapter`:
 
 ```ts
 import { bullmqAdapter } from "@flowpanel/kit/bullmq";
-import { emailQueue, scrapeQueue } from "@/lib/queues";
+import { emailQueue, scrapeQueue } from "@/server/queues";
 
 export const jobs = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
 ```
@@ -3912,7 +3911,7 @@ Each column of a `DataTable` you render yourself is a `DataTableColumn`. Its wid
 | `format?` | `ColumnFormat` | Declarative formatter mirrored from `ColumnDef.format`. |
 | `secondary?` | `keyof Row & string` | A field of the row shown as a muted second line under the cell. |
 | `content?` | `"long" \| "email" \| "link"` | What a text column holds, which sizes it: long text and an email get more room, a link a little. Field names no longer decide it; set it yourself. |
-| `options?` | `ReadonlyArray<{ value: string; label: string }>` | An editable column's choices, which its inline editor offers as a select. |
+| `options?` | `ReadonlyArray<{ value: string; label: string }>` | The column's choices: a cell shows a value's label, and an inline editor offers them as a select. |
 | `textRem?` | `number` | Optional: the widest value in this column, in rem at the table's text size. Its ideal width fits it; without it the column takes its kind's default. |
 
 ### Forms
@@ -4040,7 +4039,7 @@ The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
 | `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
 | `StatusDot` | Small dot in any `Tone`, `ok` by default. |
 | `LiveIndicator` | Realtime connection status indicator for a `RealtimeStatus`. |
-| `LocalTime` | Absolute timestamp in the configured `formatting.timeZone`, or the viewer's zone after hydration when none is set. |
+| `LocalTime` | Absolute timestamp in `formatting.timeZone`, UTC until set. With `fallbackTimeZone`, that zone first and the reader's zone after hydration. |
 | `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
 | `Sparkline` | Minimal inline trend line for a numeric series. |
 | `Mono` | Monospace inline text, for IDs and code-like values. |
@@ -4334,8 +4333,8 @@ All paths are relative to `/api/flowpanel`.
 | --- | --- | --- |
 | `GET` | `/<resource>` | Typed list result for custom clients |
 | `GET` | `/<resource>/<id>` | One projected row |
-| `POST` | `/<resource>` | Create (JSON API) |
-| `PATCH` / `PUT` | `/<resource>/<id>` | Update (JSON API) |
+| `POST` | `/<resource>` | Create (JSON API), with dates as for `PATCH` |
+| `PATCH` / `PUT` | `/<resource>/<id>` | Update (JSON API); a date is ISO 8601 text with seconds and an offset, such as `2026-10-18T22:30:00Z`, or `YYYY-MM-DD` for a SQL `date` column |
 | `DELETE` | `/<resource>/<id>` | Delete (JSON API) |
 | `GET` | `/drawer/<resource>/<id>` | Drawer payload for one row |
 | `GET` | `/<resource>/reference/<field>` | Options for a reference picker |
@@ -4725,7 +4724,11 @@ or 22.12 and newer, which load the kit's ES modules from `require`.
 
 `create` and `update` write the fields the resource's form declares, and `update`
 also writes every `editable: true` column, as the list's inline edit does, under the
-same access. Any other key fails with `unknown_field`.
+same access. Any other key fails with `unknown_field`. A timestamp is ISO 8601 text with
+seconds and an offset, such as `2026-10-18T22:30:00Z` or `…+03:00` (`JSON.stringify` of a
+`Date` gives this; `22:30Z` and `+0300` are refused), and a SQL `date` column also takes
+`YYYY-MM-DD`; `null` clears a nullable column only, and text without a zone, a number or
+a boolean fails validation.
 
 `FlowpanelListOptions` takes `page`, `pageSize`, `search` and `filters`; every call
 takes `signal` and `headers`. Network errors and malformed responses become an
@@ -4923,6 +4926,12 @@ type FlowpanelResult<T> =
   | { ok: false; error: FlowpanelResultError };
 ```
 
+The JSON resource API (`GET`/`POST`/`PATCH`/`DELETE <paths.api>/<resource>`) fails as
+`{ ok: false, error: { code, message, requestId } }`. The routes the generated UI posts
+to (actions, create and edit forms, drawers, inline edits, import, restore and export)
+fail as `{ ok: false, error, code, requestId?, fieldErrors? }`; see
+[Errors](/docs/reference/errors).
+
 `FlowpanelResultMeta` carries the request id and optional warnings.
 `FlowpanelResultError` carries a stable `FlowpanelErrorCode`, a safe message,
 optional field errors and request id. `FLOWPANEL_ERROR_STATUS` is the canonical
@@ -5076,6 +5085,7 @@ Returned by `introspect`. `kind: "view"` makes a resource read-only unless it se
 | `unique` | `boolean` |  |
 | `primaryKey` | `boolean` |  |
 | `integer?` | `boolean` | A `number` column that holds whole numbers only, such as `integer` or `bigint`; `false` for decimals and floats. |
+| `dateOnly?` | `boolean` | A SQL `date` column of `date` type: a calendar day, which reads as midnight UTC and has no time or zone. |
 | `enumValues?` | `readonly string[]` | Allowed values, for `enum` columns. |
 | `references?` | `{ table: string; column: string }` | Foreign key target, when the column references another table. |
 | `maxLength?` | `number` |  |
@@ -5547,7 +5557,7 @@ itself is invalid.
 
 ### Errors the routes produce themselves
 
-The generated UI routes (actions, forms, drawers, inline edits, import and restore) answer every failure as `{ ok: false, error, code, requestId?, fieldErrors? }`: `error` is a string to show, `code` a `FlowpanelErrorCode`, and `requestId` is set once the guards have run. Some errors come from the routes themselves:
+The generated UI routes (actions, forms, drawers, inline edits, import, restore and export) answer every failure as `{ ok: false, error, code, requestId?, fieldErrors? }`: `error` is a string to show, `code` a `FlowpanelErrorCode`, and `requestId` is set once the guards have run. Some errors come from the routes themselves:
 
 | Status | `error` | When |
 | --- | --- | --- |
@@ -5666,7 +5676,8 @@ Detects Next.js, the ORM (Drizzle if both are installed) and the auth helper,
 installs `@flowpanel/kit` and `@flowpanel/cli`, and writes the wiring files. In a
 terminal it asks for the app name and the paths of the db, schema and auth modules,
 shows the plan, and waits for a yes. A module path that does not resolve is asked
-again with the reason. When no session helper exists, it also asks whether to write
+again with the reason; the guessed db or schema path with no file there stops `init`
+and prints a starting file for it, as under `--yes`. When no session helper exists, it also asks whether to write
 an open development identity; the answer defaults to no.
 
 ```text
@@ -5797,7 +5808,13 @@ What varies:
   command.
 - **No Drizzle client, schema or Prisma client at the guessed paths**: exits `1`
   with a starting file for each and the `--db` and `--schema` flags that point at
-  yours.
+  yours. The starter `users` table has a `uuid` key the database generates, so the
+  admin can create rows. Without `DATABASE_URL`, the starter Drizzle client points
+  at a host that never resolves instead of `localhost`: `next build` runs, the admin
+  shows "Check DATABASE_URL" (in production, the failed read's card) and the API
+  answers its JSON error, while `migrate` and `doctor` still say the URL is unset.
+  With the `prisma-client` generator, the starter `lib/prisma.ts` imports
+  `PrismaClient` from the generator's `output`.
 - **No terminal and no `--yes`, `--dry-run` or `--json`**: exits `1`. Pass `--yes`
   in CI.
 - **A failed install**: keeps the files, prints the commands to run by hand, and
@@ -5806,8 +5823,9 @@ What varies:
 
 Re-running `init` keeps `flowpanel.config.ts` (or `.tsx`) and skips matching files, and says
 `Already set up; nothing changed.` when there is nothing to write. A conflicting
-file stops it with nothing written and every conflicting path listed. `--yes`
-accepts detected paths; it never overwrites.
+file stops it with nothing written and every conflicting path listed with the
+content `init` would write there, so you can merge it by hand; `--dry-run` prints
+the same. `--yes` accepts detected paths; it never overwrites.
 
 ### flowpanel migrate
 
@@ -5834,8 +5852,12 @@ the config imports `db` or `prisma` from, plus the Prisma schema; a variable wit
 fallback in code, such as `?? "file:local.db"`, is not required. When the database
 cannot be reached, the first line is `Cannot reach the database at
 <host>:<port> (<code>). Check DATABASE_URL.` for Drizzle and Prisma alike;
-the code is the socket error or Prisma's `P1001`, `P1002` or `P1017`.
-`FLOWPANEL_DEBUG=1` adds the failed SQL and the stack trace. Under `--json` the
+the code is the socket error, PostgreSQL's `08001`, or Prisma's `P1001`, `P1002`
+or `P1017`. A refused login (`28P01`, `28000`, `P1000`, `ER_ACCESS_DENIED_ERROR`)
+reads `The database at <host>:<port> refused the login (<code>). Check the user and
+password in DATABASE_URL.`, and a database name the server does not have (`3D000`,
+`P1003`, `ER_BAD_DB_ERROR`) says so the same way. In each case the failed SQL is
+left out; `FLOWPANEL_DEBUG=1` adds it and the stack trace. Under `--json` the
 failure is a JSON document with an `error` field, and `applied` is `false` when
 nothing ran.
 
@@ -5875,8 +5897,10 @@ Runs these checks:
 - with `cacheComponents` on: Next.js 16.3 or newer, no `runtime`, `dynamic`,
   `revalidate` or `fetchCache` export in the generated routes and admin page, and
   `instant = false` in the catch-all admin page and in an admin layout that reads the
-  request. `--fix` adds it to a catch-all page `init` wrote; a page you edited gets
-  the hint only
+  request. `--fix` adds it to a catch-all page `init` wrote, and removes a one-line
+  `export const runtime = "nodejs"` or `dynamic = "force-dynamic"`, as 0.3's `init`
+  wrote them, from these files; a page you edited, or another form of the export,
+  gets the hint only
 - `tsc --noEmit` passes. When `.next/types` is missing, `doctor` runs `next typegen`
   first, so the route and layout types Next generates exist. When `next typegen`
   fails, the `tsc` hint shows its error first, then what `tsc` reported
@@ -5885,8 +5909,10 @@ Runs these checks:
 
 More checks warn without failing the run: a session module that is still the
 closed stub (`getSession` returns `null`) or the open development identity from
-`init --dev-auth`, an empty `resources` array, a missing `DATABASE_URL` while
-`flowpanel/migrations/` holds SQL files, an audit table from 0.3 that lacks the 0.4
+`init --dev-auth`, an empty `resources` array, an unset connection variable that
+the database client reads (`DATABASE_URL` while `flowpanel/migrations/` holds SQL
+files, when `doctor` finds no other), a `drizzle.config.*` whose `tablesFilter` lets
+`drizzle-kit push` drop `_flowpanel_migrations` or `flowpanel_audit_log`, an audit table from 0.3 that lacks the 0.4
 columns (`--fix` writes the `0002` migration), and, with `DATABASE_URL` set, a
 resource whose table the database does not have, counted through the config's adapter. A warning prints as a yellow `!` line and
 carries `"warn": true` in `--json`. A check that crashes is a warning too, with
@@ -5955,8 +5981,9 @@ $ pnpm flowpanel dev --port 3000
 
 A port counts as busy when anything answers on `127.0.0.1` or `::1`.
 Output is prefixed `[next]` and `[board]`; when Next.js is ready, `dev` prints the
-admin URL. When one process exits, both stop.
-`--no-board` skips the queue board. The board runs with `tsx` from your project, so
+admin URL. When Next.js exits, the board stops too. When the board exits, for example
+with `BOARD_SECRET is required`, Next.js keeps running and `dev` prints one line that
+says the board stopped and how to start without it. `--no-board` skips the queue board. The board runs with `tsx` from your project, so
 install it as a dev dependency (`pnpm add -D tsx`) when you use queues.
 
 ### flowpanel new

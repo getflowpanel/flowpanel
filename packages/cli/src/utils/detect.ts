@@ -44,6 +44,14 @@ export function aliasOf(relPath: string, mode: PathAliasMode): string {
   return `./${noExt}`;
 }
 
+/** How project file `fromFile` imports the project path `target`: through `@/` when the alias reaches it, else relatively. */
+export function specifierFrom(fromFile: string, target: string, mode: PathAliasMode): string {
+  if (mode === "root" && !target.startsWith("../")) return `@/${target}`;
+  if (mode === "strip-src" && target.startsWith("src/")) return `@/${target.slice(4)}`;
+  const relative = path.posix.relative(path.posix.dirname(fromFile), target);
+  return relative.startsWith(".") ? relative : `./${relative}`;
+}
+
 export function configImportFor(fileDir: string, mode: PathAliasMode): string {
   if (mode === "root") return "@/flowpanel.config";
   const rel = path.relative(fileDir, ".").split(path.sep).join("/");

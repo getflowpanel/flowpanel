@@ -91,7 +91,13 @@ export async function renderFieldsTab<Row extends Record<string, unknown>>(
       resource,
       row,
       new Set(shown.map((field) => field.name)),
-      buildDetailCells(resource, row, reqCtx, namedFields(config)),
+      buildDetailCells(
+        resource,
+        row,
+        reqCtx,
+        namedFields(config),
+        new Map(config.adapter.introspect(resource.ref).columns.map((c) => [c.name, c])),
+      ),
     ),
     renderDetailFields(row, shown, reqCtx, markdownFields(resource)),
   ]);

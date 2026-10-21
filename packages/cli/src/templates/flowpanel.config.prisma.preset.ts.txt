@@ -23,6 +23,6 @@ export default defineAdmin({
   },
 
   resources: [
-    // {{CLI}} new <model>  adds an entry; or write resource("User", { columns: ["email", "name", "createdAt"] })
+    // {{CLI}} new <model>  adds an entry; or write resource("User", { columns: ["email", "createdAt"] })
   ],
 });

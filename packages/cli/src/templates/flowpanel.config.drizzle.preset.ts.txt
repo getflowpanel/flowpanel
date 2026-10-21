@@ -25,6 +25,6 @@ export default defineAdmin({
   },
 
   resources: [
-    // {{CLI}} new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "name", "createdAt"] })
+    // {{CLI}} new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "createdAt"] })
   ],
 });
