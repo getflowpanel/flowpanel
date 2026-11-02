@@ -42,7 +42,7 @@ export function readCompatibility(root: string): CompatibilityItem[] {
         kit.peerDependencies?.next,
         "packages/flowpanel/package.json#peerDependencies.next",
       ),
-      note: "App Router only. With `cacheComponents` on, 16.3 or newer.",
+      note: "App Router only. Use 15.5.28+ or 16.4.1+, which fix critical security advisories. With `cacheComponents` on, 16.3 or newer.",
       source: "packages/flowpanel/package.json#peerDependencies.next",
     },
     {

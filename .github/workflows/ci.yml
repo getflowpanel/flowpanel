@@ -272,9 +272,9 @@ jobs:
       matrix:
         package-manager: [npm, pnpm]
         mode: [none, "4"]
-        next: ["16.4.0"]
+        next: ["16.4.4"]
         include:
-          - { package-manager: pnpm, mode: none, next: "15.5.27" }
+          - { package-manager: pnpm, mode: none, next: "15.5.28" }
           - { package-manager: pnpm, mode: create-next-app, next: "15" }
           - { package-manager: pnpm, mode: create-next-app, next: "16" }
     services:

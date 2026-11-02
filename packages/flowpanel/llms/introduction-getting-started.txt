@@ -11,7 +11,7 @@ Docs: https://flowpanel.tech/docs/introduction/getting-started
 | Requirement | Supported range | Note |
 | --- | --- | --- |
 | Node.js | `^20.19.0 || >=22.12.0` | Required by the CLI and the kit. |
-| Next.js | `>=15.5.0 <17.0.0` | App Router only. With `cacheComponents` on, 16.3 or newer. |
+| Next.js | `>=15.5.0 <17.0.0` | App Router only. Use 15.5.28+ or 16.4.1+, which fix critical security advisories. With `cacheComponents` on, 16.3 or newer. |
 | React | `^19.0.0` | React DOM uses the same major version. |
 | Drizzle ORM | `>=0.45.2 <1.0.0` | Required only when using the Drizzle adapter. |
 | Prisma Client | `>=5.0.0 <7.0.0` | Prisma 5 and 6, only when using the Prisma adapter. Prisma 7 is not supported yet. |

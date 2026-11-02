@@ -17,7 +17,7 @@ import {
 // Build workspace packages before running. The consumer installs package tarballs, never workspace symlinks.
 const pm = process.argv[2] ?? "pnpm";
 const mode = process.argv[3] ?? "none";
-const nextVersion = process.argv[4] ?? (mode === "create-next-app" ? "latest" : "16.4.0");
+const nextVersion = process.argv[4] ?? (mode === "create-next-app" ? "latest" : "16.4.4");
 assert.ok(
   ["npm", "pnpm"].includes(pm) && ["none", "4", "create-next-app"].includes(mode),
   "Usage: check-next-onboarding.mjs [npm|pnpm] [none|4|create-next-app] [next version]",
@@ -59,7 +59,7 @@ async function handWrittenHost(tarballs) {
           "react-dom": "19.3.0",
           "drizzle-orm": "0.45.3",
           pg: "8.23.1",
-          zod: "4.6.5",
+          zod: "4.6.7",
         },
         devDependencies: {
           typescript: "5.9.3",

@@ -33,7 +33,7 @@ const run = (binary, args, cwd, extra = {}) => {
   }
 };
 
-const REQUIRED_PEERS = { next: "16.4.0", react: "19.3.0", "react-dom": "19.3.0", zod: "4.6.5" };
+const REQUIRED_PEERS = { next: "16.4.4", react: "19.3.0", "react-dom": "19.3.0", zod: "4.6.7" };
 const OPTIONAL_PEERS = {
   "@axe-core/playwright": "4.13.0",
   "@bull-board/api": "9.10.4",
