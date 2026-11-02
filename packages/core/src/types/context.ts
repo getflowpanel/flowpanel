@@ -39,7 +39,7 @@ export interface RequestContext {
   role: string;
   /** Tenant scope resolved by the admin-wide `scope`. Null when unscoped. */
   scope: Scope;
-  /** Caller IP from `x-forwarded-for`, when the proxy sets it. */
+  /** Caller IP as the proxies counted in `security.trustedProxies` recorded it, else `null`. For logs and rate limits, not for authentication. */
   ip: string | null;
   userAgent: string | null;
 }
@@ -56,10 +56,8 @@ export interface ErrorContext {
   readonly userAgent: string | null;
 }
 
-/** Base context for reads. Widget queries and option resolvers receive this. */
+/** Base context for reads. Field `options` and `defaultValue` resolvers receive this; widget queries get `WidgetContext`. */
 export interface QueryContext<Db = unknown> extends RequestContext {
-  /** @deprecated Declare `unsafe: ["db"]` and use `ctx.unsafe.db`. Removal target: 0.3. */
-  db: Db;
   /** Explicit escape hatch for trusted application callbacks. */
   unsafe?: { db: Db };
   /** Active date range — the dashboard picker, or all-time elsewhere. */
@@ -69,20 +67,12 @@ export interface QueryContext<Db = unknown> extends RequestContext {
   /** Aborted when the request is cancelled. Pass it to long queries. */
   signal: AbortSignal;
   /**
-   * Explicit adapter projection. Omitted preserves the legacy full-row read;
-   * a non-empty list returns exactly those fields; `[]` returns no values.
-   * For `get`, an empty selection yields `{}` when an in-scope row exists or
-   * `null` when it does not. For `list`, it yields a fresh `{}` for each row
-   * on the requested page while retaining scoped `total`, `page`, and
-   * `pageSize`. Adapters must not substitute a primary key or full row.
+   * Explicit adapter projection. Omitted preserves the legacy full-row read; `[]` returns no values.
+   * Adapters must not substitute a primary key or full row for an empty selection.
    */
   select?: readonly string[];
   /** Opaque request-bound tenant policy. */
   boundScope?: BoundAdapterScope;
-  /** @deprecated Use `boundScope`. Removal target: 0.3. */
-  applyScope?: (query: unknown) => unknown;
-  /** @deprecated Use presence of `boundScope`. Removal target: 0.3. */
-  scopeRequired?: boolean;
 }
 
 export interface ListQueryContext<Row, Db = unknown> extends QueryContext<Db> {
@@ -90,6 +80,8 @@ export interface ListQueryContext<Row, Db = unknown> extends QueryContext<Db> {
   filters: Record<string, unknown>;
   /** Active sort, or null when the list is unsorted. */
   sort: { field: keyof Row & string; dir: "asc" | "desc" } | null;
+  /** Columns ordered by after `sort`, ascending, so pages never overlap: the primary key's. */
+  tiebreak?: readonly string[];
   /** 1-based page number. */
   page: number;
   pageSize: number;
@@ -121,16 +113,10 @@ export interface MutationContext<Row, Db = unknown> extends RequestContext {
   softDelete?: { column: string };
   /** Opaque request-bound tenant policy. */
   boundScope?: BoundAdapterScope;
-  /** @deprecated Use `boundScope`. Removal target: 0.3. */
-  applyScope?: (query: unknown) => unknown;
-  /** @deprecated Use presence of `boundScope`. Removal target: 0.3. */
-  scopeRequired?: boolean;
 }
 
 /** What every action's `run` receives as its last argument. */
 export interface ActionContext<Db = InferDB> extends RequestContext {
-  /** @deprecated Declare `unsafe: ["db"]` and use `ctx.unsafe.db`. Removal target: 0.3. */
-  db: Db;
   /** Explicit escape hatch for trusted action implementations. */
   unsafe?: { db: Db };
   /** Caller identity — same derivation the audit trail uses (`auth.userId`, then `session.id`, then `session.user.id`). */

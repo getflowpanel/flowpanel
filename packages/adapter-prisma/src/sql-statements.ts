@@ -7,10 +7,7 @@ import {
 
 export type PrismaProvider = "mysql" | "postgresql" | "sqlite";
 
-/**
- * Split ordinary migration SQL without treating semicolons in strings,
- * comments, identifiers, or PostgreSQL dollar-quoted bodies as separators.
- */
+/** Splits migration SQL, ignoring semicolons in strings, comments, identifiers and dollar-quoted bodies. */
 export function splitSqlStatements(sql: string, provider: PrismaProvider): string[] {
   let tokenized: ReturnType<typeof tokenizeMigrationSql>;
   try {

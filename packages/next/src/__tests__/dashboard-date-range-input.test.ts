@@ -63,4 +63,44 @@ describe("resolveDashboardDateRangeInput", () => {
     );
     expect(input).toEqual({ from: "2026-03-01", to: "2026-03-08" });
   });
+
+  it("ignores a URL preset the dashboard does not offer", () => {
+    expect(
+      resolveDashboardDateRangeInput(
+        { presets: ["today", "last7d"], preset: "last7d" },
+        sp({ preset: "YTD" }),
+      ),
+    ).toEqual({ preset: "last7d" });
+  });
+
+  it("honours a URL preset the dashboard offers", () => {
+    expect(
+      resolveDashboardDateRangeInput({ presets: ["today", "last30d"] }, sp({ preset: "last30d" })),
+    ).toEqual({ preset: "last30d" });
+  });
+
+  it("starts on the first offered preset when none is declared", () => {
+    expect(resolveDashboardDateRangeInput({ presets: ["last30d", "today"] }, sp())).toEqual({
+      preset: "last30d",
+    });
+  });
+
+  it("replaces a declared preset the list leaves out with the first offered one", () => {
+    expect(resolveDashboardDateRangeInput({ presets: ["today"], preset: "YTD" }, sp())).toEqual({
+      preset: "today",
+    });
+  });
+
+  it("drops an unreadable from/to and keeps the declared range", () => {
+    expect(
+      resolveDashboardDateRangeInput({ preset: "last30d" }, sp({ from: "abc", to: "2026-01-02" })),
+    ).toEqual({ preset: "last30d" });
+  });
+
+  it("applies dateRange.default when presets are listed and none is declared", () => {
+    const defaultRange = { from: new Date("2026-01-01"), to: new Date("2026-01-08") };
+    expect(
+      resolveDashboardDateRangeInput({ presets: ["today", "last7d"], default: defaultRange }, sp()),
+    ).toEqual({ from: defaultRange.from, to: defaultRange.to });
+  });
 });

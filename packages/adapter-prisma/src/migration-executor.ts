@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { MIGRATIONS_TABLE_DDL, type PrismaClientLike } from "./runtime";
+import { migrationsTableDdl, type PrismaClientLike } from "./runtime";
 import { type PrismaProvider, splitSqlStatements } from "./sql-statements";
 
 const CLAIMS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS _flowpanel_migration_claims (
@@ -78,11 +78,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * PostgreSQL and SQLite keep the statements and the applied marker in one
- * transaction. Serializing first, then rechecking the id inside that boundary,
- * is what stops two migrators from running the same file.
- */
+// Rechecking the id inside the transaction boundary stops two migrators from running the same file.
 async function applyInTransaction(
   prisma: PrismaClientLike,
   provider: "postgresql" | "sqlite",
@@ -120,10 +116,7 @@ async function readClaim(prisma: PrismaClientLike, id: string): Promise<Migratio
   return rows[0] ?? null;
 }
 
-/**
- * The primary key decides the winner. Affected-row counts cannot: MySQL clients
- * differ on whether a no-op upsert reports zero rows or one matched row.
- */
+/** The primary key picks the winner; MySQL clients disagree on a no-op upsert's affected rows. */
 async function tryClaim(prisma: PrismaClientLike, id: string, owner: string): Promise<boolean> {
   try {
     return (await prisma.$executeRawUnsafe(CLAIM_INSERT, id, owner)) > 0;
@@ -157,11 +150,7 @@ async function acquireClaim(prisma: PrismaClientLike, id: string, owner: string)
   }
 }
 
-/**
- * MySQL commits DDL implicitly, so no transaction can roll a half-applied file
- * back. A durable claim row is the honest alternative: it serializes migrators,
- * survives a crashed one, and records how far the failed run got.
- */
+// MySQL commits DDL implicitly, so a durable claim row serializes migrators instead of a transaction.
 async function applyWithClaim(
   prisma: PrismaClientLike,
   id: string,
@@ -205,32 +194,19 @@ async function applyWithClaim(
 
 export function createMigrationMethods(prisma: PrismaClientLike, provider: PrismaProvider) {
   return {
-    async runMigrationSql(rawSql: string): Promise<void> {
-      const statements = statementsOf(rawSql, provider);
-      if (typeof prisma.$transaction === "function") {
-        await prisma.$transaction((tx) => runStatements(tx, statements));
-      } else {
-        await runStatements(prisma, statements);
-      }
-    },
-
     async applyMigration(id: string, rawSql: string): Promise<void> {
       const statements = statementsOf(rawSql, provider);
-      await prisma.$executeRawUnsafe(MIGRATIONS_TABLE_DDL);
+      await prisma.$executeRawUnsafe(migrationsTableDdl(provider));
       if (provider === "mysql") await applyWithClaim(prisma, id, statements);
       else await applyInTransaction(prisma, provider, id, statements);
     },
 
     async listAppliedMigrations(): Promise<Set<string>> {
-      await prisma.$executeRawUnsafe(MIGRATIONS_TABLE_DDL);
+      await prisma.$executeRawUnsafe(migrationsTableDdl(provider));
       const rows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
         `SELECT id FROM _flowpanel_migrations`,
       );
       return new Set(rows.map((row) => row.id));
-    },
-
-    async markMigrationApplied(id: string): Promise<void> {
-      await prisma.$executeRaw`INSERT INTO _flowpanel_migrations (id) VALUES (${id})`;
     },
   };
 }

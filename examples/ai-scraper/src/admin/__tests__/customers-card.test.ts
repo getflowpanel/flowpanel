@@ -1,14 +1,11 @@
-import type { InferRow } from "@flowpanel/kit";
+import type { RowOf } from "@flowpanel/kit";
+import { headerContext, resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
 import { describe, expect, it } from "vitest";
-import type * as schema from "@/src/db/schema";
+import admin from "../config";
+import { customerCard, openInvoices } from "../config/resources/customer-card";
 import { customers } from "../config/resources/customers";
 
-type Customer = InferRow<typeof schema.customers>;
-
-const detail = customers.options.detail;
-if (!detail) throw new Error("customers must configure a detail page");
-
-const row = {
+const row: RowOf<"customers"> = {
   id: 7,
   email: "ops@northwind.test",
   name: "Jane Doe",
@@ -20,67 +17,59 @@ const row = {
   deletedAt: null,
   sandboxId: "local",
   seedKey: null,
-} as unknown as Customer;
+};
 
-describe("the customer entity card", () => {
+const header = headerContext();
+
+describe("the customer record page", () => {
   it("heads the page with the company, falling back to the email", () => {
-    expect(detail.title?.(row)).toBe("Northwind Audio");
-    expect(detail.title?.({ ...row, company: null })).toBe("ops@northwind.test");
+    expect(customerCard.title(row)).toBe("Northwind Audio");
+    expect(customerCard.title({ ...row, company: null })).toBe("ops@northwind.test");
   });
 
-  it("identifies the account with its plan and status", () => {
-    expect(detail.subtitle?.(row)).toBe("Pro · Past due");
+  it("says how long they have been a customer", () => {
+    expect(customerCard.subtitle(row, header)).toMatch(/^Customer since /);
   });
 
-  it("tones the status pill by what the status means", () => {
-    expect(detail.badge?.(row)).toEqual({ label: "Past due", tone: "err" });
-    expect(detail.badge?.({ ...row, status: "active" })).toEqual({ label: "Active", tone: "ok" });
-  });
-
-  it("opens on a widgets tab of facts and counts", () => {
-    const summary = detail.tabs?.[0];
-    expect(summary?.key).toBe("summary");
-    expect(summary?.widgets?.map((widget) => widget.kind)).toEqual([
-      "kv",
-      "stat",
-      "stat",
-      "stat",
-      "stat",
+  it("shows status and plan as toned pills, the status linking to its filtered list", () => {
+    expect(customerCard.badge(row)).toEqual([
+      {
+        label: "Past due",
+        tone: "err",
+        href: { resource: "customers", filter: { status: "past_due" } },
+      },
+      { label: "Pro", tone: "accent" },
     ]);
   });
 
-  it("drops the parent key from every related tab and sorts it newest first", () => {
-    const related = (detail.tabs ?? []).filter((tab) => tab.resource);
-    expect(related.length).toBeGreaterThan(0);
-    for (const tab of related) {
-      expect(tab.hide).toEqual(["customerId"]);
-      expect(tab.sort?.dir).toBe("desc");
-    }
+  it("lists monitors, products and invoices as related tabs", () => {
+    expect(customerCard.tabs.map((tab) => tab.resource)).toEqual([
+      "monitors",
+      "products",
+      "invoices",
+    ]);
   });
 
-  it("links every count on the summary tab to the rows it counted", async () => {
-    const summary = detail.tabs?.[0];
-    const stats = (summary?.widgets ?? []).filter((widget) => widget.kind === "stat");
-    const ctx = {
-      row,
-      count: async () => 3,
-      href: (resource: string, _id: undefined, opts?: { filter?: Record<string, unknown> }) =>
-        `/admin/${resource}?f_customerId=${opts?.filter?.customerId}`,
-      sql: async () => [{ cents: 4200 }],
-    } as unknown as Parameters<
-      Extract<(typeof stats)[number], { kind: "stat" }>["value"] & ((...a: never[]) => unknown)
-    >[0];
-
-    for (const widget of stats) {
-      if (widget.kind !== "stat" || typeof widget.value !== "function") {
-        throw new Error("every summary stat is computed per request");
-      }
-      const result = await widget.value(ctx);
-      expect(result).toMatchObject({ href: expect.stringContaining("f_customerId=7") });
-    }
+  it("is the customers resource's record page", () => {
+    expect(customers.options.detail).toMatchObject({ tabs: customerCard.tabs });
   });
 
-  it("keeps the drawer as what a row click opens", () => {
-    expect(customers.options.rowClick).toBe("drawer");
+  it("counts only this customer's open invoices and links to them", async () => {
+    const ctx = widgetContext({
+      admin,
+      resource: "customers",
+      row: { id: 7 },
+      rows: {
+        invoices: [
+          { customerId: 7, status: "open" },
+          { customerId: 7, status: "paid" },
+          { customerId: 9, status: "open" },
+        ],
+      },
+    });
+    const { props } = await resolveWidget(openInvoices, ctx);
+    expect(props).toMatchObject({ value: 1, tone: "warn" });
+    expect(props.drilldown).toContain("f_customerId=7");
+    expect(props.drilldown).toContain("f_status=open");
   });
 });

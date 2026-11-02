@@ -9,9 +9,10 @@ import { BarsCard, FunnelCard, KvCard, ListCard, MetricCard, StatCard } from "@f
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { renderWidget } from "../runtime/render-widget";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 const cfg: ResolvedAdminConfig = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: {}, introspect: () => ({ name: "x", columns: [] }) },
   auth: { session: async () => null, role: () => "admin" },
   formatting: { locale: "en-US", currency: "EUR" },
@@ -30,17 +31,7 @@ const reqCtx: RequestContext = {
   userAgent: null,
 };
 
-const ctx: WidgetContext = {
-  db: {},
-  session: null,
-  dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-  req: new Request("http://localhost/"),
-  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
-  query: (_key, fn) => fn(),
-  labels: DEFAULT_LABELS,
-  sql: async () => [],
-  count: async () => 0,
-};
+const ctx = fakeWidgetContext();
 
 function findProps(tree: ReactNode, target: unknown): Record<string, unknown> | undefined {
   if (tree === null || tree === undefined || typeof tree !== "object") return undefined;
@@ -101,17 +92,18 @@ describe("metric widget result object", () => {
     expect(props?.drilldown).toBe("/admin/other");
   });
 
-  it("carries goodWhen through to the card", async () => {
+  it("colours a delta by the metric's own goodWhen", async () => {
     const props = await rendered(
       {
         kind: "metric",
         label: "Churn",
-        query: async () => ({ value: 3, delta: { value: -0.2, vs: "prior", goodWhen: "down" } }),
-        options: {},
+        query: async () => ({ value: 3, delta: { value: -0.2, vs: "prior" } }),
+        options: { goodWhen: "down" },
       } as never,
       MetricCard,
     );
-    expect(props?.delta).toEqual({ value: -0.2, vs: "prior", goodWhen: "down" });
+    expect(props?.delta).toEqual({ value: -0.2, vs: "prior" });
+    expect(props?.goodWhen).toBe("down");
   });
 });
 
@@ -144,7 +136,7 @@ describe("stat widget", () => {
           value: 4,
           tone: "warn",
           hint: "awaiting payment",
-          href: c.href("invoices"),
+          href: c.link({ resource: "invoices" }),
         }),
         options: { hint: "static", tone: "default" },
       } as never,
@@ -168,7 +160,7 @@ describe("stat widget", () => {
       } as never,
       StatCard,
     );
-    expect(props?.value).toContain("2026");
+    expect(props?.value).toEqual({ kind: "date", iso: "2026-03-04T00:00:00.000Z" });
     expect(props?.href).toBeUndefined();
   });
 });

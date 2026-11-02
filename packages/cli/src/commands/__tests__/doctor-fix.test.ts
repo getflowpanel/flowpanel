@@ -10,7 +10,7 @@ vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 });
 
 let tmp: string;
 
-/** Seed a minimal package.json so detectStack doesn't blow up */
+/** Seed a minimal package.json so the project reads as a Next.js app. */
 async function seedPkg(dir: string): Promise<void> {
   await fs.writeFile(
     path.join(dir, "package.json"),
@@ -70,6 +70,52 @@ describe("runDoctorChecks --fix", () => {
     expect(sseAfter!.ok).toBe(true);
   });
 
+  it("warns about a missing not-found page and writes it next to the admin layout", async () => {
+    const { checks: before, bad } = await runDoctorChecks(tmp, false);
+    expect(before.find((c) => c.name === "Not-found page")).toMatchObject({ ok: true, warn: true });
+    expect(before.filter((c) => !c.ok).map((c) => c.name)).not.toContain("Not-found page");
+    expect(bad).toBe(before.filter((c) => !c.ok).length);
+    const { checks } = await runDoctorChecks(tmp, true);
+    expect(checks.find((c) => c.name === "Not-found page")?.ok).toBe(true);
+    const content = await fs.readFile(path.join(tmp, "app/admin/not-found.tsx"), "utf8");
+    expect(content).toContain("export default flowpanel.notFound;");
+    expect(content).toContain('import config from "../../flowpanel.config";');
+  });
+
+  it("removes the runtime and dynamic exports of 0.3 route files under cacheComponents", async () => {
+    await fs.writeFile(
+      path.join(tmp, "package.json"),
+      JSON.stringify({ dependencies: { next: "16.4.0", "drizzle-orm": "^0.45.0" } }),
+    );
+    await fs.mkdir(path.join(tmp, "node_modules/next"), { recursive: true });
+    await fs.writeFile(
+      path.join(tmp, "node_modules/next/package.json"),
+      JSON.stringify({ name: "next", version: "16.4.0" }),
+    );
+    await fs.writeFile(
+      path.join(tmp, "next.config.ts"),
+      "export default { cacheComponents: true };\n",
+    );
+    const api = path.join(tmp, "app/api/flowpanel/[...route]/route.ts");
+    const sse = path.join(tmp, "app/api/flowpanel/stream/route.ts");
+    await fs.mkdir(path.dirname(api), { recursive: true });
+    await fs.mkdir(path.dirname(sse), { recursive: true });
+    await fs.writeFile(
+      api,
+      'export const { GET } = flowpanel.handlers;\nexport const runtime = "nodejs";\n',
+    );
+    await fs.writeFile(
+      sse,
+      'export const GET = stream(config);\nexport const runtime = "nodejs";\nexport const dynamic = "force-dynamic";\n',
+    );
+    const { checks } = await runDoctorChecks(tmp, true, { quiet: true });
+    expect(await fs.readFile(api, "utf8")).toBe("export const { GET } = flowpanel.handlers;\n");
+    expect(await fs.readFile(sse, "utf8")).toBe("export const GET = stream(config);\n");
+    expect(
+      checks.find((c) => c.name === "Admin files build under cacheComponents")?.hint ?? "",
+    ).not.toContain("remove");
+  });
+
   it("writes a resolvable config import (no bare @/flowpanel.config with no alias)", async () => {
     // No tsconfig.json in this fixture → aliasMode "none" → `@/flowpanel.config`
     // would not resolve. The fix must emit a relative path instead.
@@ -91,8 +137,8 @@ describe("runDoctorChecks --fix", () => {
     try {
       const { plan, fixBlocked } = await runDoctorChecks(bare, true, { quiet: true });
       expect(plan).toBeUndefined();
-      expect(fixBlocked).toMatch(/not a FlowPanel project/);
-      expect(fixBlocked).toContain("flowpanel init");
+      expect(fixBlocked).toMatch(/^\[flowpanel\] flowpanel\.config\.ts: not found in /);
+      expect(fixBlocked).toContain("@flowpanel/cli init");
       expect(await fs.readdir(bare)).toEqual([]);
     } finally {
       await fs.rm(bare, { recursive: true, force: true });

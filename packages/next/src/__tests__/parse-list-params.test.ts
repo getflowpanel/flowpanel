@@ -1,3 +1,4 @@
+import type { RequestContext } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
 import {
   declaredFieldSet,
@@ -5,6 +6,8 @@ import {
   resolveFilterSpecs,
   sanitizeFilterValues,
 } from "../runtime/parse-list-params";
+
+const reqCtx = { session: null, role: "admin", scope: null } as RequestContext;
 
 describe("parseListParams", () => {
   it("parses page, q, sort, f_* filters", () => {
@@ -93,24 +96,47 @@ describe("declaredFieldSet", () => {
 
 describe("resolveFilterSpecs", () => {
   it("converts string keys to text filter defs", async () => {
-    const r = await resolveFilterSpecs(["email"], {});
+    const r = await resolveFilterSpecs(["email"], reqCtx);
     expect(r).toEqual([{ field: "email", type: "text" }]);
   });
 
   it("passes through explicit FilterDef with inline options", async () => {
     const r = await resolveFilterSpecs(
       [{ field: "plan", type: "select", label: "Plan", options: [{ label: "Pro", value: "pro" }] }],
-      {},
+      reqCtx,
     );
     expect(r).toEqual([
       { field: "plan", type: "select", label: "Plan", options: [{ label: "Pro", value: "pro" }] },
     ]);
   });
 
+  it("hands an options function the request's scope and query string", async () => {
+    const seen: { tenant?: unknown; tab?: string | null } = {};
+    const scoped = { ...reqCtx, scope: { tenantId: "t1" } } as RequestContext;
+    const r = await resolveFilterSpecs(
+      [
+        {
+          field: "category",
+          type: "select",
+          options: async (ctx) => {
+            seen.tenant = ctx.scope?.tenantId;
+            seen.tab = ctx.searchParams.get("tab");
+            return [{ label: "Tools", value: "tools" }];
+          },
+        },
+      ],
+      scoped,
+      "UTC",
+      new URLSearchParams("tab=open"),
+    );
+    expect(seen).toEqual({ tenant: "t1", tab: "open" });
+    expect(r[0]?.options).toEqual([{ label: "Tools", value: "tools" }]);
+  });
+
   it("awaits async options callback", async () => {
     const r = await resolveFilterSpecs(
       [{ field: "tag", type: "multiselect", options: async () => [{ label: "X", value: "x" }] }],
-      {},
+      reqCtx,
     );
     expect(r[0]?.options).toEqual([{ label: "X", value: "x" }]);
   });
@@ -196,6 +222,17 @@ describe("sanitizeFilterValues", () => {
     expect(sanitizeFilterValues({ confidence: "abc:xyz" }, specs)).toEqual({});
   });
 
+  it("numeric-range filter on a money column: reads major units as the stored minor units", () => {
+    const specs = [{ field: "amountCents", type: "numeric-range" as const }];
+    const factors = new Map([["amountCents", 100]]);
+    expect(sanitizeFilterValues({ amountCents: "60:90.5" }, specs, "UTC", factors)).toEqual({
+      amountCents: { op: "range", gte: 6000, lte: 9050 },
+    });
+    expect(sanitizeFilterValues({ amountCents: "0.07:" }, specs, "UTC", factors)).toEqual({
+      amountCents: { op: "range", gte: 7 },
+    });
+  });
+
   it("daterange filter: decodes to a structured FilterRangeValue, `to` inclusive of the whole day", () => {
     const specs = [{ field: "createdAt", type: "daterange" as const }];
     const out = sanitizeFilterValues({ createdAt: "2024-01-01:2024-01-31" }, specs);
@@ -212,6 +249,38 @@ describe("sanitizeFilterValues", () => {
     const out = sanitizeFilterValues({ createdAt: "2024-01-01:bogus" }, specs);
     expect((out.createdAt as { lte?: unknown }).lte).toBeUndefined();
     expect((out.createdAt as { gte: Date }).gte).toBeInstanceOf(Date);
+  });
+
+  it("daterange filter: reads each day in the admin's zone", () => {
+    const specs = [{ field: "createdAt", type: "daterange" as const }];
+    const out = sanitizeFilterValues(
+      { createdAt: "2026-09-23:2026-09-23" },
+      specs,
+      "Europe/Moscow",
+    );
+    const range = out.createdAt as { gte: Date; lte: Date };
+    expect(range.gte.toISOString()).toBe("2026-09-22T21:00:00.000Z");
+    expect(range.lte.toISOString()).toBe("2026-09-23T20:59:59.999Z");
+  });
+
+  it("daterange filter: reads a from~to pair as exact instants", () => {
+    const specs = [{ field: "startedAt", type: "daterange" as const }];
+    const out = sanitizeFilterValues(
+      { startedAt: "2026-09-22T21:00:00.000Z~2026-09-23T07:00:00.000Z" },
+      specs,
+      "Europe/Moscow",
+    );
+    const range = out.startedAt as { gte: Date; lte: Date };
+    expect(range.gte.toISOString()).toBe("2026-09-22T21:00:00.000Z");
+    expect(range.lte.toISOString()).toBe("2026-09-23T07:00:00.000Z");
+    expect(sanitizeFilterValues({ startedAt: "yesterday~now" }, specs)).toEqual({});
+  });
+
+  it("daterange filter: drops a month the calendar does not have in any zone", () => {
+    const specs = [{ field: "createdAt", type: "daterange" as const }];
+    expect(
+      sanitizeFilterValues({ createdAt: "2026-13-01:2026-00-10" }, specs, "Europe/Moscow"),
+    ).toEqual({});
   });
 
   it("preserves the __null__ / __notnull__ sentinels regardless of declared type", () => {

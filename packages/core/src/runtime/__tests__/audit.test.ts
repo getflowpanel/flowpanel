@@ -1,58 +1,93 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AuditEvent } from "../../types/config";
-import { emitAudit } from "../audit";
+import { resolveAuditLog } from "../../compiler/audit-log";
+import type { AuditEvent, AuditLogStore } from "../../types/audit";
+import { FlowpanelConfigError } from "../../types/config-error";
+import { emitAudit, isAuditActive } from "../audit";
 
 const ev: AuditEvent = { actorId: "u1", action: "users.update", at: new Date() };
 
+function store(): AuditLogStore & { append: ReturnType<typeof vi.fn> } {
+  return {
+    append: vi.fn(async () => {}),
+    list: async () => ({ entries: [], total: 0, capped: false }),
+    facets: async () => ({ actors: [], actions: [] }),
+    entry: async () => null,
+  };
+}
+
 describe("emitAudit", () => {
-  it("calls configured sink", async () => {
+  it("hands the event to a configured sink, not the table", async () => {
     const sink = vi.fn();
-    await emitAudit({ enabled: true, sink }, ev);
-    expect(sink).toHaveBeenCalledOnce();
+    const table = store();
+    await emitAudit({ audit: { enabled: true, sink }, auditLog: table }, ev);
     expect(sink).toHaveBeenCalledWith(ev);
+    expect(table.append).not.toHaveBeenCalled();
   });
 
-  it("no-op when enabled is false", async () => {
+  it("writes to the audit table when no sink replaces it", async () => {
+    const table = store();
+    await emitAudit({ audit: { enabled: true }, auditLog: table }, ev);
+    expect(table.append).toHaveBeenCalledWith(ev);
+  });
+
+  it("does nothing when audit is off or unset", async () => {
     const sink = vi.fn();
-    await emitAudit({ enabled: false, sink }, ev);
+    const table = store();
+    await emitAudit({ audit: { enabled: false, sink }, auditLog: table }, ev);
+    await emitAudit({ auditLog: table }, ev);
     expect(sink).not.toHaveBeenCalled();
+    expect(table.append).not.toHaveBeenCalled();
   });
 
-  it("no-op when config undefined", async () => {
-    await expect(emitAudit(undefined, ev)).resolves.toBeUndefined();
-  });
-
-  it("no-op when no sink configured", async () => {
-    await expect(emitAudit({ enabled: true }, ev)).resolves.toBeUndefined();
-  });
-
-  it("never throws when the sink rejects, in production or dev", async () => {
-    for (const env of ["production", "development"]) {
-      const original = process.env.NODE_ENV;
-      process.env.NODE_ENV = env;
-      try {
-        const sink = vi.fn().mockRejectedValue(new Error("boom"));
-        await expect(emitAudit({ enabled: true, sink }, ev)).resolves.toBeUndefined();
-        expect(sink).toHaveBeenCalled();
-      } finally {
-        process.env.NODE_ENV = original;
-      }
-    }
-  });
-
-  it("reports sink errors even in production — a hole in the audit trail must be visible", async () => {
-    const original = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
+  it("logs a failed write and never throws, in production or dev", async () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const original = process.env.NODE_ENV;
     try {
-      const sink = vi.fn().mockRejectedValue(new Error("boom"));
-      await expect(emitAudit({ enabled: true, sink }, ev)).resolves.toBeUndefined();
-      expect(errSpy).toHaveBeenCalled();
-      // Confirm the formatted message reaches console.error verbatim.
-      expect(errSpy.mock.calls[0]?.[0]).toMatch(/audit sink error/);
+      for (const env of ["production", "development"]) {
+        process.env.NODE_ENV = env;
+        const sink = vi.fn().mockRejectedValue(new Error("boom"));
+        await expect(emitAudit({ audit: { sink } }, ev)).resolves.toBeUndefined();
+        const table = store();
+        table.append.mockRejectedValue(new Error("no table"));
+        await expect(emitAudit({ audit: {}, auditLog: table }, ev)).resolves.toBeUndefined();
+      }
+      expect(errSpy).toHaveBeenCalledTimes(4);
+      expect(errSpy.mock.calls[0]?.[0]).toMatch(/audit write failed/);
     } finally {
       errSpy.mockRestore();
       process.env.NODE_ENV = original;
     }
+  });
+});
+
+describe("resolveAuditLog", () => {
+  it("uses the adapter's table when audit is on without a sink", () => {
+    const table = store();
+    expect(resolveAuditLog({ enabled: true }, { auditLog: table })).toBe(table);
+    expect(resolveAuditLog({}, { auditLog: table })).toBe(table);
+  });
+
+  it("reads nothing back when a sink replaces the table or audit is off", () => {
+    const table = store();
+    expect(resolveAuditLog({ sink: async () => {} }, { auditLog: table })).toBeNull();
+    expect(resolveAuditLog({ enabled: false }, {})).toBeNull();
+    expect(resolveAuditLog(undefined, {})).toBeNull();
+  });
+
+  it("refuses to start when audit is on, there is no sink and the adapter has no table", () => {
+    expect(() => resolveAuditLog({ enabled: true }, {})).toThrow(FlowpanelConfigError);
+    expect(() => resolveAuditLog({ enabled: true }, {})).toThrow(/Pass audit\.sink/);
+  });
+});
+
+describe("isAuditActive", () => {
+  const sink = async () => {};
+  it("follows the admin's audit and the resource's opt-out", () => {
+    expect(isAuditActive({}, undefined)).toBe(false);
+    expect(isAuditActive({ audit: {} }, undefined)).toBe(false);
+    expect(isAuditActive({ audit: { sink } }, undefined)).toBe(true);
+    expect(isAuditActive({ audit: {}, auditLog: store() }, true)).toBe(true);
+    expect(isAuditActive({ audit: { sink } }, false)).toBe(false);
+    expect(isAuditActive({ audit: { enabled: false, sink } }, true)).toBe(false);
   });
 });

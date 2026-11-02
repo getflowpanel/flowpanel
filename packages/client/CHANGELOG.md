@@ -2,21 +2,11 @@
 
 ## 0.3.0
 
-### Patch Changes
-
-- Updated dependencies [072f37b]
-  - @flowpanel/core@0.3.0
-
 ## 0.2.0
 
 ### Minor Changes
 
-- 2804944: `useAdminMutation` documents what it actually wraps; its `rollbackOn` option, which never had an implementation, is gone.
-
-### Patch Changes
-
-- Updated dependencies [2804944]
-  - @flowpanel/core@0.2.0
+- Removed the unimplemented `rollbackOn` option of `useAdminMutation`.
 
 ## 0.1.0
 

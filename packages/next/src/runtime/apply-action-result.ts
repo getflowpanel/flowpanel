@@ -1,17 +1,17 @@
 import type { ActionResult } from "@flowpanel/core";
 import { revalidatePath } from "next/cache";
+import { logCaught } from "./caught-error";
 import { publish, publishResource } from "./publish";
 
 export interface ApplyActionResultOptions {
   resourceName?: string;
-  pathname?: string;
+  /** The page, or pages, whose cache the change makes stale. */
+  pathname?: string | readonly string[];
+  /** A change FlowPanel made itself, published on `resource.<resourceName>` whatever `refresh` says. */
+  change?: { action: "create" | "update" | "delete"; id?: string };
 }
 
-/**
- * Applies side effects from successful actions: publishes updates and
- * revalidates the cache. Failures are logged, never thrown — the mutation
- * itself already succeeded.
- */
+/** Applies side effects from successful actions: publishes updates and revalidates the cache; failures only log. */
 export async function applyActionResult(
   result: ActionResult<unknown>,
   opts: ApplyActionResultOptions,
@@ -20,7 +20,9 @@ export async function applyActionResult(
   const refresh = result.refresh;
 
   try {
-    if (refresh === true && opts.resourceName) {
+    if (opts.change && opts.resourceName) {
+      await publishResource(opts.resourceName, opts.change);
+    } else if (refresh === true && opts.resourceName) {
       await publishResource(opts.resourceName, { action: "update" });
     } else {
       const channels =
@@ -28,14 +30,15 @@ export async function applyActionResult(
       for (const ch of channels) await publish(ch);
     }
   } catch (error) {
-    console.error("[flowpanel] realtime effect failed", error);
+    logCaught("[flowpanel] realtime effect failed", error);
   }
 
-  if (refresh !== false && opts.pathname) {
+  if (refresh === false || opts.pathname === undefined) return;
+  for (const path of typeof opts.pathname === "string" ? [opts.pathname] : opts.pathname) {
     try {
-      revalidatePath(opts.pathname);
+      revalidatePath(path);
     } catch (error) {
-      console.error("[flowpanel] revalidation effect failed", error);
+      logCaught("[flowpanel] revalidation effect failed", error);
     }
   }
 }

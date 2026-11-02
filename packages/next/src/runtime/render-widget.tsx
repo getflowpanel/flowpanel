@@ -1,50 +1,51 @@
 import type {
-  BarRow,
   FunnelStep,
-  KvItem,
-  ListRow,
-  MetricResult,
+  RealtimeOption,
   RequestContext,
   ResolvedAdminConfig,
-  StatResult,
-  StatValue,
-  StatWidget,
+  WidgetCaption,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
-import { resolveFormatting } from "@flowpanel/core";
+import { accessAllows, OTHER_KEY, resolveFormatting } from "@flowpanel/core";
 import {
   BarsCard,
+  ExpiredCard,
   FunnelCard,
   KvCard,
   ListCard,
-  MetricCard,
   RealtimeRefresh,
   StatCard,
   StatGroupCard,
 } from "@flowpanel/react";
 import { type ComponentType, createElement, Fragment, type ReactNode } from "react";
 import { ServerCard } from "./_server-card";
-import { kvDisplay } from "./kv-display";
+import { barRows } from "./bar-rows";
+import { withFilterHrefs } from "./dashboard-filters";
+import { filteredEmptyState } from "./filtered-empty";
+import { listCardData } from "./list-card-data";
+import { inAmount } from "./minor-units";
+import { realtimeChannels } from "./realtime-channels";
+import { scopedCountMetric } from "./record-scope";
+import { renderChartWidget } from "./render-chart-widget";
+import { renderChecklist } from "./render-checklist";
+import { renderHeatmap } from "./render-heatmap";
+import { renderMetric } from "./render-metric";
 import { renderTableWidget } from "./render-table-widget";
-import { statDisplay, statResultOf } from "./stat-result";
+import { renderTimeline } from "./render-timeline";
+import { renderTracker } from "./render-tracker";
+import { linkRows, resolveLink } from "./resolve-link";
+import { statDisplay } from "./stat-result";
+import { valueTone } from "./threshold-tone";
+import { type CaptionPromise, expiredCaption, NO_CAPTION, widgetCaption } from "./widget-caption";
+import { requestNow } from "./widget-context";
+import { kvItems, resolveItem, statItemOf } from "./widget-items";
+import { widgetLabel } from "./widget-owner";
+import { retainedRange } from "./widget-range";
+import { warnOnce } from "./widget-reads";
 
-function isMetricResult(value: number | string | MetricResult): value is MetricResult {
-  return typeof value === "object" && value !== null;
-}
-
-async function resolveStat(value: StatWidget["value"], ctx: WidgetContext): Promise<StatResult> {
-  return statResultOf(typeof value === "function" ? await value(ctx) : value);
-}
-
-async function resolveStatValue(
-  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue>),
-  ctx: WidgetContext,
-): Promise<StatValue> {
-  return typeof value === "function" ? await value(ctx) : value;
-}
-
-function withRealtime(node: ReactNode, channels: string | string[] | undefined): ReactNode {
+function withRealtime(node: ReactNode, value: RealtimeOption | undefined): ReactNode {
+  const channels = realtimeChannels(value);
   return (
     <Fragment>
       {node}
@@ -53,103 +54,121 @@ function withRealtime(node: ReactNode, channels: string | string[] | undefined):
   );
 }
 
+/** How a slot frames its widget: `plain` drops the card, inside a `StatStrip`. */
+export interface WidgetFrame {
+  plain?: boolean;
+}
+
 /** Render a widget on the server. */
 export async function renderWidget(
   widget: WidgetConfig,
-  ctx: WidgetContext,
+  pickedCtx: WidgetContext,
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
+  frame: WidgetFrame = {},
 ): Promise<ReactNode> {
+  if (!(await accessAllows(widget.options.access, reqCtx))) return null;
+  const kept = retainedRange(widget, pickedCtx);
+  if (kept.expired) {
+    const title = widgetLabel(widget);
+    return (
+      <ExpiredCard
+        {...(title ? { label: title } : {})}
+        caption={expiredCaption(pickedCtx, kept.days)}
+        {...(frame.plain ? { plain: true } : {})}
+      />
+    );
+  }
+  const ctx = kept.ctx;
+  const pending: CaptionPromise =
+    widget.kind === "custom" && widget.options.frame === false
+      ? NO_CAPTION
+      : widgetCaption(widget, kept, requestNow(pickedCtx));
+  const captioned = async (): Promise<{ caption?: WidgetCaption }> => {
+    const caption = await pending;
+    return caption ? { caption } : {};
+  };
   switch (widget.kind) {
-    case "metric": {
-      const [produced, queriedDelta] = await Promise.all([
-        widget.query(ctx),
-        widget.options.delta ? widget.options.delta(ctx) : Promise.resolve(null),
-      ]);
-      const result = isMetricResult(produced) ? produced : { value: produced };
-      const sparkline = widget.options.sparkline ? await widget.options.sparkline(ctx) : undefined;
-      const delta = result.delta ?? queriedDelta;
-      const sublabel = result.sublabel ?? widget.options.sublabel;
-      const tone = result.tone ?? widget.options.tone;
-      const drilldown = result.href ?? widget.options.drilldown;
+    case "metric":
       return withRealtime(
-        <MetricCard
-          label={widget.label}
-          value={result.value}
-          {...(widget.options.format ? { format: widget.options.format } : {})}
-          {...(sublabel ? { sublabel } : {})}
-          delta={delta}
-          {...(sparkline ? { sparkline } : {})}
-          {...(tone ? { tone } : {})}
-          {...(drilldown ? { drilldown } : {})}
-          {...(widget.options.icon ? { icon: widget.options.icon } : {})}
-        />,
+        await renderMetric(
+          scopedCountMetric(widget, ctx, config),
+          ctx,
+          config,
+          frame.plain === true,
+          pending,
+        ),
         widget.options.realtime,
       );
-    }
     case "statGroup": {
-      const groupFormatting = resolveFormatting(config.formatting);
-      const stats = await Promise.all(
-        widget.options.stats.map(async (s) => ({
-          label: s.label,
-          value: statDisplay(await resolveStatValue(s.value, ctx), groupFormatting),
-          ...(s.format ? { format: s.format } : {}),
-          ...(s.tone ? { tone: s.tone } : {}),
-        })),
-      );
+      const stats = await Promise.all(widget.options.stats.map((s) => statItemOf(s, ctx, config)));
       return withRealtime(
         <StatGroupCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
           stats={stats}
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
     }
     case "stat": {
-      const result = await resolveStat(widget.value, ctx);
-      const statFormatting = resolveFormatting(config.formatting);
+      const result = inAmount(await resolveItem(widget.value, ctx), widget.options.minorUnits);
       const hint = result.hint ?? widget.options.hint;
-      const href = result.href ?? widget.options.href;
-      const tone = result.tone ?? widget.options.tone;
+      const href = resolveLink(config, ctx, result.href ?? widget.options.href);
+      const tone = valueTone(result, widget.options);
       return withRealtime(
         <StatCard
           label={widget.label}
-          value={statDisplay(result.value, statFormatting)}
+          value={statDisplay(result.value)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
           {...(hint ? { hint } : {})}
           {...(href ? { href } : {})}
           {...(tone ? { tone } : {})}
+          {...(frame.plain ? { plain: true } : {})}
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
     }
     case "kv": {
       const formatting = resolveFormatting(config.formatting);
-      const items = await Promise.all(
-        widget.options.items.map(async (item: KvItem) => ({
-          label: item.label,
-          value: kvDisplay(await resolveStatValue(item.value, ctx), item.format, formatting),
-          ...(item.tone ? { tone: item.tone } : {}),
-          ...(item.href ? { href: item.href } : {}),
-        })),
-      );
+      const items = await kvItems(widget.options, ctx, formatting, config);
       return withRealtime(
         <KvCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
           items={items}
           {...(widget.options.columns ? { columns: widget.options.columns } : {})}
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
     }
     case "bars": {
-      const rows: BarRow[] = await widget.options.query(ctx);
+      const rows = await barRows(widget, ctx);
+      if (widget.options.filterOnClick && rows.some((row) => row.key === undefined)) {
+        warnOnce(
+          `bars-key:${widget.options.filterOnClick}`,
+          `bars sets filterOnClick "${widget.options.filterOnClick}", but some rows carry no key, ` +
+            "so clicking them does nothing; return key, or build the rows with breakdown().",
+        );
+      }
       return withRealtime(
         <BarsCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={rows}
+          rows={withFilterHrefs(
+            ctx,
+            widget.options.filterOnClick,
+            linkRows(config, ctx, rows),
+            (row) => (row.key === undefined || row.key === OTHER_KEY ? null : row.key),
+          )}
           {...(widget.options.format ? { format: widget.options.format } : {})}
-          emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
+          {...(widget.options.max !== undefined ? { max: widget.options.max } : {})}
+          {...(widget.options.share ? { share: true } : {})}
+          {...(widget.options.goodWhen ? { goodWhen: widget.options.goodWhen } : {})}
+          emptyState={
+            filteredEmptyState(ctx) ?? widget.options.emptyState ?? ctx.labels.widget.empty
+          }
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
@@ -159,20 +178,32 @@ export async function renderWidget(
       return withRealtime(
         <FunnelCard
           {...(widget.options.label ? { label: widget.options.label } : {})}
-          steps={steps}
+          steps={linkRows(config, ctx, steps)}
           {...(widget.options.format ? { format: widget.options.format } : {})}
-          emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
+          {...(widget.options.alertDrop !== undefined
+            ? { alertDrop: widget.options.alertDrop }
+            : {})}
+          emptyState={
+            filteredEmptyState(ctx) ?? widget.options.emptyState ?? ctx.labels.widget.empty
+          }
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
     }
     case "list": {
-      const rows: ListRow[] = await widget.options.query(ctx);
+      const data = await listCardData(widget, ctx, config);
+      const filteredQuiet =
+        data.variant && data.rows.length === 0 && Object.keys(ctx.filters).length > 0;
       return withRealtime(
         <ListCard
-          {...(widget.options.label ? { label: widget.options.label } : {})}
-          rows={rows}
-          emptyState={widget.options.emptyState ?? ctx.labels.widget.empty}
+          {...data}
+          {...(data.variant
+            ? filteredQuiet
+              ? { allClear: ctx.labels.widget.filtered }
+              : {}
+            : { emptyState: filteredEmptyState(ctx) ?? data.emptyState })}
+          {...(await captioned())}
         />,
         widget.options.realtime,
       );
@@ -184,40 +215,55 @@ export async function renderWidget(
           : widget.props;
       const Component = widget.Component as ComponentType<unknown>;
       const inner = createElement(Component, props as Record<string, unknown>);
-      const framed = widget.options.frame === false ? inner : <ServerCard>{inner}</ServerCard>;
-      return withRealtime(framed, widget.options.realtime);
+      const label = widget.options.label;
+      const caption = await pending;
+      const card = (
+        <ServerCard {...(label ? { label } : {})} {...(caption ? { caption } : {})}>
+          {inner}
+        </ServerCard>
+      );
+      const framed = widget.options.frame === false ? inner : card;
+      const held =
+        widget.options.minHeight === undefined ? (
+          framed
+        ) : (
+          <div
+            className="fp-flex fp-flex-col [&>*]:fp-flex-1"
+            style={{ minHeight: widget.options.minHeight }}
+          >
+            {framed}
+          </div>
+        );
+      return withRealtime(held, widget.options.realtime);
     }
+    case "timeline":
+      return withRealtime(
+        await renderTimeline(widget, ctx, config, reqCtx, pending),
+        widget.options.realtime,
+      );
+    case "tracker":
+      return withRealtime(
+        await renderTracker(widget, ctx, config, pending),
+        widget.options.realtime,
+      );
+    case "heatmap":
+      return withRealtime(
+        await renderHeatmap(widget, ctx, config, reqCtx, pending),
+        widget.options.realtime,
+      );
+    case "checklist":
+      return withRealtime(
+        await renderChecklist(widget, ctx, config, pending),
+        widget.options.realtime,
+      );
     case "table":
-      return renderTableWidget(widget, ctx, config, reqCtx);
+      return renderTableWidget(widget, ctx, config, reqCtx, pending);
     case "areaChart":
     case "barChart":
     case "lineChart":
     case "pieChart": {
-      let chartsMod: {
-        // biome-ignore lint/suspicious/noExplicitAny: cross-package dynamic import
-        ChartRenderer: (props: any) => ReactNode;
-      };
-      try {
-        chartsMod =
-          // biome-ignore lint/suspicious/noExplicitAny: dynamic import surface not typed
-          (await import("@flowpanel/charts/runtime" as any)) as any;
-      } catch (e) {
-        console.error("[flowpanel/charts] dynamic import failed:", e);
-        return (
-          <div
-            data-fp-error=""
-            className="rounded-fp border border-fp-border-1 bg-fp-bg-1 p-4 text-xs text-fp-text-3"
-          >
-            {ctx.labels.widget.chartsMissing}
-          </div>
-        );
-      }
-      const data = await widget.query(ctx);
-      const Renderer = chartsMod.ChartRenderer;
-      return withRealtime(
-        <Renderer kind={widget.kind} label={widget.label} options={widget.options} data={data} />,
-        widget.options.realtime,
-      );
+      const chart = await renderChartWidget(widget, ctx, config, pending);
+      return withRealtime(chart, widget.options.realtime);
     }
   }
 }

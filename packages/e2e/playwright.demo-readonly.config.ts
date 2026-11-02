@@ -10,7 +10,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   reporter: "line",
-  use: { baseURL: BASE_URL, trace: "on-first-retry" },
+  use: { baseURL: BASE_URL, trace: "on-first-retry", actionTimeout: 15_000 },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
     command: "pnpm exec tsx start-server.ts",

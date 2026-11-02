@@ -1,0 +1,746 @@
+# FlowPanel — Build your admin
+
+## Configuration
+
+Compose a typed FlowPanel config from resources, dashboards, pages, and runtime policies.
+
+Docs: https://flowpanel.tech/docs/build/configuration
+
+`flowpanel.config.ts` is the server-side definition of the admin: an adapter, auth, and the resources, dashboards and pages it exposes. Anything not in the config is not in the admin.
+
+### The smallest config
+
+##### Drizzle
+
+```ts
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { getSession } from "@/server/lib/auth";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+    // Every table and view in the schema becomes a typed resource name and row.
+    schema: typeof schema;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
+  }
+}
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: {
+    session: getSession,
+    role: (s) => s?.user.role ?? "guest",
+    access: "admin",
+  },
+  resources: [
+    resource(schema.users, {
+      columns: ["email", "name", "role", "createdAt"],
+      search: ["email", "name"],
+      defaultSort: { field: "createdAt", dir: "desc" },
+    }),
+  ],
+});
+```
+
+##### Prisma
+
+```ts
+import { defineAdmin, resource } from "@flowpanel/kit";
+import { prismaAdapter } from "@flowpanel/kit/prisma";
+import { getSession } from "@/server/lib/auth";
+import { prisma, type User } from "@/server/lib/prisma";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof prisma;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
+  }
+  interface FlowpanelResources {
+    users: User;
+  }
+}
+
+export default defineAdmin({
+  adapter: prismaAdapter({ prisma, provider: "postgresql" }),
+  auth: {
+    session: getSession,
+    role: (s) => s?.user.role ?? "guest",
+    access: "admin",
+  },
+  resources: [
+    resource("User", {
+      name: "users",
+      columns: ["email", "name", "role", "createdAt"],
+      search: ["email", "name"],
+      defaultSort: { field: "createdAt", dir: "desc" },
+    }),
+  ],
+});
+```
+
+### One resource per file
+
+Export each resource from its own module and compose them at the root:
+
+```ts
+// src/admin/resources/users.ts
+import { resource } from "@flowpanel/kit";
+import { users } from "@/server/lib/db/schema";
+
+export const usersResource = resource(users, {
+  columns: ["email", "name", "role", "createdAt"],
+  search: ["email", "name"],
+});
+```
+
+```ts
+// flowpanel.config.ts
+import { defineAdmin } from "@flowpanel/kit";
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { overviewDashboard } from "@/admin/dashboards/overview";
+import { ordersResource } from "@/admin/resources/orders";
+import { usersResource } from "@/admin/resources/users";
+import { getSession } from "@/server/lib/auth";
+import { db } from "@/server/lib/db";
+import * as schema from "@/server/lib/db/schema";
+
+export default defineAdmin({
+  adapter: drizzleAdapter({ db, schema }),
+  auth: { session: getSession, role: (s) => s?.user.role ?? "guest", access: "admin" },
+  resources: [usersResource, ordersResource],
+  dashboards: [overviewDashboard],
+});
+```
+
+`flowpanel new <table> --dir <dir>` writes these files for you.
+
+### Types
+
+Register your client and schema once, so `ctx.db` is your client and every table and view is a typed resource name and row:
+
+```ts
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+    schema: typeof schema;
+  }
+}
+```
+
+Register `session` too and `ctx.session` is typed everywhere. Prisma resources use `FlowpanelResources`. See [Type registry](/docs/reference/registry).
+
+### Group the sidebar
+
+`navGroup` on a dashboard, page, resource or queue moves its entry into a named group:
+
+```ts
+const journals = { label: "Journals", collapsed: true } as const;
+
+resource(schema.runs, { navGroup: journals });
+resource(schema.categories, { navGroup: "Reference data" });
+```
+
+A `collapsed` group stays folded until it holds the current page. See [Navigation groups](/docs/reference/define-config#navigation-groups).
+
+### Policies
+
+Put admin-wide auth and tenant resolution at the root, and resource access, field rules, action roles and per-resource scope beside the resource. The generated handlers check all of them on the server. Cross-origin writes are blocked by default; `security.trustedOrigins` allows specific origins.
+
+Restart the dev server after changing module augmentation or adapter setup. Other config edits reload.
+
+Every option: [defineAdmin reference](/docs/reference/define-config).
+
+## Resources
+
+Turn a Drizzle table or Prisma model into a list, forms, actions and a record page.
+
+Docs: https://flowpanel.tech/docs/build/resources
+
+A resource is one table or model in the admin: its list, forms, record page or drawer, actions, and import and export.
+
+### A minimal resource
+
+##### Drizzle
+
+```ts
+resource(schema.users, {
+  columns: ["email", "name", "createdAt"],
+})
+```
+
+##### Prisma
+
+```ts
+resource("User", {
+  name: "users",
+  columns: ["email", "name", "createdAt"],
+})
+```
+
+`columns` sets which fields the list shows and in what order. Without it, every scalar column appears, including ones added later.
+
+### Labels and URLs
+
+`name` is the registry key and URL segment; keep it stable once links depend on it. `label` names one row and `plural` the list.
+
+```ts
+resource(schema.people, {
+  name: "customers",
+  label: "Customer",
+  plural: "Customers",
+  columns: ["email", "company", "createdAt"],
+})
+```
+
+### Field labels
+
+Label a field once, on a form, record or drawer field or on its column, and every surface uses that label: the filter, forms and their error messages, the drawer, the record page, History and the Audit log, and the headers of a CSV export and import. When several places label the same field, a form field's label wins, then a record field's, then a drawer field's, and a column's label is the fallback. A column's label always names its own list header, so a header such as "Status" over a rendered badge does not rename the field.
+
+```ts
+resource(schema.customers, {
+  columns: [{ field: "email", label: "Contact" }, "name"],
+  create: { fields: [{ name: "email", label: "Work email" }, { name: "name" }] },
+})
+```
+
+Here the list header says "Contact", while the create form, the "is already taken" error, the drawer and the History tab all say "Work email". Without the form's label, they would all say "Contact".
+
+A field nobody labels takes its name from `labels.fields`, where the language presets name `id`, `createdAt`, `updatedAt` and `deletedAt` and their snake_case forms, so a German admin's drawer shows "Erstellt am". Any other field reads its name: `created_at` reads "Created at", `sku` "SKU", `orderId` "Order ID" and `durationMs` "Duration (ms)". A reference drops its key, so `customerId` reads "Customer", and a money column that stores cents drops the suffix, so `amount_cents` reads "Amount".
+
+### Search, filters and sorting
+
+Search and filters are off until you name fields. Their values live in the URL with sorting and pagination, so a filtered list is a shareable link.
+
+```ts
+resource(schema.orders, {
+  columns: ["number", "customerEmail", "status", "total", "createdAt"],
+  search: ["number", "customerEmail"],
+  filters: [
+    { field: "status", type: "select", options: ["open", "paid", "cancelled"] },
+    { field: "createdAt", type: "daterange" },
+  ],
+  defaultSort: { field: "createdAt", dir: "desc" },
+})
+```
+
+The `search` fields also feed record search in the ⌘K palette. From two typed characters, it searches every resource that has `search` fields and is not `hidden`, through that resource's own list read, so access, scope and field rules apply. It shows up to 5 records per resource, titled by their first two non-empty search fields, and a result opens where the row opens. A resource without `search` is not searched there.
+
+A sorted list puts rows whose sort column is empty last, in both directions, on every database, so "Last seen ↓" starts with the most recent value rather than a run of blanks.
+
+A filter's `defaultValue` applies until the operator changes it; `hidden: true` applies it without a control. A `select` filter on an `enumOf()` column lists the enum's labels. See [Default and hidden filters](/docs/reference/resources#default-and-hidden-filters).
+
+### Operations
+
+`actions` run on one row and `bulkActions` on a selection; see [Actions](/docs/build/actions). With delete enabled, a bulk delete follows your own `bulkActions`; `delete: { bulk: false }` removes it. Forms are generated from the table until you declare [form fields](/docs/build/forms). [Import and export](/docs/build/import-export) are opt-in.
+
+### Access
+
+`access` gates the resource per operation on the server, field rules narrow it per field, and `scope` adds a tenant predicate. See [Roles and permissions](/docs/guides/permissions) and [Multi-tenant scope](/docs/guides/multi-tenant-scope).
+
+### Typos and column validation
+
+With a Drizzle table, or a Prisma model in `FlowpanelResources`, a misspelt column is a compile error. `defineAdmin` also checks every column, filter, search and sort field against the adapter's columns at startup and names the closest match.
+
+### Joined and computed data
+
+A resource reads one table. For joined fields use a [column renderer](/docs/customization/column-renderers); for per-row aggregates read a database view and write through `writeTo` ([Reading a view](/docs/reference/resources#reading-a-view)).
+
+Every option: [resource() reference](/docs/reference/resources).
+
+## Forms
+
+Configure create and edit forms with typed fields, validation, defaults and relations.
+
+Docs: https://flowpanel.tech/docs/build/forms
+
+Create and edit forms are generated from the table. Declare `create.fields` and `update.fields` to choose exactly what each form writes; the server rejects any other field.
+
+A generated form follows the list's columns, a column's `secondary` line included: a column's `label` names its control, a `reference` column is a picker, and a column whose `format` is money, such as `{ kind: "money", minorUnits: 2 }` on `totalCents`, takes the amount in major units, `74.35`, and stores `7435`. A column the database needs a value for is marked required, a column with a plain default such as an enum's `draft` starts there, and the create form leaves out a record timestamp the database fills, such as `created_at default now()` or `updated_at`. A defaulted date the user sets, such as `due_on default current_date`, stays as an optional field.
+
+### Declare the fields
+
+```ts
+resource(schema.users, {
+  columns: ["email", "name", "role", "createdAt"],
+  create: {
+    fields: [
+      { name: "email", type: "email", required: true },
+      { name: "name", required: true },
+      { name: "role", type: "select", options: ["member", "admin"] },
+    ],
+  },
+  update: {
+    fields: [
+      { name: "name", required: true },
+      { name: "role", type: "select", options: ["member", "admin"] },
+    ],
+  },
+})
+```
+
+### Controls
+
+`type` picks the input: text, textarea, number, money, email, password, url, date, datetime, time, boolean, switch, checkbox, select, multiselect, radio, json, markdown, tags, reference, hidden or color. Add `label`, `help` or `placeholder` when the name is not enough.
+
+A `markdown` field edits plain text. The record page and the drawer show it formatted: headings, paragraphs, `-` lists, `**bold**`, `*italic*`, `` `code` `` and links to `https://`, `mailto:` or a path. HTML in the text stays text.
+
+The server checks the value against the type wherever it comes from: the form, the JSON API, a CSV import or an action form. An `email` must be an address the browser's email input accepts, a `url` a full address that starts with `http://` or `https://`, such as `https://example.com`, a `color` a `#rrggbb` value, a `time` a time of day such as `09:30`, and a `number`, `date` or `datetime` field a number or a date. On an edit, a value the row already holds is kept.
+
+`options` takes strings, `{ label, value }` pairs, or a function resolved on the server per request. A `select`, `multiselect` or `radio` field whose column has an `enumOf` format lists the enum's labels without `options`.
+
+### Money fields
+
+A `money` field edits an amount stored in minor units, such as cents, the way the `money` column format shows it:
+
+```ts
+{ name: "amountCents", label: "Amount", type: "money", currency: "EUR" }
+```
+
+The form shows `399.99` with the currency's sign beside it, in the admin's decimal separator, and the server stores `39999`. `currency` defaults to `formatting.currency`, and `minorUnits`, the digits after the decimal point (0 to 8), to the currency's own: 2 for USD, 0 for JPY, 3 for KWD.
+
+`storage` says what the column holds. `"minor"`, the default for an integer column, stores whole minor units. `"major"`, the default for a `numeric`, `decimal` or float column, stores the amount itself, `399.99`. Saving a form without touching a valid amount keeps the stored value exactly. A stored value the currency cannot hold, such as `1999.5` minor units, shows unrounded as `19.995`, and the form will not save until someone corrects it.
+
+A comma works as the decimal separator. Text that is not an amount is rejected with `invalidMoney`, and an amount with more decimals than `minorUnits` with `moneyTooPrecise`. The JSON API takes and returns the column's own value. Pair a minor-unit field with `format: { kind: "money", minorUnits: 2 }` on the column, so the list and record show the same amount, and a range filter on that column takes the same amount.
+
+### Relation fields
+
+A reference field stores the foreign key and shows a searchable label from another resource:
+
+```ts
+{
+  name: "customerId",
+  label: "Customer",
+  reference: { resource: "customers", labelField: "email" },
+  required: true,
+}
+```
+
+The stored value is the target's primary key. The lookup applies the target resource's access and tenant scope.
+
+### Validation and defaults
+
+The resource schema, `required` and each field's `validate`, a Zod schema or a function returning a message, run in one round, so a submit shows every field's problem at once. A field the schema already refused keeps the schema's message and its `validate` does not run. `required` marks the control required and the server rejects a missing value. A NOT NULL column without `required` is checked too: a create that leaves it empty, or an edit that clears it, fails with its "is required" message.
+
+A timestamp column gets a `datetime-local` control that shows the stored time on the admin's clock, `formatting.timeZone` (UTC when unset), and the server reads the posted time in that zone. Saving without touching it keeps the stored seconds. A `type: "date"` field shows the day.
+
+`defaultValue` fills a key the submission left empty, on the server. On a visible field it also pre-fills the control, so the browser sees it. A create field without `defaultValue` starts on its column's literal database default, such as `draft` for `status text default 'draft'`, as a generated form does. Put trusted values such as the tenant on a `hidden: true` field, or in `create.defaultValues`, to keep them off the page. When both name a key the submission left empty, `create.defaultValues` wins. A fixed default of a `select`, `radio` or `multiselect` field must be one of its fixed `options`; `defineAdmin` refuses one that is not and names the options, since the form would start empty.
+
+#### Rejection messages
+
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`; one that does not fit its field's `type` reads `invalidEmail`, `invalidUrl`, `invalidColor` or `invalidTime`; and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key. A value outside a select's choices or a schema enum reads `invalidOption`, whatever message the enum carries, so it is in the admin's language; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. The [language presets](/docs/reference/define-config#language-presets) translate the built-in ones, and `{label}` is the field's [one label](/docs/build/resources#field-labels).
+
+### Restrict fields
+
+`readOnly` and the resource's `fieldAccess` apply to rendering and to writes. The form shows a field the user may not write as read-only, leaves out one they may neither read nor write, and its route drops both from what it saves; an API or programmatic write that carries such a field is rejected. `readOnly` wins over `fieldAccess.write`. A `readOnly` or `hidden` function is called on the server with the stored row on edit, and on create with the values the form starts with: `create.defaultValues`, each field's `defaultValue`, then the column's database default. So `hidden: (row) => row.status === "draft"` hides the field on a new record whose status starts as `draft`. On an import row or a JSON create, `hidden` and `required` are judged on those values with the row's own on top, and a field is read-only when its `readOnly` is true for the starting values or for the row's, so a client cannot unlock a field by sending the value its predicate checks. It runs once per page, not as the user types. `hidden` only removes the control. See [Roles and permissions](/docs/guides/permissions).
+
+### Submission
+
+Forms post to FlowPanel's route handlers. A create returns to the list with the new row highlighted for two seconds and a "Customer created" toast (`labels.saving.created`); an update returns to the row with "Changes saved" (`labels.saving.saved`). The form sends one request at a time: a double click or Enter during a save does nothing, and the form stays locked until the next page opens.
+
+A rejected submit keeps the button enabled; submitting again moves focus to the first field in error. Each error shows under its field, and the banner above the button appears only for an error no field on the form can show.
+
+While a form has unsaved changes, leaving it asks first: reloading or closing the tab shows the browser's prompt, and Cancel or any link in the admin opens a "Discard unsaved changes?" dialog (`labels.saving`). For a multi-step transaction or several resources at once, build a custom page. Every option: [FieldDef](/docs/reference/resources#fielddef).
+
+## Add actions
+
+Add row, bulk, drawer, and dashboard operations with typed input and authorization.
+
+Docs: https://flowpanel.tech/docs/build/actions
+
+An action is a server function an operator runs from the admin: on a row, on a selection, in a drawer, or on a dashboard. Each has a key, a label, an optional form and confirmation, a role check, and a `run` that returns a result.
+
+### A row action
+
+```ts
+import { resource, rowAction } from "@flowpanel/kit";
+import { db } from "@/db";
+import * as schema from "@/db/schema";
+
+type User = typeof schema.users.$inferSelect;
+type SuspendInput = { reason: string };
+
+const suspend = rowAction<User, SuspendInput>({
+  key: "suspend",
+  label: "Suspend",
+  variant: "destructive",
+  confirm: { title: "Suspend this user?", confirmLabel: "Suspend" },
+  access: "admin",
+  form: [{ name: "reason", type: "textarea", required: true }],
+  disabled: (user) => (user.status === "suspended" ? "Already suspended" : false),
+  run: async (user, input, ctx) => {
+    await suspendUser(db, user.id, input.reason);
+    return { ok: true, message: "User suspended", refresh: true };
+  },
+});
+
+resource(schema.users, { columns: ["email", "status"], actions: [suspend] });
+```
+
+`rowAction<Row, Input>` types the row and checks every form field name against `Input`. `ctx` carries the session, scope, actor and the publish helper. Query through your own client, or declare `unsafe: ["db"]` to receive the adapter's client as `ctx.unsafe.db`.
+
+A form field takes the same options as a resource form field. A `defaultValue` that is a plain value pre-fills its control when the dialog opens; a `money` default is in stored units, as on a resource form, so `1999` shows as `19.99`. A `defaultValue` function is not run for an action form.
+
+### Placement
+
+- A row action receives one row.
+- A bulk action receives the selected IDs. A selection over the cap is rejected, never truncated.
+- A drawer action sits in the drawer footer beside the open row.
+- A dashboard action receives only its form input and sits in the dashboard header.
+
+Actions render as secondary buttons. A dashboard action takes `emphasis: "primary"` to become the filled button, and `update: { emphasis: "primary" }` does the same for the record page's Edit button. Row, bulk and drawer actions have no emphasis option.
+
+### Authorization
+
+The admin, resource and action role checks run before input validation, on the POST route as well as in the UI. `when` offers an action only on the rows it accepts, and its route rejects the others. It receives `{ current, input, session, role, scope }`, where `current` is the loaded row:
+
+```ts
+rowAction<{ id: number; status: string }>({
+  key: "escalate",
+  label: "Escalate",
+  when: ({ current }) => current?.status !== "escalated",
+  run: async (row) => ({ ok: true, message: `Escalated ${row.id}` }),
+});
+```
+
+`disabled` shows the action with a reason. `hidden` is deprecated: use `when` with the condition reversed. Menus check `when` with no `input`, so a `when` that reads the posted input decides only on the route. An action without its own `access` runs under the resource's `update` rule.
+
+### Results
+
+Return `{ ok: true }`, adding `message`, `redirect` or `refresh` as needed, or `{ ok: false, error }` for an expected failure. The operator sees the message as written. A thrown `FlowpanelError` keeps its status; any other error becomes a generic 500 and is logged.
+
+Every option: [Actions reference](/docs/reference/actions).
+
+## Record pages and drawers
+
+Show one record on its own page, with a header, key numbers, a side column and tabs, or in a drawer over the list.
+
+Docs: https://flowpanel.tech/docs/build/detail-cards
+
+A record page shows one row at `/admin/<resource>/<id>`: a header, a strip of numbers, facts beside the tabs, related rows and activity. A drawer shows a row over the list without leaving it. Every piece is optional.
+
+A row click opens the record page, even before you add `detail`: without it the page lists the row's readable fields. Its header carries Edit and one menu with the resource's row actions and Delete, each shown only to a role that may run it; Delete asks first, with `delete.confirm` when you set it. Declare a `drawer` and the click opens it instead; `rowClick: false` keeps rows from opening.
+
+### Keep the card in its own file
+
+```ts
+import { type DetailOptions, type RowOf } from "@flowpanel/kit";
+
+export const customerCard = {
+  title: (c) => c.company ?? c.email,
+} satisfies DetailOptions<RowOf<"customers">>;
+```
+
+`DetailOptions<Row>` types every callback by the row. Pass it as `detail: customerCard`.
+
+### Header
+
+`title`, `subtitle` and `badge` receive the row and the admin's formatters and link builder:
+
+```ts
+subtitle: (c, { format }) => `Customer since ${format.date(c.createdAt)}`,
+badge: (c) => [
+  AccountStatus.badge(c.status, { href: { resource: "customers", filter: { status: c.status } } }),
+  Plan.badge(c.plan),
+  c.deletedAt ? { label: "Deleted", tone: "err" } : null,
+],
+```
+
+A `null` badge is dropped; `href` makes a badge a link.
+
+### Period
+
+`dateRange` puts a date picker in the header. Its range reaches `stats`, `aside` and widget tabs. Related tabs, the timeline and the heatmap keep their own period: related tabs list every row, a timeline pages through the whole history, and a heatmap shows its last `days` days. Without `dateRange` there is no picker and widgets see the whole history.
+
+### Key numbers
+
+```ts
+export const paidInvoices = metric(
+  "Paid invoices",
+  { count: "invoices", where: { status: "paid" }, range: "paidAt" },
+  { compare: true },
+);
+
+export const customerCard = {
+  stats: [metric("Monitors", { count: "monitors" }), paidInvoices],
+} satisfies DetailOptions<RowOf<"customers">>;
+```
+
+`stats` is a strip on every tab. On a record page `{ count }` counts only rows that point at this record, through the target's `reference`, and links to them. `range` names a `daterange` filter of the counted resource.
+
+### Side column
+
+```ts
+aside: [
+  kv({
+    label: "Account",
+    columns: 1,
+    items: [
+      { label: "Email", field: "email" },
+      { label: "Last seen", field: "lastSeenAt", format: "relative" },
+    ],
+  }),
+  checklist({ label: "Profile", items: async (c) => filled(c.rowOf("customers"), { name: "Name", company: "Company" }) }),
+],
+```
+
+A `kv` item with `field` reads the viewed row; `record: (c) => …` reads another row once for the card. `filled(row, labels)` makes a checklist item per field, done when it has a value. On a phone the side column moves below the tabs.
+
+### Related rows
+
+```ts
+tabs: [
+  related("monitors"),
+  related("invoices", { pageSize: 10, sort: { field: "createdAt", dir: "desc" } }),
+],
+```
+
+`related` filters by the target's one column that references this resource and hides it. With none or several, `defineAdmin` asks for `by`. The label shows a row count; `count: false` hides it. `widgets` render above the rows.
+
+### Activity
+
+```ts
+timeline({
+  kinds: Activity,
+  sources: [
+    timeline.source("monitors", { kind: "monitor", at: "createdAt", title: (m) => m.name }),
+    timeline.source("customer_events", { kind: { field: "kind" }, at: "at" }),
+  ],
+});
+```
+
+Each source reads one resource filtered to this record; its `where` can narrow but not widen that. `kind: { field }` reads the kind from a column. Events merge by time, group by day and page with "Older".
+
+`heatmap({ source: { resource: "user_visit", at: "startedAt" } })` shows activity per day over 13 weeks. `checklist({ ordered: true, items })` shows dated milestones and the gaps between them.
+
+### Widget tabs
+
+A tab with `widgets` instead of `fields` draws dashboard widgets. `ctx.row` is the record and `ctx.id` its key:
+
+```ts
+{
+  key: "activity",
+  label: "Activity",
+  columns: 2,
+  widgets: [
+    stat("Orders", (ctx) => ctx.count("orders", { customerId: ctx.rowOf("customers").id })),
+    bars({ label: "Spend by month", query: (ctx) => spendByMonth(ctx.db, ctx.rowOf("customers").id) }),
+  ],
+}
+```
+
+### Drawer
+
+```ts
+resource(schema.orders, {
+  columns: ["number", "customerEmail", "status", "total"],
+  rowClick: "drawer",
+  drawer: {
+    width: "xl",
+    title: (order) => `Order ${order.number}`,
+    tabs: [
+      { key: "summary", label: "Summary", fields: "*" },
+      { key: "items", label: "Items", resource: "order_items", filter: (order) => ({ orderId: order.id }) },
+    ],
+  },
+})
+```
+
+`rowClick: "drawer"` needs a `drawer`. Fields reuse the column labels and renderers. A related tab shows the first 20 rows; link to the filtered list for more. Widget tabs render static cards, and `custom()`, `timeline`, `heatmap`, `checklist` and `tracker` belong in a record page tab instead. Drawer `actions` join the row actions, Edit and Delete in the drawer's header menu.
+
+### Test a card
+
+```ts
+import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
+import { expect, it } from "vitest";
+import admin from "@/admin/config";
+import { paidInvoices } from "@/admin/config/resources/customer-card";
+
+it("counts the customer's paid invoices", async () => {
+  const customer = { id: 1, email: "ada@example.com" };
+  const invoices = [
+    { id: 1, customerId: 1, status: "paid", paidAt: new Date("2026-09-02") },
+    { id: 2, customerId: 1, status: "paid", paidAt: new Date("2026-09-20") },
+    { id: 3, customerId: 1, status: "open", paidAt: null },
+  ];
+  const ctx = widgetContext({ admin, resource: "customers", row: customer, rows: { invoices } });
+  const { props } = await resolveWidget(paidInvoices, ctx);
+  expect(props.value).toBe(2);
+});
+```
+
+Pass `admin` so the count finds its filter through the `reference` on `invoices`. See [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).
+
+Every option: [Record page](/docs/reference/resources#record-page) and [Drawer](/docs/reference/drawer).
+
+## Dashboards
+
+Compose metrics, bars, charts, trackers and banners into dashboards, often from one SQL statement per area.
+
+Docs: https://flowpanel.tech/docs/build/dashboards
+
+A dashboard is a page of widgets whose queries run on the server. Register it in `dashboards`; path `/` renders at `/admin`, `/sales` at `/admin/sales`.
+
+### A first dashboard
+
+```ts
+import { dashboard, metric } from "@flowpanel/kit";
+
+export const overview = dashboard({
+  path: "/",
+  label: "Overview",
+  dateRange: { preset: "today", presets: ["today", "yesterday", "last7d", "last30d"] },
+  sections: [
+    {
+      variant: "strip",
+      widgets: [
+        metric("New customers", { count: "customers", range: "createdAt" }, { compare: true }),
+        metric("Failed runs", { count: "runs", where: { status: "failed" }, range: "startedAt" }, {
+          compare: true,
+          goodWhen: "down",
+        }),
+      ],
+    },
+  ],
+});
+```
+
+`{ count, where, range }` counts rows of a resource with its access and scope applied, and links the number to exactly those rows. `range` names a `daterange` filter of that resource. `compare: true` shows the change against the previous period; `compare: { against: "weekAgo" }` against the same range a week earlier.
+
+A section sets `columns` and widgets set `span` on a 12-column grid. `variant: "strip"` draws metrics and stats as one band. The builders are `metric`, `stat`, `statGroup`, `kv`, `bars`, `funnel`, `list`, `banner`, `tracker`, `timeline`, `heatmap`, `checklist`, `table`, the charts, and `custom`.
+
+### One query, several widgets
+
+Write one SQL statement per screen area that returns plain rows for the picked range. Share it with `ctx.query(fn)` so it runs once, and fold it per widget: `series()` for a chart over time, `breakdown()` for ranked bars.
+
+```ts
+import { barChart, bars, breakdown, enumOf, series, type WidgetContext } from "@flowpanel/kit";
+
+type HourRow = { at: Date; site: string; runs: number; failed: number; listings: number };
+
+const Site = enumOf(["amazon", "ebay", "walmart"], {
+  amazon: "Amazon",
+  ebay: "eBay",
+  walmart: "Walmart",
+});
+
+const hourly = (c: WidgetContext) => c.sql<HourRow>`
+  select hour as at, site, runs_total as runs, runs_failed as failed, listings_found as listings
+  from crawl_hourly_stats where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
+
+const bySite = bars({
+  label: "Listings by marketplace",
+  share: true,
+  compare: true,
+  query: async (c) => breakdown(await c.query(hourly), { by: "site", value: "listings", keys: Site.values, labels: Site }),
+});
+
+const byDay = barChart(
+  "Listings by day",
+  async (c) => series(await c.query(hourly), c.dateRange, { at: "at", by: "site", value: "listings", grain: "day" }),
+  { x: "date", labels: Site, stacked: true },
+);
+```
+
+The SQL names a Drizzle schema's snake_case table; on Prisma, use the model's quoted names, such as `from "CrawlHourlyStat" where "hour" >= ...` ([Prisma setup](/docs/introduction/prisma#raw-sql)). Bind `ctx.dateRange.from` and `to` as parameters and do no time-zone math in SQL; `series` buckets in the admin's zone and fills gaps. `keys` keeps a marketplace with no listings in the comparison. Above about 50,000 rows, group by hour in SQL first. `ctx.sql` applies no scope or access rules: add tenant predicates yourself.
+
+### Thresholds
+
+A `Threshold` says where a number turns bad. Pass the same object to metrics, bars, trackers and table columns:
+
+```ts
+import type { Threshold } from "@flowpanel/kit";
+
+export const RUN_ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
+export const SUCCESS: Threshold = { warn: 0.9, err: 0.8 };
+```
+
+`warn` below `err` means higher is worse; above means lower is worse. Below `min` observations the value is muted.
+
+### Status and priorities
+
+`tracker()` shows one row per key and one block per hour for the last 24 hours, coloured by a threshold. Its `value` takes a column name or a fold over the bucket's rows, such as an error rate. `banner()` lists problems by severity and says "all clear" when there are none.
+
+```ts
+const errorRate = (rows: HourRow[]) => {
+  const runs = rows.reduce((sum, row) => sum + row.runs, 0);
+  return runs === 0 ? null : rows.reduce((sum, row) => sum + row.failed, 0) / runs;
+};
+
+tracker({ label: "Marketplaces · 24 h", query: hourly, at: "at", by: "site", labels: Site, value: errorRate, volume: "runs", tones: RUN_ERRORS, format: "percent", span: 12 });
+
+banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
+```
+
+### Filter the whole dashboard
+
+A dashboard filter adds a select beside the date picker; widgets read it as `ctx.filters`. `filterOnClick` on bars, a tracker or a table sets it on click.
+
+```ts
+import type { DashboardFilter } from "@flowpanel/kit";
+
+const marketplace: DashboardFilter = { key: "site", label: "Marketplace", options: Site };
+```
+
+Pass `filters: [marketplace]` to the dashboard, bind `ctx.filters.site` in the shared statement, and set `filterOnClick: "site"` on the widgets.
+
+### Links, freshness and refresh
+
+- `drilldown: { resource: "runs", view: "Failed", range: "startedAt" }` links a number to its rows; see [Links](/docs/reference/widgets#links).
+- `maxRange`, `freshness` and `coverage` add a caption saying how old or complete the numbers are; see [Captions](/docs/reference/widgets#captions).
+- `refresh: "60s"` re-renders the page on an interval while the tab is visible. `realtime` on a widget re-runs only that widget on an event.
+- Dashboard `actions` appear in the page header.
+- `access: "admin"` on a widget shows it only to that role, so one dashboard can serve admins and support; a refused widget runs no query.
+
+Every option: [Widgets reference](/docs/reference/widgets).
+
+## Import and export
+
+Add bounded CSV or JSON transfer to a resource without bypassing its policies.
+
+Docs: https://flowpanel.tech/docs/build/import-export
+
+Import and export are per-resource options. Each takes the file formats and an allowlist of fields.
+
+### Export
+
+```ts
+resource(schema.users, {
+  columns: ["email", "name", "role", "createdAt"],
+  export: {
+    formats: ["csv", "json"],
+    fields: ["email", "name", "role", "createdAt"],
+    maxRows: 50_000,
+  },
+})
+```
+
+Export is off until you set `export`. The toolbar's Export asks the server for every row that matches the list's current filters, search and sort, not only the page on screen. The server reads them through the same path as the list: tenant scope, the resource's `read` rule, and only the fields the user may read, so a `sensitive` field or one `fieldAccess.read` hides is left out. Soft-deleted rows are included only when the list shows them, which needs the `update` rule.
+
+The file has the columns in table order, or `fields` in its order. Each entry in `fields` must be a column or in `expose`. CSV cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'` so a spreadsheet does not run them as formulas; a negative number such as `-123.45` stays as it is. Dates are ISO 8601. A money column that stores minor units, through `minorUnits` on its format or a `money` field, holds the amount in major units as a plain decimal with no currency sign: `5900` cents is `59.00`. Ids, references and enum values stay as stored, so a file imports back as it came out.
+
+The file name says what it holds: `users-all-2026-10-09.csv`, or `users-filtered-2026-10-09.csv` when filters or search narrow the list. The date is the day on the admin's clock, `formatting.timeZone`. An export stops at `maxRows`, 10,000 by default; a capped file is named `users-filtered-first-10000-2026-10-09.csv`, carries the `X-Flowpanel-Export-Capped` header, and the admin tells the user to narrow the filters. Each export records one `<resource>.export` audit event when the download starts, and counts once against `rateLimit`. Rows are ordered by the list's sort with the primary key breaking ties, or by the primary key alone (every column of a composite key), so a file never repeats or skips a row between batches. When the adapter cannot see the key, the export is unordered.
+
+The route is `GET <paths.api>/export/<resource>?format=csv`, with the list page's own query string (`f_<field>`, `q`, `sort`, `deleted`). `export` is a reserved name, so no resource or queue can take it.
+
+### Import
+
+```ts
+resource(schema.users, {
+  columns: ["email", "name", "role"],
+  import: {
+    formats: ["csv", "json"],
+    fields: ["email", "name", "role"],
+  },
+})
+```
+
+Each row goes through the create path: validation, field access, scope, the adapter, audit and realtime. A read-only or role-restricted field in the file is rejected. A CSV header or JSON key is a field name, the export's header (the column's label) or the create form's label, in any case, so an exported file imports back without editing its first line. A row reports every field's problem at once. A `money` field, or a column whose money format has `minorUnits`, takes the amount in major units, `59.00`, as the export writes it.
+
+Picking a file asks first: "Import customers.csv? 48 rows will be imported." A column the import does not read, one outside `fields` or, without `fields`, the primary key or a column create cannot write, and a field the importer may not read or that is `sensitive`, is skipped, and the same step names it: "17 rows will be imported. 2 columns will be skipped: ID and Issued at." A skipped field takes its default on create, so add it to `fields` when the file should set it. After the import, a file whose rows were all accepted gets a toast. When some rows were refused, a dialog lists each one by its row number with the reason, in the same words as the form, naming each field by its label, and **Download failed rows (CSV)** saves those rows with an `error` column to fix and import again. The words come from `labels.importer`.
+
+Import enforces request and row caps. Rejected rows are reported, and nothing is silently truncated. For a large one-off migration, use a background job instead.
+
+Every option: [resource() reference](/docs/reference/resources).

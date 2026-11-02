@@ -1,422 +1,81 @@
-// LOC-OK: GET drawer payload + POST drawer action share the same DrawerRouteCtx
-import type {
-  ColumnDef,
-  ColumnFormat,
-  DrawerAction,
-  DrawerConfig,
-  DrawerTab,
-  ItemQueryContext,
-  RequestContext,
-  ResolvedAdminConfig,
-  WidgetContext,
-} from "@flowpanel/core";
-import { humanize, runWithRequestContext } from "@flowpanel/core";
-import { createElement, Fragment, type ReactNode } from "react";
-import {
-  buildActionContext,
-  buildAuditEvent,
-  filterActionsByAccess,
-  invalidJsonResponse,
-  maybeEmitAudit,
-  notFoundResponse,
-  readActionInput,
-} from "../runtime/action-helpers";
-import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
-import { applyActionResult } from "../runtime/apply-action-result";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
-import { buildHref } from "../runtime/href";
-import {
-  declaredDrawerRowFields,
-  projectRowFields,
-  selectKnownFields,
-} from "../runtime/project-row";
-import { bindPublisher } from "../runtime/publish";
-import {
-  filterColumnsByReadableFields,
-  resolveReadableColumns,
-  resolveReadableFieldSet,
-} from "../runtime/readable-fields";
-import { readRelatedRows } from "../runtime/require-authorized";
-import { scopeBinding } from "../runtime/scope-binding";
-import { buildWidgetContext } from "../runtime/widget-context";
-import { withGuards } from "../runtime/with-guards";
-import { type SerializedFieldList, serializeFields } from "./serialize-fields";
-import { type SerializedWidget, serializeWidget } from "./serialize-widget";
+import type { DrawerConfig, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import { actionFailure } from "../runtime/action-failure";
+import { rowVisibility, withSoftDeleteColumn } from "../runtime/deleted-row";
+import { declaredDrawerRowFields, selectKnownFields } from "../runtime/project-row";
+import { readRow } from "../runtime/read-row";
+import { resolveReadableFieldSet } from "../runtime/readable-fields";
+import { guardedRoute, lookupResource, rowNotFound } from "../runtime/write-pipeline";
+import { buildDrawerPayload } from "./drawer-payload";
 
-export type { SerializedFieldList, SerializedWidget };
-
-/** Wire-safe shape of `DrawerAction`. */
-export interface SerializedDrawerAction {
-  key: string;
-  label: string;
-  variant?: "default" | "destructive";
-  confirm?: string;
-  form?: DrawerAction["form"];
-  palette?: boolean;
-}
-
-export type SerializedDrawerTab =
-  | { kind: "fields"; key: string; label: string; fields: SerializedFieldList }
-  | {
-      kind: "resource";
-      key: string;
-      label: string;
-      resource: string;
-      rows: Record<string, unknown>[];
-      columns: string[];
-    }
-  | {
-      kind: "widgets";
-      key: string;
-      label: string;
-      widgets: SerializedWidget[];
-    };
-
-export interface DrawerPayload {
-  row: Record<string, unknown>;
-  header: string;
-  /** The resource's display label, so the drawer never shows the raw registry name. */
-  resourceLabel: string;
-  width: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
-  fields: SerializedFieldList;
-  tabs: SerializedDrawerTab[] | null;
-  actions: SerializedDrawerAction[];
-  /** Field → HTML for fields whose column declares a `render`. */
-  prerendered: Record<string, string>;
-  /** Field → column label, so drawer rows read like their table headers. */
-  labels: Record<string, string>;
-  /** Field → column `format`. Plain data, rendered client-side exactly as the table does. */
-  formats: Record<string, ColumnFormat>;
-  /** The record's own page, when the resource configures `detail`. */
-  detailHref: string | null;
-}
-
-/** Map of field → column `format`, so drawer rows format like their table cells. */
-function buildFieldFormats(columns: ReadonlyArray<unknown>): Record<string, ColumnFormat> {
-  const out: Record<string, ColumnFormat> = {};
-  for (const c of columns) {
-    if (typeof c !== "object" || c === null) continue;
-    const col = c as { field?: string; format?: ColumnFormat };
-    if (col.field && col.format !== undefined) out[col.field] = col.format;
-  }
-  return out;
-}
-
-/** Map of field → column `label`, for fields whose column sets one. */
-function buildFieldLabels(columns: ReadonlyArray<unknown>): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const c of columns) {
-    if (typeof c !== "object" || c === null) continue;
-    const col = c as { field?: string; label?: string };
-    if (col.field && col.label) out[col.field] = col.label;
-  }
-  return out;
-}
-
-let renderToStaticMarkupFn: ((node: ReactNode) => string) | null = null;
-async function getRenderToStaticMarkup(): Promise<(node: ReactNode) => string> {
-  if (!renderToStaticMarkupFn) {
-    // @ts-expect-error -- runtime export exists; ./server declarations don't resolve here
-    const mod = (await import("react-dom/server")) as {
-      renderToStaticMarkup: (node: ReactNode) => string;
-    };
-    renderToStaticMarkupFn = mod.renderToStaticMarkup;
-  }
-  return renderToStaticMarkupFn;
-}
-
-async function prerenderRowFields(
-  columns: ReadonlyArray<unknown>,
-  row: Record<string, unknown>,
-  reqCtx: unknown,
-): Promise<Record<string, string>> {
-  const withRender = columns.filter(
-    (c): c is { field: string; render: (row: unknown, ctx?: unknown) => ReactNode } =>
-      typeof c === "object" &&
-      c !== null &&
-      typeof (c as { field?: unknown }).field === "string" &&
-      typeof (c as { render?: unknown }).render === "function",
-  );
-  if (withRender.length === 0) return {};
-  const renderToStaticMarkup = await getRenderToStaticMarkup();
-  const out: Record<string, string> = {};
-  for (const col of withRender) {
-    try {
-      out[col.field] = renderToStaticMarkup(createElement(Fragment, null, col.render(row, reqCtx)));
-    } catch (error) {
-      console.error(`[flowpanel] drawer cell render failed for "${col.field}"`, error);
-    }
-  }
-  return out;
-}
-
-function serializeAction(a: DrawerAction): SerializedDrawerAction {
-  const out: SerializedDrawerAction = { key: a.key, label: a.label };
-  if (a.variant !== undefined) out.variant = a.variant;
-  if (a.confirm !== undefined) out.confirm = a.confirm;
-  if (a.form !== undefined) out.form = a.form;
-  if (a.palette !== undefined) out.palette = a.palette;
-  return out;
-}
-
-async function serializeTab(
-  tab: DrawerTab,
-  row: Record<string, unknown>,
-  readableSourceFields: ReadonlySet<string>,
-  config: ResolvedAdminConfig,
-  reqCtx: RequestContext,
-  req: Request,
-): Promise<SerializedDrawerTab> {
-  if ("fields" in tab) {
-    return {
-      kind: "fields",
-      key: tab.key,
-      label: tab.label,
-      fields: serializeFields(tab.fields, readableSourceFields),
-    };
-  }
-  if ("widgets" in tab) {
-    const widgetCtx: WidgetContext = buildWidgetContext(
-      config,
-      reqCtx,
-      req,
-      { from: new Date(0), to: new Date(), preset: "custom" },
-      row,
-    );
-    const widgets: SerializedWidget[] = [];
-    for (const w of tab.widgets) {
-      widgets.push(await serializeWidget(w, config, reqCtx, widgetCtx));
-    }
-    return { kind: "widgets", key: tab.key, label: tab.label, widgets };
-  }
-  const target = config.resourcesByName.get(tab.resource);
-  const rows = target
-    ? await readRelatedRows(config, target, reqCtx, {
-        filters: typeof tab.filter === "function" ? tab.filter(row) : {},
-        pageSize: 20,
-      })
-    : null;
-  if (!target || !rows) {
-    return {
-      kind: "resource",
-      key: tab.key,
-      label: tab.label,
-      resource: tab.resource,
-      rows: [],
-      columns: [],
-    };
-  }
-  const readableColumns = await resolveReadableColumns(
-    target.options.columns as never[],
-    target.options.fieldAccess,
-    reqCtx,
-  );
-  const columns = readableColumns.map((c) => {
-    if (typeof c === "string") return c;
-    const col = c as { field?: string };
-    return String(col.field ?? "");
-  });
-  return {
-    kind: "resource",
-    key: tab.key,
-    label: tab.label,
-    resource: tab.resource,
-    rows,
-    columns: columns.filter((c) => c),
-  };
-}
+export type {
+  DrawerPayload,
+  SerializedDrawerAction,
+  SerializedDrawerTab,
+  SerializedWidget,
+} from "./drawer-payload";
 
 export interface DrawerRouteCtx {
   params: Promise<{ resource: string; id: string }>;
 }
 
-/** Factory producing the Next.js route handler for `/api/flowpanel/drawer/[resource]/[id]`. */
-export function drawerRoute(config: ResolvedAdminConfig) {
-  bindPublisher(config);
-  return async function GET(req: Request, ctx: DrawerRouteCtx): Promise<Response> {
-    const { resource: resourceName, id } = await ctx.params;
-    const resource = config.resourcesByName.get(resourceName);
-    if (!resource) {
-      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
-    }
-    const drawer: DrawerConfig | undefined = resource.options.drawer;
-    if (!drawer) {
-      return Response.json(
-        { ok: false, error: `resource "${resourceName}" has no drawer config` },
-        { status: 400 },
-      );
-    }
-
-    return withGuards(
-      config,
-      req,
-      { resource, operation: "read", write: false },
-      async (reqCtx) => {
-        const readableRowFields = await resolveReadableFieldSet(
-          declaredDrawerRowFields(resource),
-          resource.options.fieldAccess,
-          reqCtx,
-        );
-        const select = selectKnownFields(
-          readableRowFields,
-          config.adapter.introspect(resource.ref).columns,
-        );
-        const itemCtx: ItemQueryContext = {
-          ...reqCtx,
-          db: config.adapter.db,
-          dateRange: { from: new Date(0), to: new Date() },
-          searchParams: new URLSearchParams(),
-          signal: new AbortController().signal,
-          id,
-          select,
-          ...scopeBinding(config, resource, reqCtx),
-        };
-        const row = (await runWithRequestContext(reqCtx, () =>
-          config.adapter.get(resource.ref, itemCtx),
-        )) as Record<string, unknown> | null;
-        if (!row) {
-          return Response.json({ ok: false, error: "not found" }, { status: 404 });
-        }
-        const projectedRow = projectRowFields(row, readableRowFields);
-
-        const header =
-          typeof drawer.header === "function"
-            ? String(drawer.header(projectedRow) ?? "")
-            : String(
-                projectedRow[
-                  (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY
-                ] ?? "",
-              );
-
-        const tabs: SerializedDrawerTab[] | null = drawer.tabs
-          ? await Promise.all(
-              drawer.tabs.map((t) =>
-                serializeTab(t, projectedRow, readableRowFields, config, reqCtx, req),
-              ),
-            )
-          : null;
-
-        const columns = filterColumnsByReadableFields(
-          (resource.options.columns as ReadonlyArray<
-            keyof Record<string, unknown> | ColumnDef<Record<string, unknown>>
-          >) ?? [],
-          readableRowFields,
-        );
-        const payload: DrawerPayload = {
-          row: projectedRow,
-          header,
-          resourceLabel:
-            (resource.options.label as string | undefined) ?? humanize(String(resourceName)),
-          width: drawer.width ?? "lg",
-          fields: serializeFields(drawer.fields ?? "*", readableRowFields),
-          tabs,
-          actions: (await filterActionsByAccess(drawer.actions, reqCtx)).map(serializeAction),
-          prerendered: await prerenderRowFields(columns, projectedRow, reqCtx),
-          labels: buildFieldLabels(columns),
-          formats: buildFieldFormats(columns),
-          detailHref: resource.options.detail ? buildHref(config, String(resourceName), id) : null,
-        };
-        return Response.json(payload);
-      },
-    );
-  };
+export interface DrawerTarget {
+  resource: ResourceConfig;
+  drawer: DrawerConfig;
 }
 
-/** POST /api/flowpanel/drawer/[resource]/[id]/actions/[action] */
-export function drawerActionRoute(config: ResolvedAdminConfig) {
-  bindPublisher(config);
-  return async function POST(
-    req: Request,
-    ctx: { params: Promise<{ resource: string; id: string; action: string }> },
-  ): Promise<Response> {
-    const { resource: resourceName, id, action: actionKey } = await ctx.params;
-    const resource = config.resourcesByName.get(resourceName);
-    if (!resource) {
-      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
-    }
-    const actions = resource.options.drawer?.actions;
-    const action = actions?.find((a) => a.key === actionKey);
-    if (!action) {
-      return notFoundResponse(
-        "action",
-        actionKey,
-        (actions ?? []).map((a) => a.key),
-      );
-    }
+/** The resource a drawer URL names and its drawer config, or the answer when either is missing. */
+export function lookupDrawer(config: ResolvedAdminConfig, name: string): DrawerTarget | Response {
+  const resource = lookupResource(config, name);
+  if (resource instanceof Response) return resource;
+  const drawer = resource.options.drawer;
+  if (!drawer) return actionFailure("bad_request", `resource "${name}" has no drawer config`);
+  return { resource, drawer };
+}
 
-    return withGuards(
-      config,
+/** GET /api/flowpanel/drawer/[resource]/[id] — the drawer's payload for one row. */
+export function drawerRoute(config: ResolvedAdminConfig) {
+  return guardedRoute<{ resource: string; id: string }, DrawerTarget>(config, {
+    write: false,
+    resolve: (params) => {
+      const target = lookupDrawer(config, params.resource);
+      if (target instanceof Response) return target;
+      return { spec: { resource: target.resource, operation: "read" }, target };
+    },
+    handle: async ({
       req,
-      { resource, actionAccess: action.access, actionRequireRole: action.requireRole },
-      async (reqCtx) => {
-        const itemCtx: ItemQueryContext = {
-          ...reqCtx,
-          db: config.adapter.db,
-          dateRange: { from: new Date(0), to: new Date() },
-          searchParams: new URLSearchParams(),
-          signal: new AbortController().signal,
+      reqCtx,
+      target: { resource, drawer },
+      params: { resource: name, id },
+    }) => {
+      const readable = await resolveReadableFieldSet(
+        declaredDrawerRowFields(resource),
+        resource.options.fieldAccess,
+        reqCtx,
+      );
+      const select = selectKnownFields(readable, config.adapter.introspect(resource.ref).columns);
+      const row = await readRow(
+        config,
+        resource,
+        id,
+        reqCtx,
+        withSoftDeleteColumn(resource, select),
+      );
+      const visibility = row ? await rowVisibility(resource, row, reqCtx) : "hidden";
+      if (!row || visibility === "hidden") return rowNotFound();
+      return Response.json(
+        await buildDrawerPayload({
+          config,
+          resource,
+          drawer,
+          name,
           id,
-          ...scopeBinding(config, resource, reqCtx),
-        };
-        const row = (await runWithRequestContext(reqCtx, () =>
-          config.adapter.get(resource.ref, itemCtx),
-        )) as Record<string, unknown> | null;
-        if (!row) {
-          return Response.json({ ok: false, error: "not found" }, { status: 404 });
-        }
-        if (action.when) {
-          const allowed = await action.when({ ...reqCtx, current: row, input: {} });
-          if (!allowed) {
-            return Response.json({ ok: false, error: "not found" }, { status: 404 });
-          }
-        }
-
-        const body = await readActionInput(req);
-        if (!body.ok) return invalidJsonResponse(body.reason);
-        const parsedInput = await parseActionInputSchema(
-          action.form as Parameters<typeof parseActionInputSchema>[0],
-          undefined,
-          body.input,
-        );
-        if (parsedInput.issues) {
-          return Response.json(
-            { ok: false, error: "validation failed", issues: parsedInput.issues },
-            { status: 422 },
-          );
-        }
-
-        const actionCtx = buildActionContext(config, reqCtx, action);
-
-        // A drawer action's result is typed ActionResult<never>; any data reaching here
-        // escaped the type system, so refuse it rather than forward it to the client.
-        const result = validateActionOutput(
-          undefined,
-          await runWithRequestContext(reqCtx, () => action.run(row, parsedInput.data, actionCtx)),
-        );
-
-        await maybeEmitAudit(
-          result,
-          config.audit,
-          resource.options.audit,
-          buildAuditEvent(
-            reqCtx,
-            {
-              action: `${resourceName}.drawer.${actionKey}`,
-              resource: resourceName,
-              targetId: id,
-            },
-            config.auth.userId,
-          ),
-        );
-
-        if (result.ok) {
-          await applyActionResult(result, {
-            resourceName,
-            pathname: buildHref(config, resourceName),
-          });
-        }
-        return Response.json(result);
-      },
-    );
-  };
+          row,
+          readable,
+          reqCtx,
+          req,
+          deleted: visibility === "deleted",
+        }),
+      );
+    },
+  });
 }

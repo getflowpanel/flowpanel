@@ -50,7 +50,7 @@ function makeConfig(opts: {
     resources: [],
     resourcesByName: new Map(),
     dashboardsByPath,
-    basePath: "/admin",
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return config;
@@ -70,7 +70,7 @@ describe("dashboardActionRoute", () => {
     });
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toEqual({ code: "not_found", message: "dashboard not found" });
+    expect(body).toMatchObject({ error: "dashboard not found", code: "not_found" });
   });
 
   it("returns 404 when the action key is not in dashboard.actions", async () => {
@@ -94,10 +94,10 @@ describe("dashboardActionRoute", () => {
     });
     expect(res.status).toBe(404);
     const body = await res.json();
-    expect(body.error).toEqual({ code: "not_found", message: "action not found" });
+    expect(body).toMatchObject({ error: "action not found", code: "not_found" });
   });
 
-  it("returns 403 when per-action requireRole fails", async () => {
+  it("returns 403 when per-action access fails", async () => {
     const dashboard: DashboardConfig = {
       path: "/pipeline",
       label: "Pipeline",
@@ -106,7 +106,7 @@ describe("dashboardActionRoute", () => {
         {
           key: "trigger-scraper",
           label: "Trigger",
-          requireRole: "admin",
+          access: "admin",
           run: async () => ({ ok: true }),
         },
       ],
@@ -158,7 +158,7 @@ describe("dashboardActionRoute", () => {
     );
     expect(sink).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: "dashboard.action.trigger-scraper",
+        action: "dashboard.action.pipeline.trigger-scraper",
         resource: "dashboard",
         targetId: "/pipeline",
       }),
@@ -210,7 +210,7 @@ describe("dashboardActionRoute", () => {
     expect(body.error).toBe("Internal server error");
   });
 
-  it("returns 422 with issues when input fails the action's required form field", async () => {
+  it("returns 422 with field errors when input fails the action's required form field", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const dashboard: DashboardConfig = {
       path: "/pipeline",
@@ -238,7 +238,7 @@ describe("dashboardActionRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toBe("validation failed");
-    expect(body.issues).toEqual([{ path: ["queue"], message: "queue is required" }]);
+    expect(body.fieldErrors).toEqual({ queue: "Queue is required" });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -305,7 +305,7 @@ describe("serializeDashboardAction", () => {
       label: "Trigger",
       icon: "play",
       variant: "default",
-      requireRole: "admin",
+      access: "admin",
       run: async () => ({ ok: true }),
     };
     const wire = serializeDashboardAction(action);

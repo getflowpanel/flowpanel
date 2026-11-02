@@ -2,7 +2,8 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { planAuthSession } from "../init-auth";
+import { tpl } from "../../utils/template";
+import { planAuthSession, planDevStubReplacement } from "../init-auth";
 
 async function project(authModule: string): Promise<string> {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "fp-initauth-"));
@@ -20,7 +21,7 @@ const INSTANCE = "export const auth = { api: { getSession: async () => null } };
 const WIRED = "export async function getSession(): Promise<null> { return null; }\n";
 
 describe("planAuthSession", () => {
-  it("bridges a better-auth instance through the preset", async () => {
+  it("bridges a better-auth instance through the preset, beside the auth module", async () => {
     const cwd = await project(INSTANCE);
     expect(
       await planAuthSession({
@@ -32,8 +33,8 @@ describe("planAuthSession", () => {
       }),
     ).toEqual({
       provider: "better-auth",
-      file: "src/server/lib/flowpanel-session.ts",
-      specifier: "@/server/lib/flowpanel-session",
+      file: "src/lib/flowpanel-session.ts",
+      specifier: "@/lib/flowpanel-session",
       template: "auth-session.better-auth.ts.txt",
       vars: { AUTH_MODULE: "@/lib/auth" },
     });
@@ -90,5 +91,45 @@ describe("planAuthSession", () => {
     expect(
       await planAuthSession({ ...base, detectedAuth: null, provider: "lucia", devAuth: false }),
     ).toBeNull();
+  });
+});
+
+describe("planDevStubReplacement", () => {
+  it("swaps the closed stub for the development stub", async () => {
+    const closed = await tpl("auth-session.ts.txt");
+    const cwd = await project(closed);
+    expect(await planDevStubReplacement(cwd, "@/lib/auth")).toEqual({
+      kind: "replace",
+      file: "src/lib/auth.ts",
+      content: await tpl("dev-session.ts.txt", { FILE: "src/lib/auth.ts" }),
+      expectedContent: closed,
+    });
+  });
+
+  it("keeps the development stub replaceable so a re-run reports it unchanged", async () => {
+    const cwd = await project(await tpl("dev-session.ts.txt", { FILE: "src/lib/auth.ts" }));
+    expect(await planDevStubReplacement(cwd, "@/lib/auth")).toMatchObject({ kind: "replace" });
+  });
+
+  it("still recognises the closed stub after formatting changes", async () => {
+    const cwd = await project(
+      `${await tpl("auth-session.ts.txt")}\n`.replace("return null;", "return null"),
+    );
+    expect(await planDevStubReplacement(cwd, "@/lib/auth")).toMatchObject({ kind: "replace" });
+  });
+
+  it("refuses a module that returns a real session", async () => {
+    const cwd = await project(
+      (await tpl("auth-session.ts.txt")).replace("return null;", "return auth.getSession();"),
+    );
+    expect(await planDevStubReplacement(cwd, "@/lib/auth")).toEqual({
+      kind: "customised",
+      file: "src/lib/auth.ts",
+    });
+  });
+
+  it("has nothing to say about a specifier that resolves to no file", async () => {
+    const cwd = await project(WIRED);
+    expect(await planDevStubReplacement(cwd, "@/lib/missing")).toBeNull();
   });
 });

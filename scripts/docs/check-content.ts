@@ -19,14 +19,34 @@ function withoutCode(source: string): string {
     .replace(/`[^`\n]+`/g, "");
 }
 
+function metaPages(metaPath: string): string[] {
+  const meta: unknown = JSON.parse(readFileSync(metaPath, "utf8"));
+  const pages = typeof meta === "object" && meta !== null && "pages" in meta ? meta.pages : [];
+  return Array.isArray(pages) ? pages.filter((page) => typeof page === "string") : [];
+}
+
+/** Pages another group lists by relative path, such as `"../guides/upgrade"`. */
+function borrowedPages(files: readonly string[]): Set<string> {
+  const borrowed = new Set<string>();
+  for (const directory of new Set(files.map((file) => dirname(file)))) {
+    const metaPath = join(directory, "meta.json");
+    if (!existsSync(metaPath)) continue;
+    for (const page of metaPages(metaPath)) {
+      if (page.startsWith("../")) borrowed.add(resolve(directory, `${page}.mdx`));
+    }
+  }
+  return borrowed;
+}
+
 function checkNavigation(root: string, files: readonly string[]): DocsProblem[] {
   const problems: DocsProblem[] = [];
+  const borrowed = borrowedPages(files);
   for (const file of files) {
     const metaPath = join(dirname(file), "meta.json");
     const slug = basename(file, ".mdx");
     let pages: string[] = [];
     try {
-      pages = (JSON.parse(readFileSync(metaPath, "utf8")) as { pages?: string[] }).pages ?? [];
+      pages = metaPages(metaPath);
     } catch {
       problems.push({
         code: "navigation-meta-missing",
@@ -37,7 +57,7 @@ function checkNavigation(root: string, files: readonly string[]): DocsProblem[] 
       });
       continue;
     }
-    if (!pages.includes(slug)) {
+    if (!pages.includes(slug) && !borrowed.has(resolve(file))) {
       problems.push({
         code: "navigation-missing",
         file: displayPath(root, file),
@@ -92,7 +112,7 @@ export function checkContent(root: string): DocsProblem[] {
   const titles = new Map<string, string[]>();
 
   try {
-    validateDocRedirects(DOC_REDIRECTS, new Set(pageByRoute.keys()));
+    validateDocRedirects(DOC_REDIRECTS, new Set([...pageByRoute.keys(), "/changelog"]));
   } catch (error) {
     problems.push({
       code: "redirect-invalid",

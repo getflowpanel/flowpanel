@@ -28,6 +28,11 @@ class MockEventSource {
   onerror: null | (() => void) = null;
   onopen: null | (() => void) = null;
   readyState: number = MockEventSource.CONNECTING;
+  /** The server\'s named events, such as the `ready` frame it sends once the stream answers. */
+  listeners = new Map<string, Array<() => void>>();
+  addEventListener(type: string, fn: () => void): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), fn]);
+  }
   private _closeSpy = vi.fn();
   constructor(public url: string) {
     instances.push({
@@ -35,6 +40,7 @@ class MockEventSource {
       open: () => {
         this.readyState = MockEventSource.OPEN;
         this.onopen?.();
+        for (const fn of this.listeners.get("ready") ?? []) fn();
       },
       message: (d) => this.onmessage?.({ data: d }),
       error: () => this.onerror?.(),
@@ -432,6 +438,31 @@ describe("RealtimeProvider", () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
     expect(instances).toHaveLength(1);
+  });
+
+  it("reports a throwing subscriber and still delivers to the others", async () => {
+    const boom = new Error("widget handler broke");
+    const report = vi.fn();
+    vi.stubGlobal("reportError", report);
+    const throwing = vi.fn(() => {
+      throw boom;
+    });
+    const healthy = vi.fn();
+    render(
+      <RealtimeProvider refreshDebounceMs={10}>
+        <Sub channels={["a"]} cb={throwing} />
+        <Sub channels={["a"]} cb={healthy} />
+      </RealtimeProvider>,
+    );
+    await flushReopen();
+    act(() => instances[0]!.open());
+    act(() => {
+      instances[0]!.message(JSON.stringify({ channel: "a", payload: 1 }));
+    });
+    expect(throwing).toHaveBeenCalled();
+    expect(healthy).toHaveBeenCalledWith(1);
+    expect(report).toHaveBeenCalledWith(boom);
+    vi.unstubAllGlobals();
   });
 
   it("routes an envelope to only its own channel's subscriber", async () => {

@@ -44,4 +44,73 @@ describe("documentation API checks", () => {
     );
     expect(codes).toEqual(expect.arrayContaining(["api-import-symbol", "api-component-symbol"]));
   });
+
+  it("flags a builder named in prose that no package exports", () => {
+    const root = mkdtempSync(join(tmpdir(), "flowpanel-docs-api-builder-"));
+    fixtures.push(root);
+    mkdirSync(join(root, "packages/example/src"), { recursive: true });
+    mkdirSync(join(root, "apps/site/content/docs/reference"), { recursive: true });
+    writeFileSync(
+      join(root, "tsconfig.base.json"),
+      JSON.stringify({ compilerOptions: { module: "ESNext", moduleResolution: "Bundler" } }),
+    );
+    writeFileSync(
+      join(root, "packages/example/package.json"),
+      JSON.stringify({
+        name: "@fixture/example",
+        exports: { ".": { types: "./dist/index.d.ts" } },
+      }),
+    );
+    writeFileSync(
+      join(root, "packages/example/src/index.ts"),
+      "export function defineAdmin(): void {}\n",
+    );
+    writeFileSync(
+      join(root, "apps/site/content/docs/reference/api.mdx"),
+      "---\ntitle: API\ndescription: API.\nkind: reference\n---\nSet it once in `defineAdmin()`, not in `defineConfig`.\n",
+    );
+
+    const problems = checkApi(root, { ownership: false, contracts: false });
+    expect(problems.map((problem) => [problem.code, problem.message])).toEqual([
+      ["api-inline-builder", "defineConfig is not exported by any FlowPanel package."],
+    ]);
+  });
+
+  it("flags a signature block for a helper that no package entry exports", () => {
+    const root = mkdtempSync(join(tmpdir(), "flowpanel-docs-api-public-"));
+    fixtures.push(root);
+    mkdirSync(join(root, "packages/example/src"), { recursive: true });
+    mkdirSync(join(root, "apps/site/content/docs/reference"), { recursive: true });
+    writeFileSync(
+      join(root, "tsconfig.base.json"),
+      JSON.stringify({ compilerOptions: { module: "ESNext", moduleResolution: "Bundler" } }),
+    );
+    writeFileSync(
+      join(root, "packages/example/package.json"),
+      JSON.stringify({
+        name: "@fixture/example",
+        exports: { ".": { types: "./dist/index.d.ts" } },
+      }),
+    );
+    writeFileSync(
+      join(root, "packages/example/src/index.ts"),
+      'export { shown } from "./format";\n',
+    );
+    writeFileSync(
+      join(root, "packages/example/src/format.ts"),
+      "export function shown(): void {}\nexport function internalOnly(): void {}\n",
+    );
+    writeFileSync(
+      join(root, "apps/site/content/docs/reference/api.mdx"),
+      '---\ntitle: API\ndescription: API.\nkind: reference\n---\n<ApiSignature path="../../packages/example/src/format.ts" name="shown" />\n<ApiSignature path="../../packages/example/src/format.ts" name="internalOnly" />\n',
+    );
+
+    const problems = checkApi(root, { ownership: false, contracts: false });
+    expect(problems.map((problem) => [problem.code, problem.message])).toEqual([
+      [
+        "api-component-public",
+        "ApiSignature documents internalOnly, which no package entry exports.",
+      ],
+    ]);
+  });
 });

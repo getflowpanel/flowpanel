@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ogImages } from "@/shared/lib/og-image";
 import { source } from "@/shared/lib/source";
 
 interface MetaParams {
@@ -12,8 +13,24 @@ export function generateDocsStaticParams() {
 export function generateDocsMetadata({ slug }: MetaParams): Metadata {
   const page = source.getPage(slug);
   if (!page) return {};
+  const title = page.data.metaTitle ?? page.data.title;
   return {
-    title: page.data.title,
+    title,
     description: page.data.description,
+    alternates: { canonical: page.url },
+    openGraph: {
+      title: `${title} · FlowPanel`,
+      description: page.data.description,
+      url: page.url,
+      siteName: "FlowPanel",
+      type: "article",
+      images: ogImages,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} · FlowPanel`,
+      description: page.data.description,
+      images: ogImages,
+    },
   };
 }

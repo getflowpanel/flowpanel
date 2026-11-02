@@ -35,6 +35,16 @@ describe("coerceRowByColumns", () => {
     expect(fieldErrors).toEqual({});
   });
 
+  it("reads a datetime-local value on the form's zone when one is given", () => {
+    const { values } = coerce(
+      columns,
+      { bornAt: "2026-10-07T02:37" },
+      DEFAULT_LABELS,
+      "Europe/Moscow",
+    );
+    expect(values.bornAt).toEqual(new Date("2026-10-06T23:37:00Z"));
+  });
+
   it("nulls an empty string on a nullable column", () => {
     const { values, fieldErrors } = coerceRowByColumns(columns, { age: "", bornAt: "" });
     expect(values).toEqual({ age: null, bornAt: null });
@@ -70,6 +80,17 @@ describe("coerceRowByColumns", () => {
   it("produces a per-field error for an unparseable date", () => {
     const { fieldErrors } = coerceRowByColumns(columns, { bornAt: "not-a-date" });
     expect(fieldErrors.bornAt).toBe("Born at must be a date");
+  });
+
+  it("refuses a datetime-local value whose day or time does not exist, instead of rolling it over", () => {
+    const { values, fieldErrors } = coerce(
+      columns,
+      { bornAt: "2026-02-30T25:99" },
+      DEFAULT_LABELS,
+      "Europe/Moscow",
+    );
+    expect(fieldErrors.bornAt).toBe("Born at must be a date");
+    expect(values.bornAt).toBe("2026-02-30T25:99");
   });
 
   it("leaves string/unknown-kind columns untouched", () => {

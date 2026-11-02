@@ -4,10 +4,11 @@ import {
   buildDetailTabContext,
   buildWidgetContext,
   detailTabDateRange,
+  widgetHref,
 } from "../runtime/widget-context";
 
 const config = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: { tag: "db" } },
   labels: { widget: { empty: "Nothing here" } },
   resourcesByName: new Map(),
@@ -30,22 +31,22 @@ function ctx(row?: Record<string, unknown>) {
   return buildWidgetContext(config, reqCtx, reqCtx.req, dateRange, row);
 }
 
-describe("buildWidgetContext — href", () => {
+describe("widgetHref", () => {
   it("builds a mount-aware list and record path", () => {
-    expect(ctx().href("users")).toBe("/admin/users");
-    expect(ctx().href("users", "u 1")).toBe("/admin/users/u%201");
+    expect(widgetHref(config, "UTC", "users", undefined, undefined)).toBe("/admin/users");
+    expect(widgetHref(config, "UTC", "users", "u 1", undefined)).toBe("/admin/users/u%201");
   });
 
   it("appends a filter as the list page's own query key", () => {
-    expect(ctx().href("orders", undefined, { filter: { status: "paid" } })).toBe(
+    expect(widgetHref(config, "UTC", "orders", undefined, { filter: { status: "paid" } })).toBe(
       "/admin/orders?f_status=paid",
     );
   });
 
   it("appends a tab, and drops a filter value that is not there", () => {
-    expect(ctx().href("users", 7, { tab: "activity", filter: { role: undefined } })).toBe(
-      "/admin/users/7?tab=activity",
-    );
+    expect(
+      widgetHref(config, "UTC", "users", 7, { tab: "activity", filter: { role: undefined } }),
+    ).toBe("/admin/users/7?tab=activity");
   });
 });
 

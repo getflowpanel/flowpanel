@@ -6,9 +6,8 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { FlowpanelAccessError, FlowpanelAuthError } from "@flowpanel/core";
-import { EmptyState } from "@flowpanel/react";
-import { isValidElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { isValidElement, type ReactElement } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const redirectSpy = vi.fn((url: string) => {
   // Mirrors Next's real `redirect()`: throws a control-flow error that must
@@ -17,17 +16,22 @@ const redirectSpy = vi.fn((url: string) => {
   (err as unknown as { digest: string }).digest = `NEXT_REDIRECT;${url}`;
   throw err;
 });
+const NOT_FOUND = "NEXT_HTTP_ERROR_FALLBACK;404";
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => redirectSpy(url),
+  notFound: () => {
+    throw Object.assign(new Error(NOT_FOUND), { digest: NOT_FOUND });
+  },
 }));
 
 import { handleRenderError, renderContent } from "../flowpanel-page";
 import { DashboardPage } from "../pages/dashboard";
-import { NotFound } from "../pages/not-found";
 import { QueuePage } from "../pages/queue-page";
 import { ResourceListPage } from "../pages/resource-list";
 import { UserPage } from "../pages/user-page";
+import { Wall } from "../pages/wall";
 import { Welcome } from "../pages/welcome";
+import { DevAuthNote, devAuthNote } from "../runtime/dev-auth-note";
 
 function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdminConfig {
   return {
@@ -41,13 +45,13 @@ function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdmin
     dashboardsByPath: new Map(),
     pagesByPath: new Map(),
     queuesByKey: new Map(),
-    basePath: "/admin",
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
     ...overrides,
   } as ResolvedAdminConfig;
 }
 
-describe("renderContent — admin-wide requireRole", () => {
+describe("renderContent — admin-wide access", () => {
   it("opens the first resource the caller can read, not merely the first visible resource", async () => {
     const denied = {
       __kind: "resource",
@@ -80,13 +84,13 @@ describe("renderContent — admin-wide requireRole", () => {
     );
   });
 
-  it("rejects a dashboard render when admin-wide requireRole fails, even without its own gate", async () => {
+  it("rejects a dashboard render when admin-wide access fails, even without its own gate", async () => {
     const dash: DashboardConfig = { path: "/", label: "Home", sections: [] };
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "viewer" } }),
         role: () => "viewer",
-        requireRole: "admin",
+        access: "admin",
       },
       dashboards: [dash],
       dashboardsByPath: new Map([["/", dash]]),
@@ -97,13 +101,13 @@ describe("renderContent — admin-wide requireRole", () => {
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
   });
 
-  it("renders the dashboard when admin-wide requireRole passes and the dashboard has no own gate", async () => {
+  it("renders the dashboard when admin-wide access passes and the dashboard has no own gate", async () => {
     const dash: DashboardConfig = { path: "/", label: "Home", sections: [] };
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "admin" } }),
         role: () => "admin",
-        requireRole: "admin",
+        access: "admin",
       },
       dashboards: [dash],
       dashboardsByPath: new Map([["/", dash]]),
@@ -118,13 +122,13 @@ describe("renderContent — admin-wide requireRole", () => {
     expect(isValidElement(node) && node.type).toBe(DashboardPage);
   });
 
-  it("rejects a user page render when admin-wide requireRole fails, even without its own gate", async () => {
+  it("rejects a user page render when admin-wide access fails, even without its own gate", async () => {
     const page: PageConfig = { path: "/reports", label: "Reports", component: () => null };
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "viewer" } }),
         role: () => "viewer",
-        requireRole: "admin",
+        access: "admin",
       },
       pagesByPath: new Map([["/reports", page]]),
     } as never);
@@ -139,13 +143,13 @@ describe("renderContent — admin-wide requireRole", () => {
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
   });
 
-  it("renders the user page when admin-wide requireRole passes and the page has no own gate", async () => {
+  it("renders the user page when admin-wide access passes and the page has no own gate", async () => {
     const page: PageConfig = { path: "/reports", label: "Reports", component: () => null };
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "admin" } }),
         role: () => "admin",
-        requireRole: "admin",
+        access: "admin",
       },
       pagesByPath: new Map([["/reports", page]]),
     } as never);
@@ -159,7 +163,7 @@ describe("renderContent — admin-wide requireRole", () => {
     expect(isValidElement(node) && node.type).toBe(UserPage);
   });
 
-  it("rejects a queue render when admin-wide requireRole fails, even without its own gate", async () => {
+  it("rejects a queue render when admin-wide access fails, even without its own gate", async () => {
     const queue: QueueConfig = {
       __kind: "queue",
       ref: {} as never,
@@ -169,7 +173,7 @@ describe("renderContent — admin-wide requireRole", () => {
       auth: {
         session: async () => ({ user: { id: "u1", role: "viewer" } }),
         role: () => "viewer",
-        requireRole: "admin",
+        access: "admin",
       },
       queuesByKey: new Map([["scraper", queue]]),
     } as never);
@@ -184,7 +188,7 @@ describe("renderContent — admin-wide requireRole", () => {
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
   });
 
-  it("renders the queue when admin-wide requireRole passes and the queue has no own gate", async () => {
+  it("renders the queue when admin-wide access passes and the queue has no own gate", async () => {
     const queue: QueueConfig = {
       __kind: "queue",
       ref: {} as never,
@@ -199,7 +203,7 @@ describe("renderContent — admin-wide requireRole", () => {
       auth: {
         session: async () => ({ user: { id: "u1", role: "admin" } }),
         role: () => "admin",
-        requireRole: "admin",
+        access: "admin",
       },
       queuesByKey: new Map([
         ["scraper", queue],
@@ -221,6 +225,40 @@ describe("renderContent — admin-wide requireRole", () => {
       { label: "Scraper", href: "/admin/queues/scraper", active: true },
       { label: "Billing", href: "/admin/queues/billing", active: false },
     ]);
+    expect(isValidElement(node) && node.props).toMatchObject({
+      label: "Scraper",
+      boardUrl: "http://localhost:3001",
+    });
+    expect(isValidElement(node) && node.props).not.toHaveProperty("queue");
+  });
+
+  it("explains an empty boardSecret in development instead of framing the board's 401", async () => {
+    const queue: QueueConfig = {
+      __kind: "queue",
+      ref: {} as never,
+      options: { label: "Email", boardUrl: "http://localhost:3001/email", boardSecret: undefined },
+    };
+    const config = makeConfig({
+      auth: {
+        session: async () => ({ user: { id: "u1", role: "admin" } }),
+        role: () => "admin",
+        access: "admin",
+      },
+      queuesByKey: new Map([["email", queue]]),
+    } as never);
+    const render = async () => {
+      const node = await renderContent(
+        config,
+        ["queues", "email"],
+        new URLSearchParams(),
+        new Request("http://localhost/admin/queues/email"),
+      );
+      return isValidElement(node) ? (node.props as { devNote?: string }).devNote : undefined;
+    };
+    expect(await render()).toMatch(/boardSecret is empty[\s\S]*Set BOARD_SECRET/);
+    vi.stubEnv("NODE_ENV", "production");
+    expect(await render()).toBeUndefined();
+    vi.unstubAllEnvs();
   });
 });
 
@@ -286,7 +324,7 @@ describe("handleRenderError", () => {
       new Request("http://localhost/admin"),
     );
     expect(redirectSpy).not.toHaveBeenCalled();
-    expect(isValidElement(node) && node.type).toBe(EmptyState);
+    expect(isValidElement(node) && node.type).toBe(Wall);
     expect(isValidElement(node) && (node.props as { title: string }).title).toBe(
       "Sign in required",
     );
@@ -305,8 +343,63 @@ describe("handleRenderError", () => {
       new Request("http://localhost/admin"),
     );
     expect(redirectSpy).not.toHaveBeenCalled();
-    expect(isValidElement(node) && node.type).toBe(EmptyState);
-    expect(isValidElement(node) && (node.props as { title: string }).title).toBe("Access denied");
+    expect(isValidElement(node) && node.type).toBe(Wall);
+    expect(isValidElement(node) && (node.props as { title: string }).title).toBe(
+      "You don't have access to this admin",
+    );
+  });
+});
+
+describe("the sign-in wall for a developer", () => {
+  const signedOut = () =>
+    makeConfig({ auth: { session: async () => null, role: () => "guest" } } as never);
+  const wall = async () =>
+    (await handleRenderError(
+      new FlowpanelAccessError(),
+      signedOut(),
+      new Request("http://localhost/admin"),
+    )) as ReactElement<{ children?: ReactElement | null }>;
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("puts the development note under the description outside production", async () => {
+    const node = await wall();
+    expect(node.type).toBe(Wall);
+    expect(node.props.children?.type).toBe(DevAuthNote);
+  });
+
+  it("warns the same sentence once per process", async () => {
+    vi.resetModules();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { FlowpanelAccessError: FreshAccessError } = await import("@flowpanel/core");
+    const { handleRenderError: fresh } = await import("../flowpanel-page");
+    const config = signedOut();
+    await fresh(new FreshAccessError(), config, new Request("http://localhost/admin"));
+    await fresh(new FreshAccessError(), config, new Request("http://localhost/admin"));
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(`[flowpanel] ${devAuthNote()}`);
+  });
+
+  it("leaves production output unchanged", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const node = await wall();
+    expect(node.props.children).toBeNull();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("adds no note to the access-denied wall", async () => {
+    const node = (await handleRenderError(
+      new FlowpanelAccessError(),
+      makeConfig({
+        auth: { session: async () => ({ user: { id: "u1" } }), role: () => "viewer" },
+      } as never),
+      new Request("http://localhost/admin"),
+    )) as ReactElement<{ children?: unknown }>;
+    expect(node.props.children).toBeUndefined();
   });
 });
 
@@ -320,15 +413,14 @@ describe("renderContent — root slug on an empty config", () => {
       new Request("http://localhost/admin"),
     );
     expect(isValidElement(node) && node.type).toBe(Welcome);
-    expect(isValidElement(node) && node.type).not.toBe(NotFound);
   });
 
-  it("rejects Welcome on an empty config when admin-wide requireRole fails, same as sibling branches", async () => {
+  it("rejects Welcome on an empty config when admin-wide access fails, same as sibling branches", async () => {
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "viewer" } }),
         role: () => "viewer",
-        requireRole: "admin",
+        access: "admin",
       },
     } as never);
 
@@ -337,19 +429,31 @@ describe("renderContent — root slug on an empty config", () => {
     ).rejects.toBeInstanceOf(FlowpanelAccessError);
   });
 
-  it("still renders NotFound for an unknown slug once the config has at least one resource", async () => {
+  it.each([
+    ["an unknown resource", ["does-not-exist"]],
+    ["an unknown queue", ["queues", "nope"]],
+    ["an unknown record sub-path", ["users", "u1", "nope"]],
+  ])("is a 404 for %s once the config has at least one resource", async (_name, slug) => {
     const resource: ResourceConfig = { __kind: "resource", ref: {}, options: { name: "users" } };
     const config = makeConfig({
       resources: [resource],
       resourcesByName: new Map([["users", resource]]),
     } as never);
 
-    const node = await renderContent(
-      config,
-      ["does-not-exist"],
-      new URLSearchParams(),
-      new Request("http://localhost/admin/does-not-exist"),
-    );
-    expect(isValidElement(node) && node.type).toBe(NotFound);
+    await expect(
+      renderContent(
+        config,
+        slug,
+        new URLSearchParams(),
+        new Request(`http://localhost/admin/${slug.join("/")}`),
+      ),
+    ).rejects.toMatchObject({ digest: NOT_FOUND });
+  });
+
+  it("lets the 404 pass the render-error boundary", async () => {
+    const boom = Object.assign(new Error(NOT_FOUND), { digest: NOT_FOUND });
+    await expect(
+      handleRenderError(boom, makeConfig(), new Request("http://localhost/admin/nope")),
+    ).rejects.toBe(boom);
   });
 });

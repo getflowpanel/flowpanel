@@ -1,27 +1,18 @@
-import type {
-  ActionResult,
-  IconName,
-  ItemQueryContext,
-  ResolvedAdminConfig,
-  RowAction,
-} from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
-import {
-  buildActionContext,
-  buildAuditEvent,
-  computeShallowDiff,
-  invalidJsonResponse,
-  isAuditActive,
-  maybeEmitAudit,
-  notFoundResponse,
-  readActionInput,
-} from "../runtime/action-helpers";
-import { parseActionInputSchema, validateActionOutput } from "../runtime/action-schema";
-import { applyActionResult } from "../runtime/apply-action-result";
+import type { IconName, ResolvedAdminConfig, ResourceConfig, RowAction } from "@flowpanel/core";
+import { mergeLabels } from "@flowpanel/core";
+import { actionFailure } from "../runtime/action-failure";
+import { actionAppliesTo, resourceActionTarget } from "../runtime/action-gate";
 import { buildHref } from "../runtime/href";
-import { bindPublisher } from "../runtime/publish";
-import { scopeBinding } from "../runtime/scope-binding";
-import { withGuards } from "../runtime/with-guards";
+import { readLiveRow, readRow } from "../runtime/read-row";
+import {
+  auditDiff,
+  guardedRoute,
+  lookupAction,
+  lookupResource,
+  readActionBody,
+  rowNotFound,
+  runDeclaredAction,
+} from "../runtime/write-pipeline";
 import type { ActionFormField } from "./action-form-field";
 import { serializeActionForm } from "./serialize-action-field";
 
@@ -59,131 +50,51 @@ export function serializeRowAction<Row>(a: RowAction<Row>): SerializedRowAction 
 }
 
 export function rowActionRoute(config: ResolvedAdminConfig) {
-  bindPublisher(config);
+  return guardedRoute<
+    { resource: string; id: string; action: string },
+    { resource: ResourceConfig; action: RowAction<Record<string, unknown>> }
+  >(config, {
+    resolve: (params) => {
+      const resource = lookupResource(config, params.resource);
+      if (resource instanceof Response) return resource;
+      const actions = resource.options.actions as RowAction<Record<string, unknown>>[] | undefined;
+      const action = lookupAction(actions, params.action);
+      if (action instanceof Response) return action;
+      return { spec: resourceActionTarget(resource, action), target: { resource, action } };
+    },
+    handle: async ({ req, reqCtx, target: { resource, action }, params }) => {
+      const { resource: name, id } = params;
+      const row = await readLiveRow(config, resource, id, reqCtx);
+      if (!row || !(await actionAppliesTo(action, row, reqCtx))) return rowNotFound();
+      const disabled = action.disabled?.(row);
+      if (disabled) {
+        return actionFailure(
+          "conflict",
+          typeof disabled === "string" ? disabled : mergeLabels(config.labels).errors.notApplicable,
+        );
+      }
 
-  return async function POST(
-    req: Request,
-    ctx: { params: Promise<{ resource: string; id: string; action: string }> },
-  ): Promise<Response> {
-    const { resource: resourceName, id, action: actionKey } = await ctx.params;
-    const resource = config.resourcesByName.get(resourceName);
-    if (!resource) {
-      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
-    }
-    const actions = resource.options.actions as RowAction<Record<string, unknown>>[] | undefined;
-    const action = actions?.find((a) => a.key === actionKey);
-    if (!action) {
-      return notFoundResponse(
-        "action",
-        actionKey,
-        (actions ?? []).map((a) => a.key),
+      const input = await readActionBody(req);
+      if (input instanceof Response) return input;
+      return runDeclaredAction(
+        config,
+        reqCtx,
+        action,
+        input,
+        (parsed, actionCtx) => action.run(row, parsed, actionCtx),
+        {
+          audit: {
+            action: `${name}.action.${action.key}`,
+            resource: name,
+            targetId: id,
+            diff: async () =>
+              auditDiff(config, resource, row, await readRow(config, resource, id, reqCtx), reqCtx),
+            rows: new Map([[id, row]]),
+          },
+          resourceAudit: resource.options.audit,
+          publish: { resourceName: name, pathname: buildHref(config, name) },
+        },
       );
-    }
-
-    return withGuards(
-      config,
-      req,
-      { resource, actionAccess: action.access, actionRequireRole: action.requireRole },
-      async (reqCtx) => {
-        const itemCtx: ItemQueryContext = {
-          ...reqCtx,
-          db: config.adapter.db,
-          dateRange: { from: new Date(0), to: new Date() },
-          searchParams: new URLSearchParams(),
-          signal: new AbortController().signal,
-          id,
-          ...scopeBinding(config, resource, reqCtx),
-        };
-        const row = (await runWithRequestContext(reqCtx, () =>
-          config.adapter.get(resource.ref, itemCtx),
-        )) as Record<string, unknown> | null;
-        if (!row) {
-          return Response.json({ ok: false, error: "not found" }, { status: 404 });
-        }
-
-        if (action.when) {
-          const allowed = await action.when({ ...reqCtx, current: row, input: {} });
-          if (!allowed) {
-            return Response.json({ ok: false, error: "not found" }, { status: 404 });
-          }
-        }
-
-        if (action.hidden) {
-          const isHidden = await action.hidden(row, reqCtx);
-          if (isHidden) {
-            return Response.json({ ok: false, error: "not found" }, { status: 404 });
-          }
-        }
-        if (action.disabled) {
-          const reason = action.disabled(row);
-          if (reason) {
-            const msg = typeof reason === "string" ? reason : "action disabled for this row";
-            return Response.json({ ok: false, error: msg }, { status: 409 });
-          }
-        }
-
-        const body = await readActionInput(req);
-        if (!body.ok) return invalidJsonResponse(body.reason);
-        const input = body.input;
-        const parsedInput = await parseActionInputSchema(
-          action.form as Parameters<typeof parseActionInputSchema>[0],
-          action.inputSchema,
-          input,
-        );
-        if (parsedInput.issues) {
-          return Response.json(
-            { ok: false, error: "validation failed", issues: parsedInput.issues },
-            { status: 422 },
-          );
-        }
-
-        const actionCtx = buildActionContext(config, reqCtx, action);
-
-        const result = validateActionOutput(
-          action.outputSchema,
-          (await runWithRequestContext(reqCtx, () =>
-            action.run(row, parsedInput.data, actionCtx),
-          )) as ActionResult<unknown>,
-        );
-
-        let diff: ReturnType<typeof computeShallowDiff> | undefined;
-        if (result.ok && isAuditActive(config.audit, resource.options.audit)) {
-          let after: Record<string, unknown> | null = null;
-          try {
-            after = (await runWithRequestContext(reqCtx, () =>
-              config.adapter.get(resource.ref, itemCtx),
-            )) as Record<string, unknown> | null;
-          } catch {
-            after = null;
-          }
-          diff = computeShallowDiff(row, after);
-        }
-
-        await maybeEmitAudit(
-          result,
-          config.audit,
-          resource.options.audit,
-          buildAuditEvent(
-            reqCtx,
-            {
-              action: `${resourceName}.action.${actionKey}`,
-              resource: resourceName,
-              targetId: id,
-              ...(diff !== undefined ? { diff } : {}),
-            },
-            config.auth.userId,
-          ),
-        );
-
-        if (result.ok) {
-          await applyActionResult(result, {
-            resourceName,
-            pathname: buildHref(config, resourceName),
-          });
-        }
-
-        return Response.json(result);
-      },
-    );
-  };
+    },
+  });
 }

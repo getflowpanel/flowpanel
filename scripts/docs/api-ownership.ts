@@ -52,7 +52,7 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
-    sourcePrefix: "packages/charts/src/builders/",
+    sourcePrefix: "packages/core/src/builders/charts.ts",
     page: "/docs/reference/widgets",
     anchor: "charts",
     guidance: true,
@@ -77,6 +77,12 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/builders/enum-of.ts",
+    page: "/docs/reference/resources",
+    anchor: "enums",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/builders/queue.ts",
     page: "/docs/reference/queues",
     guidance: true,
@@ -87,15 +93,37 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
-    sourcePrefix: "packages/core/src/builders/widget.ts",
+    sourcePrefix: "packages/core/src/builders/related.ts",
+    page: "/docs/reference/resources",
+    anchor: "related-tabs-in-one-line",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/builders/timeline.ts",
+    page: "/docs/reference/widgets",
+    anchor: "timeline",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/builders/activity.ts",
     page: "/docs/reference/widgets",
     guidance: true,
   },
   {
-    sourcePrefix: "packages/core/src/compiler/",
-    page: "/docs/reference/runtime-contracts",
-    anchor: "compiler-runtime-contract",
-    guidance: false,
+    sourcePrefix: "packages/core/src/types/widget-activity.ts",
+    page: "/docs/reference/widgets",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-timeline.ts",
+    page: "/docs/reference/widgets",
+    anchor: "timeline",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/builders/widget.ts",
+    page: "/docs/reference/widgets",
+    guidance: true,
   },
   {
     sourcePrefix: "packages/core/src/define-admin.ts",
@@ -107,6 +135,18 @@ export const API_OWNERSHIP_RULES = [
     page: "/docs/reference/resources",
     anchor: "column-formatting",
     guidance: false,
+  },
+  {
+    sourcePrefix: "packages/core/src/format-values.ts",
+    page: "/docs/reference/resources",
+    anchor: "formatting-values-yourself",
+    guidance: false,
+  },
+  {
+    sourcePrefix: "packages/core/src/tone-for.ts",
+    page: "/docs/reference/widgets",
+    anchor: "thresholds",
+    guidance: true,
   },
   {
     sourcePrefix: "packages/core/src/humanize.ts",
@@ -133,6 +173,18 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/class-names.ts",
+    page: "/docs/reference/react-components",
+    anchor: "utilities",
+    guidance: false,
+  },
+  {
+    sourcePrefix: "packages/core/src/tone-classes.ts",
+    page: "/docs/reference/react-components",
+    anchor: "theme-utilities",
+    guidance: false,
+  },
+  {
     sourcePrefix: "packages/core/src/policy/",
     page: "/docs/reference/resources",
     anchor: "access-control",
@@ -145,11 +197,6 @@ export const API_OWNERSHIP_RULES = [
   },
   {
     sourcePrefix: "packages/core/src/runtime/audit.ts",
-    page: "/docs/reference/runtime-contracts",
-    guidance: true,
-  },
-  {
-    sourcePrefix: "packages/core/src/runtime/auth.ts",
     page: "/docs/reference/runtime-contracts",
     guidance: true,
   },
@@ -200,7 +247,25 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/runtime/worker-publisher.ts",
+    page: "/docs/reference/scope-realtime",
+    anchor: "publishing-from-a-worker",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/runtime/series.ts",
+    page: "/docs/reference/widgets",
+    anchor: "series-helpers",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/breakdown.ts",
+    page: "/docs/reference/widgets",
+    anchor: "series-helpers",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/runtime/preset-range.ts",
     page: "/docs/reference/widgets",
     anchor: "series-helpers",
     guidance: true,
@@ -211,8 +276,20 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/all-tenants.ts",
+    page: "/docs/guides/multi-tenant-scope",
+    anchor: "staff-who-work-across-tenants",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/adapter-scope.ts",
     page: "/docs/reference/runtime-contracts",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/audit.ts",
+    page: "/docs/reference/define-config",
+    anchor: "auditconfig",
     guidance: true,
   },
   {
@@ -245,6 +322,18 @@ export const API_OWNERSHIP_RULES = [
     sourcePrefix: "packages/core/src/types/dashboard.ts",
     page: "/docs/reference/widgets",
     anchor: "dashboard-layout",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/detail.ts",
+    page: "/docs/reference/resources",
+    anchor: "detailtab",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/config-error.ts",
+    page: "/docs/reference/errors",
+    anchor: "flowpanelconfigerror",
     guidance: true,
   },
   {
@@ -319,8 +408,26 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/types/threshold.ts",
+    page: "/docs/reference/widgets",
+    anchor: "thresholds",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/core/src/types/widget.ts",
     page: "/docs/reference/widgets",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-caption.ts",
+    page: "/docs/reference/widgets",
+    anchor: "captions",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-charts.ts",
+    page: "/docs/reference/widgets",
+    anchor: "charts",
     guidance: true,
   },
   {
@@ -330,17 +437,47 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
+    sourcePrefix: "packages/core/src/types/widget-list.ts",
+    page: "/docs/reference/widgets",
+    anchor: "list",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-context.ts",
+    page: "/docs/reference/widgets",
+    anchor: "widgetcontext",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/bind-format.ts",
+    page: "/docs/reference/widgets",
+    anchor: "widgetformat",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/widget-tracker.ts",
+    page: "/docs/reference/widgets",
+    anchor: "tracker",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/metric-count.ts",
+    page: "/docs/reference/widgets",
+    anchor: "metric",
+    guidance: true,
+  },
+  {
+    sourcePrefix: "packages/core/src/types/where.ts",
+    page: "/docs/reference/contexts",
+    anchor: "where-values",
+    guidance: true,
+  },
+  {
     sourcePrefix: "packages/eslint-plugin/src/",
     page: "/docs/reference/eslint-plugin",
     guidance: true,
   },
   { sourcePrefix: "packages/next/src/actions/", page: "/docs/reference/actions", guidance: true },
-  {
-    sourcePrefix: "packages/next/src/command/",
-    page: "/docs/reference/react-components",
-    anchor: "command-palette",
-    guidance: true,
-  },
   {
     sourcePrefix: "packages/next/src/controllers/",
     page: "/docs/reference/next-runtime",
@@ -365,12 +502,6 @@ export const API_OWNERSHIP_RULES = [
     guidance: true,
   },
   {
-    sourcePrefix: "packages/next/src/pages/",
-    page: "/docs/reference/react-components",
-    anchor: "next-components",
-    guidance: true,
-  },
-  {
     sourcePrefix: "packages/next/src/runtime/",
     page: "/docs/reference/next-runtime",
     anchor: "runtime-helpers",
@@ -389,49 +520,49 @@ export const API_OWNERSHIP_RULES = [
     guidance: false,
   },
   {
-    sourcePrefix: "packages/react/src/_atoms/",
+    sourcePrefix: "packages/react/src/atoms/",
     page: "/docs/reference/react-components",
     anchor: "atoms",
     guidance: true,
   },
   {
-    sourcePrefix: "packages/react/src/_data/",
+    sourcePrefix: "packages/react/src/data/",
     page: "/docs/reference/react-components",
     anchor: "data-display",
     guidance: true,
   },
   {
-    sourcePrefix: "packages/react/src/_feedback/",
+    sourcePrefix: "packages/react/src/feedback/",
     page: "/docs/reference/react-components",
     anchor: "feedback",
     guidance: true,
   },
   {
-    sourcePrefix: "packages/react/src/_forms/",
+    sourcePrefix: "packages/react/src/forms/",
     page: "/docs/reference/react-components",
     anchor: "forms",
     guidance: true,
   },
   {
-    sourcePrefix: "packages/react/src/_layout/",
+    sourcePrefix: "packages/react/src/layout/",
     page: "/docs/reference/react-components",
     anchor: "layout",
     guidance: true,
   },
   {
-    sourcePrefix: "packages/react/src/_provider/",
+    sourcePrefix: "packages/react/src/provider/",
     page: "/docs/reference/react-components",
     anchor: "providers",
     guidance: true,
   },
   {
-    sourcePrefix: "packages/react/src/_shell/",
+    sourcePrefix: "packages/react/src/shell/",
     page: "/docs/reference/react-components",
     anchor: "shell",
     guidance: true,
   },
   {
-    sourcePrefix: "packages/react/src/_widgets/",
+    sourcePrefix: "packages/react/src/widgets/",
     page: "/docs/reference/react-components",
     anchor: "widgets",
     guidance: true,
@@ -469,6 +600,12 @@ export const API_EXCLUSIONS = [
     category: "internal-plumbing",
     reason:
       "One definition of the field set a write may carry, shared by core's create warning and @flowpanel/next's generated forms so they cannot disagree.",
+  },
+  {
+    sourcePrefix: "packages/core/src/suggest.ts",
+    category: "internal-plumbing",
+    reason:
+      "The closest-name suggestion every boot error carries, exported only from @flowpanel/core/internal for @flowpanel/next.",
   },
   {
     sourcePrefix: "packages/core/src/internal/",

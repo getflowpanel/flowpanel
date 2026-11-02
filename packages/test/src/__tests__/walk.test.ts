@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isUnderBasePath, noNavigation, normalizeBasePath, runSmoke } from "../walk";
+import { serverErrorText } from "../server-error";
+import { isUnderAdminPath, noNavigation, normalizeAdminPath, runSmoke, withTab } from "../walk";
 import { element, query } from "./fake-dom";
 import { FakePage, type FakeRoute } from "./fake-page";
 
@@ -15,18 +16,18 @@ function admin(overrides: Record<string, FakeRoute> = {}): Record<string, FakeRo
   };
 }
 
-describe("normalizeBasePath", () => {
+describe("normalizeAdminPath", () => {
   it.each([
     ["/admin", "/admin"],
     ["/admin/", "/admin"],
     ["admin", "/admin"],
     ["/", "/"],
   ])("normalizes %s to %s", (input, expected) => {
-    expect(normalizeBasePath(input)).toBe(expected);
+    expect(normalizeAdminPath(input)).toBe(expected);
   });
 });
 
-describe("isUnderBasePath", () => {
+describe("isUnderAdminPath", () => {
   it.each([
     ["/admin", true],
     ["/admin/customers", true],
@@ -35,7 +36,7 @@ describe("isUnderBasePath", () => {
     ["/adminx/customers", false],
     ["/other", false],
   ])("decides %s", (route, expected) => {
-    expect(isUnderBasePath(route, "/admin")).toBe(expected);
+    expect(isUnderAdminPath(route, "/admin")).toBe(expected);
   });
 });
 
@@ -62,10 +63,10 @@ describe("runSmoke", () => {
     );
   });
 
-  it("fails when basePath points somewhere that is not an admin", async () => {
+  it("fails when paths.admin points somewhere that is not an admin", async () => {
     const page = new FakePage(admin());
 
-    await expect(runSmoke(page, { basePath: "/nope" }, null)).rejects.toThrow(
+    await expect(runSmoke(page, { paths: { admin: "/nope" } }, null)).rejects.toThrow(
       noNavigation("/nope"),
     );
   });
@@ -82,6 +83,22 @@ describe("runSmoke", () => {
     ]);
     expect(report.consoleErrors).toEqual([]);
     expect(page.waited.every((selector) => selector === "main")).toBe(true);
+  });
+
+  it("opens a record from a phone's card list", async () => {
+    const page = new FakePage(
+      admin({
+        "/admin/customers": {
+          navLinks: NAV,
+          rows: 1,
+          cards: true,
+          rowTargets: ["/admin/customers/1"],
+        },
+      }),
+    );
+    const report = await runSmoke(page, {}, null);
+
+    expect(report.visited).toContain("/admin/customers/1");
   });
 
   it("counts a drawer that keeps the list route as an opened row", async () => {
@@ -130,6 +147,52 @@ describe("runSmoke", () => {
     await expect(runSmoke(page, {}, null)).rejects.toThrow("/admin/orders: responded 500");
   });
 
+  it("names the server's config error from a development 500 and blames nothing else", async () => {
+    const message =
+      '[flowpanel] resource "invoices" defaultSort.field: it points at column "createdAtt". Did you mean "createdAt"?';
+    const data = JSON.stringify({ err: { name: "FlowpanelConfigError", message } });
+    const page = new FakePage(
+      admin({
+        "/admin": {
+          status: 500,
+          body: `<html><script id="__NEXT_DATA__" type="application/json">${data}</script></html>`,
+        },
+      }),
+    );
+
+    const error = await runSmoke(page, {}, null).catch((thrown: unknown) => thrown);
+    expect(String(error)).toContain(`/admin: responded 500: ${message}`);
+    expect(String(error)).not.toContain(noNavigation("/admin"));
+  });
+
+  it("finds a FlowPanel error in a streamed 500 body too", () => {
+    const body = String.raw`self.__next_f.push([1,"E:{\"message\":\"[flowpanel] resource \\\"orders\\\" columns[0]: boom\"}"])`;
+    expect(serverErrorText(body)).toBe('[flowpanel] resource "orders" columns[0]: boom');
+    expect(serverErrorText("<html>Internal Server Error</html>")).toBeNull();
+  });
+
+  it("fails at once with Next's error text when a render crashed past the admin", async () => {
+    const page = new FakePage(
+      admin({
+        "/admin/orders": {
+          crash: "Application error: a server-side exception has occurred. Digest: 3083534743",
+        },
+      }),
+    );
+
+    await expect(runSmoke(page, {}, null)).rejects.toThrow(
+      "/admin/orders: rendered Next's error page instead of the admin: Application error: a server-side exception has occurred. Digest: 3083534743",
+    );
+  });
+
+  it("names the route that never rendered its main region instead of hanging", async () => {
+    const page = new FakePage(admin({ "/admin/orders": { navLinks: NAV, noMain: true } }));
+
+    await expect(runSmoke(page, {}, null)).rejects.toThrow(
+      "/admin/orders: rendered no <main> within 15 s",
+    );
+  });
+
   it("fails on a rendered FlowPanel error surface", async () => {
     const page = new FakePage(admin({ "/admin/orders": { navLinks: NAV, errorSurface: true } }));
 
@@ -151,6 +214,17 @@ describe("runSmoke", () => {
 
     await expect(runSmoke(page, {}, scan)).rejects.toThrow(
       /\/admin: axe color-contrast \(serious\)/,
+    );
+  });
+
+  it("names the elements an axe finding is about", async () => {
+    const page = new FakePage(admin());
+    const scan = async () => [
+      { id: "target-size", impact: "serious", targets: ["#row-menu-1", "#row-menu-2"] },
+    ];
+
+    await expect(runSmoke(page, {}, scan)).rejects.toThrow(
+      "/admin: axe target-size (serious) at #row-menu-1, #row-menu-2",
     );
   });
 
@@ -202,5 +276,53 @@ describe("runSmoke", () => {
       "/admin/customers/1",
       "/admin/orders",
     ]);
+  });
+});
+
+describe("runSmoke — detail tabs", () => {
+  const USER_NAV = ["/admin", "/admin/user"];
+  const TABS = ["summary", "activity", "timeline"];
+
+  function withCard(overrides: Record<string, FakeRoute> = {}): Record<string, FakeRoute> {
+    return {
+      "/admin": { navLinks: USER_NAV },
+      "/admin/user": { navLinks: USER_NAV, rows: 1, rowTargets: ["/admin/user/1"] },
+      "/admin/user/1": { navLinks: USER_NAV, tabs: TABS },
+      "/admin/user/1?tab=activity": { navLinks: USER_NAV, tabs: TABS },
+      "/admin/user/1?tab=timeline": { navLinks: USER_NAV, tabs: TABS },
+      ...overrides,
+    };
+  }
+
+  it("opens every tab that is not already open, and reports each with its ?tab=", async () => {
+    const report = await runSmoke(new FakePage(withCard()), {}, null);
+    expect(report.visited).toEqual([
+      "/admin",
+      "/admin/user",
+      "/admin/user/1",
+      "/admin/user/1?tab=activity",
+      "/admin/user/1?tab=timeline",
+    ]);
+  });
+
+  it("names the tab whose widget failed", async () => {
+    const page = new FakePage(
+      withCard({
+        "/admin/user/1?tab=timeline": { navLinks: USER_NAV, tabs: TABS, errorSurface: true },
+      }),
+    );
+    await expect(runSmoke(page, {}, null)).rejects.toThrow(
+      "/admin/user/1?tab=timeline: rendered a FlowPanel error surface",
+    );
+  });
+
+  it("keeps the 0.3.0 walk with tabs: false", async () => {
+    const report = await runSmoke(new FakePage(withCard()), { tabs: false }, null);
+    expect(report.visited).toEqual(["/admin", "/admin/user", "/admin/user/1"]);
+  });
+
+  it("adds the tab to a route's own query", () => {
+    expect(withTab("/admin/user/1", "timeline")).toBe("/admin/user/1?tab=timeline");
+    expect(withTab("/admin/user/1?tab=summary", "money")).toBe("/admin/user/1?tab=money");
   });
 });

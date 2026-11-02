@@ -1,4 +1,5 @@
 import type { FileIntent } from "../plan/types";
+import { blockingSegmentExport } from "../utils/next-config";
 import { tpl } from "../utils/template";
 
 export interface FixableFile {
@@ -9,6 +10,8 @@ export interface FixableFile {
   templateName: string;
   label: string;
   needsConfigImport: boolean;
+  /** Next renders its own 404 without it, so a missing one is a warning that `--fix` still repairs. */
+  optional?: boolean;
 }
 
 export const FIXABLE_FILES: ReadonlyArray<FixableFile> = [
@@ -29,7 +32,7 @@ export const FIXABLE_FILES: ReadonlyArray<FixableFile> = [
   {
     mount: null,
     relToMount: "",
-    templateName: "migration.sql.txt",
+    templateName: "migration.postgresql.sql.txt",
     label: "Seed migration (flowpanel/migrations)",
     needsConfigImport: false,
   },
@@ -40,18 +43,30 @@ export const FIXABLE_FILES: ReadonlyArray<FixableFile> = [
     label: "Catch-all admin page",
     needsConfigImport: true,
   },
+  {
+    mount: "admin",
+    relToMount: "not-found.tsx",
+    templateName: "admin-not-found.tsx.txt",
+    label: "Not-found page",
+    needsConfigImport: true,
+    optional: true,
+  },
 ];
 
-/** `relToAppDir === null` files (currently just the seed migration) live at a fixed repo-root path. */
+/** The seed migration lives at a fixed repo-root path; its template follows the project's dialect. */
 export const MIGRATION_REL_DEST = "flowpanel/migrations/0001_init.sql";
 
 export async function makeFix(
   relDest: string,
   templateName: string,
   configImport: string | null,
+  cacheComponents: boolean,
 ): Promise<FileIntent> {
   const content = configImport
-    ? await tpl(templateName, { CONFIG_IMPORT: configImport })
+    ? await tpl(templateName, {
+        CONFIG_IMPORT: configImport,
+        SEGMENT_CONFIG: blockingSegmentExport(cacheComponents),
+      })
     : await tpl(templateName);
   return { path: relDest, content };
 }

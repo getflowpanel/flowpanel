@@ -5,6 +5,8 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { runWithRequestContext } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
+import { explainWrite } from "./constraint-error";
 import { scopeBinding } from "./scope-binding";
 
 /** The single delete path: honours the resource's soft-delete column and the request's bound scope. */
@@ -22,7 +24,9 @@ export async function deleteRow(
     input: {},
     id,
     ...(softDelete ? { softDelete: { column: String(softDelete) } } : {}),
-    ...scopeBinding(config, resource, reqCtx),
+    ...scopeBinding(resource, reqCtx),
   };
-  await runWithRequestContext(reqCtx, () => config.adapter.delete(resource.ref, mctx));
+  await explainWrite(config, resource, "delete", () =>
+    runWithRequestContext(reqCtx, () => config.adapter.delete(writeTarget(resource), mctx)),
+  );
 }

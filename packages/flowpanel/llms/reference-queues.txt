@@ -1,0 +1,139 @@
+# FlowPanel — Reference — queue()
+
+## queue()
+
+The queue builder, its options, and how a queue key becomes a route.
+
+Docs: https://flowpanel.tech/docs/reference/queues
+
+Documented types: queue, QueueOptions, QueueConfig
+
+`queue(ref, options)` registers a BullMQ queue as a navigation entry whose page
+embeds [bull-board](https://github.com/felixmosh/bull-board). Setup, the queues module and security:
+[Queues](/docs/guides/queues).
+
+```ts
+import { defineAdmin, queue } from "@flowpanel/kit";
+import { emailQueue } from "@/server/queues";
+
+export default defineAdmin({
+  adapter,
+  auth: flowpanelAuth,
+  queues: [
+    queue(emailQueue, {
+      label: "Email",
+      boardUrl: "http://localhost:3001/queue/email",
+      boardSecret: process.env.BOARD_SECRET,
+      access: "admin",
+    }),
+  ],
+});
+```
+
+`ref` is typed `unknown`; FlowPanel reads only its `.name`, when `options.key` is
+absent.
+
+With `boardSecret`, each render of the queue page adds
+`?fp_board=link.<key>.<expires>.<signature>` to `boardUrl`: an HMAC-SHA256 of the
+queue key and an expiry one minute ahead, keyed by the secret. `startBoardServer`
+with the same `auth.secret` checks the signature, the expiry and that the key names
+one of its queues, then adds that queue to a signed session cookie. Each queue in
+the session expires an hour after its own latest link, so opening one queue page
+never keeps another alive. The board shows, and acts on, only the queues in the
+session, so a user who may open one queue page cannot reach another queue on the
+same board; Redis-wide statistics and the metrics of other queues answer `404` to
+a session. The
+secret never reaches the browser. A copied link works for its minute, for its one
+queue. The queue key must be the BullMQ queue's name or its key in the board's
+`queues`. `boardUrl` may be relative when the board sits behind the admin's own
+proxy.
+
+### startBoardServer
+
+`startBoardServer(options)` from `@flowpanel/kit/bullmq/board` starts the board on
+its own port and returns the Node `Server`.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `queues` | required | The BullMQ queues to show, keyed by name |
+| `auth.secret` | required | Checks signed links; also accepted as `Authorization: Bearer <secret>` from a reverse proxy, which reaches every queue. A list accepts each secret and signs sessions with the first, so a secret can rotate |
+| `port` | `3001` | Port to listen on |
+| `bindHost` | `127.0.0.1` | Interface to bind |
+| `basePath` | `/` | Path the board is mounted at, and the cookie's path |
+| `trustedProxies` | `0` | Proxies in front that set `X-Forwarded-Proto`; with one, the session cookie is `Secure` behind TLS termination |
+
+A request without a valid link, cookie or bearer gets `401`. `auth.token` and
+`?token=` links are gone: `startBoardServer` throws when given `auth.token`.
+
+### QueueOptions
+
+`QueueOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label` | `string` | Nav entry and page title for this queue. |
+| `icon?` | `IconName` | Serializable Lucide icon rendered in navigation and the command palette. |
+| `hidden?` | `boolean` | Keep the queue route registered but omit it from primary navigation. |
+| `navGroup?` | `NavGroupRef` | Sidebar group for this queue. Default: the Queues group. |
+| `boardUrl` | `string` | Full URL (e.g., http://localhost:3001/queue/email) to the bull-board UI. |
+| `boardSecret?` | `string \| undefined` | The board server's `auth.secret`. The page then adds a link signed for this queue that expires in a minute, so the secret itself never reaches the browser. |
+| `key?` | `string` | Optional explicit key; defaults to queue.name. |
+| `access?` | `AccessRule` | Who may see and open this queue page. |
+
+`access` takes the same `AccessRule` as a resource: a role, a list of roles, or a function.
+
+### QueueConfig
+
+What `queue()` returns.
+
+`QueueConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `__kind` | `"queue"` |  |
+| `ref` | `QueueRef` |  |
+| `options` | `QueueOptions` |  |
+
+### The key, and the URL it produces
+
+`key` defaults to `ref.name`, and the page is `<paths.admin>/queues/<key>`, such as
+`/admin/queues/email`. `defineAdmin` rejects a queue when:
+
+| Condition | Error |
+| --- | --- |
+| No `.name` on the ref **and** no `options.key` | `[flowpanel] queues[<index>]: the queue has no name to key it by. Set key in its options.` |
+| Two queues resolve to the same key | `[flowpanel] queue "<key>": two queues use this key. Give each queue its own key.` |
+| The key is `dashboards`, `drawer`, `export` or `queues` | `[flowpanel] queue "<key>": the name is one FlowPanel's routing reserves…` |
+
+### Reading queue state from your own code
+
+To count jobs in a widget, wrap the same `Queue` instances with `bullmqAdapter`:
+
+```ts
+import { bullmqAdapter } from "@flowpanel/kit/bullmq";
+import { emailQueue, scrapeQueue } from "@/server/queues";
+
+export const jobs = bullmqAdapter({ email: emailQueue, scrape: scrapeQueue });
+```
+
+```ts
+import { metric } from "@flowpanel/kit";
+import { jobs } from "@/lib/queue-adapter";
+
+metric("Failed jobs", async () => jobs.queues.email.getJobCountByTypes("failed"), {
+  tone: "err",
+  drilldown: "/admin/queues/email",
+});
+```
+
+A queue page has no named link target, so the link spells the path.
+`BullMQAdapter` is `{ kind: "bullmq"; queues: Record<string, Queue> }`.
+
+### Peer dependencies
+
+All optional; install them only for queues:
+
+```bash
+pnpm add bullmq ioredis
+pnpm add @bull-board/api @bull-board/express express
+```

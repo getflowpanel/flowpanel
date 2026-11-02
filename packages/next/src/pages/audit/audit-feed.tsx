@@ -1,0 +1,272 @@
+import type {
+  AuditLogEntry,
+  RequestContext,
+  ResolvedAdminConfig,
+  ResolvedLabels,
+  ResourceConfig,
+} from "@flowpanel/core";
+import { formatCount, formatLabel, mergeLabels, resolveFormatting } from "@flowpanel/core";
+import { AuditFullValue } from "@flowpanel/next/client";
+import { TimeAgo } from "@flowpanel/react";
+import Link from "next/link";
+import type { ReactNode } from "react";
+import { auditTitles } from "../../runtime/audit-titles";
+import {
+  type AuditChange,
+  describeAuditAction,
+  isAuditValuePreview,
+  projectAuditDiff,
+  readableDiffFields,
+} from "../../runtime/audit-view";
+import { fieldLabels, namedFields } from "../../runtime/field-labels";
+import { buildHref } from "../../runtime/href";
+import { pluralLabel, singularLabel } from "../../runtime/resource-title";
+import { cn } from "../../utils/cn";
+import { type FieldLook, fieldLooks, shown } from "./audit-values";
+
+/** One rendered event: what happened, to which record, by whom and when, and what changed. */
+export interface AuditFeedItem {
+  entry: AuditLogEntry;
+  verb: string;
+  record: { label: string; href: string | null } | null;
+  changes: Array<{
+    field: string;
+    label: string;
+    before: ReactNode;
+    after: ReactNode;
+    /** Either side is too long to print whole, so it reads as a block instead of struck inline text. */
+    long: boolean;
+  }>;
+  kind: "both" | "after" | "before";
+  /** An old event whose diff was too large to preview; each readable field loads on demand. */
+  tooLarge: boolean;
+}
+
+/** What an event acted on: its record, named once even when its title already says what it is and linked while it exists, or the list it exported. */
+function recordOf(
+  config: ResolvedAdminConfig,
+  entry: AuditLogEntry,
+  resource: ResourceConfig | undefined,
+  titles: Awaited<ReturnType<typeof auditTitles>>,
+  labels: ResolvedLabels["audit"],
+): AuditFeedItem["record"] {
+  if (!entry.resource) return null;
+  if (!entry.targetId) {
+    if (!resource || !entry.action.endsWith(".export")) return null;
+    return {
+      label: pluralLabel(resource, entry.resource),
+      href: buildHref(config, entry.resource),
+    };
+  }
+  const kind = resource ? singularLabel(resource, entry.resource) : entry.resource;
+  const title = titles.records.get(entry.resource)?.get(entry.targetId);
+  const named = title?.toLowerCase().startsWith(`${kind.toLowerCase()} `) === true;
+  return {
+    label:
+      named && title
+        ? title
+        : formatLabel(labels.record, { label: kind, id: title ?? entry.targetId }),
+    href:
+      resource && titles.present.get(entry.resource)?.has(entry.targetId)
+        ? buildHref(config, entry.resource, entry.targetId)
+        : null,
+  };
+}
+
+/** Events with each diff cut down to what this reader may see, and every label resolved. */
+export async function auditFeedItems(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  entries: readonly AuditLogEntry[],
+  labels: ResolvedLabels["audit"],
+  { linkRecords }: { linkRecords: boolean },
+): Promise<AuditFeedItem[]> {
+  const formatting = resolveFormatting(config.formatting);
+  const byResource = new Map<string, AuditLogEntry[]>();
+  for (const entry of entries) {
+    if (!entry.resource) continue;
+    byResource.set(entry.resource, [...(byResource.get(entry.resource) ?? []), entry]);
+  }
+  const allowed = new Map<
+    string,
+    { fields: Set<string>; looks: Map<string, FieldLook>; labelOf: (field: string) => string }
+  >();
+  await Promise.all(
+    [...byResource].map(async ([name, list]) => {
+      const resource = config.resourcesByName.get(name);
+      if (!resource) return;
+      const fields = await readableDiffFields(
+        config,
+        resource,
+        list.map((entry) => entry.diff),
+        reqCtx,
+      );
+      allowed.set(name, {
+        fields,
+        looks: fieldLooks(config, resource, formatting),
+        labelOf: fieldLabels(resource, [], namedFields(config)),
+      });
+    }),
+  );
+  const titles = await auditTitles(config, reqCtx, entries, linkRecords);
+  const { filters } = mergeLabels(config.labels);
+  const words = { empty: labels.emptyValue, yes: filters.yes, no: filters.no };
+  return entries.map((entry) => {
+    const resource = entry.resource ? config.resourcesByName.get(entry.resource) : undefined;
+    const access = entry.resource ? allowed.get(entry.resource) : undefined;
+    const changes: AuditChange[] = access ? projectAuditDiff(entry.diff, access.fields) : [];
+    const record = linkRecords ? recordOf(config, entry, resource, titles, labels) : null;
+    const kind =
+      entry.diff?.before === null ? "after" : entry.diff?.after === null ? "before" : "both";
+    return {
+      entry,
+      verb: describeAuditAction(config, entry, labels),
+      record,
+      kind,
+      tooLarge: entry.diffTooLarge === true && access !== undefined,
+      changes: changes.map((change) => {
+        const look = access?.looks.get(change.field);
+        const { before, after } = change;
+        const alike =
+          isAuditValuePreview(before) &&
+          isAuditValuePreview(after) &&
+          before.text === after.text &&
+          before.length !== after.length;
+        const side = (value: unknown, which: "before" | "after"): ReactNode =>
+          isAuditValuePreview(value) ? (
+            <AuditFullValue
+              eventId={entry.id}
+              field={change.field}
+              side={which}
+              text={value.text}
+              name={`${access?.labelOf(change.field) ?? change.field}, ${which === "before" ? labels.before : labels.after}`}
+              {...(alike
+                ? { note: formatCount(labels.characters, value.length, formatting.locale) }
+                : {})}
+            />
+          ) : (
+            shown(value, look, formatting, words, titles.references)
+          );
+        return {
+          field: change.field,
+          label: access?.labelOf(change.field) ?? change.field,
+          before: side(change.before, "before"),
+          after: side(change.after, "after"),
+          long: isAuditValuePreview(change.before) || isAuditValuePreview(change.after),
+        };
+      }),
+    };
+  });
+}
+
+function Changes({
+  item,
+  labels,
+}: {
+  item: AuditFeedItem;
+  labels: ResolvedLabels["audit"];
+}): ReactNode {
+  if (item.changes.length === 0) {
+    return item.tooLarge ? (
+      <p className="fp-mt-2 fp-text-sm fp-text-soft">{labels.noReadableChanges}</p>
+    ) : null;
+  }
+  return (
+    <>
+      {item.tooLarge ? (
+        <p className="fp-mt-2 fp-text-sm fp-text-soft">{labels.changesTooLarge}</p>
+      ) : null}
+      <dl className="fp-mt-2 fp-grid fp-grid-cols-1 fp-gap-x-4 fp-gap-y-1.5 fp-text-sm sm:fp-grid-cols-[minmax(0,11rem)_minmax(0,1fr)]">
+        {item.changes.map((change) => (
+          <div key={change.field} className="fp-contents">
+            <dt className="fp-truncate fp-text-soft">{change.label}</dt>
+            <dd className="fp-flex fp-min-w-0 fp-flex-wrap fp-items-baseline fp-gap-x-2 fp-wrap-anywhere">
+              {item.kind !== "after" ? (
+                <span
+                  className={cn(
+                    "fp-min-w-0",
+                    item.kind === "both" && "fp-text-faint",
+                    item.kind === "both" && !change.long && "fp-line-through",
+                  )}
+                >
+                  <span className="fp-sr-only">{labels.before}: </span>
+                  {change.before}
+                </span>
+              ) : null}
+              {item.kind === "both" ? (
+                <span aria-hidden="true" className="fp-text-faint">
+                  →
+                </span>
+              ) : null}
+              {item.kind !== "before" ? (
+                <span className="fp-min-w-0 fp-text-ink">
+                  <span className="fp-sr-only">{labels.after}: </span>
+                  {change.after}
+                </span>
+              ) : null}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </>
+  );
+}
+
+/** A newest-first list of audit events in one bordered block. */
+function actorOf(
+  entry: Pick<AuditLogEntry, "actorName" | "actorId">,
+  labels: ResolvedLabels["audit"],
+): string {
+  return entry.actorName ?? entry.actorId ?? labels.unknownActor;
+}
+
+export function AuditFeed({
+  items,
+  labels,
+}: {
+  items: readonly AuditFeedItem[];
+  labels: ResolvedLabels["audit"];
+}): ReactNode {
+  return (
+    <ol className="fp-divide-y fp-divide-line fp-rounded-lg fp-border fp-border-line fp-bg-surface">
+      {items.map((item) => (
+        <li key={item.entry.id} className="fp-px-4 fp-py-3 sm:fp-px-6" data-fp-audit-event="">
+          <div className="fp-flex fp-items-baseline fp-justify-between fp-gap-3">
+            <p className="fp-min-w-0 fp-text-sm">
+              <span className="fp-font-medium fp-text-ink">{item.verb}</span>
+              {item.record ? (
+                <>
+                  {" "}
+                  {item.record.href ? (
+                    <Link
+                      href={item.record.href}
+                      prefetch={false}
+                      className="fp-text-ink fp-underline fp-decoration-line fp-underline-offset-4 hover:fp-decoration-ink"
+                    >
+                      {item.record.label}
+                    </Link>
+                  ) : (
+                    <span className="fp-text-ink">{item.record.label}</span>
+                  )}
+                </>
+              ) : null}
+              <span className="fp-text-soft">
+                {" · "}
+                <span
+                  className="fp-inline-block fp-max-w-full fp-truncate fp-align-bottom"
+                  title={actorOf(item.entry, labels)}
+                >
+                  {actorOf(item.entry, labels)}
+                </span>
+              </span>
+            </p>
+            <span className="fp-shrink-0 fp-text-xs fp-tabular-nums fp-text-faint">
+              <TimeAgo date={item.entry.at} />
+            </span>
+          </div>
+          <Changes item={item} labels={labels} />
+        </li>
+      ))}
+    </ol>
+  );
+}

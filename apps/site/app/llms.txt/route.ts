@@ -1,25 +1,20 @@
 import { siteConfig } from "@/shared/lib/site-config";
 import { source } from "@/shared/lib/source";
 
-/**
- * Static index per the llmstxt.org convention. Points LLM consumers at
- * the site, lists every top-level section, and offers `llms-full.txt`
- * for the bulk version.
- *
- * Built once from the page tree, like every other docs surface.
- */
+// Index per the llmstxt.org convention, built once from the page tree.
 export const dynamic = "force-static";
 
 export function GET(): Response {
   const lines: string[] = [
     `# ${siteConfig.name}`,
     "",
-    `> ${siteConfig.description}`,
+    `> ${siteConfig.seo.description}`,
     "",
     `Source: ${siteConfig.repo.url}`,
     `Docs:   ${siteConfig.url}/docs`,
     `Full:   ${siteConfig.url}/llms-full.txt`,
-    "Local:  node_modules/@flowpanel/kit/llms.txt — the same reference, shipped in the package",
+    `Topics: ${siteConfig.url}/llms/index.txt — the same documentation, one section or page per file`,
+    "Local:  node_modules/@flowpanel/kit/llms.txt (the reference) and node_modules/@flowpanel/kit/llms/index.txt (every section)",
     "",
     "## Sections",
     "",

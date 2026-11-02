@@ -1,0 +1,28 @@
+import { defineAdmin } from "@flowpanel/kit";
+import { prismaAdapter } from "@flowpanel/kit/prisma";
+import { prisma } from "{{DB}}";
+import { flowpanelAuth } from "{{AUTH}}";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof prisma;
+  }
+}
+
+export default defineAdmin({
+  paths: { admin: "{{ADMIN_PATH}}", api: "{{API_PATH}}" },
+  adapter: prismaAdapter({ prisma, provider: "{{PROVIDER}}" }),
+
+  auth: flowpanelAuth,
+
+  realtime: { driver: "memory" },
+
+  theme: {
+    brand: { name: "{{APP_NAME}}" },
+    mode: "auto",
+  },
+
+  resources: [
+    // {{CLI}} new <model>  adds an entry; or write resource("User", { columns: ["email", "createdAt"] })
+  ],
+});

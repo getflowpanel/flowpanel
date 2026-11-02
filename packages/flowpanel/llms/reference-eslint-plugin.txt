@@ -1,0 +1,143 @@
+# FlowPanel — Reference — ESLint plugin
+
+## ESLint plugin
+
+Five rules that catch config mistakes the type system cannot.
+
+Docs: https://flowpanel.tech/docs/reference/eslint-plugin
+
+`@flowpanel/eslint-plugin` is an optional package that catches mistakes type-checking
+misses: server code imported into a client component, a destructive action without
+a confirm, duplicate resource names. Rule names are stable; options and messages
+may change before 1.0.
+
+### Install
+
+```bash
+pnpm add -D @flowpanel/eslint-plugin
+```
+
+It needs `eslint >= 8`; the config is flat config.
+
+### Setup
+
+```ts
+import flowpanel from "@flowpanel/eslint-plugin";
+
+export default [flowpanel.configs.recommended];
+```
+
+A `create-next-app` project already has an `eslint.config.mjs` that exports an array. Add the preset to that array; on Next.js 16 it reads:
+
+```js
+import flowpanel from "@flowpanel/eslint-plugin";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+import { defineConfig, globalIgnores } from "eslint/config";
+
+export default defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  flowpanel.configs.recommended,
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+]);
+```
+
+On Next.js 15, where the file builds its array with `FlatCompat`, put `flowpanel.configs.recommended` after `...compat.extends(...)` the same way.
+
+`configs.recommended` turns on all five rules. To choose them yourself:
+
+```ts
+import flowpanel from "@flowpanel/eslint-plugin";
+
+export default [
+  {
+    plugins: { flowpanel },
+    rules: {
+      "flowpanel/prefer-shorthand-filter": "warn",
+      "flowpanel/audit-row-action-needs-confirm": "error",
+      "flowpanel/no-server-import-in-client": "error",
+      "flowpanel/require-unique-resource-names": "error",
+      "flowpanel/no-typo-column-keyword": "warn",
+    },
+  },
+];
+```
+
+### The rules
+
+| Rule | Recommended | Type | Fixable |
+| --- | --- | --- | --- |
+| [`no-server-import-in-client`](#no-server-import-in-client) | `error` | problem | no |
+| [`audit-row-action-needs-confirm`](#audit-row-action-needs-confirm) | `error` | problem | no |
+| [`require-unique-resource-names`](#require-unique-resource-names) | `error` | problem | no |
+| [`prefer-shorthand-filter`](#prefer-shorthand-filter) | `warn` | suggestion | yes |
+| [`no-typo-column-keyword`](#no-typo-column-keyword) | `warn` | problem | no |
+
+#### `no-server-import-in-client`
+
+In a `"use client"` file, flags imports of:
+
+- `server-only` and any `*/server-only` specifier;
+- any specifier with a `/server` segment, such as `@/server/lib/auth` or
+  `react-dom/server`, except `next/server`;
+- an app-local path (`@/`, `~/`, `./`, `../`, `src/`) with a `db` segment, such as
+  `@/db` or `../lib/db/client`.
+
+`import type` is ignored.
+
+#### `audit-row-action-needs-confirm`
+
+Flags an `actions` or `bulkActions` entry with `variant: "destructive"` and no
+`confirm`.
+
+```ts fragment
+// bad
+actions: [{ key: "delete", label: "Delete", variant: "destructive", run }];
+
+// good
+actions: [
+  {
+    key: "delete",
+    label: "Delete",
+    variant: "destructive",
+    confirm: "Are you sure?",
+    run,
+  },
+];
+```
+
+#### `require-unique-resource-names`
+
+Flags two `resource()` entries in one `defineAdmin` with the same name, read from a
+literal `options.name` or a string ref. Identifiers resolve through a
+`const x = resource(…)` in the same file; the same unresolved identifier listed
+twice is flagged too.
+
+#### `prefer-shorthand-filter`
+
+Rewrites filter `options` whose every `label` equals its `value` as plain strings.
+Autofixable.
+
+```ts
+// bad
+filters: [
+  {
+    field: "status",
+    type: "select",
+    options: [
+      { label: "active", value: "active" },
+      { label: "archived", value: "archived" },
+    ],
+  },
+];
+
+// good
+filters: [{ field: "status", type: "select", options: ["active", "archived"] }];
+```
+
+#### `no-typo-column-keyword`
+
+Flags `userid`, `createdat`, `updatedat` and `isactive`, in any casing other than
+the camelCase one, in `columns`. The rule reads the source only, so it also catches
+them where the rows are untyped. Not autofixable.

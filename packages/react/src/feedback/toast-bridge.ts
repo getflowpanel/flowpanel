@@ -1,0 +1,35 @@
+"use client";
+import type { toast } from "sonner";
+
+type SonnerToast = typeof toast;
+type Dispatch = (t: SonnerToast) => void;
+
+let bound: SonnerToast | null = null;
+const queued: Dispatch[] = [];
+let wake: (() => void) | null = null;
+
+/** Mounts the toaster the first time a toast is asked for, so a page that shows none never loads it. */
+export function onFirstToast(mount: () => void): () => void {
+  if (queued.length > 0) mount();
+  wake = mount;
+  return () => {
+    wake = null;
+  };
+}
+
+/** Called once the renderer has mounted and subscribed, so nothing dispatched earlier is dropped. */
+export function bindToaster(t: SonnerToast): () => void {
+  bound = t;
+  for (const job of queued.splice(0)) job(t);
+  return () => {
+    bound = null;
+  };
+}
+
+export function dispatchToast(job: Dispatch): void {
+  if (bound) job(bound);
+  else {
+    queued.push(job);
+    wake?.();
+  }
+}

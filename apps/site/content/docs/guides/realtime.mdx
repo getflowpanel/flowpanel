@@ -1,48 +1,122 @@
 ---
 title: Realtime
-description: Choose the memory or Redis driver and operate live updates safely in production.
+description: Refresh lists and widgets live over SSE, share events across instances with Redis, and publish from workers.
 kind: how-to
+metaTitle: Realtime updates over SSE
 ---
 
-FlowPanel uses Server-Sent Events (SSE) to tell subscribed browser surfaces when data changed. The event is a refresh signal, not a copy of the row.
+A committed change publishes a small event; lists and widgets subscribed to its channel refetch through their normal authorized query. Events reach the browser over Server-Sent Events. They are refresh signals, not row data, and not a durable log: a reconnect refetches current state.
+
+## Subscribe
+
+`realtime: true` on a resource refreshes its list. A record page does not subscribe on its own; give its widgets their own `realtime: { resource: "orders" }`. A widget takes a channel name, `{ resource: "orders" }`, or a list of them:
+
+```ts
+metric("Open orders", openOrders, { realtime: { resource: "orders" } });
+custom(Pipeline, pipelineProps, { realtime: "pipeline" });
+```
+
+A channel name other than `resource.<name>` is your own; declare it in `realtime.channels` (below).
+
+Generated creates, updates and deletes publish on their resource automatically. An action publishes when it returns `refresh: true` (its resource) or channels (`refresh: "pipeline"` or a list). In your own server code, call `ctx.publish` in an action, or `publishResource` and `publish` from `@flowpanel/kit/next`.
+
+## Declare your own channels
+
+The stream serves `resource.<name>` channels to whoever may read that resource. Every other channel must be declared, with who may subscribe:
+
+```ts
+import type { RealtimeConfig } from "@flowpanel/kit";
+
+export const realtime = {
+  driver: "redis",
+  url: process.env.REDIS_URL,
+  channels: {
+    pipeline: { access: ["admin", "ops"] },
+    deploys: { tenantSafe: true },
+  },
+} satisfies RealtimeConfig;
+```
+
+Pass it to `defineAdmin` as `realtime`. `access` takes the same rule as a resource. Without it, everyone `auth.access` admits may subscribe. The stream refuses an undeclared channel, and `defineAdmin` refuses a widget, dashboard or list that subscribes to one, naming it.
+
+With an admin-wide `scope`, an event on your own channel reaches the browser as `{}`: the subscribed widget still refetches through its scoped query, but no payload crosses tenants. Set `tenantSafe: true` only when the payload names nothing tenant-specific, such as a deploy finishing. A tenant-scoped resource's own events keep only their `action`.
 
 ## Choose the driver
 
-Use the memory driver when exactly one long-lived Next.js process serves mutations and SSE connections. It is appropriate for local development and a single-instance deployment.
+The default memory driver reaches only the process that published. Use Redis when more than one process serves the admin, during overlapping deploys, or when a worker publishes.
 
-Use Redis when requests can reach more than one process, during rolling deploys with overlap, or when an external worker publishes updates. Without a shared publisher, a mutation on one instance cannot notify a browser connected to another.
+```bash
+pnpm add ioredis
+```
 
-Follow [Realtime with Redis](/docs/guides/realtime-with-redis) for setup.
+```ts
+import { defineAdmin } from "@flowpanel/kit";
+import { flowpanelAuth } from "@/server/lib/flowpanel-session";
 
-## Understand the path
+export default defineAdmin({
+  adapter,
+  auth: flowpanelAuth,
+  realtime: {
+    driver: "redis",
+    url: process.env.REDIS_URL,
+    keyPrefix: "myapp-production",
+  },
+  resources,
+});
+```
 
-1. A list or widget subscribes to a named channel.
-2. The browser opens the generated `/api/flowpanel/stream` endpoint.
-3. A successful mutation publishes a small action/id payload after the write commits.
-4. The subscribed surface receives the signal and refetches through its normal authorized query.
+Use a distinct `keyPrefix` per app and environment sharing one Redis. FlowPanel warns on the first request when it runs the memory driver while `REDIS_URL` is set.
 
-Row contents, sessions, and database clients are not sent through Redis or SSE. Custom payloads should still contain no secrets because every authorized subscriber to that channel can receive them.
+## Publish from a worker
 
-## Publish from application code
+A worker, cron job or script imports only `@flowpanel/kit/publish`: no admin config, adapter or Next.js. Share the admin's `realtime` options in one module that the admin config and the worker both import, so both sides use the same URL and prefix:
 
-Generated resource mutations publish automatically when realtime is configured. For a custom mutation in the same initialized process, call `publishResource` or `publish` from the server export.
+```ts
+// src/shared/realtime.ts
+import type { PublisherOptions } from "@flowpanel/kit";
 
-An external worker has not evaluated the admin config. Bind its publisher once before emitting events, and reuse the connection rather than creating one per job. See the Redis recipe for the exact sequence.
+export const realtime = {
+  driver: "redis",
+  url: process.env.REDIS_URL!,
+  keyPrefix: "myapp",
+} satisfies PublisherOptions;
+```
 
-## Production checklist
+Do not build the prefix from `NODE_ENV`. A worker started with `tsx` or `node` leaves it unset, so it would publish under `myapp-undefined` while the app listens under `myapp-development`, and FlowPanel warns about a prefix that contains `undefined`. When staging and production share one Redis, read the prefix from a variable that both the app and the worker set.
 
-- authenticate the SSE route with the same session boundary as the admin;
-- disable reverse-proxy buffering for the stream path;
-- set proxy and load-balancer idle timeouts above the heartbeat interval;
-- allow enough long-lived connections for active operators;
-- keep Redis TLS, credentials, and network access production-grade;
-- use a namespace so environments sharing Redis do not collide;
-- monitor reconnect rate, stream errors, publish failures, and Redis availability.
+```ts
+// worker/admin-events.ts
+import { createPublisher } from "@flowpanel/kit/publish";
+import { realtime } from "@/shared/realtime";
 
-SSE clients reconnect automatically, but realtime is not a durable event log. A reconnect refetches current state; it does not replay every missed mutation.
+export const adminEvents = createPublisher({
+  ...realtime,
+  onError: (err, channel) => console.warn("admin realtime publish failed", { channel, err }),
+});
+
+export async function orderShipped(order: { id: number }): Promise<void> {
+  await adminEvents.resource("orders", { id: order.id });
+  await adminEvents.publish("pipeline");
+}
+```
+
+Run the worker with `tsx`, `node` or your job runner as it is. `@flowpanel/kit/publish` loads both as an ES module and through `require`, so a project without `"type": "module"`, such as a fresh `create-next-app`, needs no `.mts` file.
+
+`resource(name, { id })` refreshes that resource's lists and the widgets subscribed to it; `action` defaults to `"update"`. `publish(channel)` sends on your own channel. Names are not checked, so a misspelt one refreshes nothing.
+
+A Redis error never fails the job: the call resolves and the error goes to `onError`, or is logged once per error kind. With Redis down, a publish over a connection made from `url` gives up after one reconnect, in a second or two rather than a minute. A client you pass in keeps its own options; set `maxRetriesPerRequest: 1` on it for the same. Create the publisher once per process and `close()` it on shutdown. To reuse a configured `ioredis` client, pass it instead of a URL: `createPublisher({ redis, keyPrefix })`.
+
+## Production
+
+- The stream route checks `auth.access` itself. If middleware protects the admin (Clerk, a proxy), include the stream path.
+- Turn off reverse-proxy buffering for the stream path.
+- Set proxy and load-balancer idle timeouts above 15 s, the stream heartbeat.
+- Allow enough long-lived connections for your operators. One user may hold 10 streams at once; the next answers `429`.
+- A stream ends after 15 minutes and the browser reconnects through `auth.access`, so a user whose access is revoked stops receiving events within that time. `stream(config, { maxPerActor, maxAgeMs })` changes both.
+- Monitor reconnects, stream errors and publish failures.
 
 ## Verify end to end
 
-Open the same resource in two browsers. Mutate in one and confirm the other refetches. In a multi-instance environment, pin each browser/request to a different process or test during a rolling deployment. Also test Redis unavailable at startup and during publication so the application's failure policy is understood.
+Open one resource in two browsers, change a row in one and watch the other refetch. With several instances, connect the browser to one and change the row through another, then repeat with a worker publish.
 
-See [Scope, realtime, and rate limits reference](/docs/reference/scope-realtime) for current channels, publisher types, and stream helpers.
+Every option: [Publisher reference](/docs/reference/scope-realtime#publisher).

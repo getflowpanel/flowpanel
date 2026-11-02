@@ -1,5 +1,7 @@
+import { defineAdmin } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
 import { actorIdFromSession, buildAuditEvent } from "../runtime/action-helpers";
+import { adapter } from "./detail-fixture";
 
 describe("actorIdFromSession", () => {
   it("returns null for a null/non-object session", () => {
@@ -54,35 +56,72 @@ describe("actorIdFromSession", () => {
   });
 });
 
-describe("buildAuditEvent — actorId", () => {
-  it("uses the default fallback chain when no extractor is passed", () => {
-    const ev = buildAuditEvent(
-      {
-        req: new Request("http://localhost/"),
-        session: { id: "u1" },
-        role: "admin",
-        scope: null,
-        ip: null,
-        userAgent: null,
-      },
-      { action: "create" },
-    );
+function reqCtx(session: Record<string, unknown>, scope: Record<string, unknown> | null = null) {
+  return {
+    req: new Request("http://localhost/"),
+    session,
+    role: "admin",
+    scope,
+    ip: null,
+    userAgent: null,
+  };
+}
+
+function config(extra: Partial<Parameters<typeof defineAdmin>[0]> = {}) {
+  return defineAdmin({
+    adapter,
+    auth: { session: async () => null, role: () => "admin" },
+    resources: [],
+    ...extra,
+  });
+}
+
+describe("buildAuditEvent", () => {
+  it("uses the default actor fallback chain when no extractor is set", () => {
+    const ev = buildAuditEvent(config(), reqCtx({ id: "u1" }), { action: "create" });
     expect(ev.actorId).toBe("u1");
   });
 
-  it("threads an explicit extractor through to actorIdFromSession", () => {
+  it("threads auth.userId through to actorIdFromSession", () => {
     const ev = buildAuditEvent(
-      {
-        req: new Request("http://localhost/"),
-        session: { customId: "c1" },
-        role: "admin",
-        scope: null,
-        ip: null,
-        userAgent: null,
-      },
+      config({
+        auth: {
+          session: async () => null,
+          role: () => "admin",
+          userId: (s) => (s as { customId?: string } | null)?.customId ?? null,
+        },
+      }),
+      reqCtx({ customId: "c1" }),
       { action: "create" },
-      (s) => (s as { customId?: string } | null)?.customId ?? null,
     );
     expect(ev.actorId).toBe("c1");
+  });
+
+  it("names the actor from theme.user and carries the request's tenant scope", () => {
+    const ev = buildAuditEvent(
+      config({ theme: { user: () => ({ name: "", email: "ann@example.com" }) } }),
+      reqCtx({ id: "u1" }, { tenantId: "t1" }),
+      { action: "orders.update", targetIds: ["1", "2"] },
+    );
+    expect(ev).toMatchObject({
+      actorName: "ann@example.com",
+      scope: { tenantId: "t1" },
+      targetIds: ["1", "2"],
+    });
+  });
+
+  it("leaves the name out when theme.user throws", () => {
+    const ev = buildAuditEvent(
+      config({
+        theme: {
+          user: () => {
+            throw new Error("no profile");
+          },
+        },
+      }),
+      reqCtx({ id: "u1" }),
+      { action: "create" },
+    );
+    expect(ev).not.toHaveProperty("actorName");
   });
 });

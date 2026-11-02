@@ -1,10 +1,42 @@
+import type {
+  AuditLabels,
+  FormLabels,
+  ImporterLabels,
+  RealtimeLabels,
+  SavingLabels,
+  ShortcutsLabels,
+  TableLabels,
+} from "./chrome-labels";
+import type { AccessLabels, ErrorLabels, NotFoundLabels } from "./wall-labels";
+import type { ChecklistLabels, HeatmapLabels, TimelineLabels, WidgetLabels } from "./widget-labels";
+
+/**
+ * A count template per `Intl.PluralRules` category of the admin's locale; a missing category falls back to `other`.
+ * @example { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записи" }
+ */
+export interface PluralLabel {
+  /** Its locale's `zero` category, and also any count of exactly 0: "Nenhum resultado". */
+  zero?: string;
+  one?: string;
+  two?: string;
+  few?: string;
+  many?: string;
+  other: string;
+}
+
 /** Localizable strings for FlowPanel's built-in chrome. */
 export interface LabelsConfig {
-  /** Empty list state — used when a resource list returns 0 rows. */
-  noResults?: string;
-  /** Empty filter / select dropdown — the "any/all" sentinel. */
-  allOption?: string;
   navigation?: {
+    /** The breadcrumb trail above a page heading. */
+    breadcrumb?: string;
+    /** The tab row of queue boards. */
+    queueBoards?: string;
+    /** A queue board frame. Use `{label}` for the queue. */
+    queueBoard?: string;
+    /** The region toasts appear in. */
+    notifications?: string;
+    /** A toast's close button. */
+    closeNotification?: string;
     skipToContent?: string;
     admin?: string;
     open?: string;
@@ -12,28 +44,18 @@ export interface LabelsConfig {
     accountMenu?: string;
     account?: string;
     signOut?: string;
-    scrollHint?: string;
     dashboards?: string;
     resources?: string;
     pages?: string;
     queues?: string;
     theme?: string;
     toggleTheme?: string;
+    /** The menu holding the nav tabs that do not fit. */
+    more?: string;
   };
-  table?: {
-    /** Templates use `{n}`. Separate one/many templates avoid English suffixes. */
-    result?: string;
-    results?: string;
-    actions?: string;
-    rowActions?: string;
-    rowsHint?: string;
-    rowsReadOnlyHint?: string;
-    selectRow?: string;
-    selectAll?: string;
-    deselectAll?: string;
-  };
+  table?: TableLabels;
   dateRange?: {
-    /** Locale for calendar presentation; identical during SSR and hydration. */
+    /** The labels' language: the calendar's locale, and whether a label mid-sentence keeps its capital (German does). */
     locale?: string;
     label?: string;
     fieldLabel?: string;
@@ -52,6 +74,7 @@ export interface LabelsConfig {
     yesterday?: string;
     last7d?: string;
     last30d?: string;
+    last12m?: string;
     thisMonth?: string;
     lastMonth?: string;
     MTD?: string;
@@ -84,22 +107,55 @@ export interface LabelsConfig {
     pageSize?: string;
   };
   filters?: {
+    /** A select or boolean filter's "any value" choice. */
+    allOption?: string;
+    /** A tag filter's example input. */
+    tagsPlaceholder?: string;
+    /** A number range filter's lower bound. */
+    min?: string;
+    max?: string;
+    /** Empties the list search. */
+    clearSearch?: string;
     label?: string;
     clear?: string;
     yes?: string;
     no?: string;
     searchPlaceholder?: string;
+    /** The phone button that opens the filters. Use `{n}` for the active ones; `open` when none are. */
+    open?: string;
+    openCount?: string;
+    /** Closes the phone filter sheet. */
+    done?: string;
   };
   /** Bulk action bar. */
   bulkBar?: {
+    /** The bulk action toolbar. */
+    label?: string;
+    /** The bulk action picker before a choice. */
+    choose?: string;
+    /** Clears the selection. */
+    clearSelection?: string;
     /** Use `{n}` for the selection count. Default: `"{n} selected"`. */
     selected?: string;
     clear?: string;
   };
-  /** Resource search input placeholder. Use `{label}` for the resource's label. */
-  searchPlaceholder?: string;
+  /** Count templates per `Intl.PluralRules` category; when set, they win over `table.result`/`results` and `bulkBar.selected`. */
+  plurals?: {
+    /** The table's row count, every count `1` included. */
+    results?: PluralLabel;
+    /** The bulk bar's and a multi-select filter's selection count. */
+    selected?: PluralLabel;
+    /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */
+    events?: PluralLabel;
+  };
   /** Generic action buttons. */
   actions?: {
+    /** A bulk action's confirm title when it names none. Use `{label}`. */
+    runConfirm?: string;
+    /** A bulk action that succeeded. Use `{label}` and `{n}`. */
+    ranOn?: string;
+    /** An action that succeeded without a message of its own. Use `{label}`. */
+    ran?: string;
     edit?: string;
     save?: string;
     cancel?: string;
@@ -109,41 +165,47 @@ export interface LabelsConfig {
     create?: string;
     export?: string;
     import?: string;
+    /** The menu holding a record's actions on its page and in its drawer. */
+    more?: string;
+    /** A bulk delete that stopped part way. Use `{done}` and `{total}`. */
+    deletedSome?: string;
   };
   /** Generated create and edit form chrome. */
-  form?: {
-    /** Edit page heading. Use `{label}` for the resource's singular label. */
-    editTitle?: string;
-    /** Create page heading. Use `{label}` for the resource's singular label. */
-    createTitle?: string;
-    /** The empty choice in a select control. */
-    selectPlaceholder?: string;
-    /** A reference search with nothing to offer. */
-    noOptions?: string;
-    /** A reference search still in flight. */
-    searching?: string;
-    /** A reference search that failed. */
-    loadFailed?: string;
-    /** An empty value the write needs. Use `{label}` for the field's label. */
-    required?: string;
-    /** A value that is not a number. Use `{label}`. */
-    invalidNumber?: string;
-    /** A value that is neither true nor false. Use `{label}`. */
-    invalidBoolean?: string;
-    /** A value that is not a date. Use `{label}`. */
-    invalidDate?: string;
-  };
+  form?: FormLabels;
   /** Drawer chrome. */
   drawer?: {
     close?: string;
     viewDetails?: string;
+    /** While the record loads. */
+    loading?: string;
+    /** A resource tab with no rows. Use `{resource}`. */
+    noRows?: string;
+    /** A widgets tab that declares none. */
+    noWidgets?: string;
+    /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */
+    chartElsewhere?: string;
+    /** A widget kind a drawer does not draw. Use `{kind}`. */
+    unsupported?: string;
+    /** The dialog's name before the record loads. */
+    title?: string;
+    /** The record could not be loaded. */
+    loadFailed?: string;
+    /** The record is gone, or the reader may not see it. */
+    missing?: string;
   };
   /** Full-page detail chrome. */
   detail?: {
+    /** The fields tab a record gets beside History when it declares no tabs of its own. */
+    details?: string;
     /** A fields tab with nothing the reader is allowed to see. */
     noFields?: string;
     /** A tab naming a resource that is not registered. Use `{resource}`. */
     unknownResource?: string;
+    /** A counted tab's label. Use `{label}` and `{count}`. */
+    tabCount?: string;
+    /** A soft-deleted record opened by someone who may restore it. Use `{label}` for the singular label. */
+    deleted?: string;
+    deletedDescription?: string;
   };
   /** Related detail-tab chrome. */
   related?: {
@@ -151,55 +213,56 @@ export interface LabelsConfig {
     openList?: string;
   };
   /** The admin's own not-found page, for a URL no resource or dashboard matches. */
-  notFound?: {
-    title?: string;
-    description?: string;
-    back?: string;
-  };
-  /** Form-level banner shown when a submit fails with no field errors of its own. */
-  formError?: string;
+  notFound?: NotFoundLabels;
+  /** The screens shown in place of a page when `auth.signInUrl` or `auth.forbiddenUrl` is not set, or the rate limit refuses it. */
+  access?: AccessLabels;
   /** Confirm dialog. */
   confirm?: {
+    /** The built-in bulk delete's confirm title. */
+    deleteSelectedTitle?: string;
     title?: string;
     ok?: string;
     cancel?: string;
+    /** Deleting one record. Use `{label}` for the resource's singular label. */
+    deleteTitle?: string;
+    /** Under `deleteTitle` when the delete is permanent and `delete.confirm` is not set. */
+    deleteDescription?: string;
+    /** Under `deleteTitle` when the resource soft-deletes and `delete.confirm` is not set. */
+    softDeleteDescription?: string;
   };
   /** Dashboard and detail-tab widget chrome. */
-  widget?: {
-    /** Zero-row state shared by tables, cards and charts. */
-    empty?: string;
-    /** Link from a card heading to the full list. */
-    seeAll?: string;
-    /** Freshness stamp on a refreshing dashboard. Use `{ago}`. */
-    updated?: string;
-    justNow?: string;
-    /** Use `{n}` for the second count. */
-    secondsAgo?: string;
-    /** Use `{n}` for the minute count. */
-    minutesAgo?: string;
-    /** Shown where a chart would be when @flowpanel/charts is missing. */
-    chartsMissing?: string;
-  };
+  widget?: WidgetLabels;
+  /** `timeline()` chrome. */
+  timeline?: TimelineLabels;
+  /** `heatmap()` chrome. */
+  heatmap?: HeatmapLabels;
+  /** `checklist()` chrome. */
+  checklist?: ChecklistLabels;
   /** FlowPanel's own failure surfaces, shown in place of the data that did not load. */
-  errors?: {
-    /** Failed page read. Use `{resource}` and `{operation}`. */
-    queryTitle?: string;
-    /** What to check after a failed page read. */
-    queryHint?: string;
-    /** Correlation line tying the card to the server log. Use `{id}`. */
-    requestId?: string;
-    /** Failed widget, shown in the widget's own frame. */
-    widgetTitle?: string;
-    widgetHint?: string;
-    /** Button that re-runs a failed widget. */
-    retry?: string;
-  };
+  errors?: ErrorLabels;
   /** ⌘K palette. */
   palette?: {
+    /** The palette's result list. */
+    suggestions?: string;
     placeholder?: string;
     noResults?: string;
     title?: string;
     description?: string;
     loading?: string;
   };
+  /** What a create or edit form says after it saves, and when it would lose typed changes. */
+  saving?: SavingLabels;
+  /** The list's file import. */
+  importer?: ImporterLabels;
+  /** The `?` keyboard cheat sheet. */
+  shortcuts?: ShortcutsLabels;
+  /** A live list's or widget's connection badge. */
+  realtime?: RealtimeLabels;
+  /** The record History tab and the Audit log page. */
+  audit?: AuditLabels;
+  /**
+   * Labels for fields no column, form or view labels, by field name. The presets name `id`,
+   * `createdAt`, `updatedAt` and `deletedAt`, and their snake_case forms.
+   */
+  fields?: Record<string, string>;
 }

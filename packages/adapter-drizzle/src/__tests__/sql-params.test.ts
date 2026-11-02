@@ -62,6 +62,6 @@ describe("rawSqlRows", () => {
       parts("select 1"),
       [],
     );
-    expect((row?.at as Date).toISOString()).toBe("2026-01-02T03:04:05.000Z");
+    expect((row!.at as Date).toISOString()).toBe("2026-01-02T03:04:05.000Z");
   });
 });

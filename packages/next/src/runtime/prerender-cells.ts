@@ -1,5 +1,16 @@
 import type { ColumnDef, ColumnFormat, ColumnMeta, RequestContext } from "@flowpanel/core";
-import type { ReactNode } from "react";
+import { humanize } from "@flowpanel/core";
+import {
+  columnFormatKind,
+  DEFAULT_FORMATTING,
+  formatColumnValue,
+  formatDateValue,
+  type ResolvedFormatting,
+  toDateValue,
+  urlCellParts,
+} from "@flowpanel/core/format";
+import { createElement, Fragment, isValidElement, type ReactNode } from "react";
+import { cellText, columnContent, textRem, widestRem } from "./column-content";
 
 /** Wire-safe column metadata derived from a resource's `ColumnDef[]`. */
 export interface PrerenderedColumn<Row> {
@@ -16,6 +27,14 @@ export interface PrerenderedColumn<Row> {
   editable?: boolean;
   /** Mirrors `ColumnDef.format`. Plain data, so it crosses to the client verbatim. */
   format?: ColumnFormat;
+  /** Mirrors `ColumnDef.secondary`; dropped on a `reference` column. */
+  secondary?: keyof Row & string;
+  /** What a text column holds, which sizes it in the table. */
+  content?: "long" | "email" | "link";
+  /** The widest value on this page in rem as the cell shows it, which sizes the column. */
+  textRem?: number;
+  /** An enum or editable column's choices, labelled as its cells show them. */
+  options?: Array<{ value: string; label: string }>;
 }
 
 export interface PrerenderResult<Row> {
@@ -32,6 +51,10 @@ export interface PrerenderOptions {
   defaultSortable?: boolean;
   /** Adapter introspection keyed by column name. */
   metaByField?: ReadonlyMap<string, ColumnMeta>;
+  /** The admin's locale and zone, so a number or date is measured as the cell shows it. */
+  formatting?: ResolvedFormatting;
+  /** The label a field shows on every surface, for a column that sets none. */
+  labelOf?: (field: string) => string;
 }
 
 /** Synthetic column key for a field-less `render` column, stable across renders. */
@@ -46,13 +69,95 @@ function warnFieldlessColumn(index: number): void {
   );
 }
 
+/** A value as its cell shows it, for measuring; a reference waits for its label, and a badge is sized by all its labels. */
+function shownText<Row>(
+  column: PrerenderedColumn<Row>,
+  raw: unknown,
+  formatting: ResolvedFormatting,
+): string {
+  if (raw === null || raw === undefined || raw === "" || column.type === "reference") return "";
+  if (column.format !== undefined) {
+    if (columnFormatKind(column.format) === "badge") return "";
+    return (
+      urlCellParts(raw, column.format)?.text ?? formatColumnValue(raw, column.format, formatting)
+    );
+  }
+  if (typeof raw === "boolean") return "✓";
+  const choice = column.options?.find((option) => option.value === raw);
+  if (choice) return choice.label;
+  const date = column.type === "date" ? toDateValue(raw) : null;
+  if (date) return formatDateValue(date, formatting);
+  return typeof raw === "string" || typeof raw === "number" ? String(raw) : "";
+}
+
+/** The values an editable enum or badge column may take, with the labels its badges show. */
+function editChoices(
+  format: ColumnFormat | undefined,
+  enumValues: readonly string[] | undefined,
+): Array<{ value: string; label: string }> | undefined {
+  const badge = typeof format === "object" && format.kind === "badge" ? format : undefined;
+  const values =
+    enumValues ??
+    (badge
+      ? [...new Set([...Object.keys(badge.labels ?? {}), ...Object.keys(badge.tones ?? {})])]
+      : []);
+  if (values.length === 0) return undefined;
+  return values.map((value) => ({ value, label: badge?.labels?.[value] ?? humanize(value) }));
+}
+
+/** A SQL `date` column reads as its calendar day, not as a midnight-UTC instant on the admin's clock. */
+export const CALENDAR_DAY: ColumnFormat = { kind: "date", calendarDay: true };
+
+/** A SQL `date` column's format: its declared date format as a calendar day, unless that sets `calendarDay: false`. */
+function dayFormat(format: ColumnFormat | undefined): ColumnFormat | undefined {
+  if (format === undefined || format === "date") return CALENDAR_DAY;
+  if (typeof format !== "object" || format.kind !== "date" || format.calendarDay === false) {
+    return format;
+  }
+  return { ...format, calendarDay: true };
+}
+
+/** An enum column's values with the labels its form's select shows. */
+function enumChoices(
+  meta: ColumnMeta | undefined,
+): Array<{ value: string; label: string }> | undefined {
+  return meta?.enumValues?.length
+    ? meta.enumValues.map((value) => ({ value, label: humanize(value) }))
+    : undefined;
+}
+
+/** A rendered cell travels in an array, so React asks it for a key; a JSX `render` rarely gives one. */
+function keyed(node: ReactNode, index: number): ReactNode {
+  return isValidElement(node) && node.key === null
+    ? createElement(Fragment, { key: index }, node)
+    : node;
+}
+
+/** The table sizes columns in px and rem, so any other unit throws its widths off. */
+const warnedWidths = new Set<string>();
+
+function warnUnreadWidth(field: string, width: number | string): void {
+  if (process.env.NODE_ENV === "production" || typeof width === "number") return;
+  if (/^\d+(?:\.\d+)?(?:px|rem)$/.test(width.trim()) || warnedWidths.has(field)) return;
+  warnedWidths.add(field);
+  console.warn(
+    `[flowpanel] column "${field}" has width "${width}"; use a number of px or a "px" or "rem" string so the other columns fit.`,
+  );
+}
+
 export function prerenderResourceCells<Row>(
   columnDefs: ReadonlyArray<keyof Row | ColumnDef<Row>>,
   rows: ReadonlyArray<Row>,
   reqCtx: RequestContext,
   options: PrerenderOptions = {},
 ): PrerenderResult<Row> {
-  const { dropHidden = false, defaultSortable, metaByField } = options;
+  const {
+    dropHidden = false,
+    defaultSortable,
+    metaByField,
+    formatting = DEFAULT_FORMATTING,
+    labelOf,
+  } = options;
   const columns: PrerenderedColumn<Row>[] = [];
   const renderFns: (((row: Row) => ReactNode) | null)[] = [];
 
@@ -60,9 +165,15 @@ export function prerenderResourceCells<Row>(
     if (typeof c === "string" || typeof c === "number" || typeof c === "symbol") {
       const field = String(c) as keyof Row & string;
       const col: PrerenderedColumn<Row> = { field };
+      if (labelOf) col.label = labelOf(field);
       if (defaultSortable !== undefined) col.sortable = defaultSortable;
+      const content = columnContent(field);
+      if (content) col.content = content;
       const meta = metaByField?.get(field);
       if (meta) col.type = meta.type;
+      const options = enumChoices(meta);
+      if (options) col.options = options;
+      if (meta?.dateOnly) col.format = CALENDAR_DAY;
       columns.push(col);
       renderFns.push(null);
       continue;
@@ -78,20 +189,36 @@ export function prerenderResourceCells<Row>(
     const out: PrerenderedColumn<Row> = {
       field: (fieldless ? syntheticColumnKey(index) : field) as keyof Row & string,
     };
-    if (def.label) out.label = def.label;
+    const label = def.label ?? (fieldless ? undefined : labelOf?.(field));
+    if (label) out.label = label;
     const sortable = fieldless ? false : (def.sortable ?? defaultSortable);
     if (sortable !== undefined) out.sortable = sortable;
-    if (def.width !== undefined) out.width = def.width;
+    if (def.width !== undefined) {
+      out.width = def.width;
+      warnUnreadWidth(field, def.width);
+    }
     if (def.align) out.align = def.align;
     if (def.className) out.className = def.className;
     if (def.hidden !== undefined) out.hidden = def.hidden;
     if (!fieldless) {
       if (def.editable === true) out.editable = true;
+      const content = def.reference ? undefined : columnContent(field);
+      if (content) out.content = content;
       if (def.format !== undefined) out.format = def.format;
+      if (def.secondary !== undefined && !def.reference) out.secondary = def.secondary;
       if (def.reference) out.type = "reference";
       else {
         const meta = metaByField?.get(field);
         if (meta) out.type = meta.type;
+        const day = meta?.dateOnly && !def.render ? dayFormat(out.format) : undefined;
+        if (day) out.format = day;
+        const options =
+          def.editable === true
+            ? editChoices(def.format, meta?.enumValues)
+            : def.format === undefined && !def.render
+              ? enumChoices(meta)
+              : undefined;
+        if (options) out.options = options;
       }
     }
     columns.push(out);
@@ -105,8 +232,24 @@ export function prerenderResourceCells<Row>(
 
   const hasAnyRenderer = renderFns.some((fn) => fn !== null);
   const prerenderedCells: (ReactNode | undefined)[][] | undefined = hasAnyRenderer
-    ? rows.map((row) => renderFns.map((fn) => (fn ? fn(row) : undefined)))
+    ? rows.map((row) => renderFns.map((fn, index) => (fn ? keyed(fn(row), index) : undefined)))
     : undefined;
 
+  columns.forEach((column, index) => {
+    const widest = widestRem(
+      rows.map((row, rowIndex) => {
+        const cell = prerenderedCells?.[rowIndex]?.[index];
+        const shown = cellText(cell);
+        // An element gets 1rem more: rendered cells are often badges or carry an icon.
+        const own = shown
+          ? textRem(shown) + (isValidElement(cell) ? 1 : 0)
+          : textRem(shownText(column, row[column.field], formatting));
+        // The muted second line is set in 12 px type, under the cell's 14 px.
+        const second = column.secondary === undefined ? "" : row[column.secondary];
+        return Math.max(own, typeof second === "string" ? (textRem(second) * 12) / 14 : 0);
+      }),
+    );
+    if (widest !== undefined) column.textRem = widest;
+  });
   return { columns, prerenderedCells };
 }

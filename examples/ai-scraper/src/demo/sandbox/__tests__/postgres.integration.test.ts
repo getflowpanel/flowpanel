@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -173,6 +173,11 @@ describe.skipIf(!enabled)("demo sandbox lifecycle — PostgreSQL", () => {
           { sandboxId: ids.expired, seedKey: 1, email: "expired@test.invalid" },
           { sandboxId: ids.live, seedKey: 1, email: "live@test.invalid" },
         ]);
+        for (const id of [ids.expired, ids.live]) {
+          await tx.execute(
+            sql`insert into flowpanel_audit_log (action, scope_key) values ('customers.update', ${JSON.stringify({ sandboxId: id })})`,
+          );
+        }
 
         await cleanupExpiredSandboxes({
           repository: databaseMaintenanceRepository(tx),
@@ -189,8 +194,14 @@ describe.skipIf(!enabled)("demo sandbox lifecycle — PostgreSQL", () => {
           .select({ sandboxId: schema.customers.sandboxId })
           .from(schema.customers)
           .where(inArray(schema.customers.sandboxId, [ids.expired, ids.live]));
+        const remainingAudit = await tx.execute<{ scope_key: string }>(
+          sql`select scope_key from flowpanel_audit_log where scope_key::jsonb ->> 'sandboxId' in (${ids.expired}, ${ids.live})`,
+        );
         expect(remainingSandboxes).toEqual([{ id: ids.live }]);
         expect(remainingCustomers).toEqual([{ sandboxId: ids.live }]);
+        expect(remainingAudit.rows).toEqual([
+          { scope_key: JSON.stringify({ sandboxId: ids.live }) },
+        ]);
         throw rollback;
       }),
     ).rejects.toBe(rollback);

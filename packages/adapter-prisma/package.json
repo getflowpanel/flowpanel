@@ -1,21 +1,9 @@
 {
   "name": "@flowpanel/adapter-prisma",
   "version": "0.3.0",
+  "private": true,
   "description": "Prisma ORM adapter for FlowPanel",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "adapter",
-    "prisma",
-    "orm"
-  ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/adapter-prisma"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -29,8 +17,6 @@
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only",
-    "lint:publish": "publint --strict",
     "pretest:unit": "prisma generate --schema=prisma/schema.prisma",
     "test:types": "tsd",
     "test:unit": "vitest run",
@@ -63,23 +49,21 @@
       "optional": true
     }
   },
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "dependencies": {
     "@flowpanel/core": "workspace:*"
   },
   "devDependencies": {
-    "@prisma/client": "^5.20.0",
-    "@testcontainers/mysql": "^11.14.0",
-    "@testcontainers/postgresql": "^10.28.0",
+    "@prisma/client": "^5.22.0",
+    "@testcontainers/mysql": "^12.2.0",
+    "@testcontainers/postgresql": "^12.2.0",
     "@types/node": "catalog:",
-    "prisma": "^5.20.0",
+    "prisma": "^5.22.0",
+    "prisma5-internals": "npm:@prisma/internals@5.22.0",
+    "prisma6-internals": "npm:@prisma/internals@6.19.3",
     "tsd": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "zod": "^4.0.0"
+    "zod": "catalog:"
   }
 }

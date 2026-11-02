@@ -1,0 +1,452 @@
+# FlowPanel — Reference — React components
+
+## React components
+
+The full @flowpanel/kit/react export surface, grouped by what it's for.
+
+Docs: https://flowpanel.tech/docs/reference/react-components
+
+Documented types: AdminShellProps, DrawerProps, CommandPaletteProps, DataTableProps, DataTableColumn, AutoFormProps, FormProps, FieldProps, FlowpanelIconProps, DevToolsPanelProps
+
+The components the admin renders with, for custom slots, pages and `"bare"`-shell
+chrome. Import them from `@flowpanel/kit/react`.
+
+```ts
+import { AutoForm, DataTable, useAdminTable } from "@flowpanel/kit/react";
+```
+
+Not listed here: `@flowpanel/kit/client` holds
+[`useAdminMutation`](/docs/reference/client), and `@flowpanel/kit/charts` the
+[chart components](/docs/customization/charts#client-data).
+
+### Shell
+
+| Export | Purpose |
+| --- | --- |
+| `AdminShell` | Visual chrome around admin content, in a sidebar or tab-strip variant. |
+| `AdminNav` | Renders `NavGroup[]` as the sidebar nav; a `collapsible` group folds under its label until it holds the current page. |
+| `AdminTabs` | Tab-strip variant of the nav, used when `AdminShellVariant` is `"tabs"`. |
+| `AccountMenu` | User menu (avatar, name, sign-out) shown in the shell header. |
+| `Brand` | Renders a `ShellBrand` (logo/name) in the shell header. |
+| `Breadcrumbs` | Breadcrumb trail from a `BreadcrumbItem[]`. |
+| `CommandPalette` | The ⌘K command palette, built on `cmdk`. |
+| `Drawer`, `DrawerHeader`, `DrawerTitle`, `DrawerContent`, `DrawerFooter` | Side-variant drawer built on Radix Dialog, and its section slots. A `DrawerTitle` is the visible heading that names the dialog; without one, `title` (or `labels.drawer.title`) names it for screen readers. On close, focus goes back to the element that opened the drawer, or to `returnFocus()` when that element is gone. |
+| `DetailShell` | Chrome around a resource detail page. |
+| `FlowpanelGlobals` | Mounts the component, formatting, API-base and label providers, the realtime provider, the toast host and the theme runtime, once per admin. |
+| `PageHeader`, `DefaultPageHeader` | Page title/description/actions header and its default renderer. `badges` renders several pills in order, each an optional link. |
+| `ShortcutsCheatsheet` | The keyboard shortcuts sheet. `FlowpanelGlobals` mounts it: `?` opens it and `/` focuses the list's search box, outside text fields. Without `shortcuts` it lists the admin's own keys in its labels' language. |
+| `ThemeScript` | Inline script that applies the stored theme class before hydration, avoiding a flash. |
+| `ComponentsProvider`, `useComponents` | Provider/reader for the `FlowpanelComponentSlots` override map. |
+| `useComponent` | Resolves a single slot: `useComponent("Pagination", DefaultPagination)` returns the host override when there is one, otherwise the default you passed. |
+| `useComponentOverrides` | The raw override map from the nearest `ComponentsProvider`, without defaults filled in. |
+| `LabelsProvider`, `useLabels` | Provider/reader for label overrides (pluralization, field labels). |
+| `FormattingProvider`, `useFormatting` | Provider/reader for the resolved locale, time zone and currency. |
+| `ApiBaseProvider`, `useApiBase` | Provider/reader for the API mount (`paths.api`, default `/api/flowpanel`), including a Next.js `basePath`. |
+
+`AdminShellProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `variant?` | `AdminShellVariant` |  |
+| `brand?` | `ShellBrand` |  |
+| `user?` | `AccountMenuUser` |  |
+| `navGroups` | `NavGroup[]` |  |
+| `currentPath` | `string` |  |
+| `rootHref?` | `string` | The admin's mount path; its nav entry is active only on that page. Inferred from the entries when unset. |
+| `showSkipLink?` | `boolean` | Set false when the host layout already provides the page's skip link. |
+| `children` | `React.ReactNode` |  |
+
+`DrawerProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `open` | `boolean` |  |
+| `onOpenChange` | `(open: boolean) => void` |  |
+| `width?` | `DrawerWidth` |  |
+| `title?` | `string` | The dialog's name for screen readers when it shows no `DrawerTitle`; defaults to `labels.drawer.title`. |
+| `description?` | `string` |  |
+| `returnFocus?` | `() => HTMLElement \| null \| undefined` | Where focus goes on close when the element that opened the drawer is gone. |
+| `children?` | `React.ReactNode` |  |
+| `className?` | `string` |  |
+
+`CommandPaletteProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `open` | `boolean` |  |
+| `onOpenChange` | `(v: boolean) => void` |  |
+| `groups` | `CommandGroupUI[]` |  |
+| `placeholder?` | `string` |  |
+| `onSearch?` | `(query: string) => void` |  |
+| `itemsLoading?` | `boolean` |  |
+
+### Data table & filters
+
+| Export | Purpose |
+| --- | --- |
+| `DataTable` | The resource list table: sorting, pagination, selection, inline edit, realtime refresh. |
+| `BulkBar` | Floating action bar shown when `DataTable` rows are selected. |
+| `ColumnPinMenu` | Per-column menu for pinning left/right. |
+| `ColumnVisibilityMenu` | Toolbar menu for showing/hiding columns. |
+| `DensityToggle` | Toggles `DataTableDensity` (row spacing) in the toolbar. |
+| `FilterBar` | Renders a `FilterBarSpec[]` as the filter row above the table. |
+| `FilterSheet` | Shows its children in line from the `sm` breakpoint up, and on a phone behind one "Filters (n)" button that opens them in a bottom sheet. `active` is the number of set filters. |
+| `BooleanFilter`, `DateRangeFilter`, `MultiSelectFilter`, `NumericRangeFilter`, `SelectFilter`, `TagFilter`, `TextFilter` | One filter control per `ColumnMeta.type`, each driven by `FilterBar`. `DateRangeFilter` opens a two-month range calendar with presets. |
+| `DateRangePicker` | Standalone preset dropdown (Today, Last 7 days, MTD, …) for dashboards; `presets` narrows and orders the list, and a `from`/`to` value without a preset shows as its two days. |
+| `Pagination`, `DefaultPagination` | Page controls under the table and their default renderer. |
+| `ArrayCell`, `JsonCell`, `ReferenceCell` | Read-only cell renderers for array, JSON, and reference columns. |
+| `InlineEditCell` | Editable cell used when a column declares `editable: true`. |
+| `JsonEditor` | Structured editor for a JSON column, used by `InlineEditCell` and forms. |
+| `ReferencePicker` | Search-and-select control for picking a referenced row. |
+| `MobileCardList` | Card layout `DataTable` switches to under the mobile breakpoint. |
+| `KV`, `KVRow` | Key/value list layout, used by card and drawer field views. |
+| `renderFormatCell` | Renders a declarative `ColumnFormat` value. `DataTable` cells call it internally. |
+| `HeatCell`, `UrlCell`, `RelativeTimeCell`, `BooleanCell`, `ToneText` | The cells `renderFormatCell` renders for a heat percent, a url, a relative time, a boolean and a number coloured by its threshold. Use them in a custom cell to match the table. |
+
+`DataTableProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `columns` | `DataTableColumn<Row>[]` |  |
+| `rows` | `Row[]` |  |
+| `total` | `number` |  |
+| `page` | `number` |  |
+| `pageSize` | `number` |  |
+| `rowKey` | `keyof Row & string` |  |
+| `sort?` | `DataTableSort<Row> \| null` |  |
+| `density?` | `DataTableDensity` | Row spacing. |
+| `loading?` | `boolean` |  |
+| `onRowClick?` | `(row: Row) => void` |  |
+| `onSortChange?` | `(sort: DataTableSort<Row>) => void` |  |
+| `onPageChange?` | `(page: number) => void` |  |
+| `pageSizeOptions?` | `number[]` | Offered by the pager as `n / page`; needs `onPageSizeChange` to render. |
+| `onPageSizeChange?` | `(size: number) => void` |  |
+| `emptyTitle?` | `string` |  |
+| `emptyDescription?` | `string` |  |
+| `emptyAction?` | `React.ReactNode` |  |
+| `emptyIcon?` | `React.ReactNode` | Decorative icon/emoji rendered above the empty-state title. |
+| `className?` | `string` |  |
+| `selection?` | `string[]` |  |
+| `onSelectionChange?` | `(ids: string[]) => void` |  |
+| `getRowKey?` | `(row: Row) => string` | When provided, the caller controls row-key extraction; defaults to String(row[rowKey]). |
+| `prerenderedCells?` | `(React.ReactNode \| undefined)[][]` |  |
+| `columnVisibility?` | `Record<string, boolean>` |  |
+| `onColumnVisibilityChange?` | `(visibility: Record<string, boolean>) => void` | Set, the toolbar's Columns menu shows and hides columns. |
+| `columnWidths?` | `Record<string, number>` |  |
+| `onColumnWidthsChange?` | `(widths: Record<string, number>) => void` | Set, a header's edge drags to resize, a double click or Shift+Enter fits it, and the Columns menu resets all. |
+| `pinnedColumns?` | `{ left?: string[]; right?: string[] }` |  |
+| `onPinnedColumnsChange?` | `(pinned: { left?: string[]; right?: string[] }) => void` |  |
+| `realtime?` | `string \| { channel: string; debounceMs?: number }` | Subscribe to an SSE channel and trigger `router.refresh()` on events. |
+| `rowEndCell?` | `(row: Row, rowIndex: number) => React.ReactNode` |  |
+| `rowEndCellRem?` | `number` | The trailing column's width in rem; the default 3.5 holds the row menu. |
+| `rowEndCellLabel?` | `string` | Accessible label for the trailing column header. Defaults to "Actions". |
+| `onEditRow?` | `(row: Row) => void` | Triggered when the user presses `e` on a focused row. |
+| `onDeleteRow?` | `(row: Row) => void` | Triggered when the user presses `d` on a focused row. |
+| `onFocusSearch?` | `() => void` | Triggered when the user presses `/`. Typically focuses the search input. |
+| `onShowShortcuts?` | `() => void` | Triggered when the user presses `?`. Typically opens the cheatsheet. |
+| `inlineEditResource?` | `string` |  |
+| `mobileLayout?` | `"card" \| "scroll" \| false` | Mobile layout when the viewport is narrower than 640px. |
+| `enteringRowKeys?` | `string[]` | Stable keys that should receive the one-shot, reduced-motion-safe entry treatment. |
+| `exportable?` | `boolean \| { formats?: ("csv" \| "json")[]; fields?: string[]; resource?: string }` | When set, renders an "Export" button in the toolbar. With `resource`, the server exports every row matching the page's filters; without it, the rows on screen are downloaded. |
+| `importable?` | `{ resource: string; formats: ("csv" \| "json")[]; headers?: string[] }` | Shows Import. `headers` (lower-cased) are the ones it reads; the confirm step names the file's others as skipped. |
+| `showDensityToggle?` | `boolean` |  |
+| `rowLabel?` | `string` | What one row is, mid-sentence ("run"): phone cards read "Open run 36". |
+
+Each column of a `DataTable` you render yourself is a `DataTableColumn`. Its width follows its kind, `content` and `textRem`, measured against the table's own width, so give the table a width from its parent (`flex-1 min-w-0` in a flex row). Pass `textRem`, the widest value's width in rem, for content-sized columns: a text column then never narrows below its widest value or 13rem, whichever is less. Without it, a text column can narrow to between 7 and 10rem by its kind, or its header.
+
+`DataTableColumn`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `field` | `keyof Row & string` |  |
+| `label?` | `string` |  |
+| `render?` | `(row: Row) => React.ReactNode` |  |
+| `sortable?` | `boolean` |  |
+| `width?` | `number \| string` | Fixed width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. |
+| `align?` | `"left" \| "center" \| "right"` |  |
+| `hidden?` | `boolean` |  |
+| `className?` | `string` |  |
+| `type?` | `"string" \| "number" \| "boolean" \| "date" \| "json" \| "enum" \| "array" \| "reference"` | Adapter introspection hint propagated from `ColumnMeta.type`. |
+| `editable?` | `boolean` |  |
+| `format?` | `ColumnFormat` | Declarative formatter mirrored from `ColumnDef.format`. |
+| `secondary?` | `keyof Row & string` | A field of the row shown as a muted second line under the cell. |
+| `content?` | `"long" \| "email" \| "link"` | What a text column holds, which sizes it: long text and an email get more room, a link a little. Field names no longer decide it; set it yourself. |
+| `options?` | `ReadonlyArray<{ value: string; label: string }>` | The column's choices: a cell shows a value's label, and an inline editor offers them as a select. |
+| `textRem?` | `number` | Optional: the widest value in this column, in rem at the table's text size. Its ideal width fits it; without it the column takes its kind's default. |
+
+### Forms
+
+| Export | Purpose |
+| --- | --- |
+| `AutoForm` | Renders a resource's create/update fields from `ResolvedField[]` or `ColumnMeta[]`. |
+| `preloadAutoForm` | Starts loading the forms' code once; call it on hover or focus of your own control that opens a form, as New and Edit do. |
+| `Form` | Conform and Zod form wrapper. It POSTs to a route and shows field errors. |
+| `useFormContext` | Reads the current `Form`'s conform metadata; throws outside a `Form`. |
+| `FormField` | One labeled input, switched on its `type` prop (see below). |
+| `FormError` | Renders the form-level error from `useFormContext`. |
+| `FormSection` | Labeled fieldset grouping for `AutoForm`/`Form` fields. |
+| `FormSubmit` | Submit button that reflects the form's pending state. |
+| `confirmLeave` | `confirmLeave(proceed)` runs `proceed` now, or after the reader agrees to drop a form's unsaved changes. Call it before your own navigation or drawer close; links in the admin already go through it. |
+| `AsyncSelect` | Debounced async-search select, used by reference fields. |
+| `ResolvedField` (type) | The server-resolved field shape `AutoForm` consumes. |
+
+`AutoFormProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `action` | `string` | POST target for the submission — see `FormProps.action` (`Form.tsx`). |
+| `fields?` | `ResolvedField[]` | Explicit field specs from a resource's `create.fields` / `update.fields` (resolved server-side). |
+| `columns?` | `ColumnMeta[]` |  |
+| `columnFields?` | `ResolvedField[]` | Generated form only: controls that replace the column of the same name, such as a column's reference picker. |
+| `hide?` | `string[]` |  |
+| `defaultValues?` | `Record<string, unknown>` |  |
+| `submitLabel?` | `string` | Defaults to `labels.actions.save`. An explicit value wins, including `""`. |
+| `className?` | `string` |  |
+| `redirectTo?` | `string` | Client-side navigation target on a successful submit — see `FormProps.redirectTo`. |
+| `cancelHref?` | `string` | Renders a cancel link back to this record or its list. It never submits. |
+| `successMessage?` | `string` | Toast shown after a successful submit — see `FormProps.successMessage`. |
+
+`FormProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `action` | `string` |  |
+| `schema` | `S` |  |
+| `defaultValues?` | `Partial<zOutput<S>>` |  |
+| `children` | `React.ReactNode` |  |
+| `className?` | `string` |  |
+| `id?` | `string` |  |
+| `redirectTo?` | `string` | Where to navigate after a successful submit (e.g. back to the list, or to the created row). |
+| `successMessage?` | `string` | Toast shown after a successful submit, such as "Customer created". |
+
+`FieldProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `name` | `string` |  |
+| `label?` | `string` |  |
+| `help?` | `string` |  |
+| `placeholder?` | `string` |  |
+| `type?` | `FieldControlType` |  |
+| `required?` | `boolean` |  |
+| `options?` | `{ label: string; value: string }[]` |  |
+| `autoComplete?` | `string` |  |
+| `readOnly?` | `boolean` | Render the control non-editable while keeping its value in the submission. |
+| `referenceSearchUrl?` | `string` |  |
+| `currency?` | `string` | `money` only: the ISO 4217 code shown beside the amount. Defaults to `formatting.currency`. |
+
+The table above is exported as `FormField` and `FormFieldProps`. Its `type` accepts:
+
+```ts fragment
+"text" | "email" | "password" | "url" | "number" | "date" | "datetime" |
+"datetime-local" | "time" | "color" | "search" | "textarea" | "markdown" |
+"json" | "tags" | "select" | "multiselect" | "radio" | "reference" |
+"boolean" | "switch" | "checkbox" | "hidden"
+```
+
+The union is not exported; use `ComponentProps<typeof FormField>["type"]`.
+
+### Feedback
+
+| Export | Purpose |
+| --- | --- |
+| `EmptyState`, `DefaultEmptyState` | "Nothing here" placeholder and its default renderer. |
+| `ErrorState` | Inline error placeholder with an optional retry action. |
+| `ErrorCard` | Error display for a caught `Error`, with an optional retry callback; `title` names the widget that failed, `plain` drops its frame inside a `StatStrip`. |
+| `HealthBanner` | Toned banner (e.g. degraded queue, stale data) shown above content. |
+| `ConfirmDialog`, `DefaultConfirmDialog` | Confirmation modal for destructive actions and its default renderer. |
+| `SkeletonCard`, `SkeletonTable`, `DefaultSkeletonTable` | Loading placeholders for a card and a table, and the table's default renderer. |
+| `ResourceListSkeleton`, `ResourceDetailSkeleton`, `DashboardSkeleton` | Page-level loading skeletons for the three page kinds. |
+| `Toast`, `ToastProvider`, `useToast` | Toast host provider and the hook to fire toasts from anywhere under it. |
+
+### Widgets
+
+| Export | Purpose |
+| --- | --- |
+| `MetricCard`, `DefaultMetricCard` | Renders a `metric()` widget and its default look. `plain` drops the card frame for a strip cell. |
+| `StatCard` | Renders a `stat()` widget: one number, a hint and an optional link. `plain` drops the card frame for a strip cell. |
+| `StatGroupCard` | Renders a `statGroup()` widget. |
+| `KvCard` | Renders a `kv()` widget as a label/value grid. `long` items span the card and fold the rest under `more`. |
+| `BarsCard` | Renders a `bars()` widget, sizing each bar against `max` or the largest row. |
+| `FunnelCard` | Renders a `funnel()` widget, deriving each step's share and drop-off and marking the worst drop past `alertDrop` in `warn`. |
+| `ListCard`, `ListBanner` | Renders a `list()` widget as a short feed, or with `variant: "banner"` as a severity-ordered strip with glyphs, a "N more" line and an all-clear line. |
+| `TrackerCard` | Renders a `tracker()` widget: a toned dot, one block per hour or day, and a summary per row. |
+| `TimelineCard` | Renders a `timeline()` widget: kind chips, day groups, folded lines in `<details>`, and paging, all as links. |
+| `HeatmapCard` | Renders a `heatmap()` widget: weeks of day cells shaded by quartile, month and weekday labels, a legend and a summary. |
+| `ChecklistCard` | Renders a `checklist()` widget: a mark per item, dates and gaps when ordered, and a summary bar. |
+| `TableWidget` | Renders a `table()` widget, reusing `DataTable`. |
+| `CaptionLine` | The line under a card title: a cut range, how fresh the data is, or its coverage, with a ▲ when stale. |
+| `CardHeading` | A card's title and caption; renders nothing when it has neither. |
+| `ExpiredCard` | A widget whose whole range is older than its data is kept: its title, `—`, and why. |
+| `DashboardRefresh` | Re-renders a dashboard on its `refresh` interval and stamps the numbers' age. |
+| `CustomWidget` | Wraps a `custom()` widget's component with the shared widget frame. |
+
+#### Layout primitives
+
+| Export | Purpose |
+| --- | --- |
+| `Card`, `CardHeader`, `CardContent`, `CardDescription` | Generic card shell and its section slots. |
+| `MetricGrid` | Responsive grid for laying out `MetricCard`s. |
+| `Section`, `SectionLabel`, `Divider`, `spanClass` | Section wrapper with a label/description, a divider rule, and the `Span` → CSS class map dashboards use for widget width. |
+| `StatStrip` | A band of numbers divided by hairlines, two per line on a phone. `section.variant: "strip"` and `detail.stats` render it. |
+
+### Atoms
+
+| Export | Purpose |
+| --- | --- |
+| `Avatar`, `DefaultAvatar` | User/entity avatar and its default renderer. |
+| `Badge`, `DefaultBadge` | Toned inline badge and its default renderer. |
+| `StatusBadge`, `DefaultStatusBadge` | Badge preset for status-like values, and its default renderer. The tone is inferred from `status`; `label` replaces the text shown. |
+| `StatusDot` | Small dot in any `Tone`, `ok` by default. |
+| `LiveIndicator` | Realtime connection status indicator for a `RealtimeStatus`. |
+| `LocalTime` | Absolute timestamp in `formatting.timeZone`, UTC until set. With `fallbackTimeZone`, that zone first and the reader's zone after hydration. |
+| `TimeAgo` | Relative timestamp that ticks (`"3m ago"`), re-rendering on an interval. |
+| `Sparkline` | Minimal inline trend line for a numeric series. |
+| `Mono` | Monospace inline text, for IDs and code-like values. |
+| `FlowpanelIcon` | Renders a public `IconName` as the same decorative Lucide SVG used by nav and actions. |
+
+`FlowpanelIconProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `name` | `IconName` |  |
+
+### Hooks
+
+All hooks are client-only.
+
+**`useLiveChannel(channel, onMessage, options?)`** subscribes to one SSE channel and
+hands you each payload. Under `RealtimeProvider` (every admin page) it joins the admin's
+one `EventSource` and does not refresh the route; without a provider, hooks on the same
+endpoint share one. It returns a `RealtimeStatus` (`LiveStatus` is the same type under
+its 0.3 name): `idle`, `connecting`, `live` once the server's first frame arrives,
+`reconnecting` from the first error until a frame arrives again, or `offline` once
+failures have lasted 30 seconds (retries continue). A stream the server ends on purpose reconnects
+without leaving `live`.
+
+```tsx
+const status = useLiveChannel("resource.orders", (payload) => {
+  console.log("order event", payload);
+});
+```
+
+**`useAdminTable()`** reads and writes the list URL state (`?page=`, `?pageSize=`,
+`?q=`, `?sort=field:dir`, `?f_<field>=`). `pageSize` is `null` when the URL sets
+none. Setters use `router.replace`.
+
+```tsx
+const { page, pageSize, sort, setPage, setSort } = useAdminTable();
+```
+
+**`useUrlState()`** reads and writes typed search params.
+
+**`useTheme(options?)`** returns the theme and `toggle`/`setTheme`, stored in
+`localStorage`.
+
+```tsx
+const { theme, toggle } = useTheme();
+```
+
+**`useToast()`** fires a toast under `ToastProvider` or `FlowpanelGlobals`.
+
+```tsx
+const toast = useToast();
+toast.success("Saved");
+```
+
+**`useOptimisticAction(serverValue, applyPatch)`** wraps `useOptimistic` and
+`useTransition` for an optimistic value with a pending flag.
+
+**`useAdminCommand()`** controls the ⌘K palette.
+
+**`useAdminDrawer()`** reads and writes `?drawer=<resource>:<id>` and `?drawerTab=`.
+
+**`useDashboardParam(key, schema, fallback)`** reads and writes one dashboard
+search param, validated by a Zod schema.
+
+**`useRowNavigation()`** returns the navigation a clicked row performs.
+
+**`useRowHrefClick(rows, rowHrefs)`** is a `DataTable` `onRowClick` for per-row
+hrefs; a `null` entry is inert.
+
+**`useMediaQuery(query)`** subscribes to a media query, `false` on the server.
+`DataTable` switches to cards at `(max-width: 639px)`.
+
+```tsx
+const isMobile = useMediaQuery("(max-width: 639px)");
+```
+
+### Realtime
+
+**`RealtimeProvider`** mounts one shared `EventSource` for its descendants and
+coalesces their refreshes. `Flowpanel` mounts it in every shell mode, `"bare"`
+included. Mount it yourself only around components rendered outside that page.
+
+**`useRealtimeRefresh(channels, options?)`** runs a debounced `router.refresh()`
+on any event on its channels.
+
+```tsx
+useRealtimeRefresh("resource.orders");
+```
+
+**`RealtimeRefresh`** is the same as a component that renders nothing.
+
+```tsx
+<RealtimeRefresh channels={["resource.orders", "scraper:tick"]} />
+```
+
+**`DevToolsPanel`** shows realtime status, channels and event count in
+development; it renders `null` in production.
+
+```tsx
+{process.env.NODE_ENV !== "production" && <DevToolsPanel />}
+```
+
+`DevToolsPanelProps`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `defaultOpen?` | `boolean` | Initial open state of the panel. Default `false`. |
+
+Lower level: `useRealtimeBus`, `useRealtimeStatus`, `useRealtimeStats`.
+
+### Theme utilities
+
+Helpers behind `useTheme` and `ThemeScript`.
+
+| Export | Purpose |
+| --- | --- |
+| `resolveTheme`, `readStoredTheme`, `writeStoredTheme`, `THEME_STORAGE_KEY` | Resolve the effective theme from storage + system preference, and read/write the stored choice. |
+| `applyThemeClass`, `toggleTheme` | Apply a theme class to `<html>`, and flip the stored choice. |
+| `buildThemeInitScript` | Builds the inline script string `ThemeScript` renders. |
+
+Also exported: `cn`, `formatNumber`, `humanize`, `resolveFieldLabel`,
+`triggerDownload`, `withDeploymentBasePath` (prefixes a Next.js `basePath`),
+`StandaloneFormFields` (form controls outside a schema-driven `<Form>`), the
+`CardDate` type (a serialized date a card renders through `LocalTime`), and `toneTextClass` and `toneFillClass` (also in `@flowpanel/kit`
+for server components).
+
+### Name collisions with `@flowpanel/kit`
+
+These names are different declarations in `@flowpanel/kit` and here; alias one
+when importing both.
+
+| Name | In `@flowpanel/kit` | In `@flowpanel/kit/react` |
+| --- | --- | --- |
+| `TableWidget` | The `table()` builder's return **type** (`{ kind: "table"; options }`). | The **component** that renders one. |
+| `CustomWidget` | The `custom()` builder's return **type**. | The **component** that wraps one. |
+| `DrawerWidth` | `DrawerConfig["width"]`, the config option. | `DrawerProps["width"]`, the component prop: the same union, declared separately. |
+
+```ts
+import type { TableWidget } from "@flowpanel/kit";
+import { TableWidget as TableWidgetRenderer } from "@flowpanel/kit/react";
+```
+
+`FormActionResult` is declared here and in `@flowpanel/kit/next` with identical
+members.
+
+### UI primitives
+
+`Dialog`, `Popover`, `Select`, `DropdownMenu`, `Tabs*`, `Button`, `Checkbox`,
+`Input`, `Label`, `Skeleton` and `Switch` are shadcn components with their upstream
+APIs. `buttonVariants` and `DefaultButton` accompany `Button`.

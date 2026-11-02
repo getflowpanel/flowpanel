@@ -16,7 +16,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
           {
             name: "email",
@@ -26,7 +26,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: true,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "name",
@@ -36,7 +36,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: false,
             isUnique: false,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "role",
@@ -46,7 +46,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
         ],
       },
@@ -88,5 +88,58 @@ describe("inferSchema", () => {
 
     // Invalid enum value
     expect(() => (create as any).parse({ email: "test@example.com", role: "SUPERUSER" })).toThrow();
+  });
+});
+
+const field = (name: string, type: string, isRequired: boolean) => ({
+  name,
+  kind: "scalar" as const,
+  type,
+  isId: name === "id",
+  isRequired,
+  isUnique: name === "id",
+  isList: false,
+  hasDefaultValue: false,
+});
+
+const eventsDmmf: PrismaDmmf = {
+  datamodel: {
+    models: [
+      {
+        name: "Event",
+        fields: [
+          field("id", "Int", true),
+          field("at", "DateTime", true),
+          field("endedAt", "DateTime", false),
+        ],
+      },
+    ],
+    enums: [],
+  },
+};
+
+describe("a DateTime field", () => {
+  const { update } = inferSchema("Event", eventsDmmf);
+  const parsed = (value: unknown, name = "at") => update.safeParse({ [name]: value });
+
+  it("takes a Date, ISO 8601 text with an offset, or a calendar day", () => {
+    expect(parsed(new Date("2026-10-18T22:30:00Z")).data).toEqual({
+      at: new Date("2026-10-18T22:30:00Z"),
+    });
+    expect(parsed("2026-10-18T22:30:00.000Z").data).toEqual({
+      at: new Date("2026-10-18T22:30:00Z"),
+    });
+    expect(parsed("2026-10-19T01:30:00+03:00").data).toEqual({
+      at: new Date("2026-10-18T22:30:00Z"),
+    });
+    expect(parsed("2026-10-18").data).toEqual({ at: new Date("2026-10-18T00:00:00Z") });
+  });
+
+  it("refuses null on a required field, and a number, a boolean or text without a zone anywhere", () => {
+    for (const value of [null, true, 0, "1", "2026-10-18T22:30", "soon"]) {
+      expect(parsed(value).success).toBe(false);
+    }
+    expect(parsed(null, "endedAt").data).toEqual({ endedAt: null });
+    expect(parsed(0, "endedAt").success).toBe(false);
   });
 });

@@ -17,7 +17,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
           {
             name: "email",
@@ -27,7 +27,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: true,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "name",
@@ -37,7 +37,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: false,
             isUnique: false,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "active",
@@ -47,7 +47,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
           {
             name: "deletedAt",
@@ -57,7 +57,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: false,
             isUnique: false,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
         ],
       },
@@ -93,7 +93,7 @@ const baseCtx: any = {
 };
 
 describe("prismaAdapter", () => {
-  it("uses the context database delegate for every data operation", async () => {
+  it("reads through its own client and writes through the context database", async () => {
     const root = makeMockPrisma();
     root._delegate.findMany.mockResolvedValue([{ id: 1, name: "root-list" }]);
     root._delegate.count.mockResolvedValue(1);
@@ -103,9 +103,6 @@ describe("prismaAdapter", () => {
     root._delegate.delete.mockResolvedValue({ id: 1 });
 
     const tx = makeMockPrisma();
-    tx._delegate.findMany.mockResolvedValue([{ id: 1, name: "tx-list" }]);
-    tx._delegate.count.mockResolvedValue(1);
-    tx._delegate.findUnique.mockResolvedValue({ id: 1, name: "tx-get" });
     tx._delegate.create.mockResolvedValue({ id: 1, name: "tx-create" });
     tx._delegate.update
       .mockResolvedValueOnce({ id: 1, name: "tx-update" })
@@ -114,8 +111,8 @@ describe("prismaAdapter", () => {
 
     const adapter = prismaAdapter({ prisma: root, dmmf: testDmmf, provider: "postgresql" });
 
-    const listed = await adapter.list("User", { ...baseCtx, db: tx });
-    const found = await adapter.get("User", { id: "1", db: tx } as any);
+    const listed = await adapter.list("User", baseCtx);
+    const found = await adapter.get("User", { id: "1" } as any);
     const created = await adapter.create("User", { input: { name: "new" }, db: tx } as any);
     const updated = await adapter.update("User", {
       id: "1",
@@ -130,8 +127,8 @@ describe("prismaAdapter", () => {
       db: tx,
     } as any);
 
-    expect(listed.rows).toEqual([{ id: 1, name: "tx-list" }]);
-    expect(found).toEqual({ id: 1, name: "tx-get" });
+    expect(listed.rows).toEqual([{ id: 1, name: "root-list" }]);
+    expect(found).toEqual({ id: 1, name: "root-get" });
     expect(created).toEqual({ id: 1, name: "tx-create" });
     expect(updated).toEqual({ id: 1, name: "tx-update" });
     expect(tx._delegate.delete).toHaveBeenCalledWith({ where: { id: 1 } });
@@ -139,11 +136,78 @@ describe("prismaAdapter", () => {
       where: { id: 1 },
       data: { deletedAt: null },
     });
-    expect(root._delegate.findMany).not.toHaveBeenCalled();
-    expect(root._delegate.findUnique).not.toHaveBeenCalled();
+    expect(tx._delegate.findMany).not.toHaveBeenCalled();
+    expect(tx._delegate.findUnique).not.toHaveBeenCalled();
     expect(root._delegate.create).not.toHaveBeenCalled();
     expect(root._delegate.update).not.toHaveBeenCalled();
     expect(root._delegate.delete).not.toHaveBeenCalled();
+  });
+
+  it("answers a missing row on update with null and on delete with nothing, like Drizzle", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    const missing = Object.assign(new Error("Record to update not found."), { code: "P2025" });
+    _delegate.update.mockRejectedValue(missing);
+    _delegate.delete.mockRejectedValue(missing);
+    const adapter = prismaAdapter({
+      prisma: { user: delegate },
+      dmmf: testDmmf,
+      provider: "postgresql",
+    });
+    await expect(
+      adapter.update("User", { ...baseCtx, id: "1", input: { email: "x" } }),
+    ).resolves.toBeNull();
+    await expect(
+      adapter.delete("User", { ...baseCtx, id: "1", input: {} }),
+    ).resolves.toBeUndefined();
+    await expect(
+      adapter.delete("User", {
+        ...baseCtx,
+        id: "1",
+        input: {},
+        softDelete: { column: "deletedAt" },
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("keeps a P2025 from a nested connect, which is not the row going missing", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.update.mockRejectedValue(
+      Object.assign(new Error("No 'Team' record found for a nested connect."), {
+        code: "P2025",
+        meta: {
+          cause:
+            "No 'Team' record(s) (needed to inline the relation) was found for a nested connect.",
+        },
+      }),
+    );
+    const adapter = prismaAdapter({
+      prisma: { user: delegate },
+      dmmf: testDmmf,
+      provider: "postgresql",
+    });
+    await expect(adapter.update("User", { ...baseCtx, id: "1", input: {} })).rejects.toThrow(
+      "nested connect",
+    );
+    _delegate.update.mockRejectedValue(
+      Object.assign(new Error("gone"), {
+        code: "P2025",
+        meta: { cause: "Record to update not found." },
+      }),
+    );
+    await expect(adapter.update("User", { ...baseCtx, id: "1", input: {} })).resolves.toBeNull();
+  });
+
+  it("still throws any other Prisma error from an update", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.update.mockRejectedValue(Object.assign(new Error("Unique"), { code: "P2002" }));
+    const adapter = prismaAdapter({
+      prisma: { user: delegate },
+      dmmf: testDmmf,
+      provider: "postgresql",
+    });
+    await expect(adapter.update("User", { ...baseCtx, id: "1", input: {} })).rejects.toThrow(
+      "Unique",
+    );
   });
 
   it("list returns rows and total", async () => {
@@ -177,6 +241,26 @@ describe("prismaAdapter", () => {
     expect(_delegate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ email: "alice@example.com" }) }),
     );
+  });
+
+  it("passes numbers to Prisma for an Int field filtered by strings, as reference lookups and URLs send them", async () => {
+    const { user: delegate, _delegate } = makeMockPrisma();
+    _delegate.findMany.mockResolvedValue([]);
+    _delegate.count.mockResolvedValue(0);
+    const adapter = prismaAdapter({
+      prisma: { user: delegate },
+      dmmf: testDmmf,
+      provider: "postgresql",
+    });
+    await adapter.list("User", {
+      ...baseCtx,
+      filters: { id: { op: "in", values: ["1", "2", "x"] }, email: "7" },
+    });
+    expect(_delegate.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: { in: [1, 2, "x"] }, email: "7" } }),
+    );
+    await adapter.count?.("User", { id: "3" });
+    expect(_delegate.count).toHaveBeenLastCalledWith({ where: { id: 3 } });
   });
 
   it("list search restricts OR to the declared searchFields only", async () => {
@@ -433,12 +517,22 @@ describe("prismaAdapter", () => {
     );
   });
 
-  it("throws when id cannot be coerced to a numeric PK", async () => {
+  it("reads an id that cannot be a numeric PK as no row, and refuses to write it", async () => {
     const prisma = makeMockPrisma();
     const a = prismaAdapter({ prisma: prisma as any, dmmf: testDmmf, provider: "postgresql" });
-    await expect(a.get("User", { id: "not-a-number", db: undefined } as any)).rejects.toThrow(
-      /cannot coerce/,
+    await expect(a.get("User", { id: "not-a-number", db: undefined } as any)).resolves.toBeNull();
+    await expect(
+      a.update("User", { id: "not-a-number", input: {}, db: undefined } as any),
+    ).rejects.toThrow(/cannot coerce/);
+  });
+
+  it("reads Prisma's malformed-id error P2023 as no row", async () => {
+    const prisma = makeMockPrisma();
+    prisma._delegate.findUnique.mockRejectedValueOnce(
+      Object.assign(new Error("Inconsistent column data"), { code: "P2023" }),
     );
+    const a = prismaAdapter({ prisma: prisma as any, dmmf: testDmmf, provider: "postgresql" });
+    await expect(a.get("User", { id: "1", db: undefined } as any)).resolves.toBeNull();
   });
 
   it("introspect delegates to introspect module", () => {

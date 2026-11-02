@@ -1,3 +1,4 @@
+import { FlowpanelConfigError } from "../types/config-error";
 import { decodePayload, encodePayload } from "./envelope";
 
 /** The subscribing half of a Redis connection: a client in subscriber mode. */
@@ -7,18 +8,32 @@ export interface RedisSubscriber {
   on(event: "message", cb: (channel: string, raw: string) => void): unknown;
 }
 
-/** The slice of `ioredis` FlowPanel uses, so a host can pass its own configured client. */
+/** The slice of `ioredis` FlowPanel uses. Loose on purpose: any `ioredis` client is assignable. */
 export interface RedisLike {
-  publish(channel: string, message: string): Promise<number>;
+  publish(channel: string, message: string): Promise<unknown>;
   on(event: "error", cb: (err: unknown) => void): unknown;
   off?(event: "error", cb: (err: unknown) => void): unknown;
   removeListener?(event: "error", cb: (err: unknown) => void): unknown;
-  duplicate?(): RedisLike & RedisSubscriber;
+  /** A second connection for subscribing, checked at runtime for `subscribe`, `unsubscribe` and `on`. */
+  duplicate?(): unknown;
+}
+
+/** What changed on a resource. */
+export interface ResourceChange {
+  /** @defaultValue "update" */
+  action?: "create" | "update" | "delete";
+  /** The changed record's key, when one record changed. */
+  id?: string | number;
 }
 
 /** A publish-only realtime client, for a worker, a cron job or a script. */
 export interface PublisherClient {
   publish(channel: string, payload?: unknown): Promise<void>;
+  /**
+   * Tell every open list and record page of the resource named `name` that its rows changed,
+   * on `resource.<name>`.
+   */
+  resource(name: string, change?: ResourceChange): Promise<void>;
   /** The channel a resource's own events travel on: `resource.<name>`. */
   channelFor(resource: string): string;
   /** Release the connections this client opened. Idempotent; a host's client is left open. */
@@ -35,24 +50,47 @@ export interface RedisPublisherOptions {
   keyPrefix?: string;
 }
 
-type Connection = RedisLike & RedisSubscriber & { quit?(): Promise<unknown> };
-type RedisCtor = new (url: string) => Connection;
+type Connection = RedisLike &
+  RedisSubscriber & { quit?(): Promise<unknown>; disconnect?(): void; status?: string };
+type RedisCtor = new (url: string, options: Record<string, unknown>) => Connection;
 
-const CLOSED = "[flowpanel] this realtime publisher is closed.";
+/** A command gives up after one failed reconnect, so a publish with Redis down fails in seconds, not minutes. */
+const FAIL_FAST = { maxRetriesPerRequest: 1, connectTimeout: 2_000 };
+
+export const CLOSED_MESSAGE = "[flowpanel] this realtime publisher is closed.";
 const URL_PATTERN = /rediss?:\/\/\S+/g;
 
-function safeReason(err: unknown): string {
+export function safeReason(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
   return message.replace(URL_PATTERN, "<redis url>");
 }
 
-function errorKind(err: unknown): string {
+export function errorKind(err: unknown): string {
   if (typeof err === "object" && err !== null) {
     const shape = err as { code?: unknown; name?: unknown };
     if (typeof shape.code === "string") return shape.code;
     if (typeof shape.name === "string") return shape.name;
   }
   return "unknown";
+}
+
+function isSubscriber(value: unknown): value is RedisLike & RedisSubscriber {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return ["publish", "on", "subscribe", "unsubscribe"].every(
+    (key) => typeof candidate[key] === "function",
+  );
+}
+
+/** The event body a resource channel carries; the SSE route routes it to lists and record pages. */
+export function resourceEvent(change: ResourceChange): {
+  action: "create" | "update" | "delete";
+  id?: string | number;
+} {
+  return {
+    action: change.action ?? "update",
+    ...(change.id === undefined ? {} : { id: change.id }),
+  };
 }
 
 /** An unhandled `error` on a Redis connection takes the process down, so every connection gets one. */
@@ -74,19 +112,27 @@ function watchErrors(connection: RedisLike, seen: Set<string>): () => void {
 
 /** Build a Redis-backed publisher. Nothing connects until the first publish or subscribe. */
 export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublisher {
-  if (opts.client === undefined && opts.url === undefined) {
-    throw new Error(
-      "[flowpanel] realtime driver 'redis' needs a connection: set `url`, or pass an ioredis-compatible instance as `client`.",
+  if (opts.client === undefined && !opts.url?.trim()) {
+    throw new FlowpanelConfigError(
+      "realtime",
+      "url" in opts
+        ? 'the "redis" driver got an empty url. Is REDIS_URL set where this process runs? Set it, or pass an ioredis-compatible instance as client.'
+        : 'the "redis" driver needs a connection. Set url, or pass an ioredis-compatible instance as client.',
     );
   }
   const keyPrefix = opts.keyPrefix ?? "flowpanel";
+  if (keyPrefix.includes("undefined")) {
+    console.warn(
+      `[flowpanel] realtime keyPrefix "${keyPrefix}" contains "undefined", so this process publishes and listens where a process with the variable set does not. Use a fixed prefix, or set the variable in every process.`,
+    );
+  }
   const seen = new Set<string>();
   const handlers = new Map<string, Set<(payload: unknown) => void>>();
   const unwatch: Array<() => void> = [];
   let ctor: RedisCtor | null = null;
-  let owned: Array<{ quit?(): Promise<unknown> }> = [];
-  let pub: RedisLike | null = null;
-  let sub: (RedisLike & RedisSubscriber) | null = null;
+  let owned: Array<Pick<Connection, "quit" | "disconnect" | "status">> = [];
+  let pub: Promise<RedisLike> | null = null;
+  let sub: Promise<RedisLike & RedisSubscriber> | null = null;
   let closed = false;
   let warnedClosed = false;
 
@@ -119,16 +165,20 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
       );
     }
     const Redis = await load();
-    const connection = new Redis(opts.url);
+    const connection = new Redis(opts.url, FAIL_FAST);
     unwatch.push(watchErrors(connection, seen));
     owned.push(connection);
     return connection;
   }
 
-  async function publisher(): Promise<RedisLike> {
+  function publisher(): Promise<RedisLike> {
     if (pub) return pub;
-    pub = opts.client ?? (await connect());
-    return pub;
+    const pending = opts.client ? Promise.resolve(opts.client) : connect();
+    pub = pending;
+    pending.catch(() => {
+      if (pub === pending) pub = null;
+    });
+    return pending;
   }
 
   function dispatch(wire: string, raw: string): void {
@@ -137,36 +187,51 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
     for (const handler of handlers.get(channel) ?? []) handler(payload);
   }
 
-  async function subscriber(): Promise<RedisLike & RedisSubscriber> {
-    if (sub) return sub;
+  async function openSubscriber(): Promise<RedisLike & RedisSubscriber> {
     const duplicated = opts.client?.duplicate?.();
-    if (duplicated) {
+    let connection: RedisLike & RedisSubscriber;
+    if (isSubscriber(duplicated)) {
       unwatch.push(watchErrors(duplicated, seen));
       owned.push(duplicated as Connection);
-      sub = duplicated;
+      connection = duplicated;
     } else {
-      sub = await connect();
+      connection = await connect();
     }
-    sub.on("message", dispatch);
-    return sub;
+    connection.on("message", dispatch);
+    return connection;
+  }
+
+  function subscriber(): Promise<RedisLike & RedisSubscriber> {
+    if (sub) return sub;
+    const pending = openSubscriber();
+    sub = pending;
+    pending.catch(() => {
+      if (sub === pending) sub = null;
+    });
+    return pending;
+  }
+
+  async function publish(channel: string, payload?: unknown): Promise<void> {
+    if (closed) throw new Error(CLOSED_MESSAGE);
+    const body = encodePayload(channel, payload);
+    const connection = await publisher();
+    await connection.publish(wireChannel(channel), body);
   }
 
   return {
     channelFor(resource) {
       return `resource.${resource}`;
     },
-    async publish(channel, payload) {
-      if (closed) throw new Error(CLOSED);
-      const body = encodePayload(channel, payload);
-      const connection = await publisher();
-      await connection.publish(wireChannel(channel), body);
+    publish,
+    resource(name, change = {}) {
+      return publish(`resource.${name}`, resourceEvent(change));
     },
     subscribe(channel, handler) {
       if (closed) {
         if (!warnedClosed) {
           warnedClosed = true;
           console.warn(
-            `${CLOSED} The subscription to "${channel}" was not registered — subscribe through the currently bound publisher.`,
+            `${CLOSED_MESSAGE} The subscription to "${channel}" was not registered — subscribe through the currently bound publisher.`,
           );
         }
         return () => {};
@@ -189,7 +254,11 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
         set?.delete(handler);
         if (set?.size === 0) {
           handlers.delete(channel);
-          void sub?.unsubscribe(wireChannel(channel));
+          void sub
+            ?.then((connection) => connection.unsubscribe(wireChannel(channel)))
+            .catch((err) => {
+              console.error(`[flowpanel] redis unsubscribe failed: ${safeReason(err)}`);
+            });
         }
       };
     },
@@ -205,30 +274,14 @@ export function createRedisPublisher(opts: RedisPublisherOptions): RedisPublishe
       await Promise.all(
         connections.map(async (connection) => {
           try {
-            await connection.quit?.();
+            // QUIT waits for a connection that may never come back.
+            if (connection.status === undefined || connection.status === "ready") {
+              await connection.quit?.();
+            }
           } catch {}
+          connection.disconnect?.();
         }),
       );
     },
   };
-}
-
-/**
- * A realtime publisher for a process that only publishes — a worker, a cron job,
- * a script. It opens one connection, or reuses the one the host passes, and it
- * imports nothing but `ioredis` (lazily, and not at all when given a client).
- *
- * @example
- * const events = createPublisher({ redis: process.env.REDIS_URL! });
- * await events.publish(events.channelFor("orders"), { action: "update", id });
- * await events.close();
- */
-export function createPublisher(opts: {
-  redis: RedisLike | string;
-  keyPrefix?: string;
-}): PublisherClient {
-  return createRedisPublisher({
-    ...(typeof opts.redis === "string" ? { url: opts.redis } : { client: opts.redis }),
-    ...(opts.keyPrefix === undefined ? {} : { keyPrefix: opts.keyPrefix }),
-  });
 }

@@ -1,16 +1,26 @@
-// LOC-OK: the resource DSL type surface (ColumnDef / FieldDef / ColumnFormat /
-// FilterDef / ResourceOptions) lives in one file so the pieces stay coherent.
+// LOC-OK: the resource DSL type surface (ColumnDef / FieldDef / ColumnFormat / FilterDef / ResourceOptions) lives in one file.
 import type { ReactNode } from "react";
 import type { z } from "zod";
-import type { BulkAction, RowAction } from "./action";
+import type { ActionEmphasis, BulkAction, RowAction } from "./action";
+import type { AdapterRef } from "./adapter";
 import type { QueryContext, RequestContext } from "./context";
+import type { NavGroupRef } from "./dashboard";
+import type { DetailOptions } from "./detail";
 import type { DrawerConfig } from "./drawer";
 import type { IconName } from "./icon";
-import type { FieldAccessMap, ResourceAccess } from "./policy";
-import type { ReferenceSpec, ResourceName } from "./registry";
-import type { Scope, Session } from "./session";
-import type { Tone, WidgetConfig, WidgetContext } from "./widget";
+import type { PluralLabel } from "./labels";
+import type { AccessRule, FieldAccessMap, ResourceAccess } from "./policy";
+import type { ReferenceSpec } from "./registry";
+import type { Scope } from "./session";
+import type { Threshold } from "./threshold";
+import type { ListFilters } from "./where";
+import type { Tone } from "./widget";
 
+export type {
+  DetailOptions,
+  DetailTab,
+  DetailTabContext,
+} from "./detail";
 export type { DrawerConfig };
 
 export type SelectOption = { label: string; value: string | number | boolean };
@@ -20,19 +30,89 @@ export type ColumnFormat =
   | "badge"
   | "money"
   | "number"
-  | { kind: "badge"; tones?: Record<string, Tone> }
-  | { kind: "money"; currency?: string; scale?: number };
+  | "date"
+  | "relative"
+  | "percent"
+  | "duration"
+  | "boolean"
+  | "url"
+  | {
+      kind: "badge";
+      /** Tone per raw value. */
+      tones?: Record<string, Tone>;
+      /** Display text per raw value, e.g. `{ admin: "Админ" }`; tones stay keyed by the raw value. */
+      labels?: Record<string, string>;
+    }
+  | {
+      kind: "money";
+      currency?: string;
+      /** The value holds minor units with this many digits, as on a `money` field: `2` shows `5900` as 59.00. */
+      minorUnits?: number;
+      /** @deprecated Use `minorUnits`; `scale: 100` is `minorUnits: 2`. */
+      scale?: number;
+    }
+  | {
+      kind: "number";
+      /** Colour the cell by value. */
+      tones?: Threshold;
+    }
+  | {
+      kind: "date";
+      /** Show the clock as well as the day. */
+      time?: boolean;
+      /** The value is a calendar day stored as midnight UTC, as a SQL `date` column is; show that day in every time zone. */
+      calendarDay?: boolean;
+    }
+  | {
+      kind: "percent";
+      /** Most decimals shown, a whole number from 0 to 20.
+       * @defaultValue 1
+       */
+      digits?: number;
+      /** Shade the cell by its value from 0 to 1, as a retention grid does. */
+      heat?: boolean;
+      /** Colour the cell by value, compared with the stored number. */
+      tones?: Threshold;
+    }
+  | {
+      kind: "duration";
+      /** What the stored number counts.
+       * @defaultValue "ms"
+       */
+      unit?: "ms" | "s";
+      /** Colour the cell by value, compared with the stored number. */
+      tones?: Threshold;
+    }
+  | {
+      kind: "boolean";
+      /** Words for true and false.
+       * @defaultValue `✓` and `✕`
+       */
+      labels?: { true?: string; false?: string };
+    }
+  | {
+      kind: "url";
+      /** Link text for every row.
+       * @defaultValue the URL's host and path
+       */
+      label?: string;
+    };
 
 export interface ColumnDef<Row> {
   /** Row property this column reads. Omit only when `render` supplies the cell. */
   field?: keyof Row & string;
-  /** Header text. Defaults to a humanized `field`. */
+  /**
+   * Another field of the row, shown as a muted second line under the cell — the email under a name.
+   * It is loaded with the row; sort and search still use `field`. Ignored on a `reference` column.
+   */
+  secondary?: keyof Row & string;
+  /** The field's label: this header and its name on every other surface, see [Field labels](https://flowpanel.tech/docs/build/resources#field-labels). Defaults to a humanized `field`. */
   label?: string;
   /** Custom cell renderer. Runs on the server; receives the request context. */
   render?: (row: Row, ctx: RequestContext) => ReactNode;
   /** Allow clicking the header to sort by this column. */
   sortable?: boolean;
-  /** Fixed column width, in px when a number. */
+  /** Fixed column width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. */
   width?: number | string;
   /** Horizontal cell alignment. Defaults to `"left"`. */
   align?: "left" | "center" | "right";
@@ -69,11 +149,25 @@ export interface FilterDef<Row> {
     | ReadonlyArray<string>
     | SelectOption[]
     | ((ctx: QueryContext) => Promise<SelectOption[]>);
-  /** Applied until the operator picks a value of their own. */
+  /**
+   * Applied while the URL names no value for the filter: the list, its count, pages, export and API all read it.
+   * Clearing the control writes an empty `f_<field>=` so the default stays off; a view or link turns it off with `null`.
+   */
   defaultValue?: unknown;
-  /** Apply the filter without showing a control for it. */
+  /** Apply the filter, and its `defaultValue`, without showing a control for it. */
   hidden?: boolean;
 }
+
+/** A form field's starting value, or a function of the request that resolves to one; `ctx` is typed without an annotation. */
+export type FieldDefaultValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | null
+  | undefined
+  | object
+  | ((ctx: QueryContext) => unknown);
 
 export type FieldType =
   | "text"
@@ -96,23 +190,21 @@ export type FieldType =
   | "tags"
   | "reference"
   | "hidden"
-  | "color";
+  | "color"
+  | "money";
 
 export interface FieldDef<Row> {
   /** Row property this field writes. */
   name: keyof Row & string;
-  /** Field label. Defaults to a humanized `name`. */
+  /** Field label, also shown wherever no column labels this field. Defaults to a humanized `name`. */
   label?: string;
   /** Hint rendered under the control. */
   help?: string;
   /** Placeholder text for empty inputs. */
   placeholder?: string;
   /**
-   * Which control to render. Omitted, a declared field renders as `"text"` —
-   * or `"reference"` when `reference` is set. The adapter's column type is
-   * consulted only by the fully generated form a resource gets when it declares
-   * no `create.fields` / `update.fields` at all, and only maps number, boolean,
-   * date and json; every other column type renders as text there too.
+   * Which control to render. Omitted, a declared field renders as `"text"` — or `"reference"` when `reference` is set.
+   * The adapter's column type is consulted only by a fully generated form, and only maps number, boolean, date and json.
    */
   type?: FieldType;
   /** Choices for `select` / `multiselect` / `radio`. A function resolves per request. */
@@ -122,63 +214,42 @@ export interface FieldDef<Row> {
     | ((ctx: QueryContext) => Promise<SelectOption[]>);
   /** Turn the field into a searchable picker over another resource. */
   reference?: ReferenceSpec;
-  /** Mark the field required in the form. Server-side validation still comes from `schema`. */
+  /**
+   * `money` only: ISO 4217 code shown beside the amount.
+   * @defaultValue `formatting.currency`
+   */
+  currency?: string;
+  /**
+   * `money` only: digits after the decimal point, 0 to 8. The form edits major units, `399.99`.
+   * @defaultValue the currency's own: 2 for USD, 0 for JPY, 3 for KWD
+   */
+  minorUnits?: number;
+  /**
+   * `money` only: whether the column holds whole minor units (`39999`) or a major-unit decimal (`399.99`).
+   * @defaultValue `"major"` for a decimal or float column, else `"minor"`
+   */
+  storage?: "minor" | "major";
+  /** Require a value. The form marks it, and the server rejects a create that leaves it empty or an edit that clears it. */
   required?: boolean;
   /** Render non-editable. Enforced server-side, not just in the UI. */
   readOnly?: boolean | ((values: Partial<Row>) => boolean);
   /** Leave the field out of the form entirely. */
   hidden?: boolean | ((values: Partial<Row>) => boolean);
-  /** Restrict who may see and write this field. Enforced on every write route. */
-  requireRole?: string | string[] | ((session: Session | null) => boolean);
   /** Per-field validation, run server-side after the resource schema. */
   validate?:
     | z.ZodTypeAny
     | ((value: unknown, values: Partial<Row>) => string | null | Promise<string | null>);
-  /** Value used when creating, for keys the operator left empty. */
-  defaultValue?: unknown | ((ctx: QueryContext) => Promise<unknown>);
+  /**
+   * Value used when creating, for keys the operator left empty; a visible field also pre-fills with it.
+   * The resource's `create.defaultValues` wins for the same key.
+   */
+  defaultValue?: FieldDefaultValue;
   /** Width in a 12-column form grid. Defaults to full width. */
   span?: 1 | 2 | 3 | 4 | 6 | 12;
   /** Fieldset heading this field is grouped under. */
   group?: string;
-}
-
-/**
- * What a `DetailTab.render` callback is handed alongside the row: the widget
- * context minus the parts a detail tab has no business with.
- */
-export interface DetailTabContext
-  extends Pick<
-    WidgetContext,
-    "db" | "session" | "dateRange" | "href" | "labels" | "query" | "sql" | "count"
-  > {}
-
-export interface DetailTab<Row> {
-  /** Stable identifier, stored in the URL's `?tab=` search parameter. */
-  key: string;
-  /** Tab label. */
-  label: string;
-  /** Hide the tab for rows that should not show it. */
-  hidden?: (row: Row) => boolean;
-  /** Field list to render as a key/value view. `"*"` shows every column. */
-  fields?: (keyof Row | FieldDef<Row>)[] | "*";
-  /** Grouped key/value fields, one block per entry. Wins over `fields`. */
-  sections?: Array<{ label: string; fields: (keyof Row | FieldDef<Row>)[] }>;
-  /** Render rows of a related resource instead of fields. */
-  resource?: ResourceName;
-  /** Filter applied to `resource`, derived from the row being viewed. */
-  filter?: (row: Row) => Record<string, unknown>;
-  /** Related-tab columns to omit, typically the parent foreign key. */
-  hide?: string[];
-  /** Related-tab default sort; falls back to the target's `defaultSort`, then its primary key. */
-  sort?: { field: string; dir: "asc" | "desc" };
-  /** Dashboard widgets with `ctx.row` set to the record being viewed. */
-  widgets?: WidgetConfig[];
-  /** Grid columns for `widgets`.
-   * @defaultValue 2
-   */
-  columns?: 1 | 2 | 3 | 4 | 6 | 12;
-  /** Render arbitrary content instead of fields, widgets or a related resource. */
-  render?: (row: Row, ctx: DetailTabContext) => ReactNode;
+  /** Detail pages and drawers only: what the field shows instead of its value — a join or a computed label. */
+  render?: (row: Row, ctx: RequestContext) => ReactNode | Promise<ReactNode>;
 }
 
 /** One page of rows, as returned by `Adapter.list`. */
@@ -191,23 +262,31 @@ export interface ListResult<Row> {
   pageSize: number;
 }
 
+/**
+ * Narrows one query to the caller's tenant. The adapter decides what `query` is, so annotate it:
+ * Drizzle passes a builder to call `.where(condition)` on, Prisma the `where` object to merge into.
+ */
+export type ResourceScope = (scope: Scope, query: never) => unknown;
+
 export interface ResourceOptions<Row> {
   /** URL segment and registry key. Defaults to the adapter's table name. */
   name?: string;
-  /** Singular label shown in headings and buttons. */
-  label?: string;
   /**
-   * Label for exactly one row, e.g. `"Customer"`. Used where a heading talks
-   * about a single record — the create page's title. Falls back to `label`,
-   * then to the resource name.
+   * The one name for both a row and the list when they read the same, such as `"Staff"`.
+   * `labelOne` overrides it for one row and `plural` for the list; without any of the three,
+   * the resource name is humanized: `order_items` reads "Order items" and one row "Order item".
    */
+  label?: string;
+  /** Name for exactly one row, e.g. `"Customer"`: record, create and edit titles and the drawer. Falls back to `label`. */
   labelOne?: string;
-  /** Plural label shown in the nav and list title. */
+  /** Name for the list: the nav entry, the list title and the detail crumb. Falls back to `label`. */
   plural?: string;
   /** Serializable Lucide icon rendered in navigation and the command palette. */
   icon?: IconName;
   /** Keep the resource out of the navigation — its routes still work. */
   hidden?: boolean;
+  /** Sidebar group for this resource. Default: the Resources group. */
+  navGroup?: NavGroupRef;
 
   /**
    * Additional fields shared by list and detail presentation. Declare render
@@ -215,16 +294,12 @@ export interface ResourceOptions<Row> {
    */
   expose?: (keyof Row & string)[];
 
-  /**
-   * Columns of the list table, in order. A bare string is a field name.
-   * Omitted, `defineAdmin` fills it with every column the adapter introspects,
-   * in introspection order.
-   */
-  columns?: (keyof Row | ColumnDef<Row>)[];
+  /** Columns of the list table, in order; a bare string is a field name. Omitted, `defineAdmin` fills it in introspection order. */
+  columns?: ((keyof Row & string) | ColumnDef<Row>)[];
   /** Fields the search box queries. Without this, search is disabled. */
   search?: (keyof Row & string)[];
   /** Filter controls above the list. A bare string always renders a text filter — declare a `FilterDef` for any other control. */
-  filters?: (keyof Row | FilterDef<Row>)[];
+  filters?: ((keyof Row & string) | FilterDef<Row>)[];
   /** Sort applied when the URL carries none. */
   defaultSort?: { field: keyof Row & string; dir: "asc" | "desc" };
   /** Rows per page.
@@ -236,61 +311,56 @@ export interface ResourceOptions<Row> {
    */
   density?: "comfortable" | "compact";
   /**
-   * What a row click — and Enter on the focused row — does. `"detail"` navigates
-   * to the row's own page, `"drawer"` opens the drawer and requires `drawer`, and
-   * `false` leaves rows inert. A row the projection cannot identify never acts.
-   * @defaultValue `"detail"` when `detail` is configured and `drawer` is not, `"drawer"` when only `drawer` is, otherwise `false`
+   * What a row click — and Enter on the focused row — does. A row the projection cannot identify never acts.
+   * @defaultValue `"drawer"` when `drawer` is configured, otherwise `"detail"`
    */
   rowClick?: "detail" | "drawer" | false;
   /** Property holding each row's unique id.
-   * @defaultValue "id"
+   * @defaultValue the table's primary key, else `"id"`
    */
   rowKey?: keyof Row & string;
 
   /** Side panel opened for a single row. */
   drawer?: DrawerConfig<Row>;
-  /** Full-page view at `/<basePath>/<resource>/<id>`. */
-  detail?: {
-    /**
-     * Extra fields used only by detail headers, hidden-tab predicates, related
-     * filters, or custom detail renderers. They never widen list rows.
-     */
-    expose?: (keyof Row & string)[];
-    /** Heading content (inside h1). Receives declared, readable detail fields; nullish output uses `<label> · <pk>`. */
-    title?: (row: Row) => ReactNode | string | null | undefined;
-    /** @deprecated Use `title`. Removed in 1.0. */
-    header?: (row: Row) => ReactNode;
-    /** One line under the heading, for the fact that identifies the record. May be async. */
-    subtitle?: (row: Row) => string | null | undefined | Promise<string | null | undefined>;
-    /** Status pill beside the heading. May be async. */
-    badge?: (
-      row: Row,
-    ) =>
-      | { label: string; tone?: Tone }
-      | null
-      | undefined
-      | Promise<{ label: string; tone?: Tone } | null | undefined>;
-    tabs?: DetailTab<Row>[];
-    fields?: (keyof Row | FieldDef<Row>)[] | "*";
-  };
+  /** Full-page view at `<paths.admin>/<resource>/<id>`. */
+  detail?: DetailOptions<Row>;
 
   /** Validation for writes. Overrides the schema inferred from the adapter. */
   schema?: z.ZodTypeAny | { create?: z.ZodTypeAny; update?: z.ZodTypeAny };
-  /** Create form. `disabled` removes the route, not just the button. */
+  /**
+   * The table that create, update, delete and restore write to, when the resource reads a view.
+   * Omitted on a view: the resource is read-only, and a declared create/update/delete/import is an error at `defineAdmin`.
+   */
+  writeTo?: AdapterRef;
+  /**
+   * Create form. `disabled` removes the route, not just the button. `defaultValues` fills keys a
+   * create leaves empty, on the server only, and wins over a field's own `defaultValue`.
+   */
   create?: { disabled?: boolean; fields?: FieldDef<Row>[]; defaultValues?: Partial<Row> };
   /** Edit form. `disabled` removes the route, not just the button. */
   update?: {
     disabled?: boolean;
     fields?: FieldDef<Row>[];
-    /**
-     * Additional readable values available to edit-form hidden/readOnly
-     * predicates. This never creates a control, default value, or write
-     * permission.
-     */
+    /** Additional readable values available to edit-form hidden/readOnly predicates; never a control, default or write. */
     expose?: (keyof Row & string)[];
+    /**
+     * How the record page's edit button reads: `"primary"` fills it with the accent.
+     * @defaultValue "secondary"
+     */
+    emphasis?: ActionEmphasis;
   };
   /** Delete behaviour. Set `softDelete` to a timestamp column to keep rows recoverable. */
-  delete?: { disabled?: boolean; softDelete?: keyof Row & string; confirm?: string };
+  delete?: {
+    disabled?: boolean;
+    softDelete?: keyof Row & string;
+    /**
+     * Text under the Delete confirmation. `{ one, other }` (any `PluralLabel` form) picks the wording
+     * by how many rows go, `{n}` the count: one record on its page, the selection in the bulk menu.
+     */
+    confirm?: string | PluralLabel;
+    /** Offer Delete in the bulk menu, after your own bulk actions. Default `true`. */
+    bulk?: boolean;
+  };
 
   /** Per-row actions, rendered inline or in the row's menu. */
   // biome-ignore lint/suspicious/noExplicitAny: a resource stores heterogeneous action payloads; each payload remains exact on the action returned by rowAction().
@@ -300,20 +370,32 @@ export interface ResourceOptions<Row> {
   bulkActions?: BulkAction<Row, any, any>[];
 
   /** How the admin-wide `scope` narrows this resource. `"bypass"` opts out explicitly. */
-  scope?: "bypass" | ((scope: Scope, query: unknown) => unknown);
-  /** Canonical operation-level authorization. */
-  access?: ResourceAccess<Row>;
+  scope?: "bypass" | ResourceScope;
+  /** The tenant a row belongs to, as `scope` returns it; files `allTenants` staff's audit events under it. */
+  scopeOf?: (row: Row) => Scope;
+  /** Who may read, create, update and delete: `{ read, create, update, delete }`, or one rule such as `"admin"` for all four. */
+  access?: ResourceAccess<Row> | AccessRule;
   /** Canonical read/write policy for declared fields. */
   fieldAccess?: FieldAccessMap<Row>;
-  /** @deprecated Use `access`. This alias will be removed in 0.3. */
-  requireRole?: string | string[] | ((session: Session | null) => boolean);
 
-  /** Export button. `false` removes it. Defaults to CSV and JSON of the visible columns. */
-  export?: { formats?: ("csv" | "json")[]; fields?: (keyof Row & string)[] } | false;
+  /**
+   * Export button, off unless set: every row matching the list's filters, search and sort, as
+   * the user may read them. `formats` defaults to `["csv"]`; `fields` defaults to the columns.
+   */
+  export?:
+    | {
+        formats?: ("csv" | "json")[];
+        fields?: (keyof Row & string)[];
+        /** Most rows one export holds; past it the file says so in its name. @defaultValue 10000 */
+        maxRows?: number;
+        /** Who may export, on top of the resource's `read` rule. Everyone who may read by default. */
+        access?: AccessRule;
+      }
+    | false;
   /** Import button. Off unless set; rows are created through the normal write path. */
   import?: { formats?: ("csv" | "json")[]; fields?: (keyof Row & string)[] } | false;
 
-  /** Opt this resource out of the admin-wide audit sink. */
+  /** `false` records no audit events for this resource, and its records show no History tab. */
   audit?: boolean;
   /** Refresh the list when the channel fires. `true` uses `resource.<name>`. */
   realtime?: boolean | string;
@@ -321,7 +403,8 @@ export interface ResourceOptions<Row> {
   views?: Array<{
     name: string;
     description?: string;
-    filters?: Record<string, unknown>;
+    /** Filter values keyed by the row's fields: a value, a preset name for a `daterange`, `{ gte, lte }` or an array. */
+    filters?: ListFilters<Row>;
     sort?: { field: keyof Row & string; dir: "asc" | "desc" };
     search?: string;
   }>;
@@ -332,6 +415,16 @@ export interface ResourceOptions<Row> {
     title?: string;
     description?: string;
     action?: { label: string; href: string };
+    /**
+     * Title when search or filters leave no rows; a button beside it clears them. `{query}` is
+     * the search text. Default: `labels.widget.filtered`.
+     */
+    filtered?: string;
+    /**
+     * Title when a search leaves no rows, in place of `filtered`, e.g. `"Nothing found for «{query}»"`.
+     * Default: `filtered`.
+     */
+    searched?: string;
   };
 }
 

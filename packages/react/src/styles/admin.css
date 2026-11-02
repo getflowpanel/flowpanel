@@ -1,61 +1,47 @@
-/* FlowPanel design tokens — CSS custom properties + motion + theme map.
-   Every visual decision routes through a --fp-* token so host apps can
-   re-theme the admin without touching component code. */
-@layer theme, base, components, utilities;
-
+/* FlowPanel design tokens: every visual decision routes through a --fp-* token so host apps can re-theme the admin. */
 [data-flowpanel-root],
 [data-flowpanel-portal] {
   color-scheme: light;
 
-  /* Color (HSL triplets) */
+  /* Color (HSL triplets). Graphite greys, an ink accent for actions and one calm
+     hue for data; state tones are desaturated so colour stays rare. */
   --fp-bg-1: 0 0% 100%;
-  --fp-bg-2: 220 20% 97%;
-  --fp-bg-3: 220 16% 93.5%;
-  --fp-text-1: 224 25% 11%;
-  --fp-text-2: 220 10% 38%;
-  /* 45% (not 60%) so muted text on --fp-bg-1/2 clears WCAG AA 4.5:1. */
-  --fp-text-3: 220 10% 45%;
-  --fp-border-1: 220 14% 90%;
-  --fp-border-2: 220 12% 84%;
-  /* 50% (not 56%) so accent-text (#f5f8ff) on accent clears WCAG AA 4.5:1. */
-  --fp-accent: 220 90% 50%;
-  --fp-accent-text: 220 100% 98%;
-  /* Focus rings follow the accent unless overridden. */
+  --fp-bg-2: 220 9% 96.9%;
+  --fp-bg-3: 220 8% 93.5%;
+  --fp-text-1: 222 10% 10%;
+  --fp-text-2: 220 7% 33%;
+  --fp-text-3: 220 5% 41%;
+  --fp-border-1: 220 8% 89.5%;
+  --fp-border-2: 220 5% 53%;
+  --fp-accent: 222 10% 12%;
+  --fp-accent-text: 0 0% 100%;
   --fp-ring: var(--fp-accent);
-  /* Modal/drawer scrim — dark even in light mode. */
-  --fp-overlay: 224 35% 7%;
-  --fp-ok: 142 70% 45%;
-  --fp-warn: 38 92% 50%;
-  --fp-err: 0 84% 60%;
-  /* Neutral-informational tone. Cyan rather than blue so an `info` badge
-     never collides with a blue --fp-accent sitting in the next column. */
-  --fp-info: 199 89% 48%;
+  --fp-overlay: 222 12% 5%;
+  --fp-ok: 149 45% 36%;
+  --fp-warn: 36 72% 38%;
+  --fp-err: 4 60% 46%;
+  --fp-info: 215 16% 45%;
+  --fp-ok-text: 150 50% 27%;
+  --fp-warn-text: 34 80% 28%;
+  --fp-err-text: 3 60% 40%;
+  --fp-info-text: 214 16% 34%;
+  --fp-accent-badge-text: 222 10% 12%;
 
-  /* Dedicated badge-text tokens: same hue/saturation as the base tone,
-     lightness lowered so full-strength text on the tone's own `/10` tinted
-     background (e.g. `bg-fp-ok/10 text-fp-ok-text`) clears WCAG AA 4.5:1
-     with worst case measured on --fp-bg-2-tinted hover/active surfaces.
-     The base --fp-ok/--fp-warn/--fp-err tokens still drive solid fills
-     (StatusDot, buttons). */
-  --fp-ok-text: 142 70% 27%;
-  --fp-warn-text: 38 92% 28%;
-  --fp-err-text: 0 84% 42%;
-  --fp-info-text: 199 89% 30%;
-  --fp-accent-badge-text: 220 90% 46%;
+  /* Bars, funnels, sparklines, heat and single-series charts. Follows the first
+     chart series, so a bar and the headline line of a chart agree. */
+  --fp-data: var(--fp-chart-1);
 
-  /* Categorical chart palette — consumed by @flowpanel/charts as
-     hsl(var(--fp-chart-N)). Re-tuned per scheme in `.dark` below. */
-  --fp-chart-1: 221 83% 53%;
-  --fp-chart-2: 173 80% 36%;
-  --fp-chart-3: 38 92% 50%;
-  --fp-chart-4: 262 83% 58%;
-  --fp-chart-5: 350 89% 60%;
-  --fp-chart-6: 192 91% 36%;
-  --fp-chart-7: 84 81% 44%;
+  --fp-chart-1: 212 48% 44%;
+  --fp-chart-2: 220 6% 53%;
+  --fp-chart-3: 183 45% 33%;
+  --fp-chart-4: 38 55% 40%;
+  --fp-chart-5: 268 28% 52%;
+  --fp-chart-6: 140 24% 40%;
+  --fp-chart-7: 340 32% 50%;
 
   /* Elevation — layered, color-tokenized so dark mode can strengthen it. */
-  --fp-shadow-color: 224 40% 8%;
-  --fp-shadow-xs: 0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.06);
+  --fp-shadow-color: 222 12% 8%;
+  --fp-shadow-xs: 0 0 #0000;
   --fp-shadow-sm:
     0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.05),
     0 2px 8px -2px hsl(var(--fp-shadow-color) / 0.07);
@@ -67,13 +53,18 @@
     0 28px 64px -12px hsl(var(--fp-shadow-color) / 0.26);
 
   /* Radius */
-  --fp-radius-sm: 0.375rem;
-  --fp-radius: 0.5rem;
-  --fp-radius-lg: 0.75rem;
-  --fp-radius-xl: 1rem;
+  --fp-radius-sm: 0.25rem;
+  --fp-radius: 0.375rem;
+  --fp-radius-lg: 0.5rem;
+  --fp-radius-xl: 0.75rem;
 
   /* Spacing base (4pt grid) */
   --fp-space-unit: 4px;
+
+  /* Lists: header row and pager heights, and the least a capped table shows */
+  --fp-table-head-h: 2.5rem;
+  --fp-table-foot-h: calc(3.5rem + 2px);
+  --fp-table-min-h: 14rem;
 
   /* Type */
   --fp-font-sans:
@@ -89,45 +80,47 @@
   --fp-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-html[data-flowpanel-theme="dark"] [data-flowpanel-root],
-html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
-[data-flowpanel-root][data-theme="dark"],
-[data-flowpanel-portal][data-theme="dark"] {
+/* Dark by FlowPanel's own choice, or by the host's `.dark` on <html> when `theme.mode` is "host". */
+html[data-flowpanel-theme="dark"] [data-flowpanel-root]:not([data-scheme="host"]),
+html[data-flowpanel-theme="dark"]:not(:has([data-scheme="host"])) [data-flowpanel-portal],
+[data-flowpanel-root][data-theme="dark"]:not([data-scheme="host"]),
+[data-flowpanel-portal][data-theme="dark"],
+html[class~="dark"] [data-flowpanel-root][data-scheme="host"],
+html[class~="dark"]:has([data-scheme="host"]) [data-flowpanel-portal] {
   color-scheme: dark;
 
-  --fp-bg-1: 222 18% 8%;
-  --fp-bg-2: 222 16% 11.5%;
-  --fp-bg-3: 222 14% 15.5%;
-  --fp-text-1: 220 20% 96%;
-  --fp-text-2: 220 11% 72%;
-  --fp-text-3: 220 9% 58%;
-  --fp-border-1: 222 14% 19%;
-  --fp-border-2: 222 13% 25%;
-  /* Default accent re-lightened for dark surfaces (4.5:1+ on --fp-bg-1/2);
-     accent-text flips dark so on-accent labels keep AA on the lighter fill.
-     Apps overriding `theme.accent` should pair it with `theme.accentDark`. */
-  --fp-accent: 217 91% 65%;
-  --fp-accent-text: 224 30% 10%;
+  /* The page is the darkest plane; surfaces sit one step up and fills above them. */
+  --fp-bg-1: 220 8% 10%;
+  --fp-bg-2: 220 9% 7%;
+  --fp-bg-3: 220 7% 14.5%;
+  --fp-text-1: 220 10% 94%;
+  --fp-text-2: 220 6% 70%;
+  --fp-text-3: 220 5% 58%;
+  --fp-border-1: 220 7% 18%;
+  --fp-border-2: 220 5% 45%;
+  --fp-accent: 220 10% 94%;
+  --fp-accent-text: 220 9% 7%;
+  --fp-overlay: 0 0% 0%;
+  --fp-ok: 149 36% 50%;
+  --fp-warn: 37 62% 56%;
+  --fp-err: 4 70% 62%;
+  --fp-info: 215 16% 60%;
+  --fp-ok-text: 150 42% 62%;
+  --fp-warn-text: 37 70% 66%;
+  --fp-err-text: 4 80% 72%;
+  --fp-info-text: 215 20% 72%;
+  --fp-accent-badge-text: 220 10% 94%;
 
-  /* Badge-text tokens re-checked against the dark surfaces above (worst
-     case --fp-bg-2 tint). ok/warn base tones already clear 4.5:1 on dark,
-     err/accent need re-lightening. */
-  --fp-ok-text: 142 70% 45%;
-  --fp-warn-text: 38 92% 50%;
-  --fp-err-text: 0 84% 68%;
-  --fp-info-text: 199 89% 60%;
-  --fp-accent-badge-text: 217 91% 68%;
+  --fp-chart-1: 212 55% 66%;
+  --fp-chart-2: 220 6% 50%;
+  --fp-chart-3: 183 40% 52%;
+  --fp-chart-4: 40 52% 58%;
+  --fp-chart-5: 268 34% 70%;
+  --fp-chart-6: 140 24% 58%;
+  --fp-chart-7: 340 36% 68%;
 
-  --fp-chart-1: 213 94% 68%;
-  --fp-chart-2: 172 66% 50%;
-  --fp-chart-3: 43 96% 56%;
-  --fp-chart-4: 255 92% 76%;
-  --fp-chart-5: 351 95% 71%;
-  --fp-chart-6: 188 86% 53%;
-  --fp-chart-7: 83 78% 55%;
-
-  --fp-shadow-color: 240 40% 2%;
-  --fp-shadow-xs: 0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.5);
+  --fp-shadow-color: 0 0% 0%;
+  --fp-shadow-xs: 0 0 #0000;
   --fp-shadow-sm:
     0 1px 2px 0 hsl(var(--fp-shadow-color) / 0.5), 0 2px 8px -2px hsl(var(--fp-shadow-color) / 0.45);
   --fp-shadow-md:
@@ -147,12 +140,8 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
   }
 }
 
-/* The generated v4 stylesheet intentionally omits Tailwind Preflight and the
-   v3 template intentionally omits `@tailwind base`: neither may reset host
-   content. These are the small defaults FlowPanel components need, limited to
-   their roots and portals. The native sublayer sits below utilities in v4 and
-   below v3's unlayered utilities, so a utility or host override still wins. */
-@layer base.flowpanel {
+/* The small defaults FlowPanel needs, scoped to its roots/portals. In a Tailwind 4 host's `components` layer: after Preflight, before utilities. */
+@layer components.flowpanel {
   [data-flowpanel-root],
   [data-flowpanel-portal] {
     box-sizing: border-box;
@@ -250,13 +239,33 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
     background-image: none;
     cursor: pointer;
   }
+
+  [data-flowpanel-root] :where(table),
+  [data-flowpanel-portal] :where(table) {
+    border-collapse: collapse;
+    border-color: inherit;
+    text-indent: 0;
+  }
+
+  [data-flowpanel-root] :where(img, svg, video, canvas, audio, iframe, embed, object),
+  [data-flowpanel-portal] :where(img, svg, video, canvas, audio, iframe, embed, object) {
+    display: block;
+    vertical-align: middle;
+  }
+
+  [data-flowpanel-root] :where(img, video),
+  [data-flowpanel-portal] :where(img, video) {
+    max-width: 100%;
+    height: auto;
+  }
+
+  [data-flowpanel-root] :where(textarea),
+  [data-flowpanel-portal] :where(textarea) {
+    resize: vertical;
+  }
 }
 
-/* ---------------------------------------------------------------------------
-   Motion. Radix primitives set data-state="open|closed" on their content and
-   overlay nodes and keep the node mounted until the exit animation finishes,
-   so a single fp-anim-* class gives a primitive both directions.
-   Exits run faster than entries (~60%). */
+/* Motion: Radix keeps a node mounted until its exit animation finishes, so one fp-anim-* class gives both directions. */
 
 @keyframes fp-fade-in {
   from {
@@ -282,12 +291,7 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
   }
 }
 
-/* Centred dialogs animate `scale`, never `transform`. Tailwind centres them
-   with the standalone `translate` property, and a `transform: translate(…)`
-   in a keyframe does not replace it — the two compose, so the panel spends the
-   whole animation at -100%/-100% and snaps back when it ends. `translate`,
-   `rotate` and `scale` are independent properties, so scaling here leaves the
-   centring alone. Travel stays small: a wide jump reads as a snap. */
+/* Centred dialogs animate `scale`, never `transform`: it would compose with Tailwind's own `translate` centering, not replace it. */
 @keyframes fp-dialog-in {
   from {
     opacity: 0;
@@ -357,11 +361,7 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
 .fp-anim-pop[data-state="closed"] {
   animation: fp-pop-out var(--fp-duration-fast) var(--fp-ease-in-out) forwards;
 }
-/* Radix keeps content mounted until the exit animation reports `animationend`.
-   Inside Popover's portal that animation never starts, so the panel stays in
-   the DOM — invisible in places, but still painting and still swallowing the
-   clicks underneath it. Opting Popover out of the exit lets Presence see no
-   animation and unmount at once. Select/Dropdown/Dialog are unaffected. */
+/* Inside Popover's portal the exit animation never starts, so it stays mounted and swallows clicks; this opts it out. */
 .fp-anim-pop.fp-anim-no-exit[data-state="closed"] {
   animation: none;
 }
@@ -415,12 +415,14 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
     transform: translateY(0);
   }
 }
+/* An inset shadow, not a background: a pinned cell keeps its own background under the flash. */
 @keyframes fp-row-enter-surface {
-  from {
-    background-color: hsl(var(--fp-accent) / 0.09);
+  0%,
+  55% {
+    box-shadow: inset 0 0 0 100vmax hsl(var(--fp-accent) / 0.1);
   }
-  to {
-    background-color: transparent;
+  100% {
+    box-shadow: inset 0 0 0 100vmax transparent;
   }
 }
 .fp-row-enter {
@@ -429,18 +431,74 @@ html[data-flowpanel-theme="dark"] [data-flowpanel-portal],
 li.fp-row-enter {
   animation:
     fp-row-enter 240ms var(--fp-ease-out) both,
-    fp-row-enter-surface 240ms var(--fp-ease-out);
+    fp-row-enter-surface 2s var(--fp-ease-out);
 }
 tr.fp-row-enter > td {
-  animation: fp-row-enter-surface 240ms var(--fp-ease-out);
+  animation: fp-row-enter-surface 2s var(--fp-ease-out);
 }
 
-/* Press feedback for buttons and tappable chips — transform only, so it
-   never shifts layout. Longhands, so the same class also drives the color
-   transition without fighting Tailwind's transition utilities. */
-/* `box-shadow` is deliberately absent: Tailwind draws focus rings as box-shadow,
-   and transitioning it makes the ring fade in — slow feedback for a keyboard
-   affordance, and long enough to see the offset ring resolve to its colour. */
+/* List scroller: both axes, so the header and first column stick; no taller than the screen; contains its sr-only labels. */
+[data-fp-table-scroll] {
+  position: relative;
+  max-height: max(
+    var(--fp-table-min-h),
+    calc(100dvh - var(--fp-sticky-top, 0px) - var(--fp-below, 0px) - var(--fp-table-foot-h))
+  );
+  scroll-padding-top: var(--fp-table-head-h);
+  overscroll-behavior-x: contain;
+  background:
+    linear-gradient(to left, hsl(var(--fp-bg-1)), hsl(var(--fp-bg-1))) local right / 2.5rem 100%,
+    linear-gradient(to left, hsl(var(--fp-shadow-color) / 0.08), transparent) scroll right / 2.5rem
+    100%;
+  background-repeat: no-repeat;
+}
+[data-fp-table-scroll] tr[data-fp-row] {
+  --fp-row-tint: transparent;
+  scroll-margin-top: var(--fp-table-head-h);
+}
+[data-fp-table-scroll] tr[data-fp-row][data-clickable]:hover {
+  --fp-row-tint: hsl(var(--fp-bg-2) / 0.7);
+}
+[data-fp-table-scroll] tr[data-fp-row][data-selected],
+[data-fp-table-scroll] tr[data-fp-row][aria-current="true"] {
+  --fp-row-tint: hsl(var(--fp-accent) / 0.05);
+}
+[data-fp-table-scroll] > table > thead > tr > th {
+  height: var(--fp-table-head-h);
+  box-shadow: inset 0 -1px 0 hsl(var(--fp-border-1));
+}
+[data-fp-table-scroll] tr[data-fp-row] > td {
+  background-image: linear-gradient(var(--fp-row-tint), var(--fp-row-tint));
+}
+[data-fp-table-scroll] tr[data-fp-row][aria-current="true"] > td:first-child:not(.fp-sticky) {
+  position: relative;
+}
+[data-fp-table-scroll] tr[data-fp-row][aria-current="true"] > td:first-child::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: hsl(var(--fp-ring));
+}
+[data-fp-table-scroll][data-scrolled] [data-fp-pin-edge]::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 1px;
+  background: hsl(var(--fp-border-1));
+}
+/* A phone card opens through its title's stretched link; its other controls sit above that link. */
+[data-fp-card]
+:is(a, button, input, select, textarea, [role="button"], [role="checkbox"]):not(
+  [data-fp-card-link]
+) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Longhands, transform only: `box-shadow` is deliberately absent, since Tailwind draws focus rings with it. */
 .fp-press {
   transition-property: color, background-color, border-color, opacity, transform;
   transition-duration: var(--fp-duration-fast);
@@ -448,6 +506,41 @@ tr.fp-row-enter > td {
 }
 .fp-press:active {
   transform: scale(0.97);
+}
+
+/* A thin indeterminate bar while a list or a nav tab waits for the server; it shows only past a short delay. */
+@keyframes fp-pending-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+/* The bar itself is placed by its caller (`fp-absolute` plus an inset); it only clips its sweep. */
+.fp-pending-bar {
+  overflow: hidden;
+  animation: fp-fade-in var(--fp-duration) var(--fp-ease-out) 150ms both;
+}
+.fp-pending-bar::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  width: 40%;
+  border-radius: 9999px;
+  background: hsl(var(--fp-accent));
+  animation: fp-pending-sweep 1.1s var(--fp-ease-in-out) infinite;
+}
+/* While a nav link's page is on its way, the page it leaves dims once the wait is longer than a blink. */
+[data-flowpanel-root]:has([data-flowpanel-nav] .fp-pending-bar) main {
+  opacity: 0.55;
+  transition: opacity var(--fp-duration) var(--fp-ease-out) 150ms;
+}
+/* Rows dim only once a change takes longer than a blink. */
+[data-fp-list][aria-busy="true"] [data-fp-table-scroll],
+[data-fp-list][aria-busy="true"] [data-fp-card] {
+  opacity: 0.55;
+  transition: opacity var(--fp-duration) var(--fp-ease-out) 150ms;
 }
 
 /* Skeleton shimmer (replaces Tailwind animate-pulse for FlowPanel's primitive). */
@@ -479,10 +572,168 @@ tr.fp-row-enter > td {
   display: none;
 }
 
-/* Fades the clipped edges of a horizontal scroller so cut-off tabs read as
-   "there is more" instead of as a rendering glitch. The side is driven by
-   data-overflow, set from the scroll position, so a strip that fits — or one
-   scrolled hard against an end — keeps that edge crisp. */
+/* A server-rendered form takes no input until its code runs; once the wait is noticeable its fields dim and the actions say why. */
+[data-fp-form-fields][data-fp-loading] {
+  animation: fp-form-wait var(--fp-duration) var(--fp-ease-out) 300ms both;
+}
+@keyframes fp-form-wait {
+  to {
+    opacity: 0.55;
+  }
+}
+.fp-form-loading-note {
+  animation: fp-fade-in var(--fp-duration) var(--fp-ease-out) 300ms both;
+}
+
+/* A tab holds its label's medium-weight width, so the strip does not shift as the current tab changes. */
+.fp-tab-label {
+  display: inline-flex;
+  flex-direction: column;
+}
+.fp-tab-label::after {
+  content: attr(data-label) / "";
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Breaks a long unbroken value, a URL or a token, so it never widens its row. */
+.fp-wrap-anywhere {
+  overflow-wrap: anywhere;
+}
+
+/* A KPI figure of N characters shrinks below 2rem only when N characters would not fit its container. */
+.fp-figure[data-fp-figure="1"] {
+  font-size: min(2rem, 166.67cqi);
+}
+.fp-figure[data-fp-figure="2"] {
+  font-size: min(2rem, 83.33cqi);
+}
+.fp-figure[data-fp-figure="3"] {
+  font-size: min(2rem, 55.56cqi);
+}
+.fp-figure[data-fp-figure="4"] {
+  font-size: min(2rem, 41.67cqi);
+}
+.fp-figure[data-fp-figure="5"] {
+  font-size: min(2rem, 33.33cqi);
+}
+.fp-figure[data-fp-figure="6"] {
+  font-size: min(2rem, 27.78cqi);
+}
+.fp-figure[data-fp-figure="7"] {
+  font-size: min(2rem, 23.81cqi);
+}
+.fp-figure[data-fp-figure="8"] {
+  font-size: min(2rem, 20.83cqi);
+}
+.fp-figure[data-fp-figure="9"] {
+  font-size: min(2rem, 18.52cqi);
+}
+.fp-figure[data-fp-figure="10"] {
+  font-size: min(2rem, 16.67cqi);
+}
+.fp-figure[data-fp-figure="11"] {
+  font-size: min(2rem, 15.15cqi);
+}
+.fp-figure[data-fp-figure="12"] {
+  font-size: min(2rem, 13.89cqi);
+}
+.fp-figure[data-fp-figure="13"] {
+  font-size: min(2rem, 12.82cqi);
+}
+.fp-figure[data-fp-figure="14"] {
+  font-size: min(2rem, 11.9cqi);
+}
+.fp-figure[data-fp-figure="15"] {
+  font-size: min(2rem, 11.11cqi);
+}
+.fp-figure[data-fp-figure="16"] {
+  font-size: min(2rem, 10.42cqi);
+}
+.fp-figure[data-fp-figure="17"] {
+  font-size: min(2rem, 9.8cqi);
+}
+.fp-figure[data-fp-figure="18"] {
+  font-size: min(2rem, 9.26cqi);
+}
+.fp-figure[data-fp-figure="19"] {
+  font-size: min(2rem, 8.77cqi);
+}
+.fp-figure[data-fp-figure="20"] {
+  font-size: min(2rem, 8.33cqi);
+}
+.fp-figure[data-fp-figure="21"] {
+  font-size: min(2rem, 7.94cqi);
+}
+.fp-figure[data-fp-figure="22"] {
+  font-size: min(2rem, 7.58cqi);
+}
+.fp-figure[data-fp-figure="23"] {
+  font-size: min(2rem, 7.25cqi);
+}
+.fp-figure[data-fp-figure="24"] {
+  font-size: min(2rem, 6.94cqi);
+}
+.fp-figure[data-fp-figure="25"] {
+  font-size: min(2rem, 6.67cqi);
+}
+.fp-figure[data-fp-figure="26"] {
+  font-size: min(2rem, 6.41cqi);
+}
+.fp-figure[data-fp-figure="27"] {
+  font-size: min(2rem, 6.17cqi);
+}
+.fp-figure[data-fp-figure="28"] {
+  font-size: min(2rem, 5.95cqi);
+}
+.fp-figure[data-fp-figure="29"] {
+  font-size: min(2rem, 5.75cqi);
+}
+.fp-figure[data-fp-figure="30"] {
+  font-size: min(2rem, 5.56cqi);
+}
+.fp-figure[data-fp-figure="31"] {
+  font-size: min(2rem, 5.38cqi);
+}
+.fp-figure[data-fp-figure="32"] {
+  font-size: min(2rem, 5.21cqi);
+}
+.fp-figure[data-fp-figure="33"] {
+  font-size: min(2rem, 5.05cqi);
+}
+.fp-figure[data-fp-figure="34"] {
+  font-size: min(2rem, 4.9cqi);
+}
+.fp-figure[data-fp-figure="35"] {
+  font-size: min(2rem, 4.76cqi);
+}
+.fp-figure[data-fp-figure="36"] {
+  font-size: min(2rem, 4.63cqi);
+}
+.fp-figure[data-fp-figure="37"] {
+  font-size: min(2rem, 4.5cqi);
+}
+.fp-figure[data-fp-figure="38"] {
+  font-size: min(2rem, 4.39cqi);
+}
+.fp-figure[data-fp-figure="39"] {
+  font-size: min(2rem, 4.27cqi);
+}
+.fp-figure[data-fp-figure="40"] {
+  font-size: min(2rem, 4.17cqi);
+}
+
+/* A table frame whose column widths are measured against its own width with `cqw`; the gutter keeps that width steady. */
+.fp-width-container {
+  container-type: inline-size;
+  scrollbar-gutter: stable;
+}
+
+/* Fades the clipped edges of a horizontal scroller so cut-off tabs read as "there is more", not a rendering glitch. */
 .fp-scroll-fade-x {
   --fp-scroll-fade: 1.5rem;
 }
@@ -502,10 +753,13 @@ tr.fp-row-enter > td {
   );
 }
 
-/* Reduce-motion: the duration tokens above already collapse to 0ms; the
-   explicit cancellation below covers the fixed-duration shimmer and keeps
-   intent obvious for animation-name rules. */
+/* Reduce-motion: the duration tokens above already collapse to 0ms; this covers the fixed-duration shimmer too. */
 @media (prefers-reduced-motion: reduce) {
+  .fp-pending-bar::after {
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
+  }
   .fp-skeleton,
   .fp-anim-overlay[data-state="open"],
   .fp-anim-overlay[data-state="closed"],
@@ -519,28 +773,25 @@ tr.fp-row-enter > td {
   .fp-anim-sheet-left[data-state="open"],
   .fp-anim-sheet-left[data-state="closed"],
   .fp-bulkbar[data-state="open"],
-  .fp-row-enter,
-  tr.fp-row-enter > td {
+  .fp-row-enter {
     animation: none;
+  }
+  li.fp-row-enter {
+    animation: fp-row-enter-surface 2s linear;
   }
   .fp-press:active {
     transform: none;
   }
 }
 
-/* Keyboard focus ring for the shell navigation (tab strip + sidebar). Every
-   other interactive primitive carries its own :focus-visible style, but the
-   raw nav links did not. Scoped to FlowPanel's own nav so it never restyles
-   the host app's links. */
+/* Keyboard focus ring for the shell navigation; scoped to FlowPanel's own nav so it never restyles host links. */
 [data-flowpanel-root] nav[data-flowpanel-nav] a:focus-visible {
   outline: 2px solid hsl(var(--fp-ring));
   outline-offset: 2px;
   border-radius: var(--fp-radius-sm);
 }
 
-/* `inline` is required because the --fp-* values live on the namespaced
-   FlowPanel root, not on :root. Without it Tailwind first resolves
-   --color-fp-* on :root, where the source token is intentionally absent. */
+/* `inline` is required because the --fp-* values live on the namespaced FlowPanel root, not on :root. */
 @theme inline {
   --color-fp-bg-1: hsl(var(--fp-bg-1));
   --color-fp-bg-2: hsl(var(--fp-bg-2));
@@ -563,6 +814,7 @@ tr.fp-row-enter > td {
   --color-fp-err-text: hsl(var(--fp-err-text));
   --color-fp-info-text: hsl(var(--fp-info-text));
   --color-fp-accent-badge-text: hsl(var(--fp-accent-badge-text));
+  --color-fp-data: hsl(var(--fp-data));
   --color-fp-chart-1: hsl(var(--fp-chart-1));
   --color-fp-chart-2: hsl(var(--fp-chart-2));
   --color-fp-chart-3: hsl(var(--fp-chart-3));

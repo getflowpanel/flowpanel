@@ -1,0 +1,197 @@
+# FlowPanel — Reference — Drawer
+
+## Drawer
+
+Layout, tabs and actions of the row side panel.
+
+Docs: https://flowpanel.tech/docs/reference/drawer
+
+Documented types: DrawerConfig, DrawerTabFields, DrawerTabResource, DrawerTabWidgets, DrawerAction, DrawerPayload
+
+A drawer shows one row over the list. Declare `drawer` on a resource; a row click
+opens it unless `rowClick` says otherwise. Guide: [Record pages and drawers](/docs/build/detail-cards#drawer).
+
+```ts
+resource(orders, {
+  columns: ["id", "customerEmail", "status"],
+  rowClick: "drawer",
+  drawer: {
+    width: "xl",
+    title: (row) => `Order ${row.id}`,
+    tabs: [
+      { key: "summary", label: "Summary", fields: "*" },
+      { key: "items", label: "Items", resource: "order_items", filter: (row) => ({ orderId: row.id }) },
+    ],
+    actions: [
+      {
+        key: "refund",
+        label: "Refund",
+        variant: "destructive",
+        access: "admin",
+        confirm: "Refund this order?",
+        form: [{ name: "reason", type: "textarea", required: true }],
+        run: async (row, formData, ctx) => {
+          await refund(db, row.id, formData.reason as string);
+          return { ok: true, message: "Refunded", refresh: true };
+        },
+      },
+    ],
+  },
+});
+```
+
+### DrawerConfig
+
+`DrawerConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `width?` | `DrawerWidth` | Panel width. Default: `"lg"`. |
+| `title?` | `(row: Row) => string` | Panel title. Defaults to the row's key. |
+| `subtitle?` | `(row: Row) => string` | The line under the title. Defaults to the resource's label. |
+| `fields?` | `DrawerFieldList<Row>` | Fields shown when no `tabs` are declared. `"*"` shows every column. |
+| `tabs?` | `DrawerTab<Row>[]` | Tabs to render instead of a flat field list. |
+| `actions?` | `DrawerAction<Row>[]` | The row's own actions, in the header menu of the drawer and the record page. |
+
+`DrawerWidth` is `"sm" | "md" | "lg" | "xl" | "2xl" | "full"`, defaulting to
+`"lg"`.
+
+With a `detail` page, the header links to it (`labels.drawer.viewDetails`). The
+line under the title is the resource label unless you set `subtitle(row)`.
+
+Without `tabs`, the drawer lists `fields` (`(keyof Row | FieldDef<Row>)[] | "*"`),
+labelled and rendered by the matching columns. A `FieldDef.render` wins over the
+column's; see [fields and sections](/docs/reference/resources#fields-and-sections).
+
+#### Server-rendered cells
+
+Renders in a drawer run concurrently on the server and become static HTML, so
+return text or plain elements and use a pooled database client. A render that
+returns a client component shows the list's cell or the formatted value instead.
+A render that throws is logged as `[flowpanel] drawer render failed for "<field>"`
+and the cell shows the formatted value.
+
+### Tabs
+
+`DrawerTab` is a union of three shapes, discriminated by which key you set.
+
+#### DrawerTabFields
+
+The row's own fields.
+
+`DrawerTabFields`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` | Stable identifier for the tab. |
+| `label` | `string` |  |
+| `fields` | `DrawerFieldList<Row>` | Fields to show. `"*"` shows every declared column. |
+
+#### DrawerTabResource
+
+Rows of a related resource, filtered by the open row.
+
+`DrawerTabResource`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` |  |
+| `label` | `string` |  |
+| `resource` | `ResourceName` | Related resource to list. Must be registered on the same admin. |
+| `filter?` | `(row: Row) => Record<string, unknown>` | Filter applied to the related resource, derived from the open row. |
+
+The related resource's access rules apply; a tab the operator may not read is
+empty. The tab shows the first 20 rows, with no pagination.
+
+#### DrawerTabWidgets
+
+Dashboard widgets, scoped to the open row.
+
+`DrawerTabWidgets`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` |  |
+| `label` | `string` |  |
+| `widgets` | `Exclude< WidgetConfig, CustomWidget \| TimelineWidget \| HeatmapWidget \| ChecklistWidget \| TrackerWidget >[]` | `custom()`, `tracker()` and page-rendered widgets (`timeline`, `heatmap`, `checklist`) are not renderable here — the drawer serializes over the wire. |
+
+`custom`, `timeline`, `heatmap`, `checklist` and `tracker` widgets are a type error
+here, and the last four also fail at `defineAdmin`; use a record page tab. Each widget is serialized
+before it reaches the browser:
+
+```ts
+type SerializedWidget =
+  | { kind: "metric"; label: string; value: number | string; /* format, sublabel, tone, span, realtime */ }
+  | { kind: "table"; rows: Record<string, unknown>[]; columns: { field: string; label?: string }[]; /* … */ }
+  | { kind: "statGroup"; stats: { label: string; value: string | number | CardDate; /* … */ }[]; /* … */ }
+  | { kind: "chart"; subkind: "area" | "bar" | "line" | "pie"; label: string; dataPoints: number; /* … */ }
+  | { kind: "stat"; label: string; value: number | string | CardDate; /* format, hint, href, tone */ }
+  | { kind: "kv"; items: { label: string; value: string | CardDate; /* tone, href, long, rest, more */ }[]; /* … */ }
+  | { kind: "bars"; rows: { label: string; value: number; href?: string /* … */ }[]; emptyState: string; /* … */ }
+  | { kind: "funnel"; steps: { label: string; value: number; href?: string }[]; emptyState: string; /* … */ }
+  | { kind: "list"; rows: ListCardRow[]; more?: { label: string; href?: string }; emptyState: string; /* … */ }
+  | { kind: "unsupported"; label?: string; reason: string; failed?: true; span?: number };
+```
+
+`CardDate` is `{ kind: "date"; iso: string }`, an instant the card renders in the
+viewer's time zone. A widget whose query throws becomes
+`{ kind: "unsupported", failed: true }` with a safe message. Drawer widgets are static: a metric shows no delta, link or
+sparkline, and a table has no row links.
+
+### Actions
+
+The drawer's header holds the record's Edit button and one menu with the
+resource's row actions, these drawer actions and Delete, the same menu the
+record page shows. Each runs with the same guards as every action; see
+[DrawerAction](/docs/reference/actions#draweraction). An action the operator cannot
+run, or whose `when` rejects the open row, is left out, and a deleted row offers
+only Restore. `placement: "inline"` keeps an action as a button beside Edit, for
+the one a reviewer clicks on every row.
+
+`DrawerAction`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` | Stable identifier, used in the action's URL. |
+| `label` | `string` |  |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `variant?` | `ActionVariant` | Button styling. |
+| `placement?` | `"inline" \| "menu"` | `"inline"` renders a button in the row; `"menu"` puts it in the row menu. |
+| `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
+| `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
+| `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
+| `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
+| `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
+| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. |
+| `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
+| `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
+
+### The payload
+
+What `GET /api/flowpanel/drawer/<resource>/<id>` returns.
+
+`DrawerPayload`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `row` | `Record<string, unknown>` |  |
+| `title` | `string` |  |
+| `subtitle?` | `string` | The line under the title, from `drawer.subtitle`. |
+| `resourceLabel` | `string` | The resource's display label, so the drawer never shows the raw registry name. |
+| `width` | `"sm" \| "md" \| "lg" \| "xl" \| "2xl" \| "full"` |  |
+| `fields` | `SerializedFieldList` |  |
+| `tabs` | `SerializedDrawerTab[] \| null` |  |
+| `actions` | `SerializedDrawerAction[]` |  |
+| `prerendered` | `Record<string, string>` | Field → HTML for fields whose column declares a `render`. |
+| `labels` | `Record<string, string>` | Field → the label it shows on every other surface, so drawer rows read like their table headers. |
+| `formats` | `Record<string, ColumnFormat>` | Field → column `format`. Plain data, rendered client-side exactly as the table does. |
+| `references` | `Record<string, { label: string; href: string }>` | Field → the record a `reference` column points at, so a drawer opened from a link reads like one opened from its row. |
+| `detailHref` | `string \| null` | The record's own page, when the resource configures `detail`. |
+| `deleted` | `boolean` | Soft-deleted, shown only to a caller who could restore it. |
+| `deletedTitle?` | `string` | The notice over a deleted row: "This customer was deleted". |
+| `restorable` | `boolean` | A deleted row whose resource takes updates, so Restore can bring it back. |
+
+### What crosses to the client
+
+Only declared columns and fields, never the raw row. Rendered columns arrive as
+HTML.

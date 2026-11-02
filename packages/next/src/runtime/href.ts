@@ -1,30 +1,24 @@
 import type { ResolvedAdminConfig } from "@flowpanel/core";
 import { withDeploymentBasePath } from "@flowpanel/core/paths";
 
-/**
- * One URL path atom — a resource name, a record identifier, a literal segment.
- * Identifiers carry `/`, `%`, `?` and `#` in real data, and every one of those
- * changes the route unless it is escaped here.
- */
+/** One URL path atom — a resource name, record identifier or literal segment — escaped so `/`, `%`, `?`, `#` stay data. */
 export function encodeAtom(value: string | number): string {
   return encodeURIComponent(String(value));
 }
 
-function join(config: ResolvedAdminConfig, parts: string[]): string {
-  if (parts.length === 0) return config.basePath || "/";
-  return `${config.basePath}/${parts.join("/")}`;
+type Paths = Pick<ResolvedAdminConfig, "paths">;
+
+function join(config: Paths, parts: string[]): string {
+  const base = config.paths.admin === "/" ? "" : config.paths.admin;
+  if (parts.length === 0) return base || "/";
+  return `${base}/${parts.join("/")}`;
 }
 
 /**
- * Build a URL under the admin's `basePath` from identity atoms. Every atom is
- * kept as it is: a leading slash and an empty string are values a key column can
- * hold, and rewriting them would address a different record. Callers that have no
- * identifier build no URL — see `identityOf` in the table.
+ * Builds a URL under the admin's `paths.admin` from identity atoms, kept as-is since a key column can hold a leading slash.
+ * Callers with no identifier build no URL — see `identityOf` in the table.
  */
-export function buildHref(
-  config: ResolvedAdminConfig,
-  ...segments: ReadonlyArray<string | number>
-): string {
+export function buildHref(config: Paths, ...segments: ReadonlyArray<string | number>): string {
   return join(config, segments.map(encodeAtom));
 }
 

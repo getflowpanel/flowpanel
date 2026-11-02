@@ -1,5 +1,4 @@
-import { expectTypeOf } from "expect-type";
-import { describe, it } from "vitest";
+import { describe, expectTypeOf, it } from "vitest";
 import type {
   CommandGroup,
   CommandPaletteConfig,
@@ -11,6 +10,7 @@ import type {
   DrawerTab,
   FieldDef,
   MetricWidget,
+  RealtimeOption,
   ResolvedDateRange,
   SectionConfig,
   StatGroupWidget,
@@ -18,13 +18,13 @@ import type {
   WidgetConfig,
 } from "../index";
 
-describe("M2 public types", () => {
+describe("dashboard public types", () => {
   it("DashboardConfig shape matches spec", () => {
     expectTypeOf<DashboardConfig>().toMatchTypeOf<{
       path: string;
       label: string;
       icon?: string;
-      realtime?: string | string[];
+      realtime?: RealtimeOption;
       sections: SectionConfig[];
     }>();
   });
@@ -59,6 +59,10 @@ describe("M2 public types", () => {
       | "barChart"
       | "lineChart"
       | "pieChart"
+      | "tracker"
+      | "timeline"
+      | "heatmap"
+      | "checklist"
     >();
   });
 

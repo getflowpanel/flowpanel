@@ -1,0 +1,117 @@
+---
+title: Build a custom widget
+description: Write a widget no built-in card fits, with the admin's links, formatters, tones and tokens, and test it.
+kind: how-to
+---
+
+`custom()` puts your own component in a dashboard grid when no built-in card fits. FlowPanel still draws the card frame, title, error state and realtime refresh.
+
+## Compute props on the server
+
+```ts
+// src/admin/config/dashboards/system.ts
+import { custom, type Tone, type WidgetContext } from "@flowpanel/kit";
+import { Pipeline } from "@/admin/ui/Pipeline";
+
+const pipelineStages = (c: WidgetContext) =>
+  c.sql<{ label: string; count: number; tone: Tone; trend: number[] }>`
+    select label, count, tone, trend from pipeline_stages order by position`;
+
+export const pipelineWidget = custom(
+  Pipeline,
+  async (c) => ({
+    stages: await c.query(pipelineStages),
+    runsHref: c.link({ resource: "runs", filter: { status: "failed" } }),
+    updated: c.format.relative(new Date()),
+  }),
+  { label: "Pipeline", realtime: "pipeline", span: 12 },
+);
+```
+
+`realtime: "pipeline"` needs `pipeline` declared in `realtime.channels`; see [Realtime](/docs/guides/realtime#declare-your-own-channels). The props function gets the same `ctx` as every widget: `ctx.link` builds an href under the admin's mount, `ctx.format` formats in the admin's locale and zone, `ctx.query` shares a query between widgets, and `ctx.dateRange` is the picked period. Pass the component plain data.
+
+## Build it from kit atoms
+
+```tsx
+// src/admin/ui/Pipeline.tsx
+import { type Tone, toneFillClass, toneTextClass } from "@flowpanel/kit";
+import { EmptyState, Sparkline, StatusDot } from "@flowpanel/kit/react";
+
+interface Stage {
+  label: string;
+  count: number;
+  tone: Tone;
+  trend: number[];
+}
+
+interface PipelineProps {
+  stages: Stage[];
+  runsHref: string;
+  updated: string;
+}
+
+export function Pipeline({ stages, runsHref, updated }: PipelineProps) {
+  if (stages.length === 0) return <EmptyState title="Nothing in the pipeline" />;
+  return (
+    <ol className="grid gap-3 sm:grid-cols-4">
+      {stages.map((stage) => (
+        <li key={stage.label} className="rounded-fp border border-fp-border-1 p-3">
+          <div className="flex items-center gap-2 text-xs text-fp-text-3">
+            <StatusDot tone={stage.tone} />
+            {stage.label}
+          </div>
+          <div className={`text-xl font-semibold tabular-nums ${toneTextClass[stage.tone]}`}>
+            {stage.count}
+          </div>
+          <Sparkline values={stage.trend} />
+          <div className={`mt-2 h-1 rounded-full ${toneFillClass[stage.tone]}`} />
+        </li>
+      ))}
+      <li className="flex flex-col justify-between gap-2 text-sm">
+        <a className="text-fp-accent-badge-text" href={runsHref}>
+          Failed runs
+        </a>
+        <span className="text-xs text-fp-text-3">Updated {updated}</span>
+      </li>
+    </ol>
+  );
+}
+```
+
+`StatusDot`, `Sparkline`, `EmptyState`, `Card`, `CardHeader` and `CardContent` come from `@flowpanel/kit/react`. `toneTextClass` and `toneFillClass` map each `Tone` to the built-in classes; import them from `@flowpanel/kit` in a server component, because the React entry is a client boundary. The `*-fp-*` token classes need the [Tailwind token bridge](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes); `toneTextClass` and `toneFillClass` return classes the admin stylesheet already carries.
+
+## Keep heavy code off other pages
+
+The admin is one catch-all route, so Next.js loads every client component it can render on every admin page, lists and forms included. A widget's own code is small; a library it imports comes with it.
+
+- Draw charts with `AreaChart`, `BarChart`, `LineChart` or `PieChart` from `@flowpanel/kit/charts`. They load Recharts the first time one draws and hold the chart's height until then, so a widget with a chart adds no Recharts to list, form and record pages.
+- A chart builder such as `lineChart`, or a type, imported from `@flowpanel/kit` costs nothing in the browser.
+- Import another large client library, such as a map or a rich editor, inside the widget with `next/dynamic`: `const RunMap = dynamic(() => import("./RunMap"), { ssr: false })` in a `"use client"` file. Then only the page that draws it downloads it.
+
+[Production readiness](/docs/guides/production-readiness#page-weight) has the first-load sizes the admin's own pages ship.
+
+## Options
+
+| Option | Effect |
+| --- | --- |
+| `label` | Card title, also used in error messages and the slow-widget log; with `frame: false` it still titles the error card |
+| `frame: false` | No card around the component |
+| `realtime` | Re-render on a channel, `{ resource }`, or a list of them |
+| `span` | Width in a 12-column section |
+| `minHeight` | Height in px the widget keeps while it loads and after; set it to the height it draws so the page below does not jump when it arrives. Built-in widgets reserve their own height. |
+
+## Test it
+
+```ts
+import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
+import { expect, it } from "vitest";
+import { pipelineWidget } from "@/admin/config/dashboards/system";
+
+it("links the failed stage to failed runs", async () => {
+  const ctx = widgetContext({ sql: STAGE_ROWS, rows: { runs: [] } });
+  const { props } = await resolveWidget(pipelineWidget, ctx);
+  expect(props.runsHref).toBe("/admin/runs?f_status=failed");
+});
+```
+
+`resolveWidget` returns the props your component receives, computed as the dashboard computes them. `sql` is what `ctx.sql` returns; `rows: { runs: [] }` registers the resource the link names. See [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).

@@ -26,10 +26,9 @@ Regenerate the aggregated changelog from `packages/*/CHANGELOG.md`:
 pnpm --filter @flowpanel/site changelog
 ```
 
-## Where do I add X?
+## Where things go
 
-The structure is the answer to "where would I put this?" — when in
-doubt, follow this table.
+Follow this table when you add something.
 
 | You want to add… | Place it under |
 |---|---|

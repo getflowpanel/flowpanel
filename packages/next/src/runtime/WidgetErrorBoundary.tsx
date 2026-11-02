@@ -1,7 +1,9 @@
 "use client";
-import { ErrorCard } from "@flowpanel/react";
-import { useRouter } from "next/navigation";
+import { Button, PageHeader, useLabels } from "@flowpanel/react";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import * as React from "react";
+import { RequestId } from "../pages/RequestId";
+import { FailureCard } from "./failure-card";
 
 interface State {
   error: Error | null;
@@ -14,6 +16,16 @@ interface BoundaryProps {
   widgetId?: string;
   /** Dashboard slug — same purpose as `widgetId`, lifted one level up. */
   dashboardId?: string;
+  /** Drop the fallback card's frame, inside a `StatStrip`. */
+  plain?: boolean;
+  /** The widget's card title, which the fallback card shows. */
+  title?: string;
+  /** What failed, in place of "Couldn't load this widget". */
+  failureTitle?: string;
+  /** Runs before Retry renders the widget again, such as asking for code that failed to load. */
+  onRetry?: () => void;
+  /** A whole page's heading, kept above the card when the page fails. */
+  pageTitle?: string;
 }
 
 interface SentryLike {
@@ -33,26 +45,70 @@ function getSentry(): SentryLike | null {
   return null;
 }
 
-/** Functional fallback rendered when the boundary caught an error. */
+/** The failed widget's card: its own title, what to do, Retry, and the digest the server log printed. */
 function BoundaryFallback({
   error,
   onReset,
+  plain,
+  title,
+  failureTitle,
+  pageTitle,
 }: {
-  error: Error;
+  error: Error & { digest?: string };
   onReset: () => void;
+  plain: boolean;
+  title: string | undefined;
+  failureTitle: string | undefined;
+  pageTitle: string | undefined;
 }): React.JSX.Element {
   const router = useRouter();
-  const handleRetry = React.useCallback(() => {
-    onReset();
-    router.refresh();
-  }, [onReset, router]);
-  return <ErrorCard error={error} onRetry={handleRetry} />;
+  const { errors } = useLabels();
+  const [pending, startTransition] = React.useTransition();
+  const developing = process.env.NODE_ENV !== "production";
+  const card = (
+    <FailureCard
+      {...(title ? { heading: title } : {})}
+      title={failureTitle ?? errors.widgetTitle}
+      hint={error.digest ? `${errors.widgetHint} ${errors.reportHint}` : errors.widgetHint}
+      devHint={
+        developing && error.name === "WidgetConnectionFailure" ? errors.connectionHint : null
+      }
+      detail={developing && error.message ? { summary: errors.details, text: error.message } : null}
+      plain={plain}
+      actions={
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pending}
+            onClick={() =>
+              startTransition(() => {
+                onReset();
+                router.refresh();
+              })
+            }
+          >
+            {errors.retry}
+          </Button>
+          {error.digest ? <RequestId id={error.digest} kind="digest" /> : null}
+        </>
+      }
+    />
+  );
+  if (!pageTitle) return card;
+  return (
+    <>
+      <PageHeader title={pageTitle} />
+      {card}
+    </>
+  );
 }
 
 export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
   override state: State = { error: null };
 
   static getDerivedStateFromError(error: Error): State {
+    unstable_rethrow(error);
     return { error };
   }
 
@@ -68,13 +124,23 @@ export class WidgetErrorBoundary extends React.Component<BoundaryProps, State> {
   }
 
   private reset = (): void => {
+    this.props.onRetry?.();
     this.setState({ error: null });
   };
 
   override render(): React.ReactNode {
     if (this.state.error) {
       if (this.props.fallback) return this.props.fallback;
-      return <BoundaryFallback error={this.state.error} onReset={this.reset} />;
+      return (
+        <BoundaryFallback
+          error={this.state.error}
+          onReset={this.reset}
+          plain={this.props.plain === true}
+          title={this.props.title}
+          failureTitle={this.props.failureTitle}
+          pageTitle={this.props.pageTitle}
+        />
+      );
     }
     return this.props.children;
   }

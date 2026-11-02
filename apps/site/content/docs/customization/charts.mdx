@@ -4,22 +4,12 @@ description: Add server-queried chart widgets or render FlowPanel chart componen
 kind: how-to
 ---
 
-Use a chart when the shape or change over time is easier to see than to read in a table. FlowPanel provides server-queried dashboard builders and lower-level runtime components.
+Recharts draws the line, area, bar and pie charts and installs with the kit. The chart builders come from `@flowpanel/kit` with the other widgets; the React components for client data come from `@flowpanel/kit/charts`.
 
-## Install the optional peer
+## A dashboard chart
 
-Charts use Recharts. Install a version supported by the current package metadata:
-
-```bash
-pnpm add recharts
-```
-
-Import dashboard builders from `@flowpanel/kit/charts`. Import runtime React components from `@flowpanel/kit/charts/runtime`.
-
-## Add a dashboard chart
-
-```ts excerpt
-import { lineChart } from "@flowpanel/kit/charts";
+```ts
+import { lineChart } from "@flowpanel/kit";
 
 lineChart("Signups", async ({ db, dateRange }) => {
   return findDailySignups(db, dateRange);
@@ -30,39 +20,22 @@ lineChart("Signups", async ({ db, dateRange }) => {
 })
 ```
 
-The query runs on the server. Return a flat array with one x-axis value and numeric series values per row. Normalize dates, missing buckets, and numeric strings in the query layer so the component receives a predictable shape.
+The query runs on the server and returns a flat array: one `x` value and numeric series per row. Use `series()` to bucket rows by time and fill gaps; see [Dashboards](/docs/build/dashboards#one-query-several-widgets).
 
-Choose the form that matches the question:
+Without `y`, a chart widget plots every numeric key of its rows except `x`; that inference runs on the server. `labels` names the series (a map, an `enumOf()` or a function). One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y` order, and `colors` pins a series to a colour.
 
-- line or area for change over an ordered interval;
-- bar for comparison among discrete categories;
-- pie only for a small part-to-whole set where labels remain readable;
-- table when exact values matter more than the pattern.
+## Client data
 
-## Format and color deliberately
-
-Legend and tooltip names come from the `y` row keys, so alias columns to presentable names in the query instead of exposing raw database keys. Use the `format` option so number, currency, and percentage rendering stays consistent with nearby metrics. The default palette comes from `--fp-chart-1` through `--fp-chart-7`; override those tokens for brand alignment and verify contrast in light and dark modes.
-
-Do not encode meaning by color alone. Keep legends and tooltips readable, and avoid more simultaneous series than users can distinguish.
-
-## Render client-owned data
-
-Use a runtime component when the data already lives in client state or comes from a browser-only interaction:
-
-```tsx excerpt
+```tsx
 "use client";
 
-import { LineChart } from "@flowpanel/kit/charts/runtime";
+import { LineChart } from "@flowpanel/kit/charts";
 
 export function Preview({ data }: { data: Array<{ day: string; count: number }> }) {
   return <LineChart data={data} options={{ x: "day", y: "count" }} />;
 }
 ```
 
-Fetch protected data through an authorized server boundary. Do not move a server query into the browser solely to use the runtime component.
+The client components in `@flowpanel/kit/charts` do not infer series: pass `y` (one key or a list). They load Recharts the first time one draws and show a skeleton of the chart's height until then, so a custom widget that uses one keeps Recharts off pages without a chart. Import them from `@flowpanel/kit/charts`, not from `recharts`, for that reason.
 
-## Handle every state
-
-Define what zero rows means, distinguish loading from empty, and surface a recoverable error without removing the rest of the dashboard. Realtime refresh should update the chart because a user decision benefits—not merely because a channel exists.
-
-Use a custom widget when the visualization needs annotations, interaction, or a data model that the built-in chart options cannot express clearly. Exact builder and prop types live in [Widgets reference](/docs/reference/widgets#charts) and [React components reference](/docs/reference/react-components#widgets).
+Every option: [Charts reference](/docs/reference/widgets#charts).

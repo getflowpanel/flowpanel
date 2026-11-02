@@ -1,4 +1,5 @@
 import { FlowpanelValidationError } from "@flowpanel/core";
+import { clientMetadata } from "@flowpanel/core/paths";
 
 export type WireValue =
   | null
@@ -45,8 +46,7 @@ export function toWireValue(
   }
   if (typeof value === "object") {
     if (seen.has(value as object)) return invalid(path, value);
-    // A class that declares toJSON has stated how it serializes — Prisma's Decimal does.
-    // Anything that has not (a Map, a live database handle) still fails loudly.
+    // A class that declares toJSON has stated how it serializes — Prisma's Decimal does; anything else fails loudly.
     const toJson = (value as { toJSON?: unknown }).toJSON;
     if (typeof toJson === "function") {
       seen.add(value as object);
@@ -81,12 +81,5 @@ export function serializeClientMetadata(input: {
   id?: string;
   paths: { admin: string; api: string };
 }): FlowpanelClientMetadata {
-  return Object.freeze({
-    id: input.id ?? "local",
-    paths: Object.freeze({ admin: input.paths.admin, api: input.paths.api }),
-    protocol: Object.freeze({
-      version: 1 as const,
-      methods: Object.freeze(["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] as const),
-    }),
-  });
+  return clientMetadata(input);
 }

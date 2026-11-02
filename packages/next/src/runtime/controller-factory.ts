@@ -14,9 +14,19 @@ type RowOf<Resource> =
   Resource extends ResourceConfig<infer _Ref, infer Row, infer _Options>
     ? Row
     : Record<string, unknown>;
+/** The name `resolveResourceName` gives a resource: `name`, else a string ref, else the table's own name. */
+type RefName<Ref> = Ref extends string
+  ? Ref
+  : Ref extends { _: { name: infer Name extends string } }
+    ? Name
+    : Ref extends { __name: infer Name extends string }
+      ? Name
+      : string;
 type NameOf<Resource> = Resource extends { options: { name: infer Name extends string } }
   ? Name
-  : string;
+  : Resource extends { ref: infer Ref }
+    ? RefName<Ref>
+    : string;
 
 export type ResourceControllers<Resources extends readonly AnyResourceConfig[]> = {
   [Resource in Resources[number] as NameOf<Resource>]: ResourceController<

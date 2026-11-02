@@ -12,6 +12,7 @@ describe("demo warning tone", () => {
     const html = renderToStaticMarkup(
       <ReviewQueue
         pending={25}
+        href="/admin/matches"
         outcomes={[
           { label: "Confirmed", count: 24, share: 43, tone: "default" },
           { label: "Needs review", count: 10, share: 18, tone: "warn" },

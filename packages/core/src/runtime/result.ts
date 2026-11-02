@@ -5,6 +5,7 @@ import {
   type FlowpanelResult,
   type FlowpanelResultError,
 } from "../types/result";
+import { loggableError } from "./describe-error";
 
 const reportedErrors = new WeakSet<object>();
 
@@ -28,7 +29,7 @@ function normalizeUnexpected(error: unknown): Error {
   return error instanceof Error ? error : new Error("Non-Error value was thrown", { cause: error });
 }
 
-/** Invoke the diagnostic hook at most once for the same unexpected Error object. */
+/** Invoke the diagnostic hook, or log with the request id when none is set, at most once per Error object. */
 export async function reportUnexpectedError(
   thrown: unknown,
   context: ErrorContext,
@@ -38,11 +39,16 @@ export async function reportUnexpectedError(
   const error = normalizeUnexpected(thrown);
   if (reportedErrors.has(error)) return;
   reportedErrors.add(error);
-  if (!onError) return;
+  if (!onError) {
+    const where = context.operation ?? context.route ?? `${context.method} ${context.url}`;
+    const prefix = `[flowpanel] ${where} failed, requestId ${context.requestId}:`;
+    console.error(prefix, loggableError(error));
+    return;
+  }
   try {
     await onError(error, context);
   } catch (hookError) {
-    console.error("[flowpanel] onError hook failed", hookError);
+    console.error("[flowpanel] onError hook failed", loggableError(hookError));
   }
 }
 

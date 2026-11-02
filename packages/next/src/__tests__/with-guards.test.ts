@@ -8,11 +8,11 @@ vi.mock("../runtime/publish", () => ({
 }));
 
 import type {
+  AccessRule,
   Adapter,
   BulkAction,
   ErrorContext,
   RateLimitConfig,
-  RequireRole,
   ResolvedAdminConfig,
   ResourceAccess,
   ResourceConfig,
@@ -27,7 +27,7 @@ type Row = { id: string; reason: string };
 function makeConfig(opts: {
   action?: BulkAction<Row>;
   role?: string;
-  authRequireRole?: RequireRole;
+  authAccess?: AccessRule;
   rateLimit?: RateLimitConfig;
   readOnly?: boolean;
   security?: SecurityConfig;
@@ -61,7 +61,7 @@ function makeConfig(opts: {
     auth: {
       session: async () => null,
       role: () => opts.role ?? "admin",
-      ...(opts.authRequireRole !== undefined ? { requireRole: opts.authRequireRole } : {}),
+      ...(opts.authAccess !== undefined ? { access: opts.authAccess } : {}),
     },
     ...(opts.rateLimit ? { rateLimit: opts.rateLimit } : {}),
     ...(opts.readOnly ? { readOnly: true } : {}),
@@ -210,11 +210,15 @@ describe("withGuards — errors from buildRequestContext keep their status", () 
   it("maps FlowpanelRateLimitError to 429, not a bare 500", async () => {
     const { config, resource } = makeConfig({
       rateLimit: { driver: "memory", limit: 1, windowMs: 60_000, per: "ip" },
+      security: { trustedProxies: 1 },
     });
     const call = () =>
       withGuards(
         config,
-        new Request("http://localhost/x", { method: "POST" }),
+        new Request("http://localhost/x", {
+          method: "POST",
+          headers: { "x-forwarded-for": "203.0.113.7" },
+        }),
         { resource },
         async () => Response.json({ ok: true }),
       );
@@ -230,8 +234,8 @@ describe("withGuards — errors from buildRequestContext keep their status", () 
     });
   });
 
-  it("maps the admin-wide auth.requireRole failure to 403, not a bare 500", async () => {
-    const { config, resource } = makeConfig({ role: "user", authRequireRole: "admin" });
+  it("maps the admin-wide auth.access failure to 403, not a bare 500", async () => {
+    const { config, resource } = makeConfig({ role: "user", authAccess: "admin" });
     const handler = vi.fn(async () => Response.json({ ok: true }));
     const res = await withGuards(config, jsonReq({}), { resource }, handler);
 
@@ -318,6 +322,28 @@ describe("withGuards — handler errors", () => {
     expect(onError.mock.calls[0]?.[1]).not.toHaveProperty("db");
     expect(onError.mock.calls[0]?.[1]).not.toHaveProperty("scope");
   });
+
+  it("logs an unexpected failure with its request id when no onError is set", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { config, resource } = makeConfig({});
+    const thrown = new Error("duplicate key");
+    const res = await withGuards(
+      config,
+      new Request("http://localhost/x", { method: "POST", headers: { "x-request-id": "req_log" } }),
+      { resource, operation: "create" },
+      async () => {
+        throw thrown;
+      },
+    );
+    expect(res.status).toBe(500);
+    expect(res.headers.get("x-request-id")).toBe("req_log");
+    expect(log).toHaveBeenCalledOnce();
+    expect(log).toHaveBeenCalledWith(
+      "[flowpanel] create failed, requestId req_log:",
+      expect.objectContaining({ message: expect.stringMatching(/^duplicate key/) }),
+    );
+    log.mockRestore();
+  });
 });
 
 describe("withGuards — operation policy", () => {
@@ -343,7 +369,7 @@ describe("withGuards — guard order", () => {
       action: {
         key: "verify",
         label: "V",
-        requireRole: "admin",
+        access: "admin",
         form: [{ name: "reason", type: "text", required: true }],
         run,
       },
@@ -355,7 +381,7 @@ describe("withGuards — guard order", () => {
 
     expect(res.status).toBe(403);
     const body = await res.json();
-    expect(body.issues).toBeUndefined();
+    expect(body.fieldErrors).toBeUndefined();
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -378,7 +404,7 @@ describe("withGuards — guard order", () => {
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toBe("This admin is read-only.");
-    expect(body.issues).toBeUndefined();
+    expect(body.fieldErrors).toBeUndefined();
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -398,9 +424,7 @@ describe("withGuards — guard order", () => {
     });
 
     expect(res.status).toBe(422);
-    expect((await res.json()).issues).toEqual([
-      { path: ["reason"], message: "reason is required" },
-    ]);
+    expect((await res.json()).fieldErrors).toEqual({ reason: "Reason is required" });
     expect(run).not.toHaveBeenCalled();
   });
 });

@@ -2,10 +2,9 @@ import { globSync, readFileSync } from "node:fs";
 
 const violations: string[] = [];
 
-// Rule 1: core must never execute React or Next.js at runtime. Type-only
-// render extension contracts remain a 0.2 compatibility bridge.
+// Rule 1: core must never execute React or Next.js at runtime; type-only imports are fine.
 for (const file of globSync("packages/core/src/**/*.ts", {
-  ignore: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
+  exclude: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
   cwd: process.cwd(),
 })) {
   const src = readFileSync(file, "utf-8");
@@ -17,7 +16,7 @@ for (const file of globSync("packages/core/src/**/*.ts", {
 // Rule 1b: core is the framework-agnostic base and must never depend on the UI
 // package. madge --circular cannot see this: it does not resolve workspace specifiers.
 for (const file of globSync("packages/core/src/**/*.ts", {
-  ignore: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
+  exclude: ["**/__tests__/**", "**/*.test.ts", "**/*.test-d.ts"],
   cwd: process.cwd(),
 })) {
   const src = readFileSync(file, "utf-8");
@@ -29,7 +28,7 @@ for (const file of globSync("packages/core/src/**/*.ts", {
 // Rule 2: adapter-* and queue-* must not import from @flowpanel/react
 for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   for (const file of globSync(`packages/${pkg}/src/**/*.ts`, {
-    ignore: ["**/__tests__/**", "**/*.test.ts"],
+    exclude: ["**/__tests__/**", "**/*.test.ts"],
     cwd: process.cwd(),
   })) {
     const src = readFileSync(file, "utf-8");
@@ -39,14 +38,14 @@ for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   }
 }
 
-// Rule 3: adapters reach @flowpanel/core through its public index. The one
-// exception is `internal/migration-sql`: core exports the SQL lexer on that
-// subpath so the two adapters share one tokenizer instead of forking it, and
-// the `internal/` prefix keeps it out of the user-facing API.
-const SHARED_CORE_INTERNALS = new Set(["internal/migration-sql"]);
+// Rule 3: adapters reach @flowpanel/core through its public index. The
+// exceptions are `internal/migration-sql`, the SQL lexer, and `internal`, which
+// carries the filter walk: the two adapters share them instead of forking them,
+// and the `internal` prefix keeps them out of the user-facing API.
+const SHARED_CORE_INTERNALS = new Set(["internal", "internal/migration-sql"]);
 for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
   for (const file of globSync(`packages/${pkg}/src/**/*.ts`, {
-    ignore: ["**/__tests__/**", "**/*.test.ts"],
+    exclude: ["**/__tests__/**", "**/*.test.ts"],
     cwd: process.cwd(),
   })) {
     const src = readFileSync(file, "utf-8");
@@ -60,7 +59,7 @@ for (const pkg of ["adapter-prisma", "adapter-drizzle", "adapter-bullmq"]) {
 
 // Rule 4: the framework-neutral transport must not import Next.js.
 for (const file of globSync("packages/client/src/**/*.{ts,tsx}", {
-  ignore: ["**/__tests__/**", "**/*.test.*"],
+  exclude: ["**/__tests__/**", "**/*.test.*"],
   cwd: process.cwd(),
 })) {
   const src = readFileSync(file, "utf-8");
@@ -75,7 +74,8 @@ const facadeRules: Array<[string, RegExp]> = [
   ["packages/flowpanel/src/index.ts", /from\s+["']@flowpanel\/(?!core["'])/],
   ["packages/flowpanel/src/client.ts", /from\s+["']@flowpanel\/(?!client["'])/],
   ["packages/flowpanel/src/react.ts", /from\s+["']@flowpanel\/(?!react["'])/],
-  ["packages/flowpanel/src/next-client.ts", /from\s+["']@flowpanel\/(?!next\/client["'])/],
+  ["packages/flowpanel/src/next.ts", /from\s+["']@flowpanel\/(?!next["'])/],
+  ["packages/flowpanel/src/charts.ts", /from\s+["']@flowpanel\/(?!charts["'])/],
 ];
 for (const [file, forbidden] of facadeRules) {
   const src = readFileSync(file, "utf-8");
@@ -91,6 +91,22 @@ for (const file of globSync("packages/react/src/**/*.{ts,tsx}", {
   const src = readFileSync(file, "utf-8");
   if (/^(?:import|export)(?!\s+type\b)[^;]*from\s+["']@flowpanel\/core["']/m.test(src)) {
     violations.push(`${file}: runtime core root import in browser code (use a pure subpath)`);
+  }
+}
+
+// React source layout: folders carry no underscore, and a file is a PascalCase component, a
+// `useX` hook or kebab-case, so a name says what the file holds.
+const REACT_SRC = "packages/react/src/";
+const FILE_NAME = /^(?:[A-Z][A-Za-z0-9]*|use[A-Z][A-Za-z0-9]*|[a-z0-9]+(?:-[a-z0-9]+)*)$/;
+for (const file of globSync(`${REACT_SRC}**/*.{ts,tsx,css}`, { cwd: process.cwd() })) {
+  const parts = file.slice(REACT_SRC.length).split("/");
+  const name = parts.pop() ?? "";
+  if (parts.some((dir) => dir.startsWith("_") && dir !== "__tests__")) {
+    violations.push(`${file}: folders under react/src take no leading underscore`);
+  }
+  if (parts.includes("__tests__")) continue;
+  if (!FILE_NAME.test(name.replace(/\.(?:tsx?|css)$/, ""))) {
+    violations.push(`${file}: name it PascalCase (component), useX (hook) or kebab-case`);
   }
 }
 

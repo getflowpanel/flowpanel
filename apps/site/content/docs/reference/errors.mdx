@@ -4,13 +4,13 @@ description: The error hierarchy, its status codes, and what reaches the operato
 kind: reference
 ---
 
-Throw one of these from an action, an adapter, or a custom route and FlowPanel
-turns it into the right HTTP status with a message that is safe to show. Throw
-anything else and the caller gets a generic `500` — the detail is logged, never
-sent.
-
-That split is the point of the hierarchy: `safeMessage` is the part you have
-decided an operator may read.
+Throw one of these from an action, adapter or custom route and FlowPanel answers
+with its status and `safeMessage`. Any other error becomes a generic `500` with no
+detail in the response beyond its `requestId`.
+FlowPanel passes the error to `hooks.onError`, so send it to your logger there.
+Without a hook it logs one `console.error` with the operation and the same request
+id. In development the log has the whole error; in production only the first line of
+the error and its cause, so query parameters and the values they carry stay out of it.
 
 ## FlowpanelError
 
@@ -26,7 +26,7 @@ The base class. Every other error extends it.
 
 Construct it directly for a case the subclasses do not cover:
 
-```ts excerpt
+```ts
 throw new FlowpanelError("conflict", "This order is already being processed");
 ```
 
@@ -35,42 +35,31 @@ throw new FlowpanelError("conflict", "This order is already being processed");
 | Class | `code` | Status | Default message | Raised by FlowPanel? |
 | --- | --- | --- | --- | --- |
 | `FlowpanelValidationError` | `validation_failed` | 422 | Validation failed | yes |
-| `FlowpanelAuthError` | `unauthenticated` | 401 | Authentication required | yours to throw |
+| `FlowpanelAuthError` | `unauthenticated` | 401 | Authentication required | no, yours to throw |
 | `FlowpanelAccessError` | `forbidden` | 403 | Forbidden | yes |
 | `FlowpanelFieldAccessError` | `field_forbidden` | 403 | `Field "x" cannot be changed.` | yes |
 | `FlowpanelOperationDisabledError` | `operation_disabled` | 403 | This operation is disabled. | yes |
 | `FlowpanelUnknownFieldError` | `unknown_field` | 400 | `Unknown field: "x".` | yes |
 | `FlowpanelNotFoundError` | `not_found` | 404 | Not found | yes |
-| `FlowpanelConflictError` | `conflict` | 409 | Conflict | no — yours to throw |
+| `FlowpanelConflictError` | `conflict` | 409 | Conflict | yes, for a database conflict |
 | `FlowpanelRateLimitError` | `rate_limited` | 429 | Rate limit exceeded | yes |
 
-Each takes an optional message overriding the default.
-
-The last column matters when you write a `hooks.onError` or a log filter.
-FlowPanel raises `FlowpanelAccessError` for rejected admin/resource access and
-an unbound tenant scope, `FlowpanelFieldAccessError` for prohibited field
-reads/writes, `FlowpanelOperationDisabledError` for disabled mutations,
-`FlowpanelUnknownFieldError` for fields outside the resource contract,
-`FlowpanelRateLimitError` from the request prologue, and the not-found and
-validation errors from resource routes. `FlowpanelAuthError` and
-`FlowpanelConflictError` are available for application code. (The render path
-still catches `FlowpanelAuthError` if you throw one from a page — see below.)
+Each takes an optional message, except the two field errors, which take the field
+name, and `FlowpanelValidationError`, which takes its field errors first.
 
 ### FlowpanelValidationError
 
 <ApiSignature path="../../packages/core/src/types/error.ts" name="FlowpanelValidationError" />
 
-The one subclass with extra state: `fieldErrors`, keyed by field name — and it
-is the **first** constructor argument, with the message second:
+It carries `fieldErrors`, keyed by field name, as the first constructor argument:
 
-```ts excerpt
+```ts fragment=signature
 constructor(fieldErrors: Record<string, string>, message = "Validation failed");
 ```
 
-Forms render the entries against the matching inputs instead of showing one
-banner.
+Forms show each entry beside its input.
 
-```ts excerpt
+```ts
 import { FlowpanelValidationError } from "@flowpanel/kit";
 
 throw new FlowpanelValidationError({
@@ -81,83 +70,94 @@ throw new FlowpanelValidationError({
 throw new FlowpanelValidationError({ email: "Already registered" }, "Could not save");
 ```
 
-## Config-time errors are not in this hierarchy
+## Database constraint violations
 
-`defineAdmin` throws plain `Error`s, deliberately: they happen while your
-config module evaluates, long before there is a request to map a status onto.
-They carry no `code`, no `safeMessage` and no `status`, and no `hooks.onError`
-sees them — the process fails to boot instead.
+A create, edit, inline edit or delete that breaks a database constraint does not
+become a `500`. FlowPanel reads the Postgres, MySQL, SQLite or Prisma error, through
+any wrapping error, and answers with a message from `labels.form`:
 
-What they cover: duplicate resource names, dashboard paths and queue keys;
-duplicate action keys within one list; a resource or queue named after a
-reserved route segment (`dashboards`, `drawer`, `queues`); a column a resource
-points at that the adapter does not report; an omitted `columns` on a ref the
-adapter cannot introspect; an unresolvable cross-resource reference; and a
-`rowClick: "drawer"` with no drawer.
+| Violation | Column known | Answer |
+| --- | --- | --- |
+| Unique | yes | 422, `taken` on the field: "Email is already taken" |
+| Unique | no, e.g. a composite key | 409, `conflict` |
+| Foreign key on a write | yes | 422, `missingReference` on the field |
+| Foreign key on a write | no | 409, `missingLink` |
+| Foreign key on a delete | either | 409, `inUse` |
+| NOT NULL | yes | 422, `required` on the field |
 
-Each names the config path at fault and, where it can, the near match. See
-[Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots)
-for the full table.
+The column is matched to the resource's field by name, ignoring case and `_`, so
+`user_id` reaches `userId`. A violation without a column it can match, and any
+other database error, stays a `500` and is reported as above.
+
+## FlowpanelConfigError
+
+`defineAdmin` throws a `FlowpanelConfigError` while the config loads, so the app
+fails to start. It is not a `FlowpanelError` and is never sent to the client:
+one thrown during a request, such as `devAuth()` in production, becomes a `500`.
+Every one reads the same way:
+
+```text
+[flowpanel] <where in the config>: <what is wrong>. <how to fix>.
+```
+
+<ApiSignature path="../../packages/core/src/types/config-error.ts" name="FlowpanelConfigError" />
+
+`where` holds the config path on its own, such as `resource "orders" drawer.tabs[0]`.
+The errors cover duplicate or reserved names, duplicate action keys, unknown
+columns, an unintrospectable ref without `columns`, unresolved references,
+`rowClick: "drawer"` without a drawer, removed options, unsafe route paths, a
+production admin without real auth, and `devAuth()` in production. See
+[Troubleshooting](/docs/troubleshooting#defineadmin-throws-when-the-app-boots).
 
 ### Did you mean
 
-A name that is not registered but is close to one that is gets the suggestion
-appended to the error: an exact match once casing and `_`/`-` are ignored, else
-the closest name within an edit distance of two.
+An unknown name close to a registered one gets a suggestion: a match ignoring case
+and `_`/`-`, else the closest within edit distance two, where swapping two
+neighbouring letters, as in `nmae`, counts as one edit.
 
 ```text
-resource "users" points at column "emial" via columns[0], but the adapter
-reports no such column. Did you mean "email"? Known columns: "id", "email".
+[flowpanel] resource "users" columns[0]: it points at column "emial", which the
+adapter does not report. Did you mean "email"? Known columns: "id", "email".
 ```
 
-It applies to `columns`, `filters`, `expose`, `defaultSort.field`, `rowKey`,
-`create.fields` / `update.fields` names, and to the resource a
-`detail.tabs[]` / `drawer.tabs[]` entry or a `reference` points at.
+It covers column, search, filter, sort, field, tab, reference, view and link
+names, a reference's `labelField` on its target, a filter's `type` and a column's
+`format`, so a plain JavaScript config or a cast gets the same message TypeScript
+would have shown. A link,
+view or count `where` value must match its filter type: an array needs a
+`multiselect` filter, `{ gte, lte }` a range filter; a bare `Date` is rejected.
+Names computed at run time (function links, `ctx.count`, `ctx.read`, `ctx.rowOf`)
+are checked when they run.
 
 ### Warnings that do not stop the boot
 
-Some config problems are real but do not justify refusing to start. `defineAdmin`
-collects them on the resolved config as `warnings: readonly string[]`, prints each
-one once per process in development, and `flowpanel doctor` lists them. (`doctor`
-evaluates `flowpanel.config.ts` to read them; if that fails — a missing
-`DATABASE_URL`, say — it prints one line saying the warnings were not checked
-instead of passing silently.)
-
-The one warning today is a create form that cannot succeed:
+`defineAdmin` collects non-fatal problems in `warnings`, prints each once in
+development, and `flowpanel doctor` lists them. For example, a create form that
+cannot succeed:
 
 ```text
 resource users: create is enabled but required column `email` has no field;
 creation will always fail
 ```
 
-It fires for a column the adapter reports as non-nullable, not generated, not
-defaulted (`ColumnMeta.hasDefault`, which both shipped adapters populate) and not
-the primary key, when nothing a create write carries would fill it: not
-`create.fields`, not `columns` when `create.fields` is absent, and not
-`create.defaultValues`. An adapter that does not report `hasDefault` makes a
-defaulted column look required; declare it in `create.fields` or
-`create.defaultValues` to say otherwise.
+It fires for a required column with no default that neither `create.fields` nor
+`create.defaultValues` fills.
 
 ## On the page render path
 
-`FlowpanelAuthError` and `FlowpanelAccessError` thrown while rendering a page are
-caught by the shell, not surfaced as a crash:
+`FlowpanelAuthError` and `FlowpanelAccessError` thrown during a page render:
 
-- `auth.signInUrl` is set → redirect there.
-- `auth.forbiddenUrl` is set and the visitor is signed in → redirect there.
-- Neither → an inline "Sign in required" or "Access denied" panel.
+- No session and `auth.signInUrl` is set → redirect there.
+- Signed in, but `auth.access` refuses the whole admin, and `auth.forbiddenUrl` is set → redirect there.
+- Signed in and admitted, but one dashboard, page, queue, the Audit log or a resource route refuses the role → the "You don't have access to …" screen inside the admin, with a link to the next page the role can open. `forbiddenUrl` is not used here.
+- Otherwise → an inline "Sign in required" or "You don't have access to this admin" screen.
 
-Other errors propagate to your Next.js error boundary — except for a failed
-adapter read, which has a surface of its own.
+Other errors reach your Next.js error boundary, except failed adapter reads.
 
 ### A query that failed
 
-When the adapter's `list` or `get` throws while a list page, a detail page or a
-related tab renders, FlowPanel renders its own card in place of the data instead
-of letting the page crash into the host's error boundary. The card names the
-resource and the operation through `labels.errors.queryTitle`, adds
-`labels.errors.queryHint`, and carries the request id the failure was logged
-under:
+When `list` or `get` throws, FlowPanel shows a card in place of the data with the
+request id the error was logged under:
 
 ```text
 users: list failed
@@ -165,21 +165,27 @@ Check the column list and the database schema. Details are in the server log.
 Request 5f3c…
 ```
 
-The cause always goes to `console.error` with that same id, and outside
-production the card shows the message too. Nothing else about it changes with the
-environment. A `FlowpanelError` — an access denial, a not-found — keeps
-travelling, so the auth boundary above still sees it, and so does a `redirect()`
-thrown from your own code.
+Outside production the card also shows the message in a closed disclosure. A
+`FlowpanelError` or a `redirect()` passes through.
 
-Dashboard and detail-tab widgets already have their own boundary: a widget whose
-query or render throws becomes one failed card, with its copy from
-`labels.errors.widgetTitle`, `widgetHint` and `retry`.
+### Widget failures
+
+A widget whose query or render throws becomes one failed card, named by title,
+kind and place:
+
+```text
+«Pipeline» (custom, /system section 2 widget 1): relation "pipeline_view" does not exist
+«Broken» (metric, user tab "summary" widget 1): boom
+```
+
+Outside production the card shows it in a closed disclosure; in production only
+the server log and the Sentry tag `widget.id` carry it.
 
 ## Returning versus throwing
 
 Inside an action's `run` you have both options:
 
-```ts excerpt
+```ts as="RowAction<RowOf<'orders'>>"
 run: async (row, input, ctx) => {
   if (row.status === "refunded") {
     return { ok: false, error: "Already refunded" };   // 200 with a failure body
@@ -188,57 +194,51 @@ run: async (row, input, ctx) => {
 }
 ```
 
-Return `{ ok: false }` for an outcome the operator caused and can fix — the UI
-shows the message next to the action. Throw when the request itself was not
-valid, and you want the status code to say so.
+Return `{ ok: false }` for an outcome the operator can fix; throw when the request
+itself is invalid.
 
 ## Errors the routes produce themselves
 
-Some generated-UI responses never pass through the hierarchy at all — the
-route answers directly with a string `error`. These compatibility routes are
-distinct from the v1 JSON CRUD API and protected controllers, whose
-`FlowpanelResultError` contains `code`, `message`, optional `fieldErrors`, and
-`requestId`.
+The generated UI routes (actions, forms, drawers, inline edits, import, restore and export) answer every failure as `{ ok: false, error, code, requestId?, fieldErrors? }`: `error` is a string to show, `code` a `FlowpanelErrorCode`, and `requestId` is set once the guards have run. Some errors come from the routes themselves:
 
-### 400 — malformed request body
+| Status | `error` | When |
+| --- | --- | --- |
+| 400 | `invalid JSON body` | A JSON body that does not parse. |
+| 400 | `JSON body must be an object` | A JSON array or scalar. |
+| 400 | `invalid form data` | A form body that does not parse. |
+| 413 | `request body is too large` | A body over the size limit. |
+| 403 | `Cross-origin write requests are not allowed.` | The default browser origin guard blocks a mutation. |
+| 403 | `This admin is read-only.` | `readOnly: true` blocks a write. |
+| 422 | `too many ids (max N)` | A bulk action gets more ids than its `max`. |
+| 404 | `resource not found`, `action not found`, `dashboard not found` | The route names something the config does not register, such as an action removed since the page loaded. |
+| 422 | `validation failed` | An action `form` fails validation; `fieldErrors` holds one message per field. See [Actions → Validation](/docs/reference/actions#validation). |
 
-A POST that declares `Content-Type: application/json` but carries a body that
-does not parse is rejected before anything else runs:
+The JSON CRUD API that the [typed client](/docs/reference/client) calls answers with
+a `FlowpanelResultError`, `{ ok: false, error: { code, message } }`, instead:
+
+| Status | `code` | When |
+| --- | --- | --- |
+| 400 | `bad_request` | A body that does not parse or is not a JSON object. |
+| 405 | `method_not_allowed` | A method the route does not serve; `Allow` lists the ones it does. |
+| 413 | `payload_too_large` | A JSON body over 1 MiB. |
+| 415 | `unsupported_media_type` | A write without `Content-Type: application/json`. |
+
+### 404: unknown resource, action or dashboard
+
+The UI routes answer with the same short body in every environment. The message
+names the kind: `resource`, `action` or `dashboard`. A route looks the name up only
+after it has identified the caller and applied `readOnly`, so a signed-out or
+refused caller gets the `403` it would get for a name that exists, never this `404`.
 
 ```json
-{ "ok": false, "error": "invalid JSON body" }
+{ "ok": false, "error": { "code": "not_found", "message": "action not found" } }
 ```
 
-That covers the row-, bulk-, dashboard- and drawer-action routes and the
-inline-cell update. A non-JSON content type is parsed as form data instead and
-never reaches this branch.
+Outside production the server console also prints what is registered:
 
-### 404 — unknown resource, action or dashboard
-
-The message depends on `NODE_ENV`, on purpose. In **production** it is terse,
-so the response confirms nothing about what does exist:
-
-```json
-{ "ok": false, "error": "resource not found" }
+```text
+[flowpanel] action not found: "refnud". Registered actions: "refund", "cancel".
 ```
 
-Outside production it names what was requested and what is registered, which
-turns "why is my action 404-ing" into a one-look answer:
-
-```json
-{
-  "ok": false,
-  "error": "action not found: \"refnud\". Registered actions: \"refund\", \"cancel\"."
-}
-```
-
-`kind` is one of `resource`, `action` or `dashboard`.
-
-### 403 / 422 from the guard pipeline
-
-`403 Cross-origin write requests are not allowed.` when the default browser
-origin guard blocks a mutation; `403 This admin is read-only.` when
-`readOnly: true` blocks a write;
-`422 too many ids (max 1000)` when a bulk action exceeds its cap;
-`422 validation failed` with an `issues` array when an action `form` fails
-validation. See [Actions → Validation](/docs/reference/actions#validation).
+The JSON CRUD API answers `{ "code": "not_found", "message": "not found" }` for an
+unknown route or resource.

@@ -1,29 +1,27 @@
 import type { DemoRole } from "../auth/role";
 import { demoLinks } from "../links";
-import { FlowpanelMark } from "./FlowpanelMark";
 
 const control =
-  "inline-flex min-h-11 items-center rounded-fp-sm px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:min-h-8";
+  "inline-flex min-h-11 items-center rounded-sm px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-demo-accent sm:min-h-8";
 
 export function DemoPersonaGuide({ role }: { role: DemoRole }) {
   return (
     <section
-      aria-label="FlowPanel demo"
-      className="border-b border-white/10 bg-slate-950 text-white"
+      aria-label="ScrapeAI"
+      className="border-b border-demo-border bg-demo-surface text-demo-text"
     >
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-4 sm:gap-5 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-[103rem] items-center gap-2 px-4 sm:gap-5 sm:px-6">
         <a
-          href={demoLinks.site}
-          className="flex min-w-0 items-center gap-2 rounded-fp-sm text-sm font-medium tracking-tight transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          href="/admin"
+          className="-my-1 min-w-0 truncate rounded-sm py-1 text-sm font-medium tracking-tight transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-demo-accent"
         >
-          <FlowpanelMark size={20} className="shrink-0 text-fp-accent" />
-          <span className="truncate">FlowPanel demo</span>
+          ScrapeAI
         </a>
 
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-3">
           <fieldset
             aria-label="Demo persona"
-            className="flex items-center rounded-fp-sm border border-white/10 bg-white/5 p-0.5"
+            className="flex items-center rounded-sm border border-demo-border bg-demo-page p-0.5"
           >
             {(["admin", "support"] as const).map((persona) => (
               <form action="/api/demo/role" method="post" key={persona}>
@@ -33,8 +31,8 @@ export function DemoPersonaGuide({ role }: { role: DemoRole }) {
                   aria-pressed={role === persona}
                   className={`${control} capitalize ${
                     role === persona
-                      ? "bg-white text-slate-950 shadow-fp-xs"
-                      : "text-slate-300 hover:bg-white/10 hover:text-white"
+                      ? "bg-demo-surface text-demo-text shadow-demo-xs ring-1 ring-demo-border"
+                      : "text-demo-muted hover:bg-demo-hover hover:text-demo-text"
                   }`}
                 >
                   {persona}
@@ -47,7 +45,7 @@ export function DemoPersonaGuide({ role }: { role: DemoRole }) {
             href={demoLinks.config}
             target="_blank"
             rel="noreferrer"
-            className={`${control} text-slate-300 hover:bg-white/10 hover:text-white`}
+            className={`${control} text-demo-muted hover:bg-demo-hover hover:text-demo-text`}
           >
             Config
           </a>
@@ -56,7 +54,7 @@ export function DemoPersonaGuide({ role }: { role: DemoRole }) {
             aria-label="View on GitHub"
             target="_blank"
             rel="noreferrer"
-            className={`${control} text-slate-300 hover:bg-white/10 hover:text-white`}
+            className={`${control} text-demo-muted hover:bg-demo-hover hover:text-demo-text`}
           >
             GitHub
           </a>

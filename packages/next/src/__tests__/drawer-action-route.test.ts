@@ -15,7 +15,7 @@ import type {
   ResourceConfig,
   Session,
 } from "@flowpanel/core";
-import { drawerActionRoute } from "../drawer/drawer-route";
+import { drawerActionRoute } from "../drawer/drawer-action-route";
 import { publish, publishResource } from "../runtime/publish";
 
 function makeConfig(
@@ -54,6 +54,7 @@ function makeConfig(
     resources: [resource],
     resourcesByName: new Map([["jobs", resource]]),
     dashboardsByPath: new Map(),
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return config;
@@ -93,10 +94,10 @@ describe("drawerActionRoute", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 403 without running a drawer action when requireRole fails", async () => {
+  it("returns 403 without running a drawer action when its access fails", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig(
-      { key: "disable", label: "Disable", requireRole: "admin", run } as DrawerAction,
+      { key: "disable", label: "Disable", access: "admin", run } as DrawerAction,
       { role: "support" },
     );
     const res = await drawerActionRoute(config)(
@@ -228,7 +229,7 @@ describe("drawerActionRoute", () => {
     });
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.issues).toEqual([{ path: ["reason"], message: "reason is required" }]);
+    expect(body.fieldErrors).toEqual({ reason: "Reason is required" });
     // The guard must run *before* the handler — otherwise a hand-crafted POST
     // reaches user code with input the form would have rejected.
     expect(run).not.toHaveBeenCalled();
@@ -260,7 +261,7 @@ describe("drawerActionRoute", () => {
     });
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.issues).toEqual([{ path: ["reason"], message: "already flagged as duplicate" }]);
+    expect(body.fieldErrors).toEqual({ reason: "already flagged as duplicate" });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -290,7 +291,7 @@ describe("drawerActionRoute", () => {
     });
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.issues).toEqual([{ path: ["reason"], message: "already flagged as duplicate" }]);
+    expect(body.fieldErrors).toEqual({ reason: "already flagged as duplicate" });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -384,7 +385,11 @@ describe("drawerActionRoute — error quality", () => {
       params: Promise.resolve({ resource: "ghost", id: "1", action: "approve" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "resource not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "resource not found",
+      code: "not_found",
+    });
   });
 
   it("never names the drawer's action keys in the response body", async () => {
@@ -392,7 +397,11 @@ describe("drawerActionRoute — error quality", () => {
       params: Promise.resolve({ resource: "jobs", id: "1", action: "missing" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "action not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "action not found",
+      code: "not_found",
+    });
   });
 
   it("stays terse in production", async () => {
@@ -402,10 +411,7 @@ describe("drawerActionRoute — error quality", () => {
       const res = await drawerActionRoute(makeConfig(okAction))(jsonReq("{}"), {
         params: Promise.resolve({ resource: "ghost", id: "1", action: "approve" }),
       });
-      expect((await res.json()).error).toEqual({
-        code: "not_found",
-        message: "resource not found",
-      });
+      expect(await res.json()).toMatchObject({ error: "resource not found", code: "not_found" });
     } finally {
       process.env.NODE_ENV = original;
     }

@@ -1,87 +1,51 @@
 # @flowpanel/kit
 
-> One typed config → full admin panel for your Next.js app. Drizzle or Prisma. Realtime. Queues. Eject when you outgrow it.
-
-[![npm](https://img.shields.io/npm/v/%40flowpanel%2Fkit.svg)](https://www.npmjs.com/package/@flowpanel/kit)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/getflowpanel/flowpanel/blob/main/LICENSE)
+A typed admin panel for an existing Next.js App Router app, built from your Drizzle or Prisma schema and a typed config. It runs inside your app, with your database client and your auth. Everything FlowPanel runs in your app ships in this one package; the subpaths keep each part out of the bundles that do not use it.
 
 ## Install
 
 ```bash
 pnpm dlx @flowpanel/cli init
-pnpm flowpanel migrate
-pnpm flowpanel dev
+pnpm dev
 ```
 
-Visit `http://localhost:3000/admin`. Done.
-
-## What you get
-
-- **Type-safe end-to-end.** `ctx.db` typed everywhere via one `declare module` augmentation.
-- **Three customization tiers.** L1 props → L2 `theme.components` overrides (10 slots) → L3 `flowpanel eject` for full ownership.
-- **Batteries included.** CRUD lists, drawers, dashboards, BullMQ queues, realtime SSE, soft-delete, audit, scope, rate-limit.
-- **Two ORMs first-class.** Drizzle (Postgres / MySQL / SQLite) and Prisma — `@flowpanel/kit/drizzle` and `@flowpanel/kit/prisma`.
-- **Auth helpers.** `withClerk`, `withNextAuth`, `withLucia` from `@flowpanel/kit/auth`.
-
-## The config
+## Example
 
 ```ts
 // flowpanel.config.ts
 import { defineAdmin, resource } from "@flowpanel/kit";
-import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { withClerk } from "@flowpanel/kit/auth";
-import { db } from "@/server/lib/db";
-import * as schema from "@/server/lib/db/schema";
-
-declare module "@flowpanel/kit" {
-  interface FlowpanelTypes { db: typeof db }
-}
+import { drizzleAdapter } from "@flowpanel/kit/drizzle";
+import { db } from "@/db";
+import * as schema from "@/db/schema";
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  auth: withClerk({ requireRole: "admin" }),
+  auth: withClerk({ access: "admin" }),
   resources: [resource(schema.users, { columns: ["email", "role"] })],
 });
 ```
 
-## CLI
-
-```
-flowpanel init      Scaffold the admin (config + routes + migrations)
-flowpanel dev       Start Next.js (and bull-board when scripts/board-server.mts exists and REDIS_URL is set)
-flowpanel new       Add a resource to flowpanel.config.ts
-flowpanel migrate   Apply audit + tracking SQL migrations
-flowpanel doctor    Health check (--fix to auto-write missing routes)
-flowpanel eject     Take ownership of a resource / dashboard / layout
-```
-
 ## Subpaths
 
-```
-@flowpanel/kit                 core builders (defineAdmin, resource, dashboard, ...)
-@flowpanel/kit/next            Next.js App Router integration
-@flowpanel/kit/next/client     Client components for the Next.js integration
-@flowpanel/kit/react           React UI primitives (used internally and exposed)
-@flowpanel/kit/drizzle         Drizzle adapter
-@flowpanel/kit/prisma          Prisma adapter
-@flowpanel/kit/bullmq          BullMQ queue adapter
-@flowpanel/kit/bullmq/board    startBoardServer (mounts bull-board, kept Express-free from the adapter entry)
-@flowpanel/kit/charts          Charts (lazy-loaded)
-@flowpanel/kit/charts/runtime  Chart renderers (used internally by the lazy-loaded charts)
-@flowpanel/kit/client          Client-only hooks
-@flowpanel/kit/auth            withClerk, withNextAuth, withLucia
-@flowpanel/kit/server          Server-only utilities
-```
+| Import | What it holds |
+| --- | --- |
+| `@flowpanel/kit` | `defineAdmin`, resources, dashboards and every widget builder, chart builders included; no React, Next.js or ORM code |
+| `@flowpanel/kit/next` | The App Router runtime: `createFlowpanel`, route handlers, `publish` and `emitAudit` |
+| `@flowpanel/kit/drizzle` | The Drizzle adapter (`drizzle-orm` peer) |
+| `@flowpanel/kit/prisma` | The Prisma adapter (`@prisma/client` peer) |
+| `@flowpanel/kit/auth` | Presets for Better Auth, Auth.js, Clerk and Lucia |
+| `@flowpanel/kit/react` | The UI components, for custom pages and slots |
+| `@flowpanel/kit/client` | A typed client for the admin's HTTP API and `useAdminMutation`, without Next.js |
+| `@flowpanel/kit/charts` | Chart components, drawn with Recharts |
+| `@flowpanel/kit/bullmq` | The BullMQ queue adapter (`bullmq` peer) |
+| `@flowpanel/kit/bullmq/board` | A standalone bull-board server (`express` and `@bull-board/*` peers) |
+| `@flowpanel/kit/publish` | Realtime publishing from a worker, cron job or script, without the admin |
+| `@flowpanel/kit/test` | `smokeAdmin` for Playwright (`@playwright/test` peer) |
+| `@flowpanel/kit/test/widgets` | Widget unit tests under Vitest, without Playwright |
+| `@flowpanel/kit/styles/admin.css` | The precompiled, isolated stylesheet |
+| `@flowpanel/kit/styles/tailwind.css` | FlowPanel's tokens as Tailwind v4 theme values |
 
-## For agents
+Every peer above is needed only when your app uses that subpath. The package ships `llms.txt`, the whole documentation as plain text, and `llms/`, one file per section.
 
-This package ships `llms.txt` — the whole API reference as one plain-text file.
-Read `node_modules/@flowpanel/kit/llms.txt` instead of guessing at the DSL.
-
-## Documentation
-
-<https://flowpanel.tech>
-
-## License
-
-MIT — see [LICENSE](https://github.com/getflowpanel/flowpanel/blob/main/LICENSE).
+[Documentation](https://flowpanel.tech/docs/introduction/getting-started) · MIT

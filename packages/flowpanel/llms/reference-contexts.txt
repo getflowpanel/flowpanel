@@ -1,0 +1,284 @@
+# FlowPanel — Reference — Contexts
+
+## Contexts
+
+What your queries, mutations and actions receive at runtime.
+
+Docs: https://flowpanel.tech/docs/reference/contexts
+
+Documented types: RequestContext, QueryContext, ListQueryContext, ItemQueryContext, MutationContext, ActionContext, FilterRangeValue, FilterInValue
+
+Adapter methods, mutations, actions and option resolvers receive a context that
+extends `RequestContext`, so `session`, `role` and `scope` are there. Widgets and
+record pages get their own: `WidgetContext` has `session` and `role` but no `scope`
+(its reads apply the scope for you), `DetailTabContext` is a subset of
+`WidgetContext`, and `DetailHeaderContext` has only `format`, `labels` and `link`. A
+`page()` component gets [`PageProps`](/docs/reference/widgets#pageprops).
+
+### RequestContext
+
+`RequestContext`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `requestId?` | `string` | Stable correlation id generated once per request. |
+| `req` | `Request` | The incoming request. Built from the real headers, even during page renders. |
+| `session` | `Session \| null` | Result of `AuthConfig.session` for this request. |
+| `role` | `string` | Result of `AuthConfig.role` for this session. |
+| `scope` | `Scope` | Tenant scope resolved by the admin-wide `scope`. Null when unscoped. |
+| `ip` | `string \| null` | Caller IP as the proxies counted in `security.trustedProxies` recorded it, else `null`. For logs and rate limits, not for authentication. |
+| `userAgent` | `string \| null` |  |
+
+`req` carries the incoming headers during server renders too.
+
+### QueryContext
+
+Base context for reads. Field `options` and `defaultValue` resolvers receive it. Widget queries receive [`WidgetContext`](/docs/reference/widgets#widgetcontext) instead.
+
+`QueryContext`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `unsafe?` | `{ db: Db }` | Explicit escape hatch for trusted application callbacks. |
+| `dateRange` | `{ from: Date; to: Date }` | Active date range — the dashboard picker, or all-time elsewhere. |
+| `searchParams` | `URLSearchParams` | Query string of the page being rendered. |
+| `signal` | `AbortSignal` | Aborted when the request is cancelled. Pass it to long queries. |
+| `select?` | `readonly string[]` | Explicit adapter projection. Omitted preserves the legacy full-row read; `[]` returns no values. Adapters must not substitute a primary key or full row for an empty selection. |
+| `boundScope?` | `BoundAdapterScope` | Opaque request-bound tenant policy. |
+
+### ListQueryContext
+
+What an adapter's `list` receives: everything needed to build one page of rows.
+
+`ListQueryContext`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `filters` | `Record<string, unknown>` | Filter values keyed by declared field name. |
+| `sort` | `{ field: keyof Row & string; dir: "asc" \| "desc" } \| null` | Active sort, or null when the list is unsorted. |
+| `tiebreak?` | `readonly string[]` | Columns ordered by after `sort`, ascending, so pages never overlap: the primary key's. |
+| `page` | `number` | 1-based page number. |
+| `pageSize` | `number` |  |
+| `search` | `string` | Current search term. Empty string when the box is blank. |
+| `searchFields?` | `string[]` | Allowlist of columns `search` is OR-ed across, taken verbatim from `resource.options.search`. |
+| `softDelete?` | `{ column: string }` | Set when the resource declares `delete.softDelete` — deleted rows are filtered out. |
+| `includeDeleted?` | `boolean` | Include soft-deleted rows, for the "show deleted" view. |
+
+`searchFields` is `options.search`. An adapter must search only these columns.
+
+### ItemQueryContext
+
+`ItemQueryContext`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Primary key of the requested row, as it appeared in the URL. |
+
+### MutationContext
+
+What an adapter's `create`, `update`, `delete` and `restore` receive.
+
+`MutationContext`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `db` | `Db` | Your database client, exactly as handed to the adapter. |
+| `input` | `Partial<Row>` | Values to write, already coerced and validated. |
+| `id?` | `string` | Target row id. Absent on create. |
+| `softDelete?` | `{ column: string }` | Set when the resource declares `delete.softDelete` — delete stamps the column. |
+| `boundScope?` | `BoundAdapterScope` | Opaque request-bound tenant policy. |
+
+### ActionContext
+
+What every action's `run` receives.
+
+`ActionContext`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `unsafe?` | `{ db: Db }` | Explicit escape hatch for trusted action implementations. |
+| `actorId` | `string \| null` | Caller identity — same derivation the audit trail uses (`auth.userId`, then `session.id`, then `session.user.id`). |
+| `publish` | `(channel: string, payload?: unknown) => Promise<void>` | Push a realtime message to every connected admin. |
+
+### Filter values
+
+Most filters arrive in `ctx.filters` as scalars. Two arrive structured, with
+type guards.
+
+#### FilterRangeValue
+
+Produced by `daterange` and `numeric-range` filters.
+
+A `daterange` day such as `2026-09-23` covers that whole day in
+`formatting.timeZone` (UTC if unset). A widget link writes ISO instants joined by
+`~`, which arrive unchanged.
+
+`FilterRangeValue`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `op` | `"range"` |  |
+| `gte?` | `number \| Date` |  |
+| `lte?` | `number \| Date` |  |
+
+#### FilterInValue
+
+Produced by `multiselect` filters: match any of `values`.
+
+`FilterInValue`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `op` | `"in"` |  |
+| `values` | `string[]` |  |
+
+#### Narrowing them
+
+```ts
+import { isFilterInValue, isFilterRangeValue, type ListQueryContext } from "@flowpanel/kit";
+
+export function readFilters(ctx: ListQueryContext<Record<string, unknown>>): void {
+  for (const [field, value] of Object.entries(ctx.filters)) {
+    if (isFilterRangeValue(value)) {
+      console.log(field, value.gte, value.lte);
+    } else if (isFilterInValue(value)) {
+      console.log(field, value.values);
+    } else {
+      console.log(field, value);
+    }
+  }
+}
+```
+
+### Raw SQL and counts
+
+A [`WidgetContext`](/docs/reference/widgets#widgetcontext) and a
+`DetailTabContext` carry `ctx.sql`, `ctx.count`, `ctx.read` and `ctx.rowOf`.
+
+#### ctx.sql
+
+`ctx.sql` runs the statement as written, with no tenant scope, access rule or
+soft-delete filter. Add those predicates yourself, or use `ctx.count` and
+`ctx.read`, which apply them.
+
+```ts
+metric("New signups", async (ctx) => {
+  const [row] = await ctx.sql<{ n: number }>`
+    select count(*)::int as n
+    from users
+    where created_at >= ${ctx.dateRange.from}
+  `;
+  return row?.n ?? 0;
+});
+```
+
+Every interpolated value is a bound parameter, and a `Date` compares with a
+timestamp column without a cast: Prisma binds it as a timestamp, Drizzle as
+ISO-8601 text the database reads as one. On Prisma, write table and column names as
+Prisma made them, `"Order"."createdAt"`, unless `@@map` and `@map` rename them; see
+[Prisma setup](/docs/introduction/prisma#raw-sql). Arrays bind differently per adapter; see
+[Raw SQL](/docs/reference/adapters#raw-sql). Drizzle `sql` fragments nest:
+
+```ts
+import { sql } from "drizzle-orm";
+import { stat, type WidgetContext } from "@flowpanel/kit";
+
+const window = (c: WidgetContext) => sql`hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
+
+stat("Runs in the period", async (ctx) => {
+  const rows = await ctx.sql<HourRow>`select * from scraper_hourly_stats where ${window(ctx)}`;
+  return rows.reduce((sum, row) => sum + row.runs, 0);
+});
+```
+
+Cast counts and sums in SQL (`count(*)::int`, `sum(x)::float8`): Postgres returns
+`int8` and `numeric` as strings.
+
+A string shaped like a zoneless `YYYY-MM-DD HH:mm:ss` comes back as a UTC `Date`.
+`parseDates: false` on the adapter turns that off. `ctx.sql` throws when the
+adapter has no `sql` capability.
+
+#### ctx.count
+
+`ctx.count(resource, where, { range })` counts rows with the resource's access,
+scope and soft-delete rules; a resource or field the session may not read counts
+`0`. `where` takes [where values](#where-values). An `undefined`, `null` or `""`
+value counts `0` and warns in development. A misspelt field throws.
+
+```ts
+stat("Open tickets", (ctx) => ctx.count("tickets", { status: "open" }));
+```
+
+#### Counting and reading a period
+
+`range` names the timestamp field bounded by `ctx.dateRange`, inclusive. Over a
+whole history it adds no bound.
+
+```ts
+metric("Visits", (ctx) => ctx.count("user_visit", { userId: ctx.id }, { range: "startedAt" }), {
+  compare: true,
+});
+```
+
+A `{ gte, lte }` on the same field in `where` narrows to the overlap.
+
+#### ctx.read
+
+`ctx.read(resource, options)` returns rows with the same rules as the resource's
+list; an unreadable resource returns `[]`. Identical reads share one query per
+request.
+
+```ts
+const profileOf = async (ctx: WidgetContext) =>
+  (
+    await ctx.read("freelancer_profile", {
+      where: { userId: ctx.id },
+      fields: ["hourlyRate"],
+      limit: 1,
+    })
+  )[0] ?? null;
+
+kv({ label: "Profile", items: [{ label: "Rate", value: async (c) => (await profileOf(c))?.hourlyRate }] });
+```
+
+Rows carry the list's columns, `expose` and `rowKey`, plus `fields`; other
+properties are `undefined`. `limit` defaults to 100, maximum 1000. A misspelt name
+throws before any query.
+
+#### ctx.rowOf
+
+`ctx.rowOf(resource)` is the viewed record, typed. It throws on a dashboard or on
+another resource's page. `ctx.row` is the untyped record.
+
+```ts
+stat("With us", async (c) => c.format.relative(c.rowOf("user").createdAt));
+```
+
+#### Where values
+
+A `where` is keyed by the row's fields. Each value is one of:
+
+| Value | Matches |
+| --- | --- |
+| `"paid"`, `42`, `true`, a `Date` | rows equal to it |
+| `"__null__"` / `"__notnull__"` | rows where the field is empty / not empty |
+| `{ gte, lte }` (numbers or dates, either side optional) | rows inside the bounds, inclusive |
+| `["paid", "refunded"]`, `[1, 2]` | rows equal to any of them; an empty array matches nothing; pass a boolean as a plain value, not in an array |
+| `{ op: "in", values }`, `{ op: "range", gte, lte }` | the adapter's own filter shapes |
+
+`ctx.read` throws on `undefined`, `null`, `""`, an empty range, or an array holding
+a boolean. Leave the field out, or pass `"__null__"`.
+
+### Request-scoped access
+
+Read the current context from AsyncLocalStorage when you cannot pass it down.
+
+```ts
+import { getRequestContext, tryGetRequestContext } from "@flowpanel/kit";
+
+const ctx = getRequestContext();      // throws outside a request
+const maybe = tryGetRequestContext(); // null outside a request
+```
+
+`runWithRequestContext(ctx, fn)` sets it; FlowPanel already wraps adapter calls
+and action `run` in it.

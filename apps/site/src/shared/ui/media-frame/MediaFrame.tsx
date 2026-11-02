@@ -12,13 +12,10 @@ interface MediaFrameProps {
   url?: string;
   /** Render eagerly (use for the above-the-fold hero shot). */
   priority?: boolean;
+  /** The rendered width, so the browser picks a smaller source. */
+  sizes?: string;
 }
 
-/**
- * Browser-chrome wrapper around the hero product shot. Renders both theme
- * variants; `globals.css` shows the one matching the active theme (the site
- * has no Tailwind `dark:` variant — themes flip via CSS-var tokens).
- */
 export function MediaFrame({
   srcDark,
   srcLight,
@@ -27,6 +24,7 @@ export function MediaFrame({
   height,
   url = "localhost:3000/admin",
   priority = false,
+  sizes,
 }: MediaFrameProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[var(--shadow-frame)]">
@@ -45,6 +43,7 @@ export function MediaFrame({
         width={width}
         height={height}
         priority={priority}
+        {...(sizes ? { sizes } : {})}
         className="h-auto w-full"
       />
       <Image
@@ -54,6 +53,7 @@ export function MediaFrame({
         width={width}
         height={height}
         priority={priority}
+        {...(sizes ? { sizes } : {})}
         className="h-auto w-full"
       />
     </div>

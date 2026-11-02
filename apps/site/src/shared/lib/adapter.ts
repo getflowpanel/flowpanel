@@ -1,8 +1,3 @@
-/**
- * The two first-party ORMs FlowPanel ships adapters for. Most docs pages
- * present examples for both; one is shown at a time, controlled by this
- * type and the surrounding cookie.
- */
 export type Adapter = "prisma" | "drizzle";
 
 export const ADAPTERS: ReadonlyArray<Adapter> = ["prisma", "drizzle"];

@@ -1,12 +1,6 @@
 import type { ReactNode } from "react";
 
-/**
- * Tiny TypeScript highlighter for the landing's static snippets.
- *
- * Server-rendered to spans keyed to the `--code-*` theme tokens — zero client
- * JS and no syntax-highlighting dependency for a handful of marketing examples.
- * Scoped to the constructs those snippets use; it is NOT a general tokenizer.
- */
+// Server-rendered highlighter for the landing snippets only; not a general tokenizer.
 
 const KEYWORDS = new Set([
   "import",

@@ -25,13 +25,13 @@ const bulkAction = {
 };
 
 async function openMenuAndPick(label: string | RegExp) {
-  fireEvent.keyDown(screen.getByRole("button", { name: /action…/i }), { key: "Enter" });
-  fireEvent.click(await screen.findByRole("menuitem", { name: label }));
+  fireEvent.click(await screen.findByRole("button", { name: label }));
 }
 
 describe("BulkActionsBar", () => {
-  it("renders configured action icons in the menu", async () => {
-    renderWithToast(
+  it("shows up to three verbs on the bar with their icons, and folds the rest into the menu", async () => {
+    const more = ["Tag", "Export", "Delete"].map((label) => ({ ...bulkAction, key: label, label }));
+    const { rerender } = renderWithToast(
       <BulkActionsBar
         resource="users"
         selection={["1"]}
@@ -39,9 +39,23 @@ describe("BulkActionsBar", () => {
         actions={[bulkAction]}
       />,
     );
-    fireEvent.keyDown(screen.getByRole("button", { name: /action…/i }), { key: "Enter" });
-    expect(await screen.findByRole("menuitem", { name: /archive/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /archive/i })).toBeTruthy();
     expect(document.querySelector('[data-flowpanel-icon="archive"]')).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /action…/i })).toBeNull();
+    rerender(
+      <ToastProvider>
+        <BulkActionsBar
+          resource="users"
+          selection={["1"]}
+          onClear={vi.fn()}
+          actions={[bulkAction, ...more]}
+        />
+      </ToastProvider>,
+    );
+    expect(screen.getByRole("button", { name: "Tag" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Export" })).toBeNull();
+    fireEvent.keyDown(screen.getByRole("button", { name: /action…/i }), { key: "Enter" });
+    expect(await screen.findByRole("menuitem", { name: "Delete" })).toBeTruthy();
   });
 
   it("encodes resource and action key in the fetch URL", async () => {

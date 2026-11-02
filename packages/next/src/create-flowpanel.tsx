@@ -1,10 +1,16 @@
 import type { AdminDefinition, AnyResourceConfig, ResolvedAdminConfig } from "@flowpanel/core";
 import { defineAdmin } from "@flowpanel/core";
 import { withDeploymentBasePath } from "@flowpanel/core/paths";
-import { Flowpanel } from "./flowpanel-page";
+import { Flowpanel, FlowpanelNotFound } from "./flowpanel-page";
 import { handlers as createHandlers, type FlowpanelHandlers } from "./handlers";
 import type { FlowpanelRequest } from "./runtime/controller-factory";
+import {
+  type FlowpanelMetadata,
+  flowpanelMetadata,
+  flowpanelNotFoundMetadata,
+} from "./runtime/page-metadata";
 import { bindPublisher, publish } from "./runtime/publish";
+import { CHANNEL_PATTERN } from "./runtime/realtime-channels";
 import { createRequestRuntime } from "./runtime/request-runtime";
 import {
   type FlowpanelClientMetadata,
@@ -14,6 +20,12 @@ import {
 
 export interface FlowpanelRuntime<Resources extends readonly AnyResourceConfig[]> {
   readonly page: ReturnType<typeof Flowpanel>;
+  /** The page's `generateMetadata`: each admin page titled by its dashboard, list or record. */
+  readonly metadata: ReturnType<typeof flowpanelMetadata>;
+  /** The admin's `not-found.tsx`: `export default flowpanel.notFound;` shows the labelled "Page not found" screen. */
+  readonly notFound: ReturnType<typeof FlowpanelNotFound>;
+  /** The `not-found.tsx` metadata: `export const metadata = flowpanel.notFoundMetadata;` titles the 404 in the server's HTML. */
+  readonly notFoundMetadata: FlowpanelMetadata;
   readonly handlers: FlowpanelHandlers;
   request(): Promise<FlowpanelRequest<Resources>>;
   readonly client: FlowpanelClientMetadata;
@@ -33,7 +45,6 @@ function isResolved<Resources extends readonly AnyResourceConfig[]>(
   return "__resolved" in definition && definition.__resolved === true;
 }
 
-const CHANNEL = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const MAX_EVENT_BYTES = 64 * 1024;
 
 /** Bind one typed admin definition to all supported Next.js runtime surfaces. */
@@ -47,10 +58,12 @@ export function createFlowpanel<const Resources extends readonly AnyResourceConf
 
   return Object.freeze({
     page: Flowpanel(config),
+    metadata: flowpanelMetadata(config),
+    notFound: FlowpanelNotFound(config),
+    notFoundMetadata: flowpanelNotFoundMetadata(config),
     handlers: createHandlers(config),
     request,
-    // `api` is what a browser fetches, so it carries the deployment basePath;
-    // `admin` is what Link navigates to, and the router prefixes that itself.
+    // `api` is what a browser fetches, so it carries the basePath; `admin` is prefixed by the router itself.
     client: serializeClientMetadata({
       ...config,
       paths: { ...config.paths, api: withDeploymentBasePath(config.paths.api) },
@@ -58,7 +71,7 @@ export function createFlowpanel<const Resources extends readonly AnyResourceConf
     events: Object.freeze({
       async publish(channel: string, payload?: unknown) {
         if (disposed) throw new Error("This Flowpanel runtime has been disposed.");
-        if (!CHANNEL.test(channel)) throw new Error("Invalid Flowpanel event channel.");
+        if (!CHANNEL_PATTERN.test(channel)) throw new Error("Invalid Flowpanel event channel.");
         const wirePayload = payload === undefined ? undefined : toWireValue(payload, "payload");
         if (wirePayload !== undefined) {
           const bytes = new TextEncoder().encode(JSON.stringify(wirePayload)).byteLength;

@@ -1,33 +1,99 @@
 ---
 title: Prisma setup
-description: Connect FlowPanel to an existing Prisma project.
+description: Connect FlowPanel to an existing Prisma project on PostgreSQL, MySQL or SQLite.
 kind: how-to
+metaTitle: Prisma admin panel setup
 ---
 
-The Prisma adapter reads model metadata from DMMF and executes resource operations through your existing Prisma Client.
+The Prisma adapter reads model metadata from your Prisma Client and runs queries through it. Import it from `@flowpanel/kit/prisma` and run `prisma generate` first. It supports Prisma 5 and 6; [Prisma 7](#prisma-7) is not supported yet. Version ranges are in [Getting started](/docs/introduction/getting-started#before-you-start).
 
-## Requirements
+## Generators
 
-Install Prisma Client and run `prisma generate` before starting FlowPanel. The supported package range appears in [Getting started](/docs/introduction/getting-started#before-you-start).
+Both client generators of Prisma 5 and 6 work. The adapter reads the schema from the client you pass as `prismaAdapter({ prisma })`.
 
-The adapter is included in `@flowpanel/kit`; import it from `@flowpanel/kit/prisma`.
+- `prisma-client-js` writes the client into `@prisma/client`. Import `PrismaClient` and the model types from there, or from the `output` directory when its `generator` block sets one.
+- `prisma-client`, which Prisma 6.19's `prisma init` writes, needs an `output`, such as `"../app/generated/prisma"`. Import `PrismaClient` and the model types from that directory's `client` module, such as `@/app/generated/prisma/client`.
+
+`init` prints `lib/prisma.ts` with the right import, and `flowpanel new` registers each model in `FlowpanelResources` from the same module. `doctor` fails when the schema sets an `output` but the client module the config imports still reads `@prisma/client`, which stops with `@prisma/client did not initialize yet` however often you run `prisma generate`.
+
+## Prisma 7
+
+Prisma 7's generated client no longer carries the field metadata in `Prisma.dmmf` (ids, nullability, defaults) that the adapter reads to build columns and forms.
+
+On Prisma 7, `init` and `doctor` stop with `@prisma/client is unsupported`, followed by the version they found and the supported range, `>=5.0.0 <7.0.0`. A hand-written config fails when the admin loads, with `prismaAdapter: Prisma.dmmf has no field metadata`.
+
+Stay on Prisma 6, with either [generator](#generators), and generate the client again:
+
+```bash
+pnpm add @prisma/client@6
+pnpm add -D prisma@6
+pnpm prisma generate
+```
+
+If the project has to stay on Prisma 7, use the [Drizzle adapter](/docs/introduction/drizzle) or a [custom adapter](/docs/understand/adapters#custom-adapters).
 
 ## Configure the adapter
 
 <include>../../snippets/getting-started/prisma-config.ts</include>
 
-`provider` is the `datasource` provider from `schema.prisma` — `"postgresql"`, `"mysql"` or `"sqlite"`. `flowpanel migrate` locks and splits SQL differently for each, so the adapter requires it rather than guessing.
+`provider` is the `datasource` provider from `schema.prisma`: `"postgresql"`, `"mysql"` or `"sqlite"`. It is required because `flowpanel migrate` locks and splits SQL differently for each.
 
-Use the PascalCase model name from `schema.prisma`: `"User"`, not the delegate name `"user"`. The adapter resolves it to `prisma.user` at runtime. Pass `name: "users"` in resource options if you want a different stable URL slug.
+Use the PascalCase model name, `"User"`, not the delegate `"user"`. Without `name`, the model name is the URL slug and the navigation label; `flowpanel new` sets `name: "users"` from `@@map` or the plural of the model. A model name is a string, so add its row to `FlowpanelResources` under the resource name to type it.
 
-A model name is a runtime string, so TypeScript cannot infer its row by itself. Add the model to `FlowpanelResources` as shown above. Column names, search fields, filters, form fields, action rows, and renderers then use the generated Prisma type.
+Columns with `@default(...)` or `@updatedAt` are optional in the create form, and Prisma or the database fills them. A `Decimal` comes back as a string at its `@db.Decimal` scale, so `49.90` reads `"49.90"`. Prisma 5 does not report the scale, so there it reads `"49.9"`.
 
-## Database behavior
+Pagination is offset-based and integer primary keys are coerced from the URL. Search uses Prisma's `contains`; the provider and collation decide case sensitivity. Soft delete works with a nullable field such as `deletedAt`.
 
-The adapter introspects scalar fields, uses offset pagination, and coerces integer primary keys from URL segments. Search uses Prisma's `contains`; database collation and provider determine case sensitivity. Soft delete works when the resource names a nullable field such as `deletedAt`.
+## db push and migrate dev
+
+`flowpanel migrate` creates `_flowpanel_migrations` and `flowpanel_audit_log`, which `schema.prisma` does not declare, so `prisma db push` offers to drop them and `prisma migrate dev` offers to reset the database. Declare both as `@@ignore` models, as [Keep your ORM away from FlowPanel's tables](/docs/guides/audit-log#keep-your-orm-away-from-flowpanels-tables) shows; Prisma Client and FlowPanel's resources leave them out.
+
+## Packages you did not ask for
+
+npm and pnpm install `drizzle-orm` and `drizzle-zod` next to the kit in a Prisma project too: the kit depends on `drizzle-zod` for its Drizzle adapter, and `drizzle-zod` asks for `drizzle-orm`. A Prisma admin never loads either, so they add nothing to your bundles.
+
+## One file per resource
+
+`flowpanel new Order --dir src/admin/models` writes the model's resource into its own file, adds it to the directory's `index.ts`, and the first time imports that list into the config and spreads it into `resources`. It also adds the model to `FlowpanelResources`, as `new` without `--dir` does:
+
+```ts
+// src/admin/models/orders.ts
+import { resource } from "@flowpanel/kit";
+
+export const orders = resource("Order", {
+  name: "orders",
+  columns: ["id", "number", "status", "createdAt"],
+});
+```
+
+```ts
+// src/admin/models/index.ts
+import { orders } from "./orders";
+
+export const resources = [orders];
+```
+
+The config then reads `resources: [...resources]`, and later `new` runs write into the same directory without `--dir`. A foreign key to a model that already has a file there becomes a `reference`, so scaffold referenced models first.
+
+## Raw SQL
+
+`ctx.sql` runs through `$queryRaw`, every value a bound parameter. A `Date` binds as a timestamp, so a dashboard compares `ctx.dateRange` with a `DateTime` field directly. Prisma names a table after its model and a column after its field unless `@@map` or `@map` renames them, and PostgreSQL needs quotes around names with capitals. The docs' examples use snake_case tables; on a Prisma schema the same widget reads:
+
+```ts
+metric("Orders in the period", async (ctx) => {
+  const [row] = await ctx.sql<{ n: number }>`
+    select count(*)::int as n
+    from "Order"
+    where "createdAt" >= ${ctx.dateRange.from} and "createdAt" < ${ctx.dateRange.to}
+  `;
+  return row?.n ?? 0;
+});
+```
+
+## Views
+
+A Prisma `view` model reads like any model. The adapter does not report it as a view, so FlowPanel cannot make it read-only: set [`writeTo`](/docs/reference/resources#reading-a-view) to the model that holds the rows, or disable `create`, `update` and `delete`.
 
 ## Limitation
 
-Relations, JSON sub-fields, and computed values are not automatic list columns. Resolve them in a custom renderer or query, or implement a custom adapter when they must participate in sorting and filtering.
-
-Continue with [Getting started](/docs/introduction/getting-started) or see the generated [Adapter reference](/docs/reference/adapters).
+Relations, JSON sub-fields and computed values are not list columns. Use a [column renderer](/docs/customization/column-renderers), a view, or a custom adapter.

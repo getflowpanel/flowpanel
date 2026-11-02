@@ -1,0 +1,147 @@
+# FlowPanel — Reference — Type registry
+
+## Type registry
+
+FlowpanelTypes, FlowpanelResources, and the types that resolve through them.
+
+Docs: https://flowpanel.tech/docs/reference/registry
+
+FlowPanel takes your types from the database client, Drizzle schema and auth
+instance you register once, with no code generator:
+
+```ts
+import type { auth } from "@/lib/auth";
+import type { db } from "@/db";
+import type * as schema from "@/db/schema";
+
+declare module "@flowpanel/kit" {
+  interface FlowpanelTypes {
+    db: typeof db;
+    schema: typeof schema;
+    session: typeof auth.$Infer.Session;
+  }
+}
+```
+
+Augment the module you import from, `"@flowpanel/kit"` for a kit install. Put the
+block in one file that TypeScript includes, such as `flowpanel.config.ts`. Every
+entry is optional: without it the types fall back to `unknown`, `string` or
+`Record<string, unknown>`, and `defineAdmin` still
+[checks names at startup](/docs/build/resources#typos-and-column-validation).
+
+### FlowpanelTypes
+
+A registry for framework-wide type bindings: `db`, `schema` and `session`.
+
+```ts
+interface FlowpanelTypes {}
+```
+
+#### InferDB
+
+```ts
+type InferDB = FlowpanelTypes extends { db: infer D } ? D : unknown;
+```
+
+`InferDB` is the default `Db` parameter of:
+
+| Declaration | Reached from |
+| --- | --- |
+| `WidgetContext<DB = InferDB>` | every widget `query`, a `StatItem.value` resolver, a `custom()` widget's `props` resolver |
+| `ActionContext<Db = InferDB>` | every row, bulk, dashboard and drawer action `run`; those signatures name `ActionContext<InferDB>` explicitly |
+| `Adapter<DB = InferDB, Ref = unknown>` | the adapter's own `db` property |
+
+The adapter contexts (`QueryContext` and those built on it) default `Db` to
+`unknown`, and carry no client: a `FieldDef.options` or `defaultValue` resolver
+queries through your own `db` import.
+
+#### schema
+
+Register the Drizzle schema and every table and view becomes a resource name with
+its row, keyed by SQL name: `pgTable("user_visit", …)` is `"user_visit"`.
+`ResourceName`, `RowOf`, `InferRow` and `ReferenceSpec` read it, so a misspelt name
+in `ctx.count`, `ctx.read` or a `reference` fails to compile.
+
+#### session
+
+Register the session type (`typeof auth.$Infer.Session` for better-auth) and
+`Session` is that type in `ctx.session`, `auth` callbacks, `theme` and scope
+callbacks. Otherwise it is `Record<string, unknown>`.
+
+#### RowOf
+
+```ts
+type RowOf<N extends string> = N extends keyof AllResources ? AllResources[N] : Record<string, unknown>;
+```
+
+The row of a known resource.
+
+### FlowpanelResources
+
+A map of resource name to row type, keyed by the name `defineAdmin` uses (the SQL
+table name unless `options.name` is set). With Prisma, register every model here,
+under the resource's `name` when it has one, as `flowpanel new` does:
+
+```ts
+declare module "@flowpanel/kit" {
+  interface FlowpanelResources {
+    users: import("@prisma/client").User;
+  }
+}
+```
+
+With a registered Drizzle `schema`, add an entry only for a renamed resource, such
+as `user: typeof schema.adminUserRow.$inferSelect`. An entry replaces the schema's
+row of the same name.
+
+```ts
+interface FlowpanelResources {}
+```
+
+#### InferRow
+
+```ts
+type InferRow<Ref> = Ref extends { $inferSelect: infer R }
+  ? R
+  : Ref extends keyof AllResources
+    ? AllResources[Ref]
+    : Record<string, unknown>;
+```
+
+`resource(ref, options)` types `options` by `InferRow<Ref>`: a Drizzle table's
+`$inferSelect`, a registered name's row, or `Record<string, unknown>`. With
+`options.name`, a string ref such as a Prisma model reads the row registered under
+that name first, so `resource("User", { name: "users" })` checks its columns against
+the `users` entry.
+
+#### ResourceName
+
+```ts
+type ResourceName = [keyof AllResources] extends [never]
+  ? string
+  : keyof AllResources & string;
+```
+
+The type of a resource name used elsewhere in config: a tab's `resource`, a
+`table({ resource })`, `ctx.count`. Plain `string` while the registry is empty.
+
+#### ReferenceSpec
+
+```ts
+type ReferenceSpec = [keyof AllResources] extends [never]
+  ? { resource: string; labelField: string }
+  : {
+      [R in keyof AllResources]: {
+        resource: R;
+        labelField: keyof AllResources[R] & string;
+      };
+    }[keyof AllResources];
+```
+
+A foreign-key target for `ColumnDef.reference` and `FieldDef.reference`.
+`labelField` must be a column of the named resource.
+
+```ts
+{ field: "userId", reference: { resource: "users", labelField: "email" } }
+//                                                  ^ keyof users row, not of orders
+```

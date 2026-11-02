@@ -1,74 +1,72 @@
-import { defineAdmin } from "@flowpanel/kit";
+import {
+  DE_LABELS,
+  defineAdmin,
+  ES_LABELS,
+  FR_LABELS,
+  PT_BR_LABELS,
+  type ResolvedLabels,
+} from "@flowpanel/kit";
 import { drizzleAdapter } from "@flowpanel/kit/drizzle";
 import { queues } from "@/src/admin/queues";
 import { db } from "@/src/db/client";
 import * as schema from "@/src/db/schema";
 import { type AdminSession, getDemoSession } from "@/src/demo/auth/session";
+import { LIVE_OPERATIONS_CHANNEL } from "@/src/demo/realtime/types";
 import { readSandboxConfig } from "@/src/demo/sandbox/config";
 import { requireSandboxId } from "@/src/demo/sandbox/scope";
 import { overview } from "./dashboards/overview";
 import { aiUsage } from "./resources/ai-usage";
 import { customers } from "./resources/customers";
 import { invoices } from "./resources/invoices";
+import { listings } from "./resources/listings";
+import { matches } from "./resources/matches";
 import { monitors } from "./resources/monitors";
-import { offers } from "./resources/offers";
 import { products } from "./resources/products";
-import { review } from "./resources/review";
 import { runs } from "./resources/runs";
 
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
-  }
-  interface FlowpanelResources {
-    customers: typeof schema.customers.$inferSelect;
-    monitors: typeof schema.monitors.$inferSelect;
-    runs: typeof schema.runs.$inferSelect;
-    products: typeof schema.products.$inferSelect;
-    listings: typeof schema.listings.$inferSelect;
-    matches: typeof schema.matches.$inferSelect;
-    invoices: typeof schema.invoices.$inferSelect;
-    ai_usage: typeof schema.aiUsage.$inferSelect;
+    schema: typeof schema;
+    session: AdminSession;
   }
 }
 
 const sandboxConfig = readSandboxConfig();
+const locale = process.env.DEMO_LOCALE;
+const localeLabels: Record<string, ResolvedLabels> = {
+  "de-DE": DE_LABELS,
+  "fr-FR": FR_LABELS,
+  es: ES_LABELS,
+  "pt-BR": PT_BR_LABELS,
+};
+const labels = locale ? localeLabels[locale] : undefined;
 
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
   readOnly: sandboxConfig.readOnly,
-  scope: ({ session }) => ({ sandboxId: requireSandboxId(session as AdminSession | null) }),
-  realtime: { driver: "memory" },
-  audit: {
-    enabled: true,
-    sink: async (e) => {
-      console.log(
-        `[audit] ${e.action} ${e.resource ?? ""}#${e.targetId ?? "?"} by ${e.actorId ?? "anon"}`,
-      );
-    },
+  ...(locale ? { formatting: { locale } } : {}),
+  ...(labels ? { labels } : {}),
+  scope: ({ session }) => ({ sandboxId: requireSandboxId(session) }),
+  realtime: {
+    driver: "memory",
+    channels: { [LIVE_OPERATIONS_CHANNEL]: { tenantSafe: true } },
   },
+  audit: { enabled: true },
   rateLimit: { driver: "memory", limit: 240, windowMs: 60_000, per: "ip", enabled: true },
+  security: { trustedProxies: 1 },
   auth: {
     session: (req) => getDemoSession(req),
-    role: (s) => (s as AdminSession | null)?.role ?? "guest",
-    userId: (s) => (s as AdminSession | null)?.user.id ?? null,
-    requireRole: ["admin", "support"],
+    role: (s) => s?.role ?? "guest",
+    userId: (s) => s?.user.id ?? null,
+    access: ["admin", "support"],
   },
   shell: { mode: "tabs", brand: false, skipLink: false },
   theme: {
-    accent: "217 91% 50%",
-    accentDark: "217 91% 65%",
-    user: (s) => {
-      const session = s as AdminSession | null;
-      if (!session) return undefined;
-      return {
-        name: session.user.name,
-        email: session.email,
-        items: [{ label: `Role: ${session.role}` }],
-      };
-    },
+    user: (s) =>
+      s ? { name: s.user.name, email: s.email, items: [{ label: `Role: ${s.role}` }] } : undefined,
   },
-  resources: [customers, monitors, runs, offers, products, review, invoices, aiUsage],
+  resources: [customers, monitors, runs, listings, products, matches, invoices, aiUsage],
   queues,
   dashboards: [overview],
 });

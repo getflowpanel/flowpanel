@@ -33,15 +33,18 @@ const broken = makeAdapter(() => {
 const auth = { session: async () => null, role: () => "guest" };
 
 describe("defineAdmin — reserved route segments", () => {
-  it.each(["dashboards", "drawer", "queues"])("rejects a resource named %s", (name) => {
-    expect(() =>
-      defineAdmin({
-        adapter: withColumns(["id"]),
-        auth,
-        resources: [resource({ __name: name }, { columns: ["id"] })],
-      }),
-    ).toThrow(new RegExp(`resource "${name}" uses a name FlowPanel's routing reserves`));
-  });
+  it.each(["dashboards", "drawer", "export", "palette", "queues"])(
+    "rejects a resource named %s",
+    (name) => {
+      expect(() =>
+        defineAdmin({
+          adapter: withColumns(["id"]),
+          auth,
+          resources: [resource({ __name: name }, { columns: ["id"] })],
+        }),
+      ).toThrow(new RegExp(`resource "${name}": the name is one FlowPanel's routing reserves`));
+    },
+  );
 
   it("points the operator at options.name", () => {
     expect(() =>
@@ -50,7 +53,7 @@ describe("defineAdmin — reserved route segments", () => {
         auth,
         resources: [resource({ __name: "drawer" }, { columns: ["id"] })],
       }),
-    ).toThrow(/Set options.name to something else/);
+    ).toThrow(/Set name to another name/);
   });
 
   it("rejects a queue whose key is reserved, pointing at options.key", () => {
@@ -65,7 +68,7 @@ describe("defineAdmin — reserved route segments", () => {
           ),
         ],
       }),
-    ).toThrow(/queue "dashboards" uses a name FlowPanel's routing reserves.*Set options.key/s);
+    ).toThrow(/queue "dashboards": the name is one FlowPanel's routing reserves.*Set key/s);
   });
 
   it("leaves an unreserved name alone", () => {
@@ -87,7 +90,7 @@ describe("defineAdmin — reserved route segments", () => {
           resource({ __name: "customers" }, { columns: ["id"] }),
         ],
       }),
-    ).toThrow(/route name collision.*Customers.*customers/i);
+    ).toThrow(/resource "customers": the name collides with resource "Customers"/);
   });
 });
 
@@ -128,13 +131,13 @@ describe("defineAdmin — columns default to the introspection", () => {
   it("throws when columns are omitted and introspect throws", () => {
     expect(() =>
       defineAdmin({ adapter: broken, auth, resources: [resource({ __name: "users" }, {})] }),
-    ).toThrow(/resource "users" omits options\.columns.*Declare options\.columns explicitly/s);
+    ).toThrow(/resource "users" columns: they are omitted.*Declare columns\./s);
   });
 
   it("throws when columns are omitted and the introspection reports none", () => {
     expect(() =>
       defineAdmin({ adapter: blind, auth, resources: [resource({ __name: "users" }, {})] }),
-    ).toThrow(/resource "users" omits options\.columns.*Declare options\.columns explicitly/s);
+    ).toThrow(/resource "users" columns: they are omitted.*Declare columns\./s);
   });
 
   it("still accepts an explicitly empty columns list", () => {
@@ -158,7 +161,7 @@ describe("defineAdmin — introspect-time column validation", () => {
         resources: [resource({ __name: "users" }, { columns: ["emial"] })],
       }),
     ).toThrow(
-      /resource "users" points at column "emial" via columns\[0\].*Known columns: "id", "email", "ai_usage", "createdAt"\./s,
+      /resource "users" columns\[0\]: it points at column "emial".*Known columns: "id", "email", "ai_usage", "createdAt"\./s,
     );
   });
 
@@ -181,7 +184,7 @@ describe("defineAdmin — introspect-time column validation", () => {
           resource({ __name: "users" }, { columns: ["id", { field: "nope", label: "Nope" }] }),
         ],
       }),
-    ).toThrow(/points at column "nope" via columns\[1\]\.field/);
+    ).toThrow(/columns\[1\]\.field: it points at column "nope"/);
   });
 
   it("rejects a server-rendered column that declares no field", () => {
@@ -196,7 +199,7 @@ describe("defineAdmin — introspect-time column validation", () => {
           ),
         ],
       }),
-    ).toThrow(/columns\[1\].*without declaring a field/i);
+    ).toThrow(/columns\[1\]: it uses render without a field/);
   });
 
   it("rejects an unknown defaultSort.field", () => {
@@ -211,7 +214,7 @@ describe("defineAdmin — introspect-time column validation", () => {
           ),
         ],
       }),
-    ).toThrow(/points at column "made-up" via defaultSort\.field/);
+    ).toThrow(/defaultSort\.field: it points at column "made-up"/);
   });
 
   it("rejects an unknown filter field", () => {
@@ -226,7 +229,7 @@ describe("defineAdmin — introspect-time column validation", () => {
           ),
         ],
       }),
-    ).toThrow(/points at column "ghost" via filters\[0\]\.field/);
+    ).toThrow(/filters\[0\]\.field: it points at column "ghost"/);
   });
 
   it("rejects an unknown create.fields name", () => {
@@ -241,7 +244,7 @@ describe("defineAdmin — introspect-time column validation", () => {
           ),
         ],
       }),
-    ).toThrow(/points at column "emial" via create\.fields\[0\]\.name/);
+    ).toThrow(/create\.fields\[0\]\.name: it points at column "emial"/);
   });
 
   it("rejects an unknown update.fields name", () => {
@@ -256,7 +259,7 @@ describe("defineAdmin — introspect-time column validation", () => {
           ),
         ],
       }),
-    ).toThrow(/points at column "emial" via update\.fields\[0\]\.name/);
+    ).toThrow(/update\.fields\[0\]\.name: it points at column "emial"/);
   });
 
   it("rejects an unknown rowKey and suggests the real one", () => {
@@ -266,7 +269,7 @@ describe("defineAdmin — introspect-time column validation", () => {
         auth,
         resources: [resource({ __name: "users" }, { columns: ["id"], rowKey: "idd" })],
       }),
-    ).toThrow(/points at column "idd" via rowKey, .*Did you mean "id"\?/s);
+    ).toThrow(/rowKey: it points at column "idd", .*Did you mean "id"\?/s);
   });
 
   it("suggests a near miss on filters and defaultSort too", () => {
@@ -289,7 +292,7 @@ describe("defineAdmin — introspect-time column validation", () => {
           resource({ __name: "users" }, { columns: ["id"], update: { expose: ["emial"] } }),
         ],
       }),
-    ).toThrow(/points at column "emial" via update\.expose\[0\]/);
+    ).toThrow(/update\.expose\[0\]: it points at column "emial"/);
   });
 
   it("skips validation when the adapter reports no columns", () => {
@@ -333,7 +336,7 @@ describe("defineAdmin — duplicate action keys", () => {
           ),
         ],
       }),
-    ).toThrow(/Duplicate action key: "ping" in resource "users" options\.actions/);
+    ).toThrow(/resource "users" actions: the action key "ping" appears twice/);
   });
 
   it("rejects two bulk actions with the same key", () => {
@@ -354,7 +357,7 @@ describe("defineAdmin — duplicate action keys", () => {
           ),
         ],
       }),
-    ).toThrow(/Duplicate action key: "archive" in resource "users" options\.bulkActions/);
+    ).toThrow(/resource "users" bulkActions: the action key "archive" appears twice/);
   });
 
   it("rejects two drawer actions with the same key", () => {
@@ -377,7 +380,7 @@ describe("defineAdmin — duplicate action keys", () => {
           ),
         ],
       }),
-    ).toThrow(/Duplicate action key: "disable" in resource "users" options\.drawer\.actions/);
+    ).toThrow(/resource "users" drawer\.actions: the action key "disable" appears twice/);
   });
 
   it("still rejects duplicates when readOnly strips the actions", () => {
@@ -399,7 +402,7 @@ describe("defineAdmin — duplicate action keys", () => {
           ),
         ],
       }),
-    ).toThrow(/Duplicate action key: "ping"/);
+    ).toThrow(/the action key "ping" appears twice/);
   });
 
   it("accepts the same key in two different lists", () => {
@@ -435,7 +438,9 @@ describe("defineAdmin — message shape", () => {
           ),
         ],
       }),
-    ).toThrow(/Duplicate queue key: "emails"\. Each queue key must be unique\./);
+    ).toThrow(
+      /\[flowpanel\] queue "emails": two queues use this key\. Give each queue its own key\./,
+    );
   });
 
   it("an unresolvable ref is described in the error", () => {
@@ -447,14 +452,14 @@ describe("defineAdmin — message shape", () => {
         resources: [resource({ id: 1, [sym]: "x" } as never, { columns: [] })],
       }),
     ).toThrow(
-      /Unable to resolve a resource name from this ref: object with keys \[id\] and symbols \[Symbol\(mystery\)\].*Pass options\.name explicitly/s,
+      /resource\(object with keys \[id\] and symbols \[Symbol\(mystery\)\]\): the ref carries no name.*Pass name in the resource options\./s,
     );
   });
 
   it("names the ref type for a primitive ref", () => {
     expect(() =>
       defineAdmin({ adapter: blind, auth, resources: [resource("", { columns: [] })] }),
-    ).toThrow(/Unable to resolve a resource name from this ref: string ""/);
+    ).toThrow(/resource\(string ""\): the ref carries no name/);
   });
 });
 
@@ -466,7 +471,7 @@ describe("defineAdmin — page route paths", () => {
         auth,
         dashboards: [{ path: "", label: "Overview", sections: [] }],
       }),
-    ).toThrow(/root route.*explicitly.*\//i);
+    ).toThrow(/dashboards\[0\]\.path: the path is empty\. Declare the root route as "\/"\./);
   });
 
   it("rejects dot segments instead of normalizing them into another route", () => {
@@ -476,7 +481,7 @@ describe("defineAdmin — page route paths", () => {
         auth,
         pages: [{ path: "/reports/../customers", label: "Unsafe" }],
       }),
-    ).toThrow(/safe route path.*dot segments/i);
+    ).toThrow(/pages\[0\]\.path: .* has a dot segment/);
   });
 
   it("rejects a page route that collides with a resource route", () => {
@@ -487,6 +492,51 @@ describe("defineAdmin — page route paths", () => {
         resources: [resource({ __name: "Customers" }, { columns: ["id"] })],
         pages: [{ path: "/customers", label: "Customer report" }],
       }),
-    ).toThrow(/route path collision.*resource.*Customers.*page.*customers/i);
+    ).toThrow(/page "\/customers": its path "\/customers" collides with resource "Customers"/);
+  });
+});
+
+describe("money field options", () => {
+  const admin = (field: Record<string, unknown>) => () =>
+    defineAdmin({
+      adapter: makeAdapter(() => ({
+        name: "orders",
+        columns: [meta("id"), meta("total")],
+        primaryKey: "id",
+      })),
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource("orders", {
+          columns: ["id"],
+          create: { fields: [{ name: "total", type: "money", ...field }] },
+        }),
+      ],
+    });
+
+  it("stops startup on digits a safe integer cannot hold or a malformed currency", () => {
+    expect(admin({ minorUnits: 9 })).toThrow(/minorUnits is 9/);
+    expect(admin({ minorUnits: 1.5 })).toThrow(/whole number from 0 to 8/);
+    expect(admin({ currency: "dollars" })).toThrow(/ISO 4217/);
+    expect(admin({ minorUnits: 8, currency: "BTC" })).not.toThrow();
+  });
+
+  it("checks a money column's format the same way, and refuses minorUnits beside scale", () => {
+    const column = (format: Record<string, unknown>) => () =>
+      defineAdmin({
+        adapter: makeAdapter(() => ({
+          name: "orders",
+          columns: [meta("id"), meta("total")],
+          primaryKey: "id",
+        })),
+        auth: { session: async () => null, role: () => "admin" },
+        resources: [
+          resource("orders", {
+            columns: [{ field: "total", format: { kind: "money", ...format } }],
+          }),
+        ],
+      });
+    expect(column({ minorUnits: 9 })).toThrow(/columns "total" format: minorUnits is 9/);
+    expect(column({ minorUnits: 2, scale: 100 })).toThrow(/both minorUnits and scale/);
+    expect(column({ minorUnits: 2 })).not.toThrow();
   });
 });

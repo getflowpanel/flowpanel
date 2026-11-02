@@ -1,5 +1,10 @@
 "use client";
-import { DataTable, type DataTableColumn, type DataTableSort } from "@flowpanel/react";
+import {
+  DataTable,
+  type DataTableColumn,
+  type DataTableSort,
+  useRowHrefClick,
+} from "@flowpanel/react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type * as React from "react";
@@ -20,6 +25,10 @@ export interface RelatedTabTableProps<Row extends Record<string, unknown>> {
   /** Target resource's own list, with this relationship already filtered. */
   openListHref?: string;
   openListLabel?: string;
+  /** Per-row destinations, indexed like `rows`. `null` leaves that row inert. */
+  rowHrefs?: (string | null)[];
+  /** Shown instead of the generic label when there are no rows. */
+  emptyTitle?: string;
 }
 
 /**
@@ -39,10 +48,13 @@ export function RelatedTabTable<Row extends Record<string, unknown>>({
   prerenderedCells,
   openListHref,
   openListLabel,
+  rowHrefs,
+  emptyTitle,
 }: RelatedTabTableProps<Row>) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const onRowClick = useRowHrefClick(rows, rowHrefs);
 
   const push = (mutate: (params: URLSearchParams) => void) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -52,12 +64,13 @@ export function RelatedTabTable<Row extends Record<string, unknown>>({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="fp-space-y-2">
       {openListHref ? (
-        <div className="flex justify-end">
+        <div className="fp-flex fp-justify-end">
           <Link
             href={openListHref}
-            className="text-sm text-fp-accent hover:underline focus-visible:underline"
+            prefetch={false}
+            className="-fp-my-1 fp-py-1 fp-text-sm fp-text-soft fp-underline-offset-4 hover:fp-text-ink hover:fp-underline focus-visible:fp-underline"
           >
             {openListLabel}
           </Link>
@@ -72,6 +85,8 @@ export function RelatedTabTable<Row extends Record<string, unknown>>({
         rowKey={rowKey}
         sort={sort}
         {...(prerenderedCells ? { prerenderedCells } : {})}
+        {...(emptyTitle ? { emptyTitle } : {})}
+        {...(onRowClick ? { onRowClick } : {})}
         {...(sortParam
           ? {
               onSortChange: (next) => {

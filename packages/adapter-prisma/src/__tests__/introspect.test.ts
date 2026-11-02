@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PrismaDmmf } from "../introspect";
 import { introspect } from "../introspect";
+import { checkedDmmf } from "../runtime";
 
 const testDmmf: PrismaDmmf = {
   datamodel: {
@@ -16,7 +17,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
           {
             name: "email",
@@ -26,7 +27,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: true,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "active",
@@ -36,7 +37,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
           {
             name: "age",
@@ -46,7 +47,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: false,
             isUnique: false,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "role",
@@ -56,7 +57,8 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
+            default: "USER",
           },
           {
             name: "tags",
@@ -66,7 +68,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: true,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "metadata",
@@ -76,7 +78,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: false,
             isUnique: false,
             isList: false,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
           {
             name: "createdAt",
@@ -86,7 +88,8 @@ const testDmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
+            default: { name: "now", args: [] },
           },
           // relation field — should be skipped
           {
@@ -97,7 +100,7 @@ const testDmmf: PrismaDmmf = {
             isRequired: false,
             isUnique: false,
             isList: true,
-            hasDefault: false,
+            hasDefaultValue: false,
           },
         ],
       },
@@ -166,6 +169,12 @@ describe("introspect", () => {
     expect(byName.tags?.hasDefault).toBe(false);
   });
 
+  it("reports a plain default value, and no value for a function such as now()", () => {
+    const byName = Object.fromEntries(introspect("User", testDmmf).columns.map((c) => [c.name, c]));
+    expect(byName.role?.defaultValue).toBe("USER");
+    expect(byName.createdAt?.defaultValue).toBeUndefined();
+  });
+
   it("throws for an unknown model, including the list of available models", () => {
     expect(() => introspect("NonExistent", testDmmf)).toThrowError(/NonExistent/);
     expect(() => introspect("NonExistent", testDmmf)).toThrowError(/User/);
@@ -193,5 +202,48 @@ describe("introspect", () => {
     expect(Object.isFrozen(meta)).toBe(true);
     expect(Object.isFrozen(meta.columns)).toBe(true);
     expect(Object.isFrozen(meta.columns[0])).toBe(true);
+  });
+});
+
+describe("a trimmed Prisma 7 DMMF", () => {
+  it("names the supported Prisma versions instead of guessing columns", () => {
+    const trimmed = {
+      datamodel: {
+        models: [{ name: "User", fields: [{ name: "id", kind: "scalar", type: "Int" }] }],
+        enums: [],
+      },
+    };
+    expect(() => checkedDmmf(trimmed)).toThrow(/Prisma 7 removed it[\s\S]*Prisma 5 and 6/);
+    expect(checkedDmmf(testDmmf)).toBe(testDmmf);
+  });
+});
+
+describe("a DateTime field mapped to @db.Date", () => {
+  it("is marked date-only, and a plain DateTime is not", () => {
+    const field = (name: string, nativeType: readonly [string, readonly string[]] | null) => ({
+      name,
+      kind: "scalar" as const,
+      type: name === "id" ? "Int" : "DateTime",
+      isId: name === "id",
+      isRequired: true,
+      isUnique: name === "id",
+      isList: false,
+      hasDefaultValue: false,
+      nativeType,
+    });
+    const dmmf: PrismaDmmf = {
+      datamodel: {
+        models: [
+          {
+            name: "Event",
+            fields: [field("id", null), field("day", ["Date", []]), field("at", null)],
+          },
+        ],
+        enums: [],
+      },
+    };
+    const byName = Object.fromEntries(introspect("Event", dmmf).columns.map((c) => [c.name, c]));
+    expect(byName.day).toMatchObject({ type: "date", dateOnly: true });
+    expect(byName.at?.dateOnly).toBeUndefined();
   });
 });

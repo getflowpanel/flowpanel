@@ -1,12 +1,12 @@
 import { readFile } from "node:fs/promises";
-import { expect, type Page, test } from "@playwright/test";
+import { choosePersona, expect, hydrating, type Page, test } from "./hydration";
 
 async function createProduct(page: Page, title: string): Promise<string> {
   await page.goto("/admin/products/new");
   await page.getByLabel("SKU").fill(`E2E-${Date.now()}`);
   await page.getByLabel("Product").fill(title);
   await page.getByLabel("Category").selectOption("Headphones");
-  await page.getByLabel(/our price/i).fill("1999");
+  await page.getByLabel(/our price/i).fill("19.99");
   await page.getByRole("combobox", { name: "Customer" }).click();
   await page.getByRole("listbox").getByRole("option").first().click();
   await page.getByRole("button", { name: "Create" }).click();
@@ -35,8 +35,8 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
   test.setTimeout(120_000);
   const contextA = await browser.newContext();
   const contextB = await browser.newContext();
-  const pageA = await contextA.newPage();
-  const pageB = await contextB.newPage();
+  const pageA = hydrating(await contextA.newPage());
+  const pageB = hydrating(await contextB.newPage());
   const suffix = `${Date.now()}`;
   const titleA = `Private A product ${suffix}`;
   const editedTitleA = `${titleA} edited`;
@@ -55,6 +55,7 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
     await createProduct(pageB, titleB);
 
     await pageA.goto(`/admin/products/${createdId}/edit`);
+
     await pageA.getByLabel("Product").fill(editedTitleA);
     await pageA.getByRole("button", { name: "Save" }).click();
     await expect(pageA).toHaveURL(new RegExp(`/admin/products/${createdId}$`));
@@ -111,17 +112,11 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
     expect(JSON.stringify(await referenceA.json())).toContain(customerA);
     expect(JSON.stringify(await referenceB.json())).not.toContain(customerA);
 
-    await Promise.all([
-      pageA.waitForURL(/\/admin$/),
-      pageA.getByRole("button", { name: "support" }).click(),
-    ]);
+    await choosePersona(pageA, "support");
     await pageA.goto("/admin/products");
     await expect(pageA.getByText(editedTitleA).first()).toBeVisible();
     await expect(pageA.getByRole("columnheader", { name: "Our price" })).toHaveCount(0);
-    await Promise.all([
-      pageA.waitForURL(/\/admin$/),
-      pageA.getByRole("button", { name: "admin" }).click(),
-    ]);
+    await choosePersona(pageA, "admin");
     await pageA.goto("/admin/products");
     await expect(pageA.getByRole("columnheader", { name: "Our price" })).toBeVisible();
     await expect(pageA.locator("tbody tr").filter({ hasText: editedTitleA })).toContainText(
@@ -156,10 +151,9 @@ test("sandbox: two browsers receive populated, persistent, isolated data", async
     const disposableRow = pageA.locator("tbody tr").filter({ hasText: editedTitleA });
     await disposableRow.getByRole("checkbox").check();
     const bulkActions = pageA.getByRole("region", { name: "Bulk actions" });
-    await bulkActions.getByRole("button", { name: "Action…" }).click();
-    await pageA.getByRole("menuitem", { name: "Delete" }).click();
+    await bulkActions.getByRole("button", { name: "Delete" }).click();
     const deleteDialog = pageA.getByRole("alertdialog");
-    await expect(deleteDialog).toContainText("products and their matches");
+    await expect(deleteDialog).toContainText("The product and its matches");
     await deleteDialog.getByRole("button", { name: "Delete (1)" }).click();
     await expect(pageA.getByText(editedTitleA, { exact: false })).toHaveCount(0);
     await pageA.reload();

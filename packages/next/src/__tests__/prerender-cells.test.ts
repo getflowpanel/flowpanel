@@ -14,13 +14,16 @@ const reqCtx: RequestContext = {
 };
 
 describe("prerenderResourceCells", () => {
-  it("expands string column entries to PrerenderedColumn with just `field`", () => {
+  it("expands string column entries to PrerenderedColumn with `field` and what the text holds", () => {
     const out = prerenderResourceCells<Row>(
       ["id", "email"],
       [{ id: "1", email: "a@b.com", tags: [], userId: "u1", secret: "" }],
       reqCtx,
     );
-    expect(out.columns).toEqual([{ field: "id" }, { field: "email" }]);
+    expect(out.columns).toEqual([
+      { field: "id", textRem: expect.any(Number) },
+      { field: "email", content: "email", textRem: expect.any(Number) },
+    ]);
     // No renderer declared — prerenderedCells stays undefined.
     expect(out.prerenderedCells).toBeUndefined();
   });
@@ -83,7 +86,12 @@ describe("prerenderResourceCells", () => {
       { defaultSortable: true },
     );
     expect(out.columns).toHaveLength(2);
-    expect(out.columns[1]).toEqual({ field: "__cell_1", label: "Actions", sortable: false });
+    expect(out.columns[1]).toEqual({
+      field: "__cell_1",
+      label: "Actions",
+      sortable: false,
+      textRem: expect.any(Number),
+    });
     expect(out.prerenderedCells?.[0]?.[1]).toBe("edit:1");
   });
 
@@ -208,5 +216,106 @@ describe("prerenderResourceCells", () => {
       className: "muted",
       editable: true,
     });
+  });
+
+  it("sends an editable badge column's choices with the labels its badges show", () => {
+    const out = prerenderResourceCells<Row>(
+      [
+        {
+          field: "email",
+          editable: true,
+          format: {
+            kind: "badge",
+            labels: { new: "Neu", solved: "Gelöst" },
+            tones: { open: "info" },
+          },
+        },
+        { field: "secret", format: { kind: "badge", labels: { a: "A" } } },
+      ],
+      [],
+      reqCtx,
+    );
+    expect(out.columns[0]?.options).toEqual([
+      { value: "new", label: "Neu" },
+      { value: "solved", label: "Gelöst" },
+      { value: "open", label: "Open" },
+    ]);
+    expect(out.columns[1]?.options).toBeUndefined();
+  });
+
+  it("labels an enum column's values as its form's select does", () => {
+    const status: ColumnMeta = {
+      name: "secret",
+      type: "string",
+      nullable: false,
+      unique: false,
+      primaryKey: false,
+      enumValues: ["paid", "past_due"],
+    };
+    const labelled = [
+      { value: "paid", label: "Paid" },
+      { value: "past_due", label: "Past due" },
+    ];
+    const metaByField = new Map([["secret", status]]);
+    const bare = prerenderResourceCells<Row>(["secret"], [], reqCtx, { metaByField });
+    expect(bare.columns[0]?.options).toEqual(labelled);
+    const declared = prerenderResourceCells<Row>(
+      [{ field: "secret" }, { field: "secret", format: "badge" }],
+      [],
+      reqCtx,
+      { metaByField },
+    );
+    expect(declared.columns[0]?.options).toEqual(labelled);
+    expect(declared.columns[1]?.options).toBeUndefined();
+  });
+
+  it("shows a SQL date column as its calendar day unless the column says otherwise", () => {
+    const day: ColumnMeta = {
+      name: "secret",
+      type: "date",
+      nullable: true,
+      unique: false,
+      primaryKey: false,
+      dateOnly: true,
+    };
+    const metaByField = new Map([["secret", day]]);
+    const calendarDay = { kind: "date", calendarDay: true };
+    expect(
+      prerenderResourceCells<Row>(["secret"], [], reqCtx, { metaByField }).columns[0]?.format,
+    ).toEqual(calendarDay);
+    const declared = prerenderResourceCells<Row>(
+      [{ field: "secret" }, { field: "secret", format: "relative" }],
+      [],
+      reqCtx,
+      { metaByField },
+    );
+    expect(declared.columns[0]?.format).toEqual(calendarDay);
+    expect(declared.columns[1]?.format).toBe("relative");
+  });
+
+  it("keeps a SQL date column a calendar day under a declared date format, unless it opts out", () => {
+    const day: ColumnMeta = {
+      name: "secret",
+      type: "date",
+      nullable: true,
+      unique: false,
+      primaryKey: false,
+      dateOnly: true,
+    };
+    const { columns } = prerenderResourceCells<Row>(
+      [
+        { field: "secret", format: "date" },
+        { field: "secret", format: { kind: "date", time: true } },
+        { field: "secret", format: { kind: "date", calendarDay: false } },
+      ],
+      [],
+      reqCtx,
+      { metaByField: new Map([["secret", day]]) },
+    );
+    expect(columns.map((column) => column.format)).toEqual([
+      { kind: "date", calendarDay: true },
+      { kind: "date", time: true, calendarDay: true },
+      { kind: "date", calendarDay: false },
+    ]);
   });
 });

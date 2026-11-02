@@ -54,11 +54,12 @@ try {
     sha256(await readFile(path.join(root, "pnpm-lock.yaml"))),
     "Install the selected commit's lockfile before building its preview",
   );
+  // Private packages build too: the kit vendors their dist. Only public ones are packed.
   const packages = [];
   for (const directory of await readdir(path.join(stage, "packages"))) {
     const folder = path.join(stage, "packages", directory);
     const manifest = await json(path.join(folder, "package.json"));
-    if (!manifest.private) packages.push({ directory, folder, manifest });
+    if (manifest.scripts?.build) packages.push({ directory, folder, manifest });
   }
   const names = new Set(packages.map((p) => p.manifest.name));
   await symlink(path.join(root, "node_modules"), path.join(stage, "node_modules"), "dir");
@@ -101,15 +102,14 @@ try {
     );
     assert.ok(ready.length, "Internal build dependency cycle");
     for (const pkg of ready) {
-      assert.equal(
-        pkg.manifest.scripts.build,
-        "tsup",
-        `Unsupported build command in ${pkg.manifest.name}`,
-      );
       console.log(`Building ${pkg.manifest.name}@${version}`);
-      const tsup = await realpath(path.join(pkg.folder, "node_modules/tsup"));
-      const bin = (await json(path.join(tsup, "package.json"))).bin.tsup;
-      run(process.execPath, [path.join(tsup, bin)], pkg.folder);
+      if (pkg.manifest.scripts.build === "tsup") {
+        const tsup = await realpath(path.join(pkg.folder, "node_modules/tsup"));
+        const bin = (await json(path.join(tsup, "package.json"))).bin.tsup;
+        run(process.execPath, [path.join(tsup, bin)], pkg.folder);
+      } else {
+        run("pnpm", ["run", "build"], pkg.folder);
+      }
       built.add(pkg.manifest.name);
     }
   }
@@ -119,7 +119,7 @@ try {
     version,
   );
   const artifacts = [];
-  for (const pkg of packages) {
+  for (const pkg of packages.filter((candidate) => !candidate.manifest.private)) {
     run("pnpm", ["pack", "--pack-destination", output], pkg.folder);
     const filename = `${pkg.manifest.name.replace(/^@/, "").replace("/", "-")}-${version}.tgz`;
     const bytes = await readFile(path.join(output, filename));
@@ -142,7 +142,8 @@ try {
         builderSha256: sha256(await readFile(fileURLToPath(import.meta.url))),
         lockfileSha256: sha256(await readFile(path.join(stage, "pnpm-lock.yaml"))),
         toolchain: { node: process.version, pnpm: run("pnpm", ["--version"]).trim() },
-        build: "tsup per package in dependency order, with staged prerelease metadata",
+        build:
+          "every workspace package in dependency order, the kit vendoring the private ones, with staged prerelease metadata",
         artifacts,
       },
       null,

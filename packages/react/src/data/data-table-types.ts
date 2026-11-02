@@ -1,0 +1,101 @@
+import type { ColumnFormat } from "@flowpanel/core";
+import type * as React from "react";
+import type { DataTableDensity } from "./DensityToggle";
+
+export interface DataTableColumn<Row> {
+  field: keyof Row & string;
+  label?: string;
+  render?: (row: Row) => React.ReactNode;
+  sortable?: boolean;
+  /** Fixed width: px as a number, or a `"px"` or `"rem"` string, so the other columns can fit around it. */
+  width?: number | string;
+  align?: "left" | "center" | "right";
+  hidden?: boolean;
+  className?: string;
+  /** Adapter introspection hint propagated from `ColumnMeta.type`. */
+  type?: "string" | "number" | "boolean" | "date" | "json" | "enum" | "array" | "reference";
+  editable?: boolean;
+  /** Declarative formatter mirrored from `ColumnDef.format`. */
+  format?: ColumnFormat;
+  /** A field of the row shown as a muted second line under the cell. */
+  secondary?: keyof Row & string;
+  /** What a text column holds, which sizes it: long text and an email get more room, a link a little. Field names no longer decide it; set it yourself. */
+  content?: "long" | "email" | "link";
+  /** The column's choices: a cell shows a value's label, and an inline editor offers them as a select. */
+  options?: ReadonlyArray<{ value: string; label: string }>;
+  /** Optional: the widest value in this column, in rem at the table's text size. Its ideal width fits it; without it the column takes its kind's default. */
+  textRem?: number;
+}
+
+export interface DataTableSort<Row> {
+  field: keyof Row & string;
+  dir: "asc" | "desc";
+}
+
+export interface DataTableProps<Row> {
+  columns: DataTableColumn<Row>[];
+  rows: Row[];
+  total: number;
+  page: number;
+  pageSize: number;
+  rowKey: keyof Row & string;
+  sort?: DataTableSort<Row> | null;
+  /** Row spacing. */
+  density?: DataTableDensity;
+  loading?: boolean;
+  onRowClick?: (row: Row) => void;
+  onSortChange?: (sort: DataTableSort<Row>) => void;
+  onPageChange?: (page: number) => void;
+  /** Offered by the pager as `n / page`; needs `onPageSizeChange` to render. */
+  pageSizeOptions?: number[];
+  onPageSizeChange?: (size: number) => void;
+  emptyTitle?: string;
+  emptyDescription?: string;
+  emptyAction?: React.ReactNode;
+  /** Decorative icon/emoji rendered above the empty-state title. */
+  emptyIcon?: React.ReactNode;
+  className?: string;
+  selection?: string[];
+  onSelectionChange?: (ids: string[]) => void;
+  /** When provided, the caller controls row-key extraction; defaults to String(row[rowKey]). */
+  getRowKey?: (row: Row) => string;
+  prerenderedCells?: (React.ReactNode | undefined)[][];
+  columnVisibility?: Record<string, boolean>;
+  /** Set, the toolbar's Columns menu shows and hides columns. */
+  onColumnVisibilityChange?: (visibility: Record<string, boolean>) => void;
+  columnWidths?: Record<string, number>;
+  /** Set, a header's edge drags to resize, a double click or Shift+Enter fits it, and the Columns menu resets all. */
+  onColumnWidthsChange?: (widths: Record<string, number>) => void;
+  pinnedColumns?: { left?: string[]; right?: string[] };
+  onPinnedColumnsChange?: (pinned: { left?: string[]; right?: string[] }) => void;
+  /** Subscribe to an SSE channel and trigger `router.refresh()` on events. */
+  realtime?: string | { channel: string; debounceMs?: number };
+  rowEndCell?: (row: Row, rowIndex: number) => React.ReactNode;
+  /** The trailing column's width in rem; the default 3.5 holds the row menu. */
+  rowEndCellRem?: number;
+  /** Accessible label for the trailing column header. Defaults to "Actions". */
+  rowEndCellLabel?: string;
+  /** Triggered when the user presses `e` on a focused row. */
+  onEditRow?: (row: Row) => void;
+  /** Triggered when the user presses `d` on a focused row. */
+  onDeleteRow?: (row: Row) => void;
+  /** Triggered when the user presses `/`. Typically focuses the search input. */
+  onFocusSearch?: () => void;
+  /** Triggered when the user presses `?`. Typically opens the cheatsheet. */
+  onShowShortcuts?: () => void;
+  inlineEditResource?: string;
+  /** Mobile layout when the viewport is narrower than 640px. */
+  mobileLayout?: "card" | "scroll" | false;
+  /** Stable keys that should receive the one-shot, reduced-motion-safe entry treatment. */
+  enteringRowKeys?: string[];
+  /**
+   * When set, renders an "Export" button in the toolbar. With `resource`, the server exports every
+   * row matching the page's filters; without it, the rows on screen are downloaded.
+   */
+  exportable?: boolean | { formats?: ("csv" | "json")[]; fields?: string[]; resource?: string };
+  /** Shows Import. `headers` (lower-cased) are the ones it reads; the confirm step names the file's others as skipped. */
+  importable?: { resource: string; formats: ("csv" | "json")[]; headers?: string[] };
+  showDensityToggle?: boolean;
+  /** What one row is, mid-sentence ("run"): phone cards read "Open run 36". */
+  rowLabel?: string;
+}

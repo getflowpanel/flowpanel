@@ -31,9 +31,7 @@ const rule = createRule<[], MessageId>({
         if (!resourcesProp) return;
         if (resourcesProp.value.type !== AST_NODE_TYPES.ArrayExpression) return;
 
-        // Two key spaces on purpose: a name read off a `resource()` call and a
-        // bare identifier from the decomposed layout are not comparable, so
-        // collapsing them would report a false duplicate.
+        // Two key spaces on purpose: a `resource()` name and a bare identifier are not comparable.
         const byName = new Map<string, TSESTree.Node[]>();
         const byRef = new Map<string, TSESTree.Node[]>();
 
@@ -84,7 +82,7 @@ function resolveIdentifierToResourceCall(
 ): TSESTree.CallExpression | null {
   const variable = ASTUtils.findVariable(context.sourceCode.getScope(id), id);
   const def = variable?.defs[0];
-  if (!def || def.type !== "Variable") return null;
+  if (def?.type !== "Variable") return null;
   const init = def.node.init;
   if (!init || init.type !== AST_NODE_TYPES.CallExpression) return null;
   return isResourceCall(init) ? init : null;

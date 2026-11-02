@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFlowpanelClient } from "../client";
+import { clientMetadata, createFlowpanelClient } from "../client";
 
 const metadata = {
   id: "acme",
@@ -30,6 +30,34 @@ describe("createFlowpanelClient", () => {
     );
   });
 
+  it("reaches the API from a script through a base URL and default headers", async () => {
+    const fetcher = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
+      Response.json({ ok: true, data: { id: "c1" }, meta: { requestId: "req-2" } }),
+    );
+    const admin = { paths: { admin: "/admin", api: "/api/flowpanel" } };
+    const client = createFlowpanelClient(clientMetadata(admin), {
+      fetch: fetcher,
+      baseUrl: "http://localhost:3000/",
+      headers: { cookie: "session=abc", "x-trace": "default" },
+    });
+
+    await client.resource("customers").get("c1", { headers: { "x-trace": "call" } });
+
+    const [url, init] = fetcher.mock.calls[0] ?? [];
+    expect(url).toBe("http://localhost:3000/api/flowpanel/customers/c1");
+    const headers = new Headers(init?.headers);
+    expect(headers.get("cookie")).toBe("session=abc");
+    expect(headers.get("x-trace")).toBe("call");
+  });
+
+  it("builds protocol metadata from the admin's own paths", () => {
+    expect(clientMetadata({ id: "acme", paths: { admin: "/ops", api: "/api/ops" } })).toEqual({
+      id: "acme",
+      paths: { admin: "/ops", api: "/api/ops" },
+      protocol: { version: 1, methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] },
+    });
+  });
+
   it("does not leak malformed or network response details", async () => {
     const malformed = createFlowpanelClient(metadata, {
       fetch: async () => new Response("proxy exploded", { status: 502 }),
@@ -40,14 +68,37 @@ describe("createFlowpanelClient", () => {
     });
 
     const offline = createFlowpanelClient(metadata, {
+      baseUrl: "http://localhost:3000/",
       fetch: async () => {
         throw new Error("secret upstream hostname");
       },
     });
     await expect(offline.resource("customers").get("c1")).resolves.toEqual({
       ok: false,
-      error: { code: "internal", message: "Unable to reach Flowpanel." },
+      error: {
+        code: "internal",
+        message: "Unable to reach Flowpanel at http://localhost:3000/api/flowpanel.",
+      },
     });
+  });
+
+  it("names the address it tried without the credentials a base URL carries", async () => {
+    const offline = createFlowpanelClient(metadata, {
+      baseUrl: "https://user:secret@ops.example.com",
+      fetch: async () => {
+        throw new Error("down");
+      },
+    });
+    const result = await offline.resource("customers").get("c1");
+    expect(result).toMatchObject({
+      error: { message: "Unable to reach Flowpanel at https://ops.example.com/api/flowpanel." },
+    });
+  });
+
+  it("asks for a scheme on a baseUrl that has none", () => {
+    expect(() => createFlowpanelClient(metadata, { baseUrl: "localhost:3000" })).toThrow(
+      "baseUrl must start with http:// or https://",
+    );
   });
 
   it("rejects ambiguous path segments before fetch", () => {

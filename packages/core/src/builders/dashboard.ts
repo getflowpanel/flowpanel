@@ -5,7 +5,7 @@ export function dashboard(config: DashboardConfig): DashboardConfig {
   return config;
 }
 
-/** Register an arbitrary page under `/admin<path>` that renders a custom React component. */
-export function page(config: PageConfig): PageConfig {
-  return config;
+/** A custom page under `/admin<path>` that renders your React component; list it in `pages: [...]`. */
+export function page(config: PageConfig): PageConfig & { kind: "page" } {
+  return { ...config, kind: "page" };
 }

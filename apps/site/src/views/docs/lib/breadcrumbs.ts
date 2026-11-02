@@ -1,12 +1,7 @@
 import { source } from "@/shared/lib/source";
 import type { BreadcrumbItem } from "../ui/Breadcrumbs";
 
-/**
- * Builds the crumb trail under the docs site-wide "flowpanel / Docs / …"
- * prefix from the catch-all slug. The caller's responsibility is to
- * prepend the site-wide crumbs (see `Breadcrumbs.tsx`); this returns
- * only the doc-specific tail.
- */
+// Only the doc-specific tail; Breadcrumbs prepends the site crumbs.
 export function buildDocBreadcrumbs(slug: string[], pageTitle: string): BreadcrumbItem[] {
   const sectionSlug = slug[0];
   if (sectionSlug === undefined) {
@@ -14,7 +9,7 @@ export function buildDocBreadcrumbs(slug: string[], pageTitle: string): Breadcru
   }
 
   const sectionName = lookupSectionName(sectionSlug) ?? toTitle(sectionSlug);
-  if (slug.length === 1) {
+  if (slug.length === 1 || pageTitle === sectionName) {
     return [{ label: sectionName }];
   }
 

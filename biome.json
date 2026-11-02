@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "formatter": {
@@ -9,7 +9,7 @@
   },
   "linter": {
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
         "noExplicitAny": "warn",
         "noUnknownAtRules": "off"
@@ -24,14 +24,6 @@
         "rules": {
           "style": { "noNonNullAssertion": "off" },
           "suspicious": { "noExplicitAny": "off" }
-        }
-      }
-    },
-    {
-      "includes": ["packages/react/src/_data/DataTable.tsx"],
-      "linter": {
-        "rules": {
-          "a11y": { "noNoninteractiveTabindex": "off" }
         }
       }
     }
@@ -55,7 +47,8 @@
       "!.turbo",
       "!**/.next",
       "!**/.source",
-      "!**/next-env.d.ts"
+      "!**/next-env.d.ts",
+      "!**/content/snippets/generated"
     ]
   }
 }

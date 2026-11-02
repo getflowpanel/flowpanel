@@ -1,0 +1,271 @@
+# FlowPanel — Reference — Testing
+
+## Testing
+
+Walk every admin page in one Playwright call, and unit-test widgets and record headers over rows you pass.
+
+Docs: https://flowpanel.tech/docs/reference/testing
+
+Documented types: smokeAdmin, SmokeAdminOptions, SmokeAdminReport, A11yViolation, widgetContext, WidgetContextOptions, headerContext
+
+`@flowpanel/kit/test` holds `smokeAdmin`, which walks a running admin in
+Playwright and fails on a broken page; `@flowpanel/kit/test/widgets` unit-tests a
+widget over rows you pass. Playwright is an optional peer of the kit, so install
+it as a dev dependency; no other kit subpath loads it.
+
+```sh
+pnpm add -D @playwright/test @axe-core/playwright
+pnpm exec playwright install chromium
+```
+
+`@axe-core/playwright` runs the accessibility checks: with `a11y: true` and no `@axe-core/playwright`, `smokeAdmin` fails and names the package to install.
+
+### smokeAdmin
+
+```ts
+import { test } from "@playwright/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
+
+test("the admin is healthy", async ({ page }) => {
+  await smokeAdmin(page, { paths: { admin: "/admin" }, a11y: true });
+});
+```
+
+The walk starts at `paths.admin`, opens every dashboard and list in the navigation,
+then opens each list's first row as its record page or drawer. It opens a row with
+Enter, as a keyboard user does, so a reference link inside one of its cells is
+never what it follows; at a phone width, where the list is cards, it opens each
+card's own button. On a record page it
+opens every other tab as `?tab=<key>` (`tabs: false` skips them), so a failure
+names its URL, such as `/admin/users/1?tab=activity`. A drawer is checked on its first tab.
+
+### What it asserts
+
+| Assertion | How it fails |
+| --- | --- |
+| Every navigation answers below 400 | `<route>: responded 500: <the server's error>` |
+| No render crashed past the admin into Next's error page | `<route>: rendered Next's error page instead of the admin: <its text>` |
+| Every page shows its `main` within 15 seconds | `<route>: rendered no <main> within 15 s` |
+| Nothing wrote to `console.error` | `console.error: <text>` |
+| No page rendered `[data-fp-error]` | `<route>: rendered a FlowPanel error surface` |
+| Zero WCAG 2.2 AA violations, with `a11y` | `<route>: axe <rule> (<impact>) at <selectors>` |
+| The navigation has at least one route | `smokeAdmin found no navigation under <paths.admin> …` |
+
+`[data-fp-error]` marks FlowPanel's error cards: a failed widget, a failed read, a
+failed drawer, a `page()` that threw. A walk that finds no routes fails. Pages count
+as loaded when `main` is visible, since realtime pages never reach network idle. A
+route that answers 500 or shows Next's error page fails at once, instead of waiting
+for the test's timeout. In development the line carries the server's own error, such
+as a `defineAdmin` config error with its near match; a production 500 hides it, so read
+the server log. When the admin's first page fails, that line is the only one, with no
+"found no navigation" after it.
+
+The accessibility scan leaves out iframes. A `queue()` page embeds bull-board, whose
+markup is not the admin's to fix, so an admin with queues passes `a11y: true` on its
+own pages. Check the board separately if it matters to you.
+
+`a11y` also takes an object. `disableRules` skips axe rules by id, for a rule
+that markup of your own, such as a page or a widget, fails while you fix it:
+
+```ts
+import { test } from "@playwright/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
+
+test("the admin is healthy, contrast aside", async ({ page }) => {
+  await smokeAdmin(page, { a11y: { disableRules: ["color-contrast"] } });
+});
+```
+
+`smokeAdmin` opens pages and rows; it submits no forms. A test of your own that submits an invalid form sees the browser log `Failed to load resource: … 422` for the rejected request. That line comes from the browser, not from the admin, so filter it out when you assert a clean console after a submit.
+
+`smokeAdmin` uses the page's viewport. To check the phone layout too, call it again
+after `page.setViewportSize({ width: 390, height: 844 })`.
+
+### Options and report
+
+`SmokeAdminOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `paths?` | `{ admin?: string }` | Where the admin is mounted: the config's `paths.admin`. Default: `"/admin"`. |
+| `cookie?` | `{ name: string; value: string; domain?: string }` | Session cookie added before the walk, for an admin behind authentication. |
+| `resources?` | `string[]` | Restrict the walk to these nav segments — `"customers"` for `/admin/customers`. Every entry visited when omitted. |
+| `a11y?` | `boolean \| SmokeA11yOptions` | Run axe against every visited route, leaving out iframes such as a queue's bull-board. Needs `@axe-core/playwright`; without it `smokeAdmin` fails and names the package. Pass `{ disableRules: ["color-contrast"] }` to scan with every rule except those axe rule ids. Default: `false`. |
+| `maxRows?` | `number` | How many rows of each list the walk opens. Default: `1`. |
+| `tabs?` | `boolean` | On each record page, open every other detail tab as `?tab=<key>` and check it the same way. Default: `true`. |
+
+`SmokeAdminReport`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `visited` | `string[]` | Every route the walk loaded, in order, including rows it opened. |
+| `consoleErrors` | `string[]` |  |
+| `a11yViolations` | `A11yViolation[]` |  |
+
+`A11yViolation`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `route` | `string` |  |
+| `id` | `string` |  |
+| `impact?` | `string` |  |
+| `targets?` | `string[]` | CSS selectors of the first few failing elements, as axe reports them. |
+
+`smokeAdmin` resolves with the report, or throws an `Error` listing each problem
+and the report as JSON.
+
+```ts
+import { test } from "@playwright/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
+
+test("the admin is healthy", async ({ page }) => {
+  const report = await smokeAdmin(page, {
+    paths: { admin: "/admin" },
+    cookie: { name: "session", value: process.env.E2E_SESSION ?? "" },
+    resources: ["/", "customers", "orders"],
+    maxRows: 3,
+    a11y: true,
+  });
+  console.log(`${report.visited.length} routes visited`);
+});
+```
+
+`resources` takes nav segments: `"/"` is the landing dashboard, `"customers"` is
+`/admin/customers`. `cookie` is set on the admin's origin unless it has a `domain`.
+
+### Unit-test a widget
+
+`widgetContext` builds a widget context over rows you pass instead of a database.
+`resolveWidget` runs the widget as a dashboard does and returns its card's props.
+
+```ts
+import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
+import { expect, it } from "vitest";
+import { paidToday } from "@/admin/config/dashboards/money";
+
+it("counts only today's paid invoices", async () => {
+  const ctx = widgetContext({
+    rows: {
+      invoices: [
+        { status: "paid", paidAt: new Date("2026-09-25T09:00:00Z") },
+        { status: "paid", paidAt: new Date("2026-09-24T09:00:00Z") },
+      ],
+    },
+    range: { from: new Date("2026-09-25T00:00:00Z"), to: new Date("2026-09-25T23:59:59Z") },
+  });
+  const { props } = await resolveWidget(paidToday, ctx);
+  expect(props.value).toBe(1);
+  expect(props.drilldown).toContain("/admin/invoices?f_status=paid");
+});
+```
+
+`ctx.count`, `ctx.read`, `compare` and `ctx.link` run as in the admin. Without
+`admin`, each key of `rows` is a resource whose columns are its rows' keys. Pass
+`admin`, your `defineAdmin` config, when the widget needs views, dashboards or
+references. Access rules apply, so pass `session` and `role`; tenant scope does not.
+
+`sql` answers `ctx.sql`: rows, or a function of the statement and values. `row` and
+`resource` make a record-page context. `filters` sets `ctx.filters`.
+
+`WidgetContextOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `rows?` | `Readonly<Record<string, readonly Row[]>>` | Rows per resource name. `ctx.count`, `ctx.read`, `compare` and count metrics read them. |
+| `admin?` | `ResolvedAdminConfig` | Your `defineAdmin` config, with only its database replaced by `rows`; carries no tenant scope. Without `admin`, every key of `rows` is a resource whose columns are the keys its rows carry. |
+| `row?` | `Row` | The viewed record, for a record-page widget: `ctx.row`, `ctx.id` and `ctx.rowOf`. |
+| `resource?` | `string` | The resource `row` belongs to; `ctx.rowOf` of another name throws. |
+| `range?` | `{ from: Date; to: Date }` | The picked period; `compare` reads the one before it. Default: `the whole history until now`. |
+| `filters?` | `Readonly<Record<string, string>>` | The dashboard filters widgets read as `ctx.filters`. Default: `{}`. |
+| `sql?` | `SqlAnswer` | Rows every `ctx.sql` returns, or a function given the statement (`$1…$n`) and its values. |
+| `db?` | `unknown` | Handed to widgets as `ctx.db`. Default: `null`. |
+| `session?` | `Session \| null` | Default: `null`. |
+| `role?` | `string` | The role access checks compare. Default: `"admin"`. |
+| `formatting?` | `FormattingConfig` | Without `admin`: locale, zone and currency, as `defineAdmin` takes them. |
+| `labels?` | `LabelsConfig` | Without `admin`: overrides of the admin's strings. |
+| `paths?` | `{ admin?: string }` | Without `admin`: where the admin is mounted, as `defineAdmin` takes `paths`. Default: ``{ admin: "/admin" }``. |
+
+`headerContext` builds the second argument of `detail.title`, `subtitle` and
+`badge`:
+
+```ts
+import { headerContext } from "@flowpanel/kit/test/widgets";
+import { expect, it } from "vitest";
+import admin from "@/admin/config";
+import { customerCard } from "@/admin/config/resources/customer-card";
+
+it("says how long the customer has been with us", () => {
+  const ctx = headerContext({ admin });
+  const row = {
+    id: 1,
+    email: "ops@northwind.example",
+    name: "Ada",
+    company: "Northwind Audio",
+    plan: "pro",
+    status: "active",
+    mrr: 4900,
+    churned: false,
+    createdAt: new Date("2026-01-05"),
+    lastSeenAt: null,
+    deletedAt: null,
+  } as const;
+  expect(customerCard.subtitle(row, ctx)).toContain("Customer since");
+});
+```
+
+`@flowpanel/kit/test/widgets` is ESM-only; `@flowpanel/kit/test` also loads with `require`, for Playwright projects compiled to CommonJS.
+
+#### Run it in Vitest
+
+Inline FlowPanel's packages, or the run fails with `ERR_MODULE_NOT_FOUND` for
+`next/cache`, and alias `@/`, since Vitest does not read `tsconfig.json` paths:
+
+```ts
+// vitest.config.ts
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  resolve: { alias: { "@": fileURLToPath(new URL(".", import.meta.url)) } },
+  test: { server: { deps: { inline: [/@flowpanel\//] } } },
+});
+```
+
+### Playwright config
+
+`smokeAdmin` calls `page.goto(paths.admin)`, so set a `baseURL` and a `webServer`:
+
+```ts
+// playwright.config.ts
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./e2e",
+  use: { baseURL: "http://localhost:3000" },
+  webServer: { command: "pnpm dev", url: "http://localhost:3000", reuseExistingServer: true },
+});
+```
+
+The test user needs the role your admin requires.
+
+### Authentication
+
+`cookie` suits a bare session token your own code issues. For better-auth,
+next-auth and other providers that sign sessions, sign in first; `smokeAdmin` reuses
+the page's context. Wait until the sign-in page has redirected, or the redirect
+aborts the walk's first navigation with `net::ERR_ABORTED`.
+
+```ts
+import { test } from "@playwright/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
+
+test("the admin is healthy", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("admin@example.com");
+  await page.getByLabel("Password").fill(process.env.E2E_PASSWORD ?? "");
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL((url) => url.pathname !== "/login");
+
+  await smokeAdmin(page);
+});
+```

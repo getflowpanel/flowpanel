@@ -7,7 +7,11 @@ import type {
   ResourceConfig,
 } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
-import { declaredFormFields, resolveFormFields } from "../runtime/resolve-form-fields";
+import {
+  declaredFormFields,
+  deniedFieldWrites,
+  resolveFormFields,
+} from "../runtime/resolve-form-fields";
 
 const ctx = (role: string): RequestContext => ({ role, session: null }) as RequestContext;
 
@@ -28,12 +32,28 @@ describe("declaredFormFields", () => {
 
   it("returns create.fields for create mode", () => {
     const r = resourceWith({ columns: [], create: { fields: createFields } });
-    expect(declaredFormFields(r, "create")).toBe(createFields);
+    expect(declaredFormFields(r, "create")).toEqual([{ name: "title", label: "Title" }]);
   });
 
   it("update mode falls back to create.fields when update.fields is omitted", () => {
     const r = resourceWith({ columns: [], create: { fields: createFields } });
-    expect(declaredFormFields(r, "update")).toBe(createFields);
+    expect(declaredFormFields(r, "update")).toEqual([{ name: "title", label: "Title" }]);
+  });
+
+  it("labels a field as its column does when the field sets no label", () => {
+    const r = resourceWith({
+      columns: [{ field: "sku", label: "Article no." }],
+      create: {
+        fields: [
+          { name: "sku" },
+          { name: "customerId", reference: { resource: "customers", labelField: "name" } },
+        ],
+      },
+    });
+    expect(declaredFormFields(r, "create")?.map((f) => f.label)).toEqual([
+      "Article no.",
+      "Customer",
+    ]);
   });
 
   it("update mode prefers its own fields when declared", () => {
@@ -42,7 +62,7 @@ describe("declaredFormFields", () => {
       create: { fields: createFields },
       update: { fields: updateFields },
     });
-    expect(declaredFormFields(r, "update")).toBe(updateFields);
+    expect(declaredFormFields(r, "update")).toEqual([{ name: "status", label: "Status" }]);
   });
 
   it("returns undefined when neither is declared", () => {
@@ -90,6 +110,50 @@ describe("resolveFormFields — hidden / readOnly / defaultValue", () => {
     const edit = await resolveFormFields(config, fields, ctx("admin"), { status: "live" });
     expect(edit.map((f) => f.defaultValue)).toEqual([undefined, undefined]);
   });
+
+  it("starts a declared create field on its column's database default, as a generated one does", async () => {
+    const fields: Fields = [
+      { name: "status", type: "select", options: ["draft", "sent"] },
+      { name: "priority", type: "select", options: ["low", "high"], defaultValue: "high" },
+      { name: "note" },
+    ];
+    const columns = [
+      { name: "status", type: "string", nullable: false, hasDefault: true, defaultValue: "draft" },
+      { name: "priority", type: "string", nullable: false, hasDefault: true, defaultValue: "low" },
+      { name: "note", type: "string", nullable: true, hasDefault: true },
+    ] as never;
+    const create = await resolveFormFields(
+      config,
+      fields,
+      ctx("admin"),
+      undefined,
+      undefined,
+      undefined,
+      columns,
+    );
+    expect(create.map((f) => f.defaultValue)).toEqual(["draft", "high", undefined]);
+    const edit = await resolveFormFields(
+      config,
+      fields,
+      ctx("admin"),
+      { status: "sent" },
+      undefined,
+      undefined,
+      columns,
+    );
+    expect(edit.map((f) => f.defaultValue)).toEqual([undefined, undefined, undefined]);
+  });
+
+  it("hands a money field its currency and a default in major units", async () => {
+    const fields: Fields = [
+      { name: "price", type: "money", currency: "EUR", defaultValue: 1999 },
+      { name: "fee", type: "money", minorUnits: 0, defaultValue: 50 },
+    ];
+    const [price, fee] = await resolveFormFields(config, fields, ctx("admin"));
+    expect(price).toMatchObject({ type: "money", currency: "EUR", defaultValue: "19.99" });
+    expect(fee).toMatchObject({ type: "money", defaultValue: "50" });
+    expect(fee).not.toHaveProperty("currency");
+  });
 });
 
 describe("resolveFormFields — reference fields (current-value label, not a preloaded list)", () => {
@@ -99,7 +163,7 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
 
   function configWith(opts: {
     rows?: Record<string, unknown>[];
-    requireRole?: string;
+    targetReadAccess?: string;
     registerTarget?: boolean;
     targetScope?: unknown;
     globalScope?: boolean;
@@ -122,7 +186,7 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
       ref: { __name: "users" },
       options: {
         columns: [],
-        ...(opts.requireRole ? { requireRole: opts.requireRole } : {}),
+        ...(opts.targetReadAccess ? { access: { read: opts.targetReadAccess } } : {}),
         ...(opts.targetScope ? { scope: opts.targetScope } : {}),
       },
     } as never;
@@ -150,11 +214,40 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
     expect(listCtx.pageSize).toBe(1);
   });
 
+  it("labels a reference field by the record it points to, and keeps a label the host wrote", async () => {
+    const { config: cfg } = configWith({});
+    const [named] = await resolveFormFields(cfg, fields, ctx("admin"));
+    expect(named?.label).toBe("Owner");
+    const [kept] = await resolveFormFields(
+      cfg,
+      [
+        {
+          name: "ownerId",
+          label: "Owner ID",
+          reference: { resource: "users", labelField: "email" },
+        },
+      ],
+      ctx("admin"),
+    );
+    expect(kept?.label).toBe("Owner ID");
+  });
+
   it("returns no options on a create form (no current value) without querying at all", async () => {
     const { config: cfg, list } = configWith({});
     const resolved = await resolveFormFields(cfg, fields, ctx("admin"));
     expect(resolved[0]?.options).toEqual([]);
     expect(list).not.toHaveBeenCalled();
+  });
+
+  it("labels a create form's default by the record it points to, as an edit form does", async () => {
+    const { config: cfg } = configWith({});
+    const resolved = await resolveFormFields(
+      cfg,
+      [{ ...fields[0], name: "ownerId", defaultValue: async () => "u42" }],
+      ctx("admin"),
+    );
+    expect(resolved[0]?.defaultValue).toBe("u42");
+    expect(resolved[0]?.options).toEqual([{ value: "u42", label: "owner@x.com" }]);
   });
 
   it("returns no options when the referenced row no longer exists", async () => {
@@ -170,7 +263,7 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
   });
 
   it("returns no options when the viewer's role can't read the target resource", async () => {
-    const { config: cfg, list } = configWith({ requireRole: "superadmin" });
+    const { config: cfg, list } = configWith({ targetReadAccess: "superadmin" });
     const resolved = await resolveFormFields(cfg, fields, ctx("staff"), { ownerId: "u42" });
     expect(resolved[0]?.options).toEqual([]);
     expect(list).not.toHaveBeenCalled();
@@ -195,17 +288,45 @@ describe("resolveFormFields — reference fields (current-value label, not a pre
     const scoped = { ...ctx("admin"), scope: { tenantId: "t1" } } as RequestContext;
     await resolveFormFields(cfg, fields, scoped, { ownerId: "u42" });
     const listCtx = list.mock.calls[0]?.[1] as {
-      applyScope?: (q: unknown) => unknown;
-      scopeRequired?: boolean;
+      boundScope?: { apply(q: unknown): unknown };
     };
-    expect(listCtx.scopeRequired).toBe(true);
-    listCtx.applyScope?.("q");
+    listCtx.boundScope?.apply("q");
     expect(scopeCalls).toEqual([[{ tenantId: "t1" }, "q"]]);
   });
 
-  it("includes the label when the viewer's role satisfies the target's requireRole", async () => {
-    const { config: cfg } = configWith({ requireRole: "staff" });
+  it("includes the label when the viewer's role satisfies the target's read access", async () => {
+    const { config: cfg } = configWith({ targetReadAccess: "staff" });
     const resolved = await resolveFormFields(cfg, fields, ctx("staff"), { ownerId: "u42" });
     expect(resolved[0]?.options).toEqual([{ value: "u42", label: "owner@x.com" }]);
+  });
+});
+
+describe("deniedFieldWrites", () => {
+  it("names the fields fieldAccess.write keeps this caller from writing", async () => {
+    const resource = resourceWith({
+      columns: [],
+      fieldAccess: {
+        plan: { write: "owner" },
+        note: { write: ["owner", "editor"] },
+        locked: {
+          write: ({ current }: { current: Record<string, unknown> | null }) => !current?.frozen,
+        },
+        email: { read: "owner" },
+      },
+    });
+    expect([...(await deniedFieldWrites(resource, ctx("editor"), { frozen: true }))]).toEqual([
+      "plan",
+      "locked",
+    ]);
+    expect([...(await deniedFieldWrites(resource, ctx("owner"), null))]).toEqual([]);
+  });
+
+  it("renders a denied field read-only, like readOnly", async () => {
+    const fields: Fields = [{ name: "name" }, { name: "plan" }];
+    const resolved = await resolveFormFields(config, fields, ctx("editor"), {}, new Set(["plan"]));
+    expect(resolved.map((f) => [f.name, f.readOnly])).toEqual([
+      ["name", undefined],
+      ["plan", true],
+    ]);
   });
 });

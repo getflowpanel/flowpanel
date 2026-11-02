@@ -2,20 +2,17 @@
 title: Multi-tenant scope
 description: Bind every tenant-owned resource operation to the current tenant and verify fail-closed behavior.
 kind: how-to
+metaTitle: "Multi-tenant admin: scope rows by tenant"
 ---
 
-Tenant scope has two parts: the root config resolves who the request belongs to, and each tenant-owned resource translates that scope into an adapter predicate.
+Tenant scope has two parts: the root config resolves the tenant from the session once per request, and each tenant-owned resource turns it into a query predicate. Take the tenant from trusted session state, never from a query parameter.
 
-## Prerequisites
+## Resolve the tenant
 
-Authentication must provide a trusted tenant identifier. Decide which resources are tenant-owned and which are intentionally global. Do not infer tenancy from a client query parameter.
-
-## Resolve the tenant once
-
-```ts excerpt
+```ts
 export default defineAdmin({
   adapter,
-  auth,
+  auth: flowpanelAuth,
   scope: async ({ session }) => {
     const tenantId = session?.user?.tenantId;
     if (!tenantId) throw new Error("No tenant selected");
@@ -25,57 +22,110 @@ export default defineAdmin({
 });
 ```
 
-The resolved value is request-scoped and available to resource predicates, policies, actions, and widget queries.
+`session` is typed by the `session` you register on `FlowpanelTypes`; see [Registry](/docs/reference/registry).
 
-## Bind each tenant-owned resource
+The value reaches resource predicates as their first argument, and policies and actions as `ctx.scope`. Widgets get no scope: `ctx.count` and `ctx.read` apply it for you, and a `ctx.sql` or `ctx.db` query reads the tenant from `ctx.session`.
 
-```ts excerpt
+## Bind each resource
+
+```ts
+import type { QueryContext } from "@flowpanel/kit";
+import { eq, type SQL } from "drizzle-orm";
+
 resource(schema.orders, {
   columns: ["number", "status", "total", "createdAt"],
-  scope: ({ tenantId }, query) => query.where(eq(schema.orders.tenantId, tenantId)),
+  scope: (scope, query: { where(condition: SQL): unknown }) =>
+    query.where(eq(schema.orders.tenantId, scope?.tenantId as string)),
   create: {
     fields: [
-      "number",
-      "status",
-      "total",
+      { name: "number" },
+      { name: "status" },
+      { name: "total" },
       {
         name: "tenantId",
         type: "hidden",
         hidden: true,
-        defaultValue: async ({ scope }) => scope.tenantId,
+        defaultValue: async (ctx: QueryContext) => ctx.scope?.tenantId,
       },
     ],
   },
 })
 ```
 
-The predicate's `query` argument is adapter-specific. With Drizzle it is a query builder — chain a `where` clause as above. With Prisma it is the `where` object — merge the tenant keys into it and return the result:
+The adapter decides what `query` is, so annotate it: with Drizzle, something you call `.where(condition)` on; with Prisma, the `where` object. Merge the tenant into it:
 
-```ts excerpt
-scope: ({ tenantId }, where) => ({ ...(where as object), tenantId }),
+```ts as="ResourceOptions<RowOf<'orders'>>"
+scope: (scope, where: Record<string, unknown>) => ({ ...where, tenantId: scope?.tenantId }),
 ```
 
-The predicate applies to lists, lookups, updates, deletes, restore, references, and related-resource reads—not only to the visible list.
+The predicate applies to lists, lookups, updates, deletes, restores, references and related tabs. On create, set the tenant with a server `defaultValue` on a hidden field, as above, so the form never shows it. A hidden field does not stop a crafted request from sending another tenant ID; the adapter does:
 
-Create needs special attention because no stored row exists to filter yet. Set the tenant through a trusted server default or write policy, and keep the tenant field outside the operator-controlled form.
+- On create, Drizzle checks that the new row matches the scope, and Prisma merges the scope into the data, so the write fails or lands in the caller's tenant.
+- On update, both adapters refuse a change that would move the row out of the scope, through the JSON API, forms and inline edits alike. The request fails with `403` and the row stays as it was. Drizzle checks inside a transaction on PostgreSQL and MySQL and inside the `UPDATE` itself on SQLite.
+- A driver without interactive transactions, such as `drizzle-orm/neon-http`, gets the same guarantee from a check that runs just before the write, as on SQLite; Prisma uses `$transaction`.
 
-## Preserve fail-closed behavior
+The New button follows `access.create`, not the scope, so it cannot know that a write would land outside the tenant. On the tenants table itself, where a bound user's new row never matches their scope, limit create to your staff role: `access: { create: "admin" }`.
 
-When global scope is active and a resource declares scope, supported adapters reject an operation if the predicate is not bound or adds no constraint. Do not catch that access error and retry an unscoped query.
+## Fail closed
 
-Global resources should omit tenant scope deliberately and have their own explicit access policy. Make that exception visible in code review.
+With a global `scope`, every resource must declare its own `scope` or opt out with `scope: "bypass"`. A resource that does neither stops `defineAdmin` at boot with a message that names it, and one whose predicate adds no constraint throws `FlowpanelAccessError` on its first query instead of returning another tenant's rows. Do not catch that error and retry unscoped.
+
+`ctx.sql`, `ctx.db` and your own queries in widgets and pages are not scoped. Add the tenant predicate yourself, reading the tenant from `ctx.session`.
+
+## Staff who work across tenants
+
+Platform staff often need every tenant at once. Return `allTenants` for them, and a tenant for everyone else:
+
+```ts
+import { allTenants } from "@flowpanel/kit";
+
+export default defineAdmin({
+  adapter,
+  auth: flowpanelAuth,
+  scope: async ({ session }) => {
+    if (session?.user?.role === "admin") return allTenants;
+    const tenantId = session?.user?.tenantId;
+    if (!tenantId) throw new Error("No tenant selected");
+    return { tenantId };
+  },
+  resources,
+});
+```
+
+For a request with `allTenants`, FlowPanel skips the resource predicates, so lists, lookups and writes reach every tenant's rows. Every other check stays: access rules, field rules, and the fail-closed check for a user who has a tenant. Do not return a predicate that adds no condition, such as `sql\`true\``: FlowPanel refuses it.
+
+`ctx.scope` is `allTenants` in that request, so a hidden tenant field whose `defaultValue` reads `ctx.scope?.tenantId` gets nothing. Give such staff a visible tenant field on create, or leave create to the tenant's own users.
+
+So that a tenant's audit history includes what staff did to its rows, tell each tenant-owned resource which tenant a row belongs to, in the shape `scope` returns:
+
+```ts
+import { eq, type SQL } from "drizzle-orm";
+
+resource(schema.orders, {
+  columns: ["number", "status", "total"],
+  scope: (scope, query: { where(condition: SQL): unknown }) =>
+    query.where(eq(schema.orders.tenantId, scope?.tenantId as string)),
+  scopeOf: (row) => ({ tenantId: String(row.tenantId) }),
+})
+```
+
+`scopeOf` must return the same keys and value types as `scope`: `{ tenantId: 1 }` and `{ tenantId: "1" }` are two tenants, so a tenant's History would miss the staff changes. Convert the column's value to the type `scope` uses, as `String()` does above.
+
+An event by `allTenants` staff is then filed under the tenant of the row it changed, and a bulk action across tenants records one event per tenant. Without `scopeOf`, the event has no tenant and only `allTenants` staff see it. `allTenants` staff see every tenant's events. See [Audit log](/docs/guides/audit-log#tenants).
 
 ## Verify isolation
 
-Create fixtures for two tenants and test:
+With fixtures for two tenants, check that:
 
 1. each tenant lists only its own rows;
-2. a by-ID read of the other tenant's row fails;
-3. update, delete, restore, and row actions cannot target the other tenant;
-4. create cannot submit or override another tenant ID;
-5. references and drawer related tabs remain scoped;
-6. dashboard queries use `ctx.scope` in their own application queries.
+2. reading the other tenant's row by ID fails;
+3. update, delete, restore and row actions cannot reach the other tenant;
+4. create cannot set another tenant ID;
+5. references and related tabs stay scoped;
+6. dashboard queries that use `ctx.sql` or `ctx.db` filter by the tenant from `ctx.session`;
+7. your own [realtime channels](/docs/guides/realtime) send their payload only when declared `tenantSafe`, and a tenant-scoped resource's events carry only the action;
+8. the [Audit log page and each History tab](/docs/guides/audit-log#tenants) show only the tenant's own events;
+9. an [export](/docs/build/import-export) holds only the tenant's rows;
+10. a change by `allTenants` staff to a tenant's row shows in that tenant's History.
 
-FlowPanel can enforce the generated resource path, but a custom widget or page query remains your code. Apply the same tenant predicate there.
-
-See [Scope, realtime, and rate limits reference](/docs/reference/scope-realtime) for generated types.
+Every option: [Scope reference](/docs/reference/scope-realtime#scope).

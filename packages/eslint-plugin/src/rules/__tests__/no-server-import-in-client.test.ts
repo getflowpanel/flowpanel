@@ -100,10 +100,10 @@ ruleTester().run("no-server-import-in-client", rule, {
       name: "use-client + a bare package's /server subpath export",
       code: `
         "use client";
-        import { createHandler } from "@flowpanel/kit/server";
+        import { createHandler } from "some-sdk/server";
         export const x = 1;
       `,
-      errors: [{ messageId: "serverImport", data: { source: "@flowpanel/kit/server" } }],
+      errors: [{ messageId: "serverImport", data: { source: "some-sdk/server" } }],
     },
     {
       name: "use-client + a nested /server/ segment inside a bare package",

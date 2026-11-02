@@ -1,5 +1,11 @@
-import type { ActionResult, FieldDef } from "@flowpanel/core";
-import { FlowpanelUnknownFieldError } from "@flowpanel/core";
+import type { ActionResult, FieldDef, ResolvedLabels } from "@flowpanel/core";
+import { DEFAULT_LABELS, FlowpanelUnknownFieldError, formatLabel, humanize } from "@flowpanel/core";
+import {
+  majorUnitsInput,
+  moneyDecimals,
+  moneyMinorUnits,
+  parseMoney,
+} from "@flowpanel/core/format";
 import type { z } from "zod";
 
 export interface ActionInputIssue {
@@ -19,6 +25,7 @@ function isPromiseLike(value: unknown): value is PromiseLike<string | null> {
 export function validateActionInput(
   form: FieldDef<Record<string, unknown>>[] | undefined,
   input: unknown,
+  labels: ResolvedLabels = DEFAULT_LABELS,
 ): ActionInputIssue[] | null | Promise<ActionInputIssue[] | null> {
   if (!form || form.length === 0) return null;
 
@@ -31,9 +38,28 @@ export function validateActionInput(
 
   for (const field of form) {
     const value = values[field.name];
+    const label = field.label ?? humanize(field.name);
     if (field.required && (value === undefined || value === null || value === "")) {
-      issues.push({ path: [field.name], message: `${field.name} is required` });
+      issues.push({ path: [field.name], message: formatLabel(labels.form.required, { label }) });
       continue;
+    }
+    if (field.type === "money" && value !== undefined && value !== null && value !== "") {
+      const minorUnits = moneyMinorUnits(field.minorUnits, field.currency);
+      const storage = field.storage ?? "minor";
+      const valid =
+        storage === "minor"
+          ? Number.isSafeInteger(value)
+          : typeof value === "string" && parseMoney(value, { minorUnits, storage }) !== null;
+      if (!valid) {
+        const example = majorUnitsInput("12.5", { minorUnits, storage: "major" });
+        const decimals = typeof value === "string" ? moneyDecimals(value) : null;
+        const tooPrecise =
+          (storage === "minor" && typeof value === "number" && Number.isFinite(value)) ||
+          (decimals !== null && decimals > minorUnits);
+        const message = tooPrecise ? labels.form.moneyTooPrecise : labels.form.invalidMoney;
+        issues.push({ path: [field.name], message: formatLabel(message, { label, example }) });
+        continue;
+      }
     }
     if (field.validate === undefined || value === undefined) continue;
 
@@ -90,9 +116,10 @@ export async function parseActionInputSchema(
   form: FieldDef<Record<string, unknown>>[] | undefined,
   inputSchema: z.ZodTypeAny | undefined,
   input: Record<string, unknown>,
+  labels: ResolvedLabels = DEFAULT_LABELS,
 ): Promise<ParsedActionInput> {
   assertActionInputFields(form, input, inputSchema);
-  const fieldIssues = await validateActionInput(form, input);
+  const fieldIssues = await validateActionInput(form, input, labels);
   if (fieldIssues) return { data: input, issues: fieldIssues };
   if (!inputSchema) return { data: input, issues: null };
   const parsed = inputSchema.safeParse(input);

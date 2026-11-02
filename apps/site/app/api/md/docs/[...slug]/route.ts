@@ -5,16 +5,7 @@ interface RouteContext {
   params: Promise<{ slug: string[] }>;
 }
 
-/**
- * Returns the raw markdown body of one doc page.
- *
- * URL shape: /api/md/docs/<section>/<slug>
- * Reachable from each doc page via the "View as markdown" link in the
- * right rail — see DocsTocRail.
- *
- * Built once: the body is assembled from repository sources, which the
- * deployed image does not carry.
- */
+// Raw markdown of one doc page, built once: the image does not carry the sources.
 export const dynamic = "force-static";
 export const dynamicParams = false;
 

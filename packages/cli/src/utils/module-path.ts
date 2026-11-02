@@ -45,7 +45,7 @@ export async function validateProjectImport(
 ): Promise<string | null> {
   const file = await resolveProjectModule(cwd, specifier);
   if (!file)
-    return `Cannot resolve "${specifier}" from the project config. Choose an existing local module.`;
+    return `Cannot resolve "${specifier}" to a file in this project, directly or via tsconfig paths.`;
   if (!exportName) return null;
   const options = await readTsconfigOptions(cwd);
   const project = new Project({

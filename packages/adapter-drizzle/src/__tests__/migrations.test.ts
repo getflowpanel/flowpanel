@@ -13,6 +13,7 @@ const users = sqliteTable("users_mig", { id: text("id").primaryKey() });
 describe("migrationsTableDdl", () => {
   it("uses postgres types on pg", () => {
     expect(migrationsTableDdl("pg")).toMatch(/applied_at timestamptz NOT NULL DEFAULT now\(\)/);
+    expect(migrationsTableDdl("pg")).toContain("IF to_regclass('_flowpanel_migrations') IS NULL");
   });
 
   it("uses a keyed varchar and CURRENT_TIMESTAMP on mysql", () => {
@@ -47,15 +48,13 @@ describe("drizzleAdapter migrations on sqlite", () => {
   it("creates its bookkeeping table and round-trips applied ids", async () => {
     expect(await adapter.listAppliedMigrations?.()).toEqual(new Set());
 
-    await adapter.markMigrationApplied?.("0001_init");
-    await adapter.markMigrationApplied?.("0002_posts");
+    await adapter.applyMigration?.("0001_init", "CREATE TABLE init_probe (id integer PRIMARY KEY)");
+    await adapter.applyMigration?.(
+      "0002_posts",
+      "CREATE TABLE posts_probe (id integer PRIMARY KEY)",
+    );
 
     expect(await adapter.listAppliedMigrations?.()).toEqual(new Set(["0001_init", "0002_posts"]));
-  });
-
-  it("executes raw migration SQL", async () => {
-    await adapter.runMigrationSql?.(`CREATE TABLE probe (id integer PRIMARY KEY)`);
-    expect(sqlite.prepare(`SELECT id FROM probe`).all()).toEqual([]);
   });
 
   it("applies SQL and records its id in one adapter operation", async () => {
@@ -333,24 +332,24 @@ describe("drizzleAdapter migration SQL validation", () => {
     expect(db.transaction).not.toHaveBeenCalled();
   });
 
-  it.each([
-    "mysql",
-    "sqlite",
-  ] as const)("rejects dollar-quoted bodies on %s before touching the database", async (dialect) => {
-    const db = {
-      execute: vi.fn().mockResolvedValue([[], []]),
-      run: vi.fn().mockResolvedValue(undefined),
-      transaction: vi.fn(),
-    };
-    const adapter = drizzleAdapter({ db, schema: {}, dialect });
+  it.each(["mysql", "sqlite"] as const)(
+    "rejects dollar-quoted bodies on %s before touching the database",
+    async (dialect) => {
+      const db = {
+        execute: vi.fn().mockResolvedValue([[], []]),
+        run: vi.fn().mockResolvedValue(undefined),
+        transaction: vi.fn(),
+      };
+      const adapter = drizzleAdapter({ db, schema: {}, dialect });
 
-    await expect(
-      adapter.applyMigration?.("unsafe-dollar-body", "DO $$ BEGIN SELECT 1; SELECT 2; END $$;"),
-    ).rejects.toThrow(/dollar-quoted migration SQL is only supported on PostgreSQL/);
-    expect(db.execute).not.toHaveBeenCalled();
-    expect(db.run).not.toHaveBeenCalled();
-    expect(db.transaction).not.toHaveBeenCalled();
-  });
+      await expect(
+        adapter.applyMigration?.("unsafe-dollar-body", "DO $$ BEGIN SELECT 1; SELECT 2; END $$;"),
+      ).rejects.toThrow(/dollar-quoted migration SQL is only supported on PostgreSQL/);
+      expect(db.execute).not.toHaveBeenCalled();
+      expect(db.run).not.toHaveBeenCalled();
+      expect(db.transaction).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("drizzleAdapter migrations on async sqlite", () => {

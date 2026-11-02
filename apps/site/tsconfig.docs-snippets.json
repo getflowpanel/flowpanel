@@ -3,14 +3,21 @@
   "compilerOptions": {
     "allowJs": false,
     "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
     "noEmit": true,
+    "plugins": [],
     "paths": {
-      "@/*": ["./src/*"],
-      "@/server/lib/db": ["./content/snippets/fixtures/db.ts"],
-      "@/server/lib/db/schema": ["./content/snippets/fixtures/schema.ts"],
-      "@/server/lib/auth": ["./content/snippets/fixtures/auth.ts"],
-      "@/server/lib/prisma": ["./content/snippets/fixtures/prisma.ts"]
-    }
+      "@/*": ["./content/snippets/.generated/src/*"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"]
+    },
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
+    "verbatimModuleSyntax": false,
+    "noImplicitOverride": false
   },
   "include": ["content/snippets/**/*.ts", "content/snippets/**/*.tsx"],
   "exclude": ["node_modules", ".next", "dist"]

@@ -1,10 +1,16 @@
 "use client";
-import { Button, ConfirmDialog, FlowpanelIcon, useApiBase } from "@flowpanel/react";
+import { formatLabel } from "@flowpanel/core/labels";
+import { Button, ConfirmDialog, FlowpanelIcon, useApiBase, useLabels } from "@flowpanel/react";
 import * as React from "react";
 import { ActionFormDialog } from "./ActionFormDialog";
 import type { ActionFormFieldErrors } from "./action-form-field";
 import type { SerializedDashboardAction } from "./dashboard-action";
 import { useActionRunner } from "./use-action-runner";
+
+function buttonVariant(action: SerializedDashboardAction): "default" | "destructive" | "outline" {
+  if (action.emphasis !== "primary") return "outline";
+  return action.variant === "destructive" ? "destructive" : "default";
+}
 
 /** Top-bar action row rendered in the dashboard header when `DashboardConfig.actions` is non-empty. */
 export interface DashboardActionsBarProps {
@@ -14,6 +20,7 @@ export interface DashboardActionsBarProps {
 
 export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBarProps) {
   const apiBase = useApiBase();
+  const labels = useLabels();
   const runAction = useActionRunner();
   const [pending, setPending] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState<SerializedDashboardAction | null>(null);
@@ -31,8 +38,8 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
         `${apiBase}/dashboards/${encodedPath}/actions/${encodeURIComponent(action.key)}`,
         input,
         {
-          successMessage: `${action.label} ran`,
-          failureMessage: `${action.label} failed`,
+          successMessage: formatLabel(labels.actions.ran, { label: action.label }),
+          failureMessage: formatLabel(labels.errors.actionFailed, { label: action.label }),
         },
       );
     } finally {
@@ -53,17 +60,20 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="fp-flex fp-max-w-full fp-flex-wrap fp-items-center fp-gap-2">
       {actions.map((a) => (
         <Button
           key={a.key}
           size="sm"
-          variant={a.variant === "destructive" ? "destructive" : "default"}
+          variant={buttonVariant(a)}
+          {...(a.emphasis !== "primary" && a.variant === "destructive"
+            ? { className: "fp-text-err-ink" }
+            : {})}
           disabled={pending === a.key}
           onClick={() => onClick(a)}
           aria-busy={pending === a.key || undefined}
         >
-          {a.icon ? <FlowpanelIcon name={a.icon} className="h-4 w-4" /> : null}
+          {a.icon ? <FlowpanelIcon name={a.icon} className="fp-h-4 fp-w-4" /> : null}
           {a.label}
         </Button>
       ))}
@@ -74,11 +84,11 @@ export function DashboardActionsBar({ encodedPath, actions }: DashboardActionsBa
           onOpenChange={(open) => {
             if (!open) setConfirming(null);
           }}
-          title={confirming.confirm?.title ?? "Are you sure?"}
+          title={confirming.confirm?.title ?? labels.confirm.title}
           {...(confirming.confirm?.description
             ? { description: confirming.confirm.description }
             : {})}
-          confirmLabel={confirming.confirm?.confirmLabel ?? "Confirm"}
+          confirmLabel={confirming.confirm?.confirmLabel ?? labels.confirm.ok}
           variant={confirming.variant === "destructive" ? "destructive" : "default"}
           onConfirm={() => {
             const action = confirming;

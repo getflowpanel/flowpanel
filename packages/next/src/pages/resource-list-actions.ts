@@ -1,12 +1,18 @@
-import type { BulkAction, RequestContext, ResourceConfig, RowAction } from "@flowpanel/core";
+import type {
+  BulkAction,
+  RequestContext,
+  ResolvedLabels,
+  ResourceConfig,
+  RowAction,
+} from "@flowpanel/core";
 import { type SerializedBulkAction, serializeBulkAction } from "../actions/bulk-action";
 import { type SerializedRowAction, serializeRowAction } from "../actions/row-action";
-import { filterActionsByAccess } from "../runtime/action-helpers";
+import { actionAppliesTo, offeredActions, resourceActionTarget } from "../runtime/action-gate";
 import { rowIdentity } from "../runtime/row-identity";
 
 export interface ResourceListActions {
   rowActions: SerializedRowAction[];
-  /** Present only when some action hides itself per row. */
+  /** Present only when an action depends on the row, or a row is deleted and offers none. */
   rowActionsById?: Record<string, SerializedRowAction[]>;
   bulkActions: SerializedBulkAction[];
 }
@@ -17,14 +23,16 @@ async function visibleByRow<Row extends Record<string, unknown>>(
   rows: Row[],
   rowKey: string,
   reqCtx: RequestContext,
+  deleted: ReadonlySet<string>,
 ): Promise<Record<string, SerializedRowAction[]>> {
   const entries = await Promise.all(
     rows.map(async (row) => {
       const id = rowIdentity(row, rowKey);
       if (id === null) return null;
       const visible: SerializedRowAction[] = [];
+      if (deleted.has(id)) return [id, visible] as const;
       for (const [i, action] of actions.entries()) {
-        if (action.hidden && (await action.hidden(row, reqCtx))) continue;
+        if (!(await actionAppliesTo(action, row, reqCtx))) continue;
         const entry = serialized[i];
         if (entry) visible.push(entry);
       }
@@ -34,28 +42,35 @@ async function visibleByRow<Row extends Record<string, unknown>>(
   return Object.fromEntries(entries.filter((entry) => entry !== null));
 }
 
-/** The row and bulk actions this caller may run, wire-safe and per-row where needed. */
+/** The row and bulk actions this caller's routes would accept, wire-safe and per-row where needed. */
 export async function resolveResourceListActions<Row extends Record<string, unknown>>(
   resource: ResourceConfig,
   rows: Row[],
   rowKey: string,
   reqCtx: RequestContext,
+  labels: ResolvedLabels,
+  deleted: ReadonlySet<string> = new Set(),
 ): Promise<ResourceListActions> {
-  const rawActions = await filterActionsByAccess(
+  const target = (action: { key: string; access?: RowAction<Row>["access"] }) =>
+    resourceActionTarget(resource, action);
+  const rawActions = await offeredActions(
     resource.options.actions as RowAction<Row>[] | undefined,
+    target,
     reqCtx,
   );
-  const rowActions = rawActions?.map(serializeRowAction) ?? [];
-  const rawBulkActions = await filterActionsByAccess(
+  const rowActions = rawActions.map(serializeRowAction);
+  const rawBulkActions = await offeredActions(
     resource.options.bulkActions as BulkAction<Row>[] | undefined,
+    target,
     reqCtx,
   );
+  const perRow = deleted.size > 0 || rawActions.some((action) => action.hidden || action.when);
   return {
     rowActions,
-    bulkActions: rawBulkActions?.map(serializeBulkAction) ?? [],
-    ...(rawActions?.some((action) => action.hidden)
+    bulkActions: rawBulkActions.map((a) => serializeBulkAction(a, labels, resource)),
+    ...(perRow
       ? {
-          rowActionsById: await visibleByRow(rawActions, rowActions, rows, rowKey, reqCtx),
+          rowActionsById: await visibleByRow(rawActions, rowActions, rows, rowKey, reqCtx, deleted),
         }
       : {}),
   };

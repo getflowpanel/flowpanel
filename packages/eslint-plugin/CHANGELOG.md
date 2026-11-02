@@ -6,7 +6,7 @@
 
 ### Minor Changes
 
-- 2804944: `no-server-import-in-client` inspects bare specifiers again, so a package's server subpath imported from a `"use client"` file is caught.
+- Fixed `no-server-import-in-client` missing a package's server subpath imported from a `"use client"` file.
 
 ## 0.1.0
 

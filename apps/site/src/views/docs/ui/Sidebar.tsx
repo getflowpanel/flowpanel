@@ -8,14 +8,6 @@ interface SidebarProps {
   adapter: Adapter;
 }
 
-/**
- * Left rail of the docs surface. Three blocks, top to bottom:
- *   1. Adapter toggle — cookie-driven Prisma ↔ Drizzle switcher.
- *      Drives `<AdapterTabs>` visibility across the page via CSS.
- *   2. Version chip — current package version, "latest" tag.
- *      Versioned docs are out of scope for v1.
- *   3. Nav tree — sections + pages from `source.pageTree`.
- */
 export function Sidebar({ tree, adapter }: SidebarProps) {
   return (
     <nav aria-label="Documentation" className="flex flex-col gap-8 text-sm">

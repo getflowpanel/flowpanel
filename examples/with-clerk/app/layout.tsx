@@ -4,7 +4,7 @@ import "@/src/app/globals.css";
 
 export const metadata: Metadata = {
   title: "with-clerk — FlowPanel example",
-  description: "FlowPanel + Clerk auth — minimal showcase of withClerk({ requireRole: 'admin' })",
+  description: "FlowPanel + Clerk auth — minimal showcase of withClerk({ access: 'admin' })",
 };
 
 // Clerk reads its publishable key from process.env at render time, so we

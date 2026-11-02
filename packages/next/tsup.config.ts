@@ -1,4 +1,4 @@
-import { rmSync } from "node:fs";
+import { globSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { defineConfig } from "tsup";
 
 // tsup runs these configs concurrently and cleans per config, so no single one
@@ -13,6 +13,18 @@ rmSync("dist", { recursive: true, force: true });
 const sharedEsbuild = (options: { jsx?: string }): void => {
   options.jsx = "automatic";
 };
+
+/** The client barrel and every module that starts with "use client", each an entry of its own. */
+function clientEntries(): Record<string, string> {
+  const clients = globSync("src/**/*.{ts,tsx}").filter(
+    (file) =>
+      !file.includes("/__tests__/") && readFileSync(file, "utf8").startsWith('"use client"'),
+  );
+  return Object.fromEntries([
+    ["client", "src/client.ts"],
+    ...clients.sort().map((file) => [`client/${file.slice(4).replace(/\.tsx?$/, "")}`, file]),
+  ]);
+}
 
 export default defineConfig([
   {
@@ -32,15 +44,12 @@ export default defineConfig([
       "zod",
     ],
   },
-  // Client-only modules (React error boundary, URL-bound DateRangePicker
-  // wrapper) live in a separate bundle so the "use client" banner is applied
-  // exactly at the RSC boundary. The server bundle imports them via the
-  // `./client` subpath export.
+  // One chunk per client component, each its own boundary; the barrel carries no directive.
   {
-    entry: { client: "src/client.ts" },
+    entry: clientEntries(),
     format: ["esm"],
-    dts: true,
-    splitting: false,
+    dts: { entry: { client: "src/client.ts" } },
+    splitting: true,
     esbuildOptions: sharedEsbuild,
     external: [
       "next",
@@ -52,5 +61,9 @@ export default defineConfig([
       "zod",
     ],
     banner: { js: '"use client";' },
+    onSuccess: async () => {
+      const barrel = "dist/client.js";
+      writeFileSync(barrel, readFileSync(barrel, "utf8").replace(/^"use client";\n/, ""));
+    },
   },
 ]);

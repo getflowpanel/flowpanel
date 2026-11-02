@@ -1,41 +1,48 @@
 import type { RequestContext, ResolvedAdminConfig, ShellConfig, ShellMode } from "@flowpanel/core";
-import { FlowpanelAccessError, FlowpanelAuthError } from "@flowpanel/core";
-import { CommandHost, DrawerHost } from "@flowpanel/next/client";
+import {
+  FlowpanelError,
+  FlowpanelRateLimitError,
+  mergeLabels,
+  reportUnexpectedError,
+} from "@flowpanel/core";
+import { CommandHost, DrawerHost, NotFoundBody, PathAwareShell } from "@flowpanel/next/client";
 import {
   AdminShell,
-  EmptyState,
   type FlowpanelComponentSlots,
   FlowpanelGlobals,
+  type NavGroup,
   type ShellBrand,
 } from "@flowpanel/react";
-import { redirect } from "next/navigation";
 import type * as React from "react";
+import { Suspense } from "react";
+import { missingRecordCopy, NotFound } from "./pages/not-found";
+import { accountUser } from "./runtime/account-user";
 import { buildServerRequest } from "./runtime/build-server-request";
-import { decodeAtom, encodeAtom } from "./runtime/href";
+import { plainAggregates } from "./runtime/caught-error";
+import { buildHref, decodeAtom } from "./runtime/href";
 import { buildNav } from "./runtime/nav";
+import {
+  type PageParams,
+  pageRequest,
+  resolveCatchAllSegments,
+  toSearchParams,
+} from "./runtime/page-url";
 import { bindPublisher } from "./runtime/publish";
+import { isControlFlow } from "./runtime/query-error";
 import { renderContent } from "./runtime/render-content";
-import { buildRequestContext } from "./runtime/request-setup";
-import { ThemeVars } from "./runtime/theme-vars";
+import { buildRequestContext, requestIdFrom } from "./runtime/request-setup";
+import { ThemeColor, ThemeVars } from "./runtime/theme-vars";
+import { handleRenderError, sessionFailedWall } from "./runtime/walls";
 
 export { renderContent } from "./runtime/render-content";
+export { handleRenderError } from "./runtime/walls";
 
-type PageParams = Record<string, string | string[] | undefined>;
 type PageProps = {
   params: Promise<PageParams>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<PageParams>;
 };
 
-export function resolveCatchAllSegments(params: PageParams): string[] {
-  const slug = params.slug;
-  if (Array.isArray(slug)) return slug;
-  const rest = params.rest;
-  if (Array.isArray(rest)) return rest;
-  for (const v of Object.values(params)) {
-    if (Array.isArray(v)) return v;
-  }
-  return [];
-}
+export { resolveCatchAllSegments };
 
 export interface FlowpanelOptions {
   /** Override `config.shell` at render time. */
@@ -74,95 +81,203 @@ function resolveShell(
 export function Flowpanel(config: ResolvedAdminConfig, opts: FlowpanelOptions = {}) {
   bindPublisher(config);
   return async function FlowpanelPage({ params, searchParams }: PageProps) {
-    // Next hands page catch-all segments over still percent-encoded, so an
-    // identifier carrying `/` or `%` only becomes itself after one decode.
+    // Next hands catch-all segments over still percent-encoded, so an id carrying `/` needs one decode.
     const slug = resolveCatchAllSegments(await params).map(decodeAtom);
-    const spRaw = await searchParams;
-    const sp = new URLSearchParams();
-    for (const [k, v] of Object.entries(spRaw)) {
-      if (Array.isArray(v)) {
-        for (const item of v) sp.append(k, item);
-      } else if (v !== undefined) {
-        sp.set(k, v);
-      }
-    }
-
-    const slugPath = `/${slug.map(encodeAtom).join("/")}`;
-    const currentPath = slugPath === "/" ? config.basePath || "/" : `${config.basePath}${slugPath}`;
-    const url = new URL(`http://localhost${config.basePath}${slugPath}`);
-    for (const [k, v] of sp.entries()) url.searchParams.append(k, v);
-    const req = await buildServerRequest(url);
+    const sp = toSearchParams(await searchParams);
+    const { path: currentPath, req } = await pageRequest(config, slug, sp);
 
     let content: React.ReactNode;
     let reqCtx: RequestContext | undefined;
-    let navGroups: Awaited<ReturnType<typeof buildNav>> = [];
+    let navGroups: NavGroup[] = [];
     try {
       reqCtx = await buildRequestContext({ req, config });
       navGroups = await buildNav(config, reqCtx);
       content = await renderContent(config, slug, sp, req, reqCtx);
     } catch (err) {
-      content = await handleRenderError(err, config, req);
+      const admitted = reqCtx !== undefined;
+      if (!admitted && !(err instanceof FlowpanelError) && !isControlFlow(err)) {
+        const requestId = requestIdFrom(req);
+        plainAggregates(err);
+        await reportUnexpectedError(
+          err,
+          { requestId, route: "page", method: "GET", url: req.url, ip: null, userAgent: null },
+          config.hooks?.onError,
+        );
+        return (
+          <AdminFrame config={config}>
+            <main id="main">{sessionFailedWall(config, requestId, err)}</main>
+          </AdminFrame>
+        );
+      }
+      if (err instanceof FlowpanelRateLimitError && !admitted) {
+        reqCtx = await buildRequestContext({ req, config, rateLimit: false }).catch(
+          () => undefined,
+        );
+        navGroups = reqCtx ? await buildNav(config, reqCtx) : [];
+      }
+      content = await handleRenderError(
+        err,
+        config,
+        req,
+        admitted ? { slug, currentPath, navGroups } : undefined,
+      );
     }
-    const navItems = navGroups.flatMap((g) =>
-      g.items.map((it) => ({
-        label: it.label,
-        href: it.href,
-        ...(it.icon ? { icon: it.icon } : {}),
-      })),
-    );
-
-    const shell = resolveShell(config, opts.shell);
-    const themeComponents = config.theme?.components as
-      | Partial<FlowpanelComponentSlots>
-      | undefined;
-    const themeMode = config.theme?.mode;
-    const labels = config.labels;
-    const accountUser =
-      config.theme?.user && reqCtx ? config.theme.user(reqCtx.session) : undefined;
-
-    const globals = (
-      <>
-        <DrawerHost />
-        <CommandHost
-          navItems={navItems}
-          {...(config.commandPalette ? { config: config.commandPalette } : {})}
-        />
-      </>
-    );
-
-    const body =
-      shell.mode === "bare" ? (
-        <>
-          {content}
-          {globals}
-        </>
-      ) : (
-        <AdminShell
-          variant={shell.mode}
+    return (
+      <AdminFrame config={config}>
+        <AdminChrome
+          config={config}
+          shell={opts.shell}
           navGroups={navGroups}
-          currentPath={slug.length === 0 ? config.basePath || "/" : currentPath}
-          showSkipLink={shell.showSkipLink}
-          {...(shell.brand !== undefined ? { brand: shell.brand } : {})}
-          {...(accountUser ? { user: accountUser } : {})}
+          reqCtx={reqCtx}
+          currentPath={currentPath}
         >
           {content}
-          {globals}
-        </AdminShell>
-      );
-
-    return (
-      <FlowpanelGlobals
-        apiBase={config.paths.api}
-        {...(config.formatting ? { formatting: config.formatting } : {})}
-        {...(themeComponents ? { themeComponents } : {})}
-        {...(themeMode ? { themeMode } : {})}
-        {...(labels ? { labels } : {})}
-      >
-        <ThemeVars theme={config.theme} />
-        {body}
-      </FlowpanelGlobals>
+        </AdminChrome>
+      </AdminFrame>
     );
   };
+}
+
+/** The shell around a page's content, with the drawer and the command palette; `currentPath` unset reads it in the browser. */
+function AdminChrome({
+  config,
+  shell: override,
+  navGroups,
+  reqCtx,
+  currentPath,
+  children,
+}: {
+  config: ResolvedAdminConfig;
+  shell: FlowpanelOptions["shell"];
+  navGroups: NavGroup[];
+  reqCtx: RequestContext | undefined;
+  currentPath?: string;
+  children: React.ReactNode;
+}) {
+  const navItems = navGroups.flatMap((g) =>
+    g.items.map((it) => ({
+      label: it.label,
+      href: it.href,
+      ...(it.icon ? { icon: it.icon } : {}),
+    })),
+  );
+  const shell = resolveShell(config, override);
+  const user = reqCtx ? accountUser(config, reqCtx.session) : undefined;
+  const globals = (
+    <>
+      <DrawerHost />
+      <CommandHost
+        navItems={navItems}
+        {...(config.commandPalette || config.theme?.mode === "host"
+          ? {
+              config: {
+                ...config.commandPalette,
+                ...(config.theme?.mode === "host" ? { disableTheme: true } : {}),
+              },
+            }
+          : {})}
+      />
+    </>
+  );
+  if (shell.mode === "bare") {
+    return (
+      <>
+        {children}
+        {globals}
+      </>
+    );
+  }
+  const props = {
+    variant: shell.mode,
+    navGroups,
+    rootHref: buildHref(config),
+    showSkipLink: shell.showSkipLink,
+    ...(shell.brand !== undefined ? { brand: shell.brand } : {}),
+    ...(user ? { user } : {}),
+  };
+  return currentPath === undefined ? (
+    <PathAwareShell {...props}>
+      {children}
+      {globals}
+    </PathAwareShell>
+  ) : (
+    <AdminShell {...props} currentPath={currentPath}>
+      {children}
+      {globals}
+    </AdminShell>
+  );
+}
+
+function AdminFrame({
+  config,
+  children,
+}: {
+  config: ResolvedAdminConfig;
+  children: React.ReactNode;
+}) {
+  const themeComponents = config.theme?.components as Partial<FlowpanelComponentSlots> | undefined;
+  const mode = config.theme?.mode;
+  const themeMode = mode === "host" ? undefined : mode;
+  const labels = config.labels;
+  return (
+    <FlowpanelGlobals
+      apiBase={config.paths.api}
+      {...(config.formatting ? { formatting: config.formatting } : {})}
+      {...(themeComponents ? { themeComponents } : {})}
+      {...(themeMode ? { themeMode } : {})}
+      {...(mode === "host" ? { followHost: true } : {})}
+      {...(labels ? { labels } : {})}
+    >
+      <ThemeVars theme={config.theme} />
+      <ThemeColor theme={config.theme} />
+      {children}
+    </FlowpanelGlobals>
+  );
+}
+
+/** The admin's not-found page for the host's `not-found.tsx`, inside the shell, naming a missing record's list. */
+export function FlowpanelNotFound(config: ResolvedAdminConfig, opts: FlowpanelOptions = {}) {
+  return function FlowpanelNotFoundPage() {
+    return (
+      <AdminFrame config={config}>
+        <title>{mergeLabels(config.labels).notFound.title}</title>
+        <Suspense fallback={<NotFound config={config} />}>
+          <NotFoundInShell config={config} shell={opts.shell} />
+        </Suspense>
+      </AdminFrame>
+    );
+  };
+}
+
+async function NotFoundInShell({
+  config,
+  shell,
+}: {
+  config: ResolvedAdminConfig;
+  shell: FlowpanelOptions["shell"];
+}) {
+  const req = await buildServerRequest(`http://localhost${buildHref(config)}`);
+  const reqCtx = await buildRequestContext({ req, config, rateLimit: false }).catch(
+    () => undefined,
+  );
+  if (!reqCtx) return <NotFound config={config} />;
+  const { notFound } = mergeLabels(config.labels);
+  const [navGroups, records] = await Promise.all([
+    buildNav(config, reqCtx),
+    missingRecordCopy(config, reqCtx),
+  ]);
+  return (
+    <AdminChrome config={config} shell={shell} navGroups={navGroups} reqCtx={reqCtx}>
+      <NotFoundBody
+        adminPath={buildHref(config)}
+        title={notFound.title}
+        description={notFound.description}
+        back={notFound.back}
+        recordDescription={notFound.recordDescription}
+        records={records}
+      />
+    </AdminChrome>
+  );
 }
 
 /** Sugar for `Flowpanel(config, { shell: "bare" })`. */
@@ -171,35 +286,4 @@ export function FlowpanelContent(
   opts: Omit<FlowpanelOptions, "shell"> = {},
 ) {
   return Flowpanel(config, { ...opts, shell: "bare" });
-}
-
-/** Render-path auth boundary. */
-export async function handleRenderError(
-  err: unknown,
-  config: ResolvedAdminConfig,
-  req: Request,
-): Promise<React.ReactNode> {
-  if (!(err instanceof FlowpanelAccessError) && !(err instanceof FlowpanelAuthError)) {
-    throw err;
-  }
-
-  const session = await config.auth.session(req).catch(() => null);
-  const isAuthError = err instanceof FlowpanelAuthError || session === null;
-  const target = isAuthError ? config.auth.signInUrl : config.auth.forbiddenUrl;
-  if (target) redirect(target);
-
-  // `data-fp-error` is how `smokeAdmin` tells a rendered admin from a signed-out one.
-  return isAuthError ? (
-    <EmptyState
-      title="Sign in required"
-      description="You need to sign in to view this admin."
-      data-fp-error=""
-    />
-  ) : (
-    <EmptyState
-      title="Access denied"
-      description="Your account doesn't have permission to view this admin."
-      data-fp-error=""
-    />
-  );
 }

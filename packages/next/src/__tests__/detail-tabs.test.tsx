@@ -27,8 +27,9 @@ const withRelated: Parameters<typeof renderDetail>[0] = {
 
 describe("a related detail tab", () => {
   it("resolves a reference column to the referenced row's label", async () => {
+    const { filter: _unfiltered, ...everyScore } = relatedTab;
     const props = await table(
-      { label: "Customer", columns: ["id"], detail: { tabs: [relatedTab] } },
+      { label: "Customer", columns: ["id"], detail: { tabs: [everyScore] } },
       "?tab=scores",
     );
     const columns = props?.columns as { field: string }[];
@@ -36,6 +37,30 @@ describe("a related detail tab", () => {
     const cells = props?.prerenderedCells as unknown[][];
     expect(ownerIndex).toBeGreaterThanOrEqual(0);
     expect(JSON.stringify(cells[0]?.[ownerIndex])).toContain("ada@example.com");
+  });
+
+  it("drops the column that points back at the record, the same on every row", async () => {
+    const props = await table(
+      { label: "Customer", columns: ["id"], detail: { tabs: [relatedTab] } },
+      "?tab=scores",
+    );
+    const columns = props?.columns as { field: string }[];
+    expect(columns.map((c) => c.field)).toEqual(["id", "value"]);
+  });
+
+  it("keeps a column whose filter allows several values, which differ per row", async () => {
+    const props = await table(
+      {
+        label: "Customer",
+        columns: ["id"],
+        detail: {
+          tabs: [{ ...relatedTab, filter: (row: Row) => ({ userId: row.id, value: [1, 2] }) }],
+        },
+      },
+      "?tab=scores",
+    );
+    const columns = props?.columns as { field: string }[];
+    expect(columns.map((c) => c.field)).toEqual(["id", "value"]);
   });
 
   it("drops a hidden column before the cells are prerendered", async () => {
@@ -94,7 +119,7 @@ describe("a related detail tab", () => {
   it("links to the target's own list with the relationship filter applied", async () => {
     const props = await table(withRelated, "?tab=scores");
     expect(props?.openListHref).toBe("/admin/scores?f_userId=u1");
-    expect(props?.openListLabel).toBe("Open list →");
+    expect(props?.openListLabel).toBe("Open list");
   });
 
   it("omits the open-list link when a filter value is not a scalar", async () => {
@@ -269,7 +294,25 @@ describe("a widgets tab that fails", () => {
       },
       "?tab=activity",
     );
-    expect(findAll(tree, WidgetErrorBoundary)[0]?.widgetId).toBe("activity.w0");
+    expect(findAll(tree, WidgetErrorBoundary)[0]?.widgetId).toBe(
+      '«Record» (stat, users tab "activity" widget 1)',
+    );
+  });
+
+  it("gives a tab's only widget the whole width and pairs two", async () => {
+    const tabFor = async (widgets: ReturnType<typeof stat>[]) => {
+      const { tree } = await renderDetail(
+        {
+          label: "Customer",
+          columns: ["id"],
+          detail: { tabs: [{ key: "activity", label: "Activity", widgets }] },
+        },
+        "?tab=activity",
+      );
+      return findAll(tree, Section)[0]?.columns;
+    };
+    expect(await tabFor([stat("Feed", 1)])).toBe(1);
+    expect(await tabFor([stat("Feed", 1), stat("Plan", 2)])).toBe(2);
   });
 
   it("treats an empty widgets array as a widgets tab with nothing in it", async () => {
@@ -310,10 +353,10 @@ describe("a render tab", () => {
     );
     const entry = seen[0];
     expect(Object.keys(entry?.row ?? {})).toEqual(["id"]);
-    expect(entry?.ctx.href("scores", undefined, { filter: { userId: "u1" } })).toBe(
+    expect(entry?.ctx.link({ resource: "scores", filter: { userId: "u1" } })).toBe(
       "/admin/scores?f_userId=u1",
     );
-    expect(entry?.ctx.labels.related.openList).toBe("Open list →");
+    expect(entry?.ctx.labels.related.openList).toBe("Open list");
     expect(entry?.ctx.db).toEqual({ tag: "db" });
     expect(typeof entry?.ctx.query).toBe("function");
   });

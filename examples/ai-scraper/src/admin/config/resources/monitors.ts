@@ -1,23 +1,11 @@
-import { bulkAction, type FieldDef, resource } from "@flowpanel/kit";
-import { badge, urlCell } from "@/src/admin/format";
+import { bulkAction, type FieldDef, type RowOf, resource } from "@flowpanel/kit";
+import { urlCell } from "@/src/admin/format";
 import { pauseMonitors, resumeMonitors } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { sandboxField, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
+import { MonitorStatus, Schedule } from "../enums";
 
-type Monitor = typeof schema.monitors.$inferSelect;
-
-const STATUSES = [
-  { label: "Active", value: "active" },
-  { label: "Paused", value: "paused" },
-  { label: "Error", value: "error" },
-];
-
-const SCHEDULES = [
-  { label: "Manual", value: "manual" },
-  { label: "Hourly", value: "hourly" },
-  { label: "Daily", value: "daily" },
-  { label: "Weekly", value: "weekly" },
-];
+type Monitor = RowOf<"monitors">;
 
 const fields: FieldDef<Monitor>[] = [
   {
@@ -46,7 +34,7 @@ const fields: FieldDef<Monitor>[] = [
   {
     name: "schedule",
     type: "select",
-    options: SCHEDULES,
+    options: Schedule.options,
     defaultValue: "daily",
     span: 6,
     group: "Run policy",
@@ -54,7 +42,7 @@ const fields: FieldDef<Monitor>[] = [
   {
     name: "status",
     type: "select",
-    options: STATUSES,
+    options: MonitorStatus.options,
     defaultValue: "active",
     help: "Paused monitors keep their schedule but do not run.",
     span: 6,
@@ -64,9 +52,6 @@ const fields: FieldDef<Monitor>[] = [
 
 export const monitors = resource(schema.monitors, {
   ...sandboxResourcePolicy(schema.monitors.sandboxId),
-  name: "monitors",
-  label: "Monitors",
-  labelOne: "Monitor",
   icon: "workflow",
   columns: [
     "name",
@@ -76,21 +61,24 @@ export const monitors = resource(schema.monitors, {
       reference: { resource: "customers", labelField: "company" },
     },
     { field: "targetUrl", label: "Target", render: (row) => urlCell(row.targetUrl) },
-    "schedule",
-    { field: "status", format: badge },
+    { field: "schedule", format: Schedule.format },
+    { field: "status", format: MonitorStatus.format },
     { field: "lastRunAt", label: "Last run" },
   ],
   search: ["name", "targetUrl"],
   filters: [
-    { field: "status", type: "select", options: STATUSES },
-    { field: "schedule", type: "select", options: SCHEDULES },
+    { field: "status", type: "select" },
+    { field: "schedule", type: "select" },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
   create: { fields: [...fields, sandboxField<Monitor>()] },
   update: { fields },
   delete: {
-    confirm:
-      "Permanently delete selected monitors and their runs, offers, matches, and AI usage? This cannot be undone.",
+    confirm: {
+      one: "The monitor goes with its runs, listings, matches and AI usage, for good. This cannot be undone.",
+      other:
+        "{n} monitors go with their runs, listings, matches and AI usage, for good. This cannot be undone.",
+    },
   },
   bulkActions: [
     bulkAction<Monitor>({
@@ -117,7 +105,7 @@ export const monitors = resource(schema.monitors, {
   rowClick: "drawer",
   drawer: {
     width: "lg",
-    header: (row) => row.name,
+    title: (row) => row.name,
     tabs: [
       {
         key: "detail",
@@ -131,8 +119,8 @@ export const monitors = resource(schema.monitors, {
         filter: (row) => ({ monitorId: row.id }),
       },
       {
-        key: "offers",
-        label: "Offers",
+        key: "listings",
+        label: "Listings",
         resource: "listings",
         filter: (row) => ({ monitorId: row.id }),
       },

@@ -1,9 +1,11 @@
-import type { FieldDef } from "@flowpanel/core";
+import type { FieldDef, RequestContext } from "@flowpanel/core";
 import { describe, expect, it } from "vitest";
 import { serializeDashboardAction } from "../actions/dashboard-action";
 import { serializeActionFormField } from "../actions/serialize-action-field";
 import { resolveFilterSpecs } from "../runtime/parse-list-params";
 import { toWireOptions } from "../runtime/select-options";
+
+const reqCtx = { session: null, role: "admin", scope: null } as RequestContext;
 
 const DECLARED = [
   { label: "High", value: 1 },
@@ -57,11 +59,11 @@ describe("every serializer normalizes options the same way", () => {
   it("list filters, from an inline array and from an async callback alike", async () => {
     const inline = await resolveFilterSpecs(
       [{ field: "priority", type: "select", options: DECLARED }],
-      {},
+      reqCtx,
     );
     const resolved = await resolveFilterSpecs(
       [{ field: "priority", type: "select", options: async () => DECLARED }],
-      {},
+      reqCtx,
     );
     expect(inline[0]?.options).toEqual(WIRE);
     expect(resolved[0]?.options).toEqual(WIRE);

@@ -58,8 +58,7 @@ const rule = createRule<[], MessageId>({
       const suggested = TYPOS[raw.toLowerCase()];
       if (!suggested) return;
       if (raw === suggested) return;
-      // No autofix: `columns` is not FlowPanel-exclusive and a lowercase column
-      // can be intentional, so `eslint --fix` must not rewrite it silently.
+      // No autofix: a lowercase column can be intentional, so `eslint --fix` must not rewrite it silently.
       context.report({ node, messageId: "typo", data: { actual: raw, suggested } });
     }
   },

@@ -35,6 +35,9 @@ export type ActionResult<Data = never> =
 /** Button styling shared by every action kind. `"destructive"` marks a dangerous action. */
 export type ActionVariant = "default" | "destructive" | "success";
 
+/** How loud a button is: `"primary"` is the filled one a screen holds at most once. */
+export type ActionEmphasis = "primary" | "secondary";
+
 /** Confirmation prompt shown before an action runs. */
 export type ActionConfirm = string | { title: string; description?: string; confirmLabel?: string };
 
@@ -57,18 +60,16 @@ export interface RowAction<Row, Input extends ActionInput = ActionInput, Output 
   inputSchema?: z.ZodType<Input>;
   /** Required before arbitrary `data` may cross the client boundary. */
   outputSchema?: z.ZodType<Output>;
-  /** Hide the action for rows it does not apply to. Evaluated server-side per row. */
+  /** @deprecated Use `when` with the condition reversed. */
   hidden?: (row: Row, ctx: RequestContext) => boolean | Promise<boolean>;
   /** Disable with a reason. A string is shown to the operator. */
   disabled?: (row: Row) => boolean | string;
   /** Restrict the action to a role. Enforced before `run`. */
   access?: AccessRule;
-  /** Server-enforced row condition, evaluated only after a scoped row load. */
+  /** Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. */
   when?: (context: FieldWriteContext<Row>) => boolean | Promise<boolean>;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];
-  /** @deprecated Use `access`. This alias will be removed in 0.3. */
-  requireRole?: string | string[];
   /** Server-side handler. Runs only after every guard has passed. */
   run: (row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>;
 }
@@ -93,15 +94,13 @@ export interface BulkAction<Row, Input extends ActionInput = ActionInput, Output
   outputSchema?: z.ZodType<Output>;
   /** Restrict the action to a role. Enforced before `run`. */
   access?: AccessRule;
-  /** Maximum selected ids accepted by this action.
+  /** Maximum selected ids accepted by this action, from 1 to 10000.
    * @defaultValue 1000
    */
   max?: number;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];
-  /** @deprecated Use `access`. This alias will be removed in 0.3. */
-  requireRole?: string | string[];
-  /** Server-side handler, given every selected id. Capped at 1000 ids per call. */
+  /** Server-side handler, given every selected id, never more than `max`. */
   run: (ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>;
 }
 
@@ -114,6 +113,11 @@ export interface DashboardAction<Input extends ActionInput = ActionInput, Output
   icon?: IconName;
   /** Button styling. */
   variant?: ActionVariant;
+  /**
+   * `"primary"` fills the button with the accent; keep one per dashboard, as more warn in development.
+   * @defaultValue "secondary"
+   */
+  emphasis?: ActionEmphasis;
   /** Ask for confirmation before running. */
   confirm?: ActionConfirm;
   /** Inputs collected before `run`, passed to it as `input`. */
@@ -126,8 +130,6 @@ export interface DashboardAction<Input extends ActionInput = ActionInput, Output
   access?: AccessRule;
   /** Explicitly opt trusted code into raw database access. */
   unsafe?: readonly "db"[];
-  /** @deprecated Use `access`. This alias will be removed in 0.3. */
-  requireRole?: string | string[];
   /** Server-side handler. Runs only after every guard has passed. */
   run: (input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>;
 }

@@ -1,70 +1,131 @@
 ---
-title: Upgrade FlowPanel
-description: Align package versions, review migrations and changes, and validate generated and ejected surfaces.
+title: Upgrade from 0.3
+description: Every option and export that 0.4 removed or renamed, what to write instead, and the behaviour that changed.
 kind: how-to
+metaTitle: "Upgrade FlowPanel from 0.3 to 0.4"
 ---
 
-FlowPanel workspace packages are released together. Most applications should depend on the umbrella `@flowpanel/kit` and local `@flowpanel/cli` at the same version rather than pinning lower-level packages independently.
-
-## Inspect the current install
-
-```bash
-pnpm list "@flowpanel/*"
-pnpm flowpanel doctor
-```
-
-Before changing versions, record ejected files and any direct lower-level FlowPanel dependencies. Read the [changelog](/changelog) for every version you will cross.
-
-## Update aligned packages
+FlowPanel 0.4 publishes three packages: `@flowpanel/kit`, `@flowpanel/cli` and `@flowpanel/eslint-plugin`. Update them together, and remove any other `@flowpanel/*` package from package.json:
 
 ```bash
 pnpm up "@flowpanel/*" --latest
-pnpm install
 ```
 
-Keep direct FlowPanel packages on the same released version. Multiple copies of `@flowpanel/core` can split request context and module augmentation; `flowpanel doctor` checks for that condition.
+Then, in this order:
 
-## Review database work
+1. Change your config and code as [What to change](#what-to-change) lists. TypeScript reports the removed names, and `defineAdmin` names each leftover when the app or a CLI command loads the config.
+2. Run `pnpm flowpanel doctor --fix`. 0.3's `init` wrote `export const runtime = "nodejs"` into the route files under `app/api/flowpanel`, and `export const dynamic = "force-dynamic"` into the stream route. Next.js refuses both when `cacheComponents` is on, which `create-next-app` turns on from Next.js 16.4; `doctor --fix` removes them, and adds `not-found.tsx` and the page exports 0.4 needs. `doctor` lists anything it cannot fix.
+3. If 0.3's `init` wrote `flowpanel/migrations/0001_init.sql`, run `migrate` once more:
 
 ```bash
-pnpm flowpanel migrate --dry-run
+pnpm flowpanel migrate
 ```
 
-Review pending SQL for the target dialect and deployment strategy before applying it. Back up production data according to the application's normal migration policy, then run `pnpm flowpanel migrate` in the controlled release step.
+`migrate` loads `flowpanel.config.ts`, so it stops on an unchanged 0.3 config, for example on `requireRole`; that is why the config comes first. The 0.4 audit log writes three columns, `actor_name`, `scope_key` and `diff_preview`, that a 0.3 table lacks. `migrate` writes `0002_audit_log_0_4.sql` beside the 0.3 file and applies it; the `0002` also copies each old event's diff under 8 KB into `diff_preview`, and a larger old one shows "Changes too large to preview" in History and the Audit log, with **Show full value** on each of its fields. On MySQL and SQLite, where 0.3's PostgreSQL SQL never ran, it replaces `0001_init.sql` with the one for your database instead. `pnpm flowpanel doctor` warns until the table has the columns.
 
-## Validate the application
+If you push your schema with `drizzle-kit push` or `prisma db push`, keep them from dropping FlowPanel's tables: see [Keep your ORM away from FlowPanel's tables](/docs/guides/audit-log#keep-your-orm-away-from-flowpanels-tables).
 
-Run the application's typecheck and production build. Start the admin once so config compilation can catch duplicate/reserved names, stale columns, and unresolved references. Exercise auth, one scoped read/write, forms, actions, realtime, and queues used by the deployment.
+## What to change
 
-## Review ejected files
+Each row is one change from 0.3 that can break an app, with what to write instead. TypeScript reports the removed names; the startup and behaviour changes are why `defineAdmin` or a page may now refuse what 0.3 accepted.
 
-Ejected files contain a version stamp and are application-owned. The upgrade does not rewrite them. Compare their public imports and behavior with the changelog and current reference; test them separately from generated routes.
+| 0.3 | 0.4 |
+| --- | --- |
+| **Packages and imports** | |
+| Node.js below 20.19, or Node.js 21 | Node.js 20.19+ or 22.12+: the `engines.node` of `@flowpanel/kit` and `@flowpanel/cli` now asks for 20.19 or 22.12 and newer, and Yarn, or npm and pnpm with `engine-strict`, refuse the install on an older one |
+| an import from `@flowpanel/core`, `next`, `react`, `client`, `charts`, `test` or an adapter package | the same names from `@flowpanel/kit` or its subpath: `/next`, `/react`, `/client`, `/charts`, `/test`, `/drizzle`, `/prisma`, `/bullmq` |
+| `areaChart`, `barChart`, `lineChart`, `pieChart` from `@flowpanel/kit/charts` | the same builders from `@flowpanel/kit` |
+| chart components from `@flowpanel/kit/charts/runtime` | the same components from `@flowpanel/kit/charts` |
+| `@flowpanel/kit/server` | `publish`, `publishResource`, `bindPublisher`, `emitAudit` from `@flowpanel/kit/next`; `requireAccess` and the request-context accessors from `@flowpanel/kit` |
+| `@flowpanel/kit/next/client` | nothing: only the runtime used it |
+| `emitAudit` from `@flowpanel/kit`, called as `emitAudit(config.audit, event)` | `emitAudit(config, event)` from `@flowpanel/kit/next`, with the admin config |
+| `isBuiltinBulkDelete`, `assertCountWhereColumns`, `declaredWriteFields` from `@flowpanel/kit` | removed: runtime internals with no public replacement |
+| `createPublisher` from `@flowpanel/kit` (the realtime transport) | `createRealtimeTransport` |
+| `toCsv` and `toJson` from `@flowpanel/kit/drizzle` | the list's Export, which streams the file on the server; map rows yourself for a file of your own |
+| `DEFAULT_SHORTCUTS` from `@flowpanel/kit/react` | `<ShortcutsCheatsheet>` without `shortcuts`, which lists the admin's keys in its labels' language |
+| **Access** | |
+| `requireRole: "admin"` on a resource | `access: "admin"`, or `access: { read: "admin", create: "admin", update: "admin", delete: "admin" }` to set each operation |
+| `requireRole` on a row, bulk, drawer or dashboard action | `access: "admin"` (a role, a list of roles, or a function) |
+| `auth: { requireRole: "admin" }`, `withClerk({ requireRole: "admin" })` and the other auth presets | `auth: { access: "admin" }`, `withClerk({ access: "admin" })` |
+| `requireRole` on a `dashboard()`, `page()` or `queue()` | `access` on the same object; a queue now also takes a function |
+| `requireRole: "admin"` on a create or update form field | `fieldAccess: { field: { read: "admin", write: "admin" } }` on the resource. A field the `write` rule denies shows read-only, and leaves the form only when `read` denies it too; 0.3 left it out entirely. |
+| `requireRole` on an action's `form` field | remove it: it never gated anything; gate the whole action with `access` |
+| a function `requireRole: (session) => …` | `access: ({ session, role, scope }) => …` |
+| `auth: { requireRole: (s) => s !== null }` | `auth: { access: ({ session }) => session !== null }`. Do not just rename the key: `access: (s) => s !== null` receives `{ session, role, scope }`, which is never null, and lets every visitor in. `defineAdmin` warns about it in development and refuses to start in production. |
+| a leftover `requireRole` anywhere, `basePath`, or a detail or drawer `header` that TypeScript did not catch | `defineAdmin` throws at startup and names it, and each auth preset throws when given `requireRole` |
+| `requireRole` from `@flowpanel/kit/server` | `requireAccess(rule, getRequestContext())` from `@flowpanel/kit`, which throws the same access error |
+| `checkRequireRole` and the `RequireRole` type | `requireAccess` and `AccessRule` |
+| `authorizeOperation(rule, context)` | `requireAccess(rule, context)`; a missing rule now denies |
+| `resolveOperationAccess(access, operation, requireRole)` | `resolveOperationAccess(access, operation)` |
+| `ctx.ip` read from the left-most `X-Forwarded-For` entry | `ctx.ip` is `null` until `security.trustedProxies` says how many proxies append to `X-Forwarded-For` (`1` on Vercel or behind one nginx) |
+| `rateLimit` with `per: "ip"` and no `security.trustedProxies` | set `security.trustedProxies`, or use `per: "user"`: `defineAdmin` refuses `per: "ip"` without it in production and warns in development |
+| **Config** | |
+| `basePath: "/ops"` | `paths: { admin: "/ops" }` |
+| `AdminConfig` | `AdminDefinition` |
+| `detail.header`, `drawer.header` | `detail.title`, `drawer.title` |
+| `DrawerPayload.header` | `DrawerPayload.title` |
+| `ctx.db` in an action's `run` | your own `db` import, or `unsafe: ["db"]` on the action and `ctx.unsafe.db` |
+| `ctx.db` in a field `options` or `defaultValue` resolver | your own `db` import |
+| `ctx.href(target)` in a widget | `ctx.link(target)`. Links resolve on the server, and a link to a resource or dashboard the config does not register throws and names the registered ones. |
+| `goodWhen` on a metric's returned `delta`, and `MetricCard` reading it from `delta` | `goodWhen` on the `metric()` options; `MetricCard` takes it as a prop |
+| a resource, column or filter name that does not exist, such as a stale column in `columns` | `defineAdmin` throws at startup and names the closest match; run `pnpm flowpanel doctor` after upgrading |
+| a numeric key in a resource's `columns` or `filters` | string keys of the row only (`keyof Row & string`) |
+| code that matched error text such as "Duplicate resource name" | every config error is a `FlowpanelConfigError` reading `[flowpanel] <where>: <what is wrong>. <how to fix>.`; match its `where` |
+| a resource or queue named `export` or `palette`, or a dashboard or page at `/audit-log` | other names: these are reserved |
+| a `select`, `radio` or `multiselect` field whose fixed `defaultValue` is not among its fixed `options`, which the form dropped | a default that is one of the options, or `""` or `[]` for no choice: `defineAdmin` now refuses the rest and names the options |
+| `DrawerFieldFormSpec`, a drawer action's `palette`, and the 0.3 `DrawerAction` options | `DrawerAction` takes a `RowAction`'s options apart from `hidden` and `disabled`: `confirm` takes a title, description and button label, and `form` takes `FieldDef`s |
+| `RowAction.hidden` (deprecated) | `when`, which gets the row as `current` with the request context |
+| `labels.noResults`, `labels.searchPlaceholder`, `labels.allOption`, `labels.formError` | `labels.table.noResults`, `table.searchPlaceholder`, `filters.allOption`, `form.error`; `defineAdmin` throws on the old names |
+| `labels.errors.queryTitle` | `labels.errors.loadTitle` and `loadRecordTitle` |
+| `labels.navigation.scrollHint` | removed: the tab strip no longer scrolls, it folds the tabs that do not fit into More; delete the key |
+| a money column format `{ kind: "money", scale: 100 }` (deprecated) | `{ kind: "money", minorUnits: 2 }`, the option a `money` field takes; `defineAdmin` refuses a format that sets both |
+| `ctx.format.money(cents, { scale: 100 })` | `ctx.format.money(cents, { minorUnits: 2 })` |
+| a typed `numeric-range` value on a money column whose format has `minorUnits`, such as `6000:9000` for $60 to $90 in a URL or a string `defaultValue` | major units, the amount the column shows: `60:90`. A `{ gte, lte }` in a `where`, a view, a link's `filter` or a `defaultValue` stays in stored units, and FlowPanel converts it |
+| a CSV of a money column in minor units | Export writes, and import reads, a money column that stores minor units in major units, `59.00` |
+| `delete.confirm` worded for a selection | it titles the Delete of one record too, and takes plural forms, `{ one, other }` with `{n}` |
+| `bulkActions` declared to remove the built-in bulk Delete, or `bulkActions: []` | `delete: { bulk: false }`, or declare your own `delete` bulk action |
+| a resource with no `scope` under an admin-wide `scope`, which 0.3 refused only when a request read it | add `scope: (scope, query) => …` to the resource, or `scope: "bypass"` for a table every tenant shares; `defineAdmin` now refuses it at startup, so `next build`, seed scripts and config tests stop on it too |
+| a resource `scope` function that returns the query unchanged to mean "no tenant" | it now throws; return `allTenants` from the admin-wide `scope` for staff who work across tenants |
+| **Realtime and queues** | |
+| a widget, dashboard or list subscribed to a channel of your own, any channel other than `resource.<name>` | declare it in `realtime.channels`, with `access` if not every operator may see it; `defineAdmin` refuses an undeclared one, and under an admin-wide `scope` its events reach the browser as `{}` unless it is `tenantSafe` |
+| the worker `createPublisher` from `@flowpanel/kit/publish` rejecting when Redis fails | it resolves; the error goes to `onError`, or is logged once per kind, so retry in `onError` |
+| `auth.token` on `startBoardServer` and `?token=` board links | `boardSecret` on `queue()` and `auth: { secret }` on `startBoardServer`; the board checks signed links (the demo's `BOARD_TOKEN` became `BOARD_SECRET`) |
+| `useLiveChannel` reporting `live` when the connection opens | `live` on the server's first frame, `reconnecting` from the first error; under `RealtimeProvider` it joins the admin's stream |
+| **Routes, forms and URLs** | |
+| `issues` in an action, form, drawer, inline-edit, import or restore route's failure | `fieldErrors`: every such route answers `{ ok: false, error, code, requestId?, fieldErrors? }`, and a 404 has a string `error` |
+| `?perPage=` in a list URL | `?pageSize=`, the name the JSON API uses |
+| `?tab=` for the drawer's tab | `?drawerTab=`; the record page keeps `?tab=` |
+| a list row that opens nothing without a drawer or `detail` | it opens the record page; set `rowClick: false` to keep rows from opening. Related tab rows open their target record, and a click on an editable cell in a clickable row opens the row; editing starts from the pencil or Enter. |
+| a list filter's `defaultValue` | it applies until the URL sets that filter |
+| date presets and `daterange` filters | they start at midnight in `formatting.timeZone`, and `fillDays` buckets days in `range.timeZone` when its options name no zone |
+| a zoneless timestamp string without seconds, such as `"2026-10-07T10:00"`, read as a date | it stays text |
+| a form field with `required: true` checked in the browser only | the server checks it too, even on a nullable column; an edit that empties a NOT NULL column fails with "is required" instead of keeping the old value |
+| a field's `readOnly` checked in the form only | it applies to writes, a `readOnly` function receives the stored row on edit, and it wins over `fieldAccess.write` |
+| a fractional value for a Drizzle integer column reaching the database | the form rejects it first |
+| a unique, foreign key or NOT NULL violation answering 500 | 422 with a field message, or 409; another unexpected error is logged with its request id, and a form answers "Internal server error" with `requestId` |
+| `auth.forbiddenUrl` receiving a role that one dashboard, page, queue, the Audit log or a resource route refuses | it receives only a role `auth.access` keeps out of the whole admin; a role refused one page sees "You don't have access to …" inside the admin |
+| `FieldDef.defaultValue` typed `unknown` | `FieldDefaultValue`: a string, number, boolean, bigint, date, object, `null` or a function of the request; cast an `unknown` value, such as `value as string` |
+| an unknown admin path or a missing record | your `not-found.tsx` through `notFound()`, 404, or 200 with `noindex` under `cacheComponents`; add `app/admin/not-found.tsx` with `export const metadata = flowpanel.notFoundMetadata;` and `export default flowpanel.notFound;`, or run `pnpm flowpanel doctor --fix` |
+| **UI** | |
+| unprefixed classes such as `px-4` or `bg-fp-bg-2` in a custom widget, styled by admin.css | your own Tailwind build with the token bridge, as [Styling](/docs/customization/styling#use-flowpanel-tokens-in-your-own-tailwind-classes) shows; `toneTextClass` and `toneFillClass` return prefixed classes |
+| `StatusBadge` colouring `active` and `completed` green, `pending` as `warn`, `canceled` as `err` | different tones: pass `tone` to keep a colour |
+| the 0.3 palette | a graphite palette with one data colour, `--fp-data`; set the tokens in [Styling](/docs/customization/styling#change-design-tokens) to keep yours |
+| `ChartRenderer` reading `options.drilldown` | pass the card's resolved link as its `drilldown` href |
+| a `DataTableColumn` named `description`, `email` or `website` that your own `DataTable` sized as long text, an email or a link | set `content: "long"`, `"email"` or `"link"` on the column; field names no longer decide it |
+| English built-in text under a Russian `formatting.locale` | Russian; set `labels` to keep English |
+| a field without a label named "Customer ID", "Amount cents", "Sku" or "Duration MS", in lists, forms, History, the Audit log and CSV export headers | "Customer", "Amount", "SKU", "Duration (ms)"; set `label` on the column or field to keep the old text |
+| a resource without `labelOne` or `label` named by its plural | its singular name, "User" for `users`; "New …" and "Edit …" put the label mid-sentence |
+| **Adapters** | |
+| Prisma `Decimal` values as `Decimal` objects | strings at the `@db.Decimal` scale, such as `"49.90"` (`"49.9"` on Prisma 5); use `Number(value)` instead of `.toNumber()` |
+| a Drizzle `numeric` or `decimal` column as a text box | a number field with a number filter; its value is still a string |
+| `get` throwing for an id that cannot be the key, such as `abc` for an `Int` id | it returns `null`, and the record page shows not found |
+| `applyScope` and `scopeRequired` in a custom adapter | `ctx.boundScope` |
+| `runMigrationSql` and `markMigrationApplied` in a custom adapter | `applyMigration`; `flowpanel migrate` no longer falls back to them or reads `basePath` |
+| a number of epoch milliseconds for a Prisma `DateTime` in the JSON API or a JSON import | ISO 8601 text with seconds and an offset, as `JSON.stringify` of a `Date` gives, or `YYYY-MM-DD` for a `@db.Date` field |
+| **CLI** | |
+| a 0.3 `flowpanel_audit_log` table without `actor_name`, `scope_key` and `diff_preview` | run `pnpm flowpanel migrate`, as above |
+| `export const runtime` or `export const dynamic` in the route files 0.3's `init` wrote | nothing: run `pnpm flowpanel doctor --fix`, which removes them; `next build` refuses them under `cacheComponents` |
+| an extra argument, such as `flowpanel doctor extra`, ignored | every command stops with an error |
+| `migrate` with an unset `DATABASE_URL` falling back to localhost | `migrate` stops before connecting; set the URL your client reads |
 
-If a newer config, renderer, page, or slot now covers the customization, consider returning that surface to generated behavior. Re-enabling config also requires removing the explicit Next.js route.
-
-## Upgrading from 0.2 to 0.3
-
-0.3 changes a few defaults and removes one dead option. Read this list against your `flowpanel.config.ts` before you upgrade.
-
-- **Rows open the detail page.** A resource that configures `detail` and no `drawer` now navigates on row click and on Enter. Set `rowClick: false` to keep rows inert, or `rowClick: "drawer"` where a drawer exists.
-- **Pie charts show their legend.** `pieChart({ showLegend: false })` restores the previous look.
-- **`table()` honours `emptyState` and `limit`.** Both were declared and ignored; a table that relied on seeing every row of a `query` should drop `limit`.
-- **`detail.header` is deprecated.** Move it to `detail.title`; `subtitle` and `badge` are new slots beside it. `title` wins when both are set.
-- **Validation messages come from `labels.form`.** An empty required field reads `"{label} is required"` (`labels.form.required`) instead of a Zod type message; custom messages still pass through. Override the key to change the wording.
-- **`audit.retention` is removed.** It was never applied; delete the line and keep retention where the rows live.
-- **Drawer field payload shape.** A drawer's serialized `fields` are `{ name, label? }` objects instead of bare names. Only a host reading the drawer payload directly is affected.
-- **Workers publish through `@flowpanel/kit/publish`.** `createPublisher({ redis })` replaces `bindPublisher(config)` in a publish-only process. The Redis wire is unchanged, so 0.2 and 0.3 instances interoperate during a rolling deploy.
-- **`formatNumber`'s third argument.** It is now the resolved `formatting` object (`useFormatting()` in a client component, `resolveFormatting(config.formatting)` on the server), not a locale string. A bare locale string still works and keeps 0.2's `USD`/`UTC`, so an ejected widget compiles either way.
-- **`Date` values in cards and ticks.** A `Date` in a `stat`, `statGroup` or `kv` value, and every chart x-axis tick, now renders through the admin's `formatting` (`locale`, `timeZone`) like a table cell instead of the server's own clock. Drop any hand-rolled `toISOString().slice(0, 10)` in a widget resolver.
-- **`ctx.count` rejects an unknown `where` key.** A key the adapter does not report as a column throws a config error naming the field and the resource, on both count paths, instead of silently counting the whole table on Drizzle and throwing inside Prisma.
-- **`HealthBanner`'s error tone is `"err"`.** The component now speaks the shared `Tone` vocabulary; rename `tone="error"` to `tone="err"`.
-- **`StatItem.value` takes only `ctx`.** Its never-passed second `row` parameter is gone; the record is `ctx.row`.
-- **The memory realtime driver serialises payloads.** Like Redis, it now JSON-encodes on publish and decodes on delivery, so a `Date` in a payload arrives as a string and a non-serialisable payload throws in development too, with or without a subscriber.
-- **`ctx.db` stays.** Its deprecation notice now names 1.0 as the removal target; `ctx.sql` and `ctx.count` are the supported way to query from a widget.
-- **New package.** Add `@flowpanel/test` as a dev dependency next to `@playwright/test` to run `smokeAdmin` in your browser suite.
-
-## Pre-1.0 expectations
-
-Before 1.0, minor releases may contain breaking changes. Types and deprecation notes are part of the migration path, but they do not replace the changelog and application tests. Upgrade in a reviewable branch and avoid mixing unrelated dependency changes.
-
-If the installed behavior and current site disagree, use the versioned package types and release notes as the authority and report the documentation mismatch.
+The [changelog](/changelog) lists every other change, per package.

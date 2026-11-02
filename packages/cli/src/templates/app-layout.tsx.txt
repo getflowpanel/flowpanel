@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: "Admin panel powered by FlowPanel",
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
+{{SEGMENT_CONFIG}}export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const nonce = (await headers()).get("x-nonce");
   return (
     <html lang="en" suppressHydrationWarning>

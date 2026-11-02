@@ -1,11 +1,15 @@
-import type { AdminConfig, RateLimiter, RequestContext, Scope, Session } from "@flowpanel/core";
-import { checkRequireRole, createRateLimiter, FlowpanelRateLimitError } from "@flowpanel/core";
+import type { AdminDefinition, RateLimiter, RequestContext, Scope, Session } from "@flowpanel/core";
+import { createRateLimiter, FlowpanelRateLimitError } from "@flowpanel/core";
+import { clientIpFrom } from "@flowpanel/core/internal";
 import { actorIdFromSession } from "./action-helpers";
+import { requireAccessIfSet } from "./require-access";
 
 export interface BuildRequestCtxArgs {
   req: Request;
-  config: AdminConfig;
+  config: AdminDefinition;
   requestId?: string;
+  /** `false` resolves the caller without counting a hit, for a wall drawn after the limit refused this request. */
+  rateLimit?: boolean;
 }
 
 function requestIdFrom(req: Request): string {
@@ -17,7 +21,7 @@ function requestIdFrom(req: Request): string {
 const limiterCache = new WeakMap<object, RateLimiter | null>();
 const requestContextCache = new WeakMap<Request, WeakMap<object, Promise<RequestContext>>>();
 
-function getLimiter(config: AdminConfig): RateLimiter | null {
+function getLimiter(config: AdminDefinition): RateLimiter | null {
   const cached = limiterCache.get(config as unknown as object);
   if (cached !== undefined) return cached;
   const cfg = config.rateLimit;
@@ -30,25 +34,26 @@ function getLimiter(config: AdminConfig): RateLimiter | null {
   return limiter;
 }
 
+/** `null` when the caller has neither an IP nor a user id: one shared bucket would let anyone lock everyone out. */
 function rateLimitKey(
-  config: AdminConfig,
+  config: AdminDefinition,
   reqCtx: { session: Session | null; ip: string | null },
-): string {
-  const per = config.rateLimit?.per ?? "user";
-  if (per === "ip") return `ip:${reqCtx.ip ?? "unknown"}`;
+): string | null {
+  if (config.rateLimit?.per === "ip" && reqCtx.ip) return `ip:${reqCtx.ip}`;
   const uid = actorIdFromSession(reqCtx.session, config.auth.userId);
   if (uid !== null) return `user:${uid}`;
-  return `ip:${reqCtx.ip ?? "unknown"}`;
+  return reqCtx.ip ? `ip:${reqCtx.ip}` : null;
 }
 
 async function resolveRequestContext({
   req,
   config,
   requestId,
+  rateLimit = true,
 }: BuildRequestCtxArgs): Promise<RequestContext> {
   const session: Session | null = await config.auth.session(req);
   const role = await config.auth.role(session);
-  checkRequireRole(config.auth.requireRole, role, session);
+  await requireAccessIfSet(config.auth.access, { session, role, scope: null });
 
   let scope: Scope = null;
   if (config.scope) {
@@ -56,26 +61,24 @@ async function resolveRequestContext({
     scope = out ?? null;
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+  const ip = clientIpFrom(req.headers, config.security?.trustedProxies ?? 0);
   const userAgent = req.headers.get("user-agent") ?? null;
 
-  const limiter = getLimiter(config);
+  const limiter = rateLimit ? getLimiter(config) : null;
   if (limiter) {
     const key = rateLimitKey(config, { session, ip });
-    const allowed = await limiter.check(key);
-    if (!allowed) throw new FlowpanelRateLimitError();
+    if (key !== null && !(await limiter.check(key))) throw new FlowpanelRateLimitError();
   }
 
   return { requestId: requestId ?? requestIdFrom(req), req, session, role, scope, ip, userAgent };
 }
 
 /**
- * Resolve identity, rate limiting and tenant scope exactly once for one
- * incoming Request/admin pair. All generated and headless surfaces share this
- * binding, so a page with several reads cannot accidentally authenticate or
- * consume the request limit several times.
+ * Resolves identity, rate limiting and tenant scope exactly once for one incoming Request/admin pair.
+ * All generated and headless surfaces share this binding, so several reads never re-authenticate.
  */
 export function buildRequestContext(args: BuildRequestCtxArgs): Promise<RequestContext> {
+  if (args.rateLimit === false) return resolveRequestContext(args);
   let byAdmin = requestContextCache.get(args.req);
   if (!byAdmin) {
     byAdmin = new WeakMap<object, Promise<RequestContext>>();
@@ -88,8 +91,7 @@ export function buildRequestContext(args: BuildRequestCtxArgs): Promise<RequestC
 
   const pending = resolveRequestContext(args);
   byAdmin.set(adminKey, pending);
-  // A transient auth/provider failure must not poison a Request forever. This
-  // mainly helps test harnesses and error boundaries that retry the same input.
+  // A transient auth/provider failure must not poison a Request forever.
   void pending.catch(() => byAdmin?.delete(adminKey));
   return pending;
 }
@@ -97,7 +99,7 @@ export function buildRequestContext(args: BuildRequestCtxArgs): Promise<RequestC
 /** @internal Seed the binding for a synthetic request created by a controller. */
 export function bindRequestContext(
   req: Request,
-  config: AdminConfig,
+  config: AdminDefinition,
   context: RequestContext,
 ): void {
   let byAdmin = requestContextCache.get(req);

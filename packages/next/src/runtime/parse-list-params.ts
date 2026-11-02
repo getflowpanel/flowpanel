@@ -1,5 +1,17 @@
-import type { FilterDef, FilterInValue, FilterRangeValue, FilterType } from "@flowpanel/core";
+import type {
+  FilterDef,
+  FilterInValue,
+  FilterRangeValue,
+  FilterType,
+  QueryContext,
+  RequestContext,
+} from "@flowpanel/core";
+import { runWithRequestContext } from "@flowpanel/core";
+import { encodeFilterValue } from "@flowpanel/core/internal";
+import { dayBoundsIn, isDateRangePreset, resolveDateRange } from "./date-range";
 import { toWireOptions } from "./select-options";
+
+export { declaredListFields as declaredFieldSet } from "@flowpanel/core/internal";
 
 export interface ListParams {
   page: number;
@@ -50,44 +62,32 @@ export function parseListParams(
   return { page, search, sort, filters };
 }
 
-/** Build the allowlist of fields a resource exposes for filtering / sorting. */
-export function declaredFieldSet(options: {
-  columns?: unknown[] | undefined;
-  filters?: unknown[] | undefined;
-  search?: unknown[] | undefined;
-  defaultSort?: { field: string } | undefined;
-}): Set<string> {
-  const fields = new Set<string>();
-  const add = (entry: unknown): void => {
-    if (typeof entry === "string") {
-      if (entry) fields.add(entry);
-      return;
-    }
-    if (entry && typeof entry === "object") {
-      const f = (entry as { field?: unknown }).field;
-      if (typeof f === "string" && f) fields.add(f);
-    }
-  };
-  for (const c of options.columns ?? []) add(c);
-  for (const f of options.filters ?? []) add(f);
-  for (const s of options.search ?? []) add(s);
-  if (options.defaultSort?.field) fields.add(options.defaultSort.field);
-  return fields;
-}
-
 export interface ResolvedFilterSpec {
   field: string;
   type: FilterType;
   label?: string;
   options?: { label: string; value: string }[];
   placeholder?: string;
+  /** `FilterDef.defaultValue` in its `f_<field>` URL form. */
+  defaultValue?: string;
+  hidden?: boolean;
 }
 
+/** Each filter's control; an `options` function gets the request's query context, scope included. */
 export async function resolveFilterSpecs<Row>(
   defs: (keyof Row | FilterDef<Row>)[] | undefined,
-  ctx: unknown,
+  reqCtx: RequestContext,
+  timeZone = "UTC",
+  searchParams: URLSearchParams = new URLSearchParams(),
+  moneyFactors: ReadonlyMap<string, number> = new Map(),
 ): Promise<ResolvedFilterSpec[]> {
   if (!defs || defs.length === 0) return [];
+  const queryCtx: QueryContext = {
+    ...reqCtx,
+    dateRange: { from: new Date(0), to: new Date() },
+    searchParams,
+    signal: new AbortController().signal,
+  };
   const out: ResolvedFilterSpec[] = [];
   for (const d of defs) {
     if (typeof d === "string" || typeof d === "number" || typeof d === "symbol") {
@@ -96,42 +96,73 @@ export async function resolveFilterSpecs<Row>(
     }
     const def = d as FilterDef<Row>;
     let options: { label: string; value: string }[] | undefined;
-    if (typeof def.options === "function") {
-      options = toWireOptions(await def.options(ctx as never));
+    const resolve = def.options;
+    if (typeof resolve === "function") {
+      options = toWireOptions(await runWithRequestContext(reqCtx, () => resolve(queryCtx)));
     } else if (Array.isArray(def.options)) {
       options = toWireOptions(def.options);
     }
+    const factor = moneyFactors.get(String(def.field)) ?? 1;
+    const defaultValue = encodeFilterValue(def.defaultValue, timeZone, factor);
     out.push({
       field: String(def.field),
       type: def.type,
       ...(def.label ? { label: def.label } : {}),
       ...(options ? { options } : {}),
+      ...(defaultValue !== null ? { defaultValue } : {}),
+      ...(def.hidden ? { hidden: true } : {}),
     });
   }
   return out;
 }
 
-/** `FilterDef.defaultValue` sentinels — always pass through untouched, for every filter type. */
+/** Each filter's default for a field the request names no value for; an empty value keeps it off. */
+export function withFilterDefaults(
+  filters: Record<string, unknown>,
+  specs: ReadonlyArray<ResolvedFilterSpec>,
+): Record<string, unknown> {
+  const out = { ...filters };
+  for (const spec of specs) {
+    if (spec.defaultValue !== undefined && !(spec.field in out))
+      out[spec.field] = spec.defaultValue;
+  }
+  return out;
+}
+
+/** Null sentinels a filter value may carry — always pass through untouched, for every filter type. */
 const FILTER_NULL_SENTINELS = new Set(["__null__", "__notnull__"]);
 
 /** Strict `YYYY-MM-DD` — what `<input type="date">` (`DateRangeFilter`) emits. */
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Parse one side of a `numeric-range` value; `undefined` if empty or not a finite number. */
-function decodeNumericBound(raw: string): number | undefined {
+/** Parse one side of a `numeric-range` value, in stored units; `undefined` if empty or not a finite number. */
+function decodeNumericBound(raw: string, factor: number): number | undefined {
   if (raw === "" || !Number.isFinite(Number(raw))) return undefined;
-  return Number(raw);
+  return factor === 1 ? Number(raw) : Number((Number(raw) * factor).toPrecision(15));
 }
 
 /** Parse one side of a `daterange` value; `undefined` if empty or not a valid `YYYY-MM-DD`. */
-function decodeDateBound(raw: string, endOfDay: boolean): Date | undefined {
-  if (!DATE_ONLY_RE.test(raw)) return undefined;
-  const d = new Date(`${raw}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
+function decodeDateBound(raw: string, endOfDay: boolean, timeZone: string): Date | undefined {
+  if (!DATE_ONLY_RE.test(raw) || Number.isNaN(Date.parse(raw))) return undefined;
+  const bounds = dayBoundsIn(raw, timeZone);
+  return endOfDay ? bounds.end : bounds.start;
+}
+
+/** Parse one side of a `from~to` daterange value: an ISO-8601 instant. */
+function decodeInstant(raw: string): Date | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(raw)) return undefined;
+  const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
 /** Coerce/validate/decode a single filter value against its resolved `FilterDef`. */
-function sanitizeFilterValue(value: string, spec: ResolvedFilterSpec | undefined): unknown {
+function sanitizeFilterValue(
+  value: string,
+  spec: ResolvedFilterSpec | undefined,
+  timeZone: string,
+  factor: number,
+): unknown {
+  if (value === "") return undefined;
   if (FILTER_NULL_SENTINELS.has(value)) return value;
   if (!spec) return value;
 
@@ -158,8 +189,8 @@ function sanitizeFilterValue(value: string, spec: ResolvedFilterSpec | undefined
       return value === "true" || value === "false" ? value : undefined;
     case "numeric-range": {
       const [minRaw = "", maxRaw = ""] = value.split(":");
-      const gte = decodeNumericBound(minRaw);
-      const lte = decodeNumericBound(maxRaw);
+      const gte = decodeNumericBound(minRaw, factor);
+      const lte = decodeNumericBound(maxRaw, factor);
       if (gte === undefined && lte === undefined) return undefined;
       return {
         op: "range",
@@ -168,9 +199,14 @@ function sanitizeFilterValue(value: string, spec: ResolvedFilterSpec | undefined
       } satisfies FilterRangeValue;
     }
     case "daterange": {
-      const [fromRaw = "", toRaw = ""] = value.split(":");
-      const gte = decodeDateBound(fromRaw, false);
-      const lte = decodeDateBound(toRaw, true);
+      if (isDateRangePreset(value)) {
+        const { from, to } = resolveDateRange({ preset: value }, timeZone);
+        return { op: "range", gte: from, lte: to } satisfies FilterRangeValue;
+      }
+      const instants = value.includes("~");
+      const [fromRaw = "", toRaw = ""] = value.split(instants ? "~" : ":");
+      const gte = instants ? decodeInstant(fromRaw) : decodeDateBound(fromRaw, false, timeZone);
+      const lte = instants ? decodeInstant(toRaw) : decodeDateBound(toRaw, true, timeZone);
       if (gte === undefined && lte === undefined) return undefined;
       return {
         op: "range",
@@ -183,9 +219,12 @@ function sanitizeFilterValue(value: string, spec: ResolvedFilterSpec | undefined
   }
 }
 
+/** Each filter's value decoded; a money column's range is typed in major units and read in stored ones. */
 export function sanitizeFilterValues(
   filters: Record<string, unknown>,
   specs: ReadonlyArray<ResolvedFilterSpec>,
+  timeZone = "UTC",
+  moneyFactors: ReadonlyMap<string, number> = new Map(),
 ): Record<string, unknown> {
   const byField = new Map(specs.map((s) => [s.field, s]));
   const out: Record<string, unknown> = {};
@@ -194,7 +233,12 @@ export function sanitizeFilterValues(
       out[field] = raw;
       continue;
     }
-    const kept = sanitizeFilterValue(raw, byField.get(field));
+    const kept = sanitizeFilterValue(
+      raw,
+      byField.get(field),
+      timeZone,
+      moneyFactors.get(field) ?? 1,
+    );
     if (kept !== undefined) out[field] = kept;
   }
   return out;

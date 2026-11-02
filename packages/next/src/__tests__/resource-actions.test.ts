@@ -11,6 +11,10 @@ vi.mock("../runtime/publish", () => ({
 // real Next.js request scope. Every test below calls `makeActions(config,
 // resource)` without a `reqCtx`, so it needs this mocked the same way
 // `build-server-request.test.ts` does.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  connection: async () => {},
+}));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ getAll: () => [] }),
@@ -80,7 +84,6 @@ function makeConfig(opts: {
     resources: [resource],
     resourcesByName: new Map([["users", resource]]),
     dashboardsByPath: new Map(),
-    basePath: "/admin",
     paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
@@ -214,6 +217,18 @@ describe("makeActions.update", () => {
   });
 });
 
+describe("an update that changes nothing", () => {
+  it("writes but records no empty audit event", async () => {
+    const sink = vi.fn(async (_ev: unknown) => {});
+    const { config, resource } = makeConfig({ audit: { enabled: true, sink } });
+    const actions = makeActions(config, resource);
+    await actions.update("u1", { email: "a@b.com" });
+    expect(sink).not.toHaveBeenCalled();
+    await actions.update("u1", { email: "c@d.com" });
+    expect(sink).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("makeActions.delete", () => {
   beforeEach(() => {
     vi.mocked(publishResource).mockReset();
@@ -299,9 +314,8 @@ describe("actorIdFromSession (via audit event)", () => {
 describe("field rules on the write path", () => {
   it("update rejects a role-gated submitted field declared in the fallback form", async () => {
     const { config, resource } = makeConfig({});
-    (resource.options as { create?: unknown }).create = {
-      fields: [{ name: "email", requireRole: "owner" }],
-    };
+    (resource.options as { create?: unknown }).create = { fields: [{ name: "email" }] };
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { email: { write: "owner" } };
     const seen = vi.fn();
     (config.adapter as { update: unknown }).update = async (
       _ref: unknown,
@@ -344,8 +358,7 @@ describe("field rules on the write path", () => {
         _ref: unknown,
         _ctx: {
           select?: readonly string[];
-          scopeRequired?: boolean;
-          applyScope?: (query: unknown) => unknown;
+          boundScope?: { apply(query: unknown): unknown };
         },
       ) => ({ id: "u1", email: "a@b.com", internalLock: true }),
     );
@@ -366,8 +379,7 @@ describe("field rules on the write path", () => {
       field: "email",
     });
     expect(get.mock.calls[0]?.[1].select).toBeUndefined();
-    expect(get.mock.calls[0]?.[1].scopeRequired).toBe(true);
-    expect(get.mock.calls[0]?.[1].applyScope?.("query")).toEqual({
+    expect(get.mock.calls[0]?.[1].boundScope?.apply("query")).toEqual({
       scope: { tenantId: "t1" },
       query: "query",
     });
@@ -375,9 +387,8 @@ describe("field rules on the write path", () => {
 
   it("reports a required gated field as an access error, not a phantom validation error", async () => {
     const { config, resource } = makeConfig({});
-    (resource.options as { create?: unknown }).create = {
-      fields: [{ name: "email", requireRole: "owner" }],
-    };
+    (resource.options as { create?: unknown }).create = { fields: [{ name: "email" }] };
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { email: { write: "owner" } };
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
       code: "field_forbidden",
@@ -408,7 +419,7 @@ describe("field rules on the write path", () => {
     };
     const actions = makeActions(config, resource);
     await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
-      fieldErrors: { ourPriceCents: "Our price cents is required" },
+      fieldErrors: { ourPriceCents: "Our price (cents) is required" },
     });
   });
 
@@ -481,11 +492,9 @@ describe("field rules on the write path", () => {
       },
     });
     (resource.options as { create?: unknown }).create = {
-      fields: [
-        { name: "email" },
-        { name: "note", requireRole: "owner", defaultValue: "server-default" },
-      ],
+      fields: [{ name: "email" }, { name: "note", defaultValue: "server-default" }],
     };
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { note: { write: "owner" } };
     const seen = vi.fn();
     (config.adapter as { create: unknown }).create = async (
       _ref: unknown,
@@ -497,6 +506,29 @@ describe("field rules on the write path", () => {
     const actions = makeActions(config, resource);
     await actions.create({ email: "a@b.com" });
     expect(seen).toHaveBeenCalledWith({ email: "a@b.com", note: "server-default" });
+  });
+
+  it("lets create.defaultValues win over a field's own defaultValue for the same empty key", async () => {
+    const { config, resource } = makeConfig({
+      schema: {
+        create: z.object({ email: z.string().email(), note: z.string() }),
+        update: updateSchema,
+      },
+    });
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email" }, { name: "note", defaultValue: "from-field" }],
+      defaultValues: { note: "from-resource" },
+    };
+    const seen = vi.fn();
+    (config.adapter as { create: unknown }).create = async (
+      _ref: unknown,
+      mctx: { input: unknown },
+    ) => {
+      seen(mctx.input);
+      return { id: "u1" };
+    };
+    await makeActions(config, resource).create({ email: "a@b.com" });
+    expect(seen).toHaveBeenCalledWith({ email: "a@b.com", note: "from-resource" });
   });
 
   it("reuses a caller-supplied RequestContext instead of building one per call", async () => {
@@ -515,5 +547,358 @@ describe("field rules on the write path", () => {
     await actions.create({ email: "a@b.com" });
     await actions.create({ email: "b@b.com" });
     expect(sessionSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("required fields on the server", () => {
+  const optionalSchema = z.object({
+    email: z.string().email().optional(),
+    name: z.string().nullable().optional(),
+  });
+
+  function withFields(fields: unknown[], mode: "create" | "update" = "create") {
+    const made = makeConfig({ schema: optionalSchema });
+    (made.resource.options as Record<string, unknown>)[mode] = { fields };
+    return made;
+  }
+
+  it("rejects a create that leaves a required field empty, with the form's message", async () => {
+    const { config, resource } = withFields([
+      { name: "email" },
+      { name: "name", label: "Full name", required: true },
+    ]);
+    const actions = makeActions(config, resource);
+    for (const name of [undefined, null, "", "   "]) {
+      await expect(actions.create({ email: "a@b.com", name })).rejects.toMatchObject({
+        code: "validation_failed",
+        fieldErrors: { name: "Full name is required" },
+      });
+    }
+  });
+
+  it("reports a missing required field next to the schema's own errors", async () => {
+    const { config, resource } = withFields([{ name: "email" }, { name: "name", required: true }]);
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "nope" })).rejects.toMatchObject({
+      fieldErrors: { email: expect.any(String), name: "Name is required" },
+    });
+  });
+
+  it("reports a field's own validate message in the same round as a missing field", async () => {
+    const { config, resource } = withFields([
+      { name: "email", validate: () => "Format: PREFIX-1234" },
+      { name: "name", required: true },
+    ]);
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "a@b.com" })).rejects.toMatchObject({
+      fieldErrors: { email: "Format: PREFIX-1234", name: "Name is required" },
+    });
+  });
+
+  it("hands validate each field's parsed value even when a sibling field fails the schema", async () => {
+    const seen: unknown[] = [];
+    const { config, resource } = makeConfig({
+      schema: z.object({ code: z.string().trim(), email: z.string().email() }),
+    });
+    (resource.options as { create?: unknown }).create = {
+      fields: [
+        {
+          name: "code",
+          validate: (value: unknown, all: Record<string, unknown>) => {
+            seen.push(value, "email" in all);
+            return null;
+          },
+        },
+        { name: "email" },
+      ],
+    };
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ code: "  AB-1  ", email: "nope" })).rejects.toMatchObject({
+      fieldErrors: { email: expect.any(String) },
+    });
+    expect(seen).toEqual(["AB-1", false]);
+  });
+
+  it("does not run a field's validate on a value the schema already refused", async () => {
+    const validate = vi.fn(() => "never shown");
+    const { config, resource } = withFields([{ name: "email", validate }, { name: "name" }]);
+    const actions = makeActions(config, resource);
+    await expect(actions.create({ email: "nope" })).rejects.toMatchObject({
+      fieldErrors: { email: expect.not.stringMatching(/never shown/) },
+    });
+    expect(validate).not.toHaveBeenCalled();
+  });
+
+  it("accepts a required field that a defaultValue fills", async () => {
+    const { config, resource } = withFields([
+      { name: "email" },
+      { name: "name", required: true, defaultValue: "Anonymous" },
+    ]);
+    await expect(makeActions(config, resource).create({ email: "a@b.com" })).resolves.toBeTruthy();
+  });
+
+  it("skips required fields the form did not offer as editable", async () => {
+    const { config, resource } = withFields([
+      { name: "email", required: true, hidden: true },
+      { name: "name", required: true, readOnly: () => true },
+      { name: "status", required: true },
+    ]);
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { status: { write: "owner" } };
+    await expect(makeActions(config, resource).create({})).resolves.toBeTruthy();
+  });
+
+  it("judges a create field's hidden function on the values the form starts with", async () => {
+    const note = {
+      name: "name",
+      required: true,
+      hidden: (values: { status?: string }) => values.status === "draft",
+    };
+    const fromField = withFields([{ name: "status", defaultValue: "draft" }, note]);
+    await expect(
+      makeActions(fromField.config, fromField.resource).create({}),
+    ).resolves.toBeTruthy();
+
+    const fromColumn = withFields([{ name: "status" }, note]);
+    (fromColumn.config.adapter as { introspect: unknown }).introspect = () => ({
+      name: "users",
+      columns: [
+        {
+          name: "status",
+          type: "string",
+          nullable: false,
+          unique: false,
+          primaryKey: false,
+          defaultValue: "draft",
+        },
+      ],
+      primaryKey: "id",
+    });
+    await expect(
+      makeActions(fromColumn.config, fromColumn.resource).create({}),
+    ).resolves.toBeTruthy();
+
+    const open = withFields([{ name: "status" }, note]);
+    await expect(makeActions(open.config, open.resource).create({})).rejects.toMatchObject({
+      fieldErrors: { name: "Name is required" },
+    });
+  });
+
+  it("judges an API or import create on its own values over the starting ones", async () => {
+    const note = {
+      name: "name",
+      required: true,
+      hidden: (values: { status?: string }) => values.status === "draft",
+    };
+    const api = withFields([{ name: "status", defaultValue: "draft" }, note]);
+    const actions = makeActions(api.config, api.resource);
+    await expect(actions.create({ status: "published" })).rejects.toMatchObject({
+      fieldErrors: { name: "Name is required" },
+    });
+    await expect(actions.create({ status: "draft" })).resolves.toBeTruthy();
+
+    const locked = withFields([
+      { name: "status", defaultValue: "draft" },
+      { name: "name", readOnly: (values: { status?: string }) => values.status !== "draft" },
+    ]);
+    await expect(
+      makeActions(locked.config, locked.resource).create({ status: "published", name: "x" }),
+    ).rejects.toBeTruthy();
+    await expect(
+      makeActions(locked.config, locked.resource).create({ status: "draft", name: "x" }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("keeps a field read-only on an API create when the client sends the value its predicate checks", async () => {
+    const { config, resource } = withFields([
+      { name: "status", defaultValue: "draft" },
+      {
+        name: "approvedBy",
+        readOnly: (row: { status?: string }) => row.status !== "approved",
+      },
+    ]);
+    await expect(
+      makeActions(config, resource).create({ status: "approved", approvedBy: "x" }),
+    ).rejects.toMatchObject({ code: "field_forbidden", field: "approvedBy" });
+  });
+
+  it("lets an edit leave a required field out, keeping the stored value", async () => {
+    const { config, resource } = withFields(
+      [{ name: "email" }, { name: "name", required: true }],
+      "update",
+    );
+    await expect(
+      makeActions(config, resource).update("u1", { email: "c@d.com" }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("rejects an edit that clears a required field", async () => {
+    const { config, resource } = withFields([{ name: "name", required: true }], "update");
+    const actions = makeActions(config, resource);
+    for (const name of [null, ""]) {
+      await expect(actions.update("u1", { name })).rejects.toMatchObject({
+        code: "validation_failed",
+        fieldErrors: { name: "Name is required" },
+      });
+    }
+  });
+});
+
+describe("columns the list edits in place", () => {
+  function withInlineStatus() {
+    const made = makeConfig({
+      schema: z.object({ email: z.string().optional(), status: z.string().optional() }),
+    });
+    made.resource.options.columns = [{ field: "email" }, { field: "status", editable: true }];
+    (made.resource.options as Record<string, unknown>).update = { fields: [{ name: "email" }] };
+    return made;
+  }
+
+  it("are writable through the JSON API, as the list writes them", async () => {
+    const { config, resource } = withInlineStatus();
+    await expect(
+      makeActions(config, resource).update("u1", { status: "open" }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("still refuse a column that is neither a field nor editable", async () => {
+    const { config, resource } = withInlineStatus();
+    await expect(makeActions(config, resource).update("u1", { plan: "pro" })).rejects.toMatchObject(
+      { code: "unknown_field" },
+    );
+  });
+
+  it("stay out of a posted edit form, which lists its own fields", async () => {
+    const { config, resource } = withInlineStatus();
+    await expect(
+      makeActions(config, resource, { fromForm: true }).update("u1", { status: "open" }),
+    ).rejects.toMatchObject({ code: "unknown_field" });
+  });
+
+  it("keep the column's write access", async () => {
+    const { config, resource } = withInlineStatus();
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { status: { write: "owner" } };
+    await expect(
+      makeActions(config, resource).update("u1", { status: "open" }),
+    ).rejects.toMatchObject({ code: "field_forbidden" });
+  });
+});
+
+describe("declared field types on the server", () => {
+  const textSchema = z.object({
+    email: z.string().optional(),
+    site: z.string().nullable().optional(),
+    tint: z.string().nullable().optional(),
+    opensAt: z.string().nullable().optional(),
+  });
+  const fields = [
+    { name: "email", type: "email" },
+    { name: "site", label: "Website", type: "url" },
+    { name: "tint", type: "color" },
+    { name: "opensAt", label: "Opens at", type: "time" },
+  ];
+
+  function typed(mode: "create" | "update" = "create") {
+    const made = makeConfig({ schema: textSchema });
+    (made.resource.options as Record<string, unknown>)[mode] = { fields };
+    return made;
+  }
+
+  it("refuses values a script sends past the browser's checks, every field in one round", async () => {
+    const { config, resource } = typed();
+    await expect(
+      makeActions(config, resource).create({
+        email: "not-an-email",
+        site: "example",
+        tint: "blue",
+        opensAt: "25:00",
+      }),
+    ).rejects.toMatchObject({
+      code: "validation_failed",
+      fieldErrors: {
+        email: "Email must be an email address like name@example.com",
+        site: "Website must be a full web address like https://example.com",
+        tint: "Tint must be a colour like #2563eb",
+        opensAt: "Opens at must be a time like 09:30",
+      },
+    });
+  });
+
+  it("takes only an http or https address for a url field", async () => {
+    const { config, resource } = typed();
+    for (const site of ["javascript:alert(1)", "foo:bar", "mailto:a@b.co"]) {
+      await expect(makeActions(config, resource).create({ site })).rejects.toMatchObject({
+        fieldErrors: { site: "Website must be a full web address like https://example.com" },
+      });
+    }
+  });
+
+  it("accepts well-formed and empty values", async () => {
+    const { config, resource } = typed();
+    await expect(
+      makeActions(config, resource).create({
+        email: "ops@example.com",
+        site: "https://example.com/a",
+        tint: "#2563EB",
+        opensAt: null,
+      }),
+    ).resolves.toBeTruthy();
+  });
+
+  it("keeps a stored value an edit did not change, and refuses a new bad one", async () => {
+    const { config, resource } = typed("update");
+    config.adapter.get = async () => ({ id: "u1", email: "legacy" });
+    const actions = makeActions(config, resource);
+    await expect(actions.update("u1", { email: "legacy" })).resolves.toBeTruthy();
+    await expect(actions.update("u1", { email: "still wrong" })).rejects.toMatchObject({
+      fieldErrors: { email: "Email must be an email address like name@example.com" },
+    });
+  });
+
+  it("leaves a mistyped value out of the field's own validate", async () => {
+    const validate = vi.fn(() => null);
+    const { config, resource } = makeConfig({ schema: textSchema });
+    (resource.options as Record<string, unknown>).create = {
+      fields: [{ name: "email", type: "email", validate }],
+    };
+    await expect(makeActions(config, resource).create({ email: "nope" })).rejects.toMatchObject({
+      fieldErrors: { email: expect.stringContaining("email address") },
+    });
+    expect(validate).not.toHaveBeenCalled();
+  });
+});
+
+describe("readOnly next to fieldAccess", () => {
+  it("keeps a role-gated field read-only for a role that passes the gate", async () => {
+    const { config, resource } = makeConfig({});
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email", readOnly: true }],
+    };
+    (resource.options as { fieldAccess?: unknown }).fieldAccess = { email: { write: "admin" } };
+    await expect(makeActions(config, resource).create({ email: "a@b.com" })).rejects.toMatchObject({
+      code: "field_forbidden",
+      field: "email",
+    });
+  });
+
+  it("evaluates a function readOnly on an API create, against the starting row and the row it would write", async () => {
+    const seen = vi.fn((values: Record<string, unknown>) => values.email !== undefined);
+    const { config, resource } = makeConfig({});
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email", readOnly: seen }],
+    };
+    await expect(makeActions(config, resource).create({ email: "a@b.com" })).rejects.toMatchObject({
+      code: "field_forbidden",
+      field: "email",
+    });
+    expect(seen).toHaveBeenCalledWith({});
+    expect(seen).toHaveBeenCalledWith({ email: "a@b.com" });
+  });
+
+  it("lets a create write a field whose function readOnly is false for a new row", async () => {
+    const { config, resource } = makeConfig({});
+    (resource.options as { create?: unknown }).create = {
+      fields: [{ name: "email", readOnly: (values: { id?: string }) => values.id !== undefined }],
+    };
+    await expect(makeActions(config, resource).create({ email: "a@b.com" })).resolves.toBeTruthy();
   });
 });

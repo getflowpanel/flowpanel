@@ -1,10 +1,20 @@
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs/promises";
+import { createServer } from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { stripVTControlCharacters as strip } from "node:util";
 import { describe, expect, it, vi } from "vitest";
-import { findBoardScript, pipeWithPrefix } from "../dev";
+import { PNP_UNSUPPORTED } from "../../utils/compatibility";
+import {
+  devPreflight,
+  findBoardScript,
+  isPortFree,
+  pipeWithPrefix,
+  reportBoardExit,
+  startNext,
+} from "../dev";
 
 function fakeChild(): { child: ChildProcess; stdout: EventEmitter; stderr: EventEmitter } {
   const stdout = new EventEmitter();
@@ -130,6 +140,196 @@ describe("findBoardScript", () => {
       expect(await findBoardScript(tmp)).toBeNull();
     } finally {
       await fs.rm(tmp, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("devPreflight", () => {
+  async function project(files: Record<string, string>): Promise<string> {
+    const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "fp-dev-")));
+    for (const [file, contents] of Object.entries(files)) {
+      await fs.mkdir(path.dirname(path.join(dir, file)), { recursive: true });
+      await fs.writeFile(path.join(dir, file), contents);
+    }
+    return dir;
+  }
+
+  const DECLARED = JSON.stringify({
+    dependencies: { next: "16.3.4" },
+    packageManager: "pnpm@10.33.0",
+  });
+  const NEXT_BIN =
+    'require("node:fs").writeFileSync("argv.log", JSON.stringify(process.argv.slice(2)));\n';
+  const INSTALLED = {
+    "node_modules/next/package.json": JSON.stringify({
+      name: "next",
+      version: "16.3.4",
+      bin: { next: "dist/bin/next" },
+    }),
+    "node_modules/next/dist/bin/next": NEXT_BIN,
+  };
+
+  async function busyPort(): Promise<{ port: number; close: () => Promise<void> }> {
+    const server = createServer();
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    return { port, close: () => new Promise((resolve) => server.close(() => resolve())) };
+  }
+
+  async function preflight(files: Record<string, string>, port = "3000") {
+    const dir = await project(files);
+    try {
+      return { dir, result: await devPreflight(dir, port) };
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("names the directory outside a Next.js project", async () => {
+    const { dir, result } = await preflight({});
+    expect(result).toEqual({
+      error: `No Next.js project found in ${dir}. Run this from your project root.`,
+    });
+  });
+
+  it("asks for an install instead of falling through to a package-manager download", async () => {
+    const { dir, result } = await preflight({ "package.json": DECLARED });
+    expect(result).toEqual({
+      error: `Next.js is not installed in ${dir}. Run \`pnpm install\`, then start again.`,
+    });
+  });
+
+  it("gives a Yarn PnP project the PnP message, not an install hint", async () => {
+    const { result } = await preflight({ "package.json": DECLARED, ".pnp.cjs": "" });
+    expect(result).toEqual({ error: PNP_UNSUPPORTED });
+  });
+
+  it("stops when the installed next has no binary", async () => {
+    const { result } = await preflight({
+      "package.json": DECLARED,
+      "node_modules/next/package.json": JSON.stringify({ name: "next", version: "16.3.4" }),
+    });
+    expect(result).toMatchObject({ error: expect.stringContaining("has no next binary") });
+  });
+
+  it("says which port is taken and how to pick another", async () => {
+    const taken = await busyPort();
+    try {
+      const { result } = await preflight(
+        { "package.json": DECLARED, ...INSTALLED },
+        String(taken.port),
+      );
+      expect(result).toEqual({ error: `Port ${taken.port} is in use. Pass --port <other>.` });
+    } finally {
+      await taken.close();
+    }
+  });
+
+  it("rejects a port that is not a number", async () => {
+    const files = { "package.json": DECLARED, ...INSTALLED };
+    expect((await preflight(files, "abc")).result).toEqual({
+      error: '--port must be a number from 1 to 65535. Got "abc".',
+    });
+    expect((await preflight(files, "70000")).result).toMatchObject({
+      error: expect.stringContaining("--port must be a number"),
+    });
+  });
+
+  it("returns the project's own next binary for a free port", async () => {
+    const taken = await busyPort();
+    const free = taken.port;
+    await taken.close();
+    expect(await isPortFree(free)).toBe(true);
+    const { dir, result } = await preflight(
+      { "package.json": DECLARED, ...INSTALLED },
+      String(free),
+    );
+    expect(result).toEqual({ nextBin: path.join(dir, "node_modules/next/dist/bin/next") });
+  });
+});
+
+describe("isPortFree", () => {
+  it("sees a server bound only to 127.0.0.1, which a wildcard listen would not notice", async () => {
+    const server = createServer();
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      expect(await isPortFree(port)).toBe(false);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+});
+
+describe("pipeWithPrefix ready hook", () => {
+  it("hands each relayed stdout line to the hook", () => {
+    const { child, stdout } = fakeChild();
+    const seen: string[] = [];
+    capture(() => {
+      pipeWithPrefix(child, "[next] ", (line) => seen.push(line));
+      stdout.emit("data", Buffer.from(" ✓ Ready in 1.2s\n"));
+    });
+    expect(seen).toEqual([" ✓ Ready in 1.2s"]);
+  });
+});
+
+describe("startNext", () => {
+  it("runs the resolved next with node and asks no package manager for it", async () => {
+    const dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "fp-dev-start-")));
+    const shims = path.join(dir, "shims");
+    const shimLog = path.join(dir, "shims.log");
+    const nextBin = path.join(dir, "node_modules/next/dist/bin/next");
+    const saved = { PATH: process.env.PATH, SHIM_LOG: process.env.SHIM_LOG };
+    try {
+      await fs.mkdir(shims, { recursive: true });
+      await fs.mkdir(path.dirname(nextBin), { recursive: true });
+      await fs.writeFile(
+        nextBin,
+        'require("node:fs").writeFileSync("argv.log", JSON.stringify(process.argv.slice(2)));\n',
+      );
+      for (const name of ["npx", "npm", "pnpm", "yarn", "bunx", "bun"]) {
+        await fs.writeFile(path.join(shims, name), '#!/bin/sh\necho "$0 $@" >> "$SHIM_LOG"\n');
+        await fs.chmod(path.join(shims, name), 0o755);
+      }
+      process.env.PATH = `${shims}${path.delimiter}${process.env.PATH ?? ""}`;
+      process.env.SHIM_LOG = shimLog;
+
+      const child = startNext(dir, nextBin, "3999");
+      await new Promise((resolve) => child.once("exit", resolve));
+
+      expect(JSON.parse(await fs.readFile(path.join(dir, "argv.log"), "utf8"))).toEqual([
+        "dev",
+        "--port",
+        "3999",
+      ]);
+      await expect(fs.access(shimLog)).rejects.toThrow();
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("reportBoardExit", () => {
+  it("says the board stopped, that Next.js keeps running, and how to start without it", () => {
+    const board = new EventEmitter() as unknown as ChildProcess;
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    try {
+      const { out } = capture(() => {
+        reportBoardExit(board, "pnpm flowpanel dev --no-board");
+        board.emit("exit", 1, null);
+      });
+      expect(out.map((line) => strip(line))).toEqual([
+        "[flowpanel] The queue board stopped with exit code 1; Next.js keeps running. Fix the error above and restart, or run pnpm flowpanel dev --no-board to start without the board.\n",
+      ]);
+      expect(exit).not.toHaveBeenCalled();
+    } finally {
+      exit.mockRestore();
     }
   });
 });

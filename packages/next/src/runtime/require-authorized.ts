@@ -1,10 +1,6 @@
 import {
-  assertCountWhereColumns,
   assertResourceScope,
-  authorizeOperation,
-  checkRequireRole,
   FlowpanelAccessError,
-  type ListQueryContext,
   type RequestContext,
   type ResolvedAdminConfig,
   type ResourceConfig,
@@ -12,20 +8,18 @@ import {
   resolveResourceName,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { declaredRowFields, projectRowFields, selectKnownFields } from "./project-row";
+import { assertCountWhereColumns } from "@flowpanel/core/internal";
+import { listReadableRows, requireListAccess } from "./list-rows";
+import { declaredRowFields } from "./project-row";
 import { resolveReadableFieldSet } from "./readable-fields";
+import { requireAccessIfSet } from "./require-access";
 import { scopeBinding } from "./scope-binding";
 
-/** Runs the resource's role + scope checks. */
-export function requireAuthorized(
-  config: ResolvedAdminConfig,
-  resource: ResourceConfig,
-  reqCtx: RequestContext,
-): void {
-  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
+/** Runs the resource's scope check. */
+export function requireAuthorized(config: ResolvedAdminConfig, resource: ResourceConfig): void {
   assertResourceScope({
     hasGlobal: !!config.scope,
-    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+    resourceScope: resource.options.scope,
   });
 }
 
@@ -47,8 +41,7 @@ export interface RelatedReadOptions {
 
 /**
  * The only sanctioned way to read a resource other than the request's own.
- * `null` means the caller may not read `target` — each site decides whether
- * that degrades to empty or answers with an error.
+ * `null` means the caller may not read `target` — each site decides whether that degrades to empty or an error.
  */
 export interface RelatedPage {
   rows: Record<string, unknown>[];
@@ -58,13 +51,8 @@ export interface RelatedPage {
 }
 
 /**
- * How many rows of `target` match `filters`, under the same role, access, field
- * and scope checks as a related read. `null` means the caller may not read it.
- * `adapter.count` answers directly only when no tenant predicate has to be
- * applied — that capability takes a filter map, not a scope binding, so a
- * scoped resource is counted through the authorized `list` path instead. Every
- * other guard is applied on both paths, so which one runs never changes the
- * answer.
+ * How many rows of `target` match `filters`, under the same role, access, field and scope checks as a related read.
+ * `adapter.count` answers directly only with no tenant predicate; a scoped resource counts through `list` instead.
  */
 export async function readRelatedCount(
   config: ResolvedAdminConfig,
@@ -80,7 +68,7 @@ export async function readRelatedCount(
   // A missing projected value must not turn a filtered count into a total.
   if (Object.values(filters).some((value) => value === undefined)) return 0;
   const direct = config.adapter.count;
-  if (!direct || scopeBinding(config, target, reqCtx).applyScope) {
+  if (!direct || scopeBinding(target, reqCtx).boundScope) {
     const page = await readRelatedPage(config, target, reqCtx, {
       filters,
       page: 1,
@@ -91,11 +79,8 @@ export async function readRelatedCount(
   }
 
   try {
-    requireAuthorized(config, target, reqCtx);
-    await authorizeOperation(
-      resolveOperationAccess(target.options.access, target.options.requireRole, "read"),
-      reqCtx,
-    );
+    requireAuthorized(config, target);
+    await requireAccessIfSet(resolveOperationAccess(target.options.access, "read"), reqCtx);
   } catch (err) {
     if (err instanceof FlowpanelAccessError) return null;
     throw err;
@@ -122,7 +107,8 @@ export async function readRelatedRows(
 
 /**
  * The same authorized related read, with the adapter's own total, so a history
- * longer than one page stays reachable.
+ * longer than one page stays reachable. `filters` are relationship constraints:
+ * a field the caller cannot read, or a missing value, empties the page.
  */
 export async function readRelatedPage(
   config: ResolvedAdminConfig,
@@ -131,81 +117,22 @@ export async function readRelatedPage(
   opts: RelatedReadOptions = {},
 ): Promise<RelatedPage | null> {
   try {
-    requireAuthorized(config, target, reqCtx);
-    await authorizeOperation(
-      resolveOperationAccess(target.options.access, target.options.requireRole, "read"),
-      reqCtx,
-    );
+    await requireListAccess(config, target, reqCtx);
   } catch (err) {
     if (err instanceof FlowpanelAccessError) return null;
     throw err;
   }
-
-  const page = opts.page ?? 1;
-  const pageSize = opts.pageSize ?? 20;
-  const empty: RelatedPage = { rows: [], total: 0, page, pageSize };
-  const filters = opts.filters ?? {};
-  const filterFields = Object.keys(filters);
-  // A missing projected relationship value must not turn a related query into
-  // an unfiltered list.
-  if (Object.values(filters).some((value) => value === undefined)) return empty;
-  const requestedSearchFields = opts.searchFields ?? [];
-  const requestedSortField = opts.sort?.field;
-  const outputFields = declaredRowFields(target);
-  for (const field of opts.extraFields ?? []) outputFields.add(field);
-  const readable = await resolveReadableFieldSet(
-    [
-      ...outputFields,
-      ...filterFields,
-      ...requestedSearchFields,
-      ...(requestedSortField ? [requestedSortField] : []),
-    ],
-    target.options.fieldAccess,
-    reqCtx,
-  );
-  // Relationship filters are constraints, not optional user refinements. If
-  // policy removes one, fail closed instead of widening the related result.
-  if (filterFields.some((field) => !readable.has(field))) return empty;
-  const searchFields = requestedSearchFields.filter((field) => readable.has(field));
-  if (requestedSearchFields.length > 0 && searchFields.length === 0) return empty;
-  const sort = opts.sort && readable.has(opts.sort.field) ? opts.sort : null;
-  const projectedFields = opts.countOnly
-    ? []
-    : [...outputFields].filter((field) => readable.has(field));
-  const select = opts.countOnly
-    ? []
-    : selectKnownFields(projectedFields, config.adapter.introspect(target.ref).columns);
-
-  const softDelete = target.options.delete?.softDelete;
-  const listCtx: ListQueryContext<unknown> = {
-    ...reqCtx,
-    db: config.adapter.db,
-    dateRange: opts.dateRange ?? { from: new Date(0), to: new Date() },
-    searchParams: new URLSearchParams(),
-    signal: new AbortController().signal,
-    filters,
-    sort: sort as ListQueryContext<unknown>["sort"],
-    page,
-    pageSize,
-    search: searchFields.length > 0 ? (opts.search ?? "") : "",
-    ...(searchFields.length > 0 ? { searchFields } : {}),
-    select,
-    ...(softDelete
-      ? { softDelete: { column: String(softDelete) }, includeDeleted: opts.includeDeleted }
-      : {}),
-    ...scopeBinding(config, target, reqCtx),
-  };
-
-  const result = await runWithRequestContext(reqCtx, () =>
-    config.adapter.list(target.ref, listCtx),
-  );
-  const rows = (result.rows as Record<string, unknown>[]).map((row) =>
-    projectRowFields(row, projectedFields),
-  );
-  return {
-    rows,
-    total: result.total ?? rows.length,
-    page: result.page ?? page,
-    pageSize: result.pageSize ?? pageSize,
-  };
+  const page = await listReadableRows(config, target, reqCtx, {
+    constraints: opts.filters ?? {},
+    ...(opts.sort ? { sort: opts.sort } : {}),
+    page: opts.page ?? 1,
+    pageSize: opts.pageSize ?? 20,
+    search: opts.search ?? "",
+    ...(opts.searchFields ? { searchFields: opts.searchFields } : {}),
+    fields: [...declaredRowFields(target), ...(opts.extraFields ?? [])],
+    ...(opts.includeDeleted !== undefined ? { includeDeleted: opts.includeDeleted } : {}),
+    ...(opts.countOnly ? { countOnly: true } : {}),
+    ...(opts.dateRange ? { dateRange: opts.dateRange } : {}),
+  });
+  return { rows: page.rows, total: page.total, page: page.page, pageSize: page.pageSize };
 }

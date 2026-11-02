@@ -70,10 +70,12 @@ describe("init mount integration", () => {
     await expect(fs.stat(path.join(root, "flowpanel.config.ts"))).rejects.toThrow();
   });
 
-  it("keeps the stylesheet import in the admin layout and preserves the host root layout", async () => {
+  it("keeps the stylesheet import in the admin layout and only adds suppressHydrationWarning to the host root layout", async () => {
     const rootLayout = await fs.readFile(path.join(root, "src/app/layout.tsx"), "utf8");
     await createProgram().parseAsync(["node", "flowpanel", "init", "--yes", "--json"]);
-    expect(await fs.readFile(path.join(root, "src/app/layout.tsx"), "utf8")).toBe(rootLayout);
+    expect(await fs.readFile(path.join(root, "src/app/layout.tsx"), "utf8")).toBe(
+      rootLayout.replace("<html>", "<html suppressHydrationWarning>"),
+    );
     const layout = await fs.readFile(path.join(root, "src/app/admin/layout.tsx"), "utf8");
     expect(layout).toContain('"../../../styles/admin.css"');
   });
@@ -95,7 +97,7 @@ describe("init mount integration", () => {
     await write("src/shared/lib/db/schema/index.ts", "export const users = {};");
     await createProgram().parseAsync(["node", "flowpanel", "init", "--yes", "--json"]);
     const config = await fs.readFile(path.join(root, "flowpanel.config.ts"), "utf8");
-    expect(config).toContain("./src/shared/lib/db/index");
+    expect(config).toContain('import { db } from "./src/shared/lib/db";');
     const { createJiti } = await import("jiti");
     const session = (await createJiti(root).import(path.join(root, "server/lib/auth.ts"))) as {
       getSession: () => Promise<unknown>;
@@ -127,16 +129,12 @@ describe("init mount integration", () => {
       out.push(String(chunk));
       return true;
     });
-    // The existing config is a conflict, so the run stops — but the plan it
-    // printed is exactly the question here: where do the route handlers go?
-    vi.spyOn(process, "exit").mockImplementation(() => {
-      throw new Error("init refused");
-    });
-    await expect(
-      createProgram().parseAsync(["node", "flowpanel", "init", "--dry-run", "--json"]),
-    ).rejects.toThrow("init refused");
-    const plan = JSON.parse(out.join("")) as { plan: { operations: { path: string }[] } };
+    await createProgram().parseAsync(["node", "flowpanel", "init", "--dry-run", "--json"]);
+    const plan = JSON.parse(out.join("")) as {
+      plan: { operations: { kind: string; path: string }[] };
+    };
     const paths = plan.plan.operations.map((operation) => operation.path);
+    expect(plan.plan.operations.find((op) => op.path === "flowpanel.config.ts")?.kind).toBe("skip");
     expect(paths).toContain("src/app/internal/fp/[...route]/route.ts");
     expect(paths).toContain("src/app/internal/fp/stream/route.ts");
     expect(paths.some((value) => value.startsWith("src/app/api/flowpanel/"))).toBe(false);

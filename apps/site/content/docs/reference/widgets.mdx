@@ -4,15 +4,13 @@ description: Every widget builder and the options it accepts.
 kind: reference
 ---
 
-Widgets are the contents of a dashboard section, of a detail page's widgets tab,
-and of a drawer's widget tab. Each builder returns a `WidgetConfig`; every
-`query` runs on the server with a `WidgetContext`. In a detail tab and in a
-drawer the record being viewed is `ctx.row`; a drawer renders its widgets as
-static cards (see [Drawers](/docs/reference/drawer#drawertabwidgets)).
+Widgets fill dashboard sections, record page tabs and drawer tabs. Each builder
+returns a `WidgetConfig`; every `query` runs on the server with a `WidgetContext`.
+On a record page or in a drawer, `ctx.row` is the record. A drawer renders
+[static cards](/docs/reference/drawer#drawertabwidgets).
 
-```ts excerpt
-import { dashboard, metric, statGroup, table } from "@flowpanel/kit";
-import { areaChart } from "@flowpanel/kit/charts";
+```ts
+import { areaChart, dashboard, metric, statGroup, table } from "@flowpanel/kit";
 
 export const overview = dashboard({
   path: "/",
@@ -25,7 +23,7 @@ export const overview = dashboard({
         metric("MRR", async ({ db, dateRange }) => mrr(db, dateRange), {
           format: "currency",
           span: 3,
-          drilldown: "/admin/invoices",
+          drilldown: { resource: "invoices" },
         }),
         areaChart("Revenue over time", async ({ db }) => revenueSeries(db), {
           x: "day",
@@ -43,41 +41,180 @@ export const overview = dashboard({
 
 What every widget `query` receives.
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="WidgetContext" />
+<AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="WidgetContext" />
 
-`href` builds a link under the admin's own `basePath`, so a config never
-hand-types `/admin/…`. `href("orders")` is the list, `href("orders", id)` one
-record, and the third argument adds the list page's own query keys —
-`{ filter: { status: "paid" } }` becomes `?f_status=paid` and `{ tab: "activity" }`
-becomes `?tab=activity`.
+`link` turns a named target into an href under `paths.admin`:
+`link({ resource: "orders" })` is the list, `{ resource: "orders", id }` one record,
+and `{ filter: { status: "paid" } }` adds `?f_status=paid`. Where an option takes a
+link, pass the target itself.
 
-`query(key, fn)` memoises for the request. Two widgets that need the same figure
-pass the same key and the query runs once; the memo is per page render, so the
-next request queries again. The memo holds the promise, so a failure is shared
-too — the request does not retry under that key.
+`query` memoises for the request, so widgets that ask the same question run it
+once. Pass a key and a thunk, `query("mrr", () => mrr(db))`, or a function and its
+arguments, `query(mrr, db, ctx.dateRange)`; arguments key by value (objects by
+identity). A failure is shared too. Use a function declared once: an inline one is
+new on every call and never shares. A function passed alone that declares a
+parameter receives the context, so `query(hourly)` runs `hourly(ctx)` once; a
+function whose parameters are all defaulted is called with none. The `compare`
+period runs it again with its own range.
 
-`labels` is the admin's resolved `LabelsConfig`, which is where a widget's own
-wording should come from. `row` is present only when the widget sits in a detail
-tab, and holds that record's projected fields.
+`count` is memoised the same way: one resource and `where`, written in any key
+order, count once per request. `id` is the viewed record's key as a string, read
+through the resource's `rowKey`; a dashboard widget has none.
 
-```ts excerpt
+`dateRange` is the picked range with `previous` and `timeZone`. For `today`,
+`yesterday`, `MTD`, `QTD` and `YTD`, `previous` is the same stretch one period back
+at the same clock time; for `last7d`, `last30d` and a custom range it is the span
+of the same length before. Over a record's whole history it is `null`.
+
+`filters` holds the dashboard's active filters by key, `{ platform: "kwork" }` for
+`?f_platform=kwork`, and is `{}` when none is set. Bind it in your own query.
+
+`labels` is the resolved `LabelsConfig`. `row` is set on a record page.
+
+```ts
 metric("Paid orders", async (ctx) => ({
   value: await ctx.query("paid-orders", () => countPaid(ctx.db, ctx.dateRange)),
-  href: ctx.href("orders", undefined, { filter: { status: "paid" } }),
+  href: { resource: "orders", filter: { status: "paid" } },
 }));
+```
+
+### WidgetFormat
+
+<AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="WidgetFormat" />
+
+`ctx.format` formats with the admin's `locale`, `timeZone` and `currency`, the same
+way table cells do. Outside a widget, such as in a `page()` component,
+`bindFormat(formatting)` from `@flowpanel/kit` returns the same formatters for a
+`ResolvedFormatting`.
+
+```ts
+stat("Latency", async (ctx) => {
+  const s = await ctx.query(latencyStages, ctx.db, ctx.dateRange);
+  return {
+    value: ctx.format.duration(s.p50Ms),
+    hint: `p95 ${ctx.format.duration(s.p95Ms)} · ${ctx.format.plural(s.n, { one: "{n} order", other: "{n} orders" })}`,
+  };
+});
 ```
 
 ## Shared option types
 
-`Span` is `1 | 2 | 3 | 4 | 6 | 8 | 12` — the widget's width in the section's
-12-column grid.
+`Span` is a whole number from `1` to `12`. A section without `columns` uses 12
+columns once a widget sets `span`. On a phone every widget takes the full row.
 
 `NumericFormat` is `"number" | "currency" | "percent" | "bytes" | "duration"`.
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 
-Every widget accepts `realtime`, a channel name or list. When one fires, that
-widget re-runs its query — the rest of the dashboard stays put.
+Every widget and dashboard accepts `realtime`: a channel name, `{ resource: "orders" }`,
+or a list of them. When one fires, only that widget re-runs.
+
+Every widget accepts `access`, the same rule a dashboard or action takes: a role, a
+list of roles, or a function. A widget the caller's role is refused is left out of
+the dashboard, record page or drawer, and its queries never run. A section left
+with no widget is left out too. `ctx.role` gives a query the caller's role.
+
+```ts
+metric("MRR", (ctx) => mrr(ctx.db, ctx.dateRange), { format: "currency", access: "admin" });
+```
+
+`maxRange`, such as `"30d"`, is for rows your app deletes after that long. The
+widget queries from `max(from, to − N, now − N)` and says so in its caption; a
+range that ended before `now − N` runs no query and shows `—`. `heatmap` and
+`tracker` do not take it.
+
+### Captions
+
+A card shows at most one caption under its title, in this order of precedence:
+1. the expired state;
+2. where `maxRange` cut the range;
+3. `freshness`: when the data was last written, in the warn tone with a ▲ past
+   `warnAfter`;
+4. `coverage`: a note that the data is a sample.
+
+A failing `freshness.at` is logged and skipped.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-caption.ts" name="CaptionOptions" />
+
+<AutoTypeTable path="../../packages/core/src/types/widget-caption.ts" name="Freshness" />
+
+```ts
+metric("Runs today", runsToday, {
+  freshness: { at: async (c) => lastRollupHour(c), warnAfter: "2h" },
+});
+metric("With analytics consent", consentShare, {
+  format: "percent",
+  coverage: "users who accepted analytics",
+});
+```
+
+## Thresholds
+
+<AutoTypeTable path="../../packages/core/src/types/threshold.ts" name="Threshold" />
+
+Pass one threshold as `tones` to `metric`, `stat`, `bars`, `tracker` and the
+`number`, `percent` and `duration` column formats. The tone is `ok`, `warn` or `err`,
+and `muted` below `min` observations (a metric or stat returns them as `volume`).
+An explicit `tone` wins. `toneFor(value, threshold, volume)` gives the same answer
+in your own code.
+
+`warn` below `err` means higher is worse; `warn` above `err` means lower is worse.
+A `goodWhen` that contradicts the numbers makes `defineAdmin` throw.
+
+```ts
+import { type Threshold, metric, resource, toneFor } from "@flowpanel/kit";
+
+const ERRORS: Threshold = { warn: 0.3, err: 0.5, min: 20 };
+
+metric(
+  "Run errors",
+  async (c) => {
+    const { rate, runs } = await runErrorRate(c);
+    return { value: rate, volume: runs };
+  },
+  { format: "percent", tones: ERRORS },
+);
+resource(schema.monitors, { columns: [{ field: "errorRate", format: { kind: "percent", tones: ERRORS } }] });
+toneFor(0.42, ERRORS, 120); // "warn": 120 runs, above warn and below err
+```
+
+## Links
+
+A widget link names its target instead of spelling a path.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="ResourceLink" />
+
+<AutoTypeTable path="../../packages/core/src/types/widget-context.ts" name="DashboardLink" />
+
+A `LinkTarget` is a string (used as written), a `ResourceLink` or a `DashboardLink`.
+
+- `{ resource: "order" }` is the list, `{ resource: "order", id }` one record, and `tab`
+  a record tab.
+- `filter` becomes the list's `f_<field>` keys, or a dashboard's declared filters. A
+  `Date` is written as its day, `{ gte, lte }` as a range, an array as `a,b`. A key
+  the target does not declare fails at `defineAdmin`.
+- `view` applies one of the resource's saved `views`.
+- `range` on a resource link names the `daterange` filter that receives the widget's
+  range, so the list shows exactly the counted rows.
+- `{ dashboard: "/system" }` is a dashboard or page by `path`. It carries the widget's
+  range unless `range: false`.
+
+An unregistered resource, view or dashboard throws and lists the registered ones.
+
+`ctx.link(target)` resolves the same targets to a string, for the props of a custom
+widget:
+
+```ts
+custom(PlatformGrid, async (ctx) => ({
+  platforms: (await platforms(ctx.db)).map((p) => ({
+    ...p,
+    runsHref: ctx.link({ resource: "scraper_run", filter: { platform: p.key }, range: "startedAt" }),
+  })),
+}));
+```
+
+Every widget link option takes a `LinkTarget`, or a function of the context that
+returns one or `null`.
 
 ## metric
 
@@ -85,16 +222,47 @@ widget re-runs its query — the rest of the dashboard stays put.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricOptions" />
 
-`icon` is handed to the metric card as a React child and rendered verbatim.
-Metric icons are deliberately free-form: pass an emoji or a ligature your own
-icon font resolves; a Lucide name renders as literal text. This differs from
-resource, action and command icons, which use the serializable `IconName`
-registry described under [resource icons](/docs/reference/resources#icons).
+A metric's `icon` is rendered as given, such as an emoji; it is not an `IconName`.
 
-A `metric()` query may return a bare number or string, or a `MetricResult`
-carrying the presentation the value itself implies. A result field wins over the
-matching static option, which stays as the fallback: `MetricResult.href` renders
-as the card's `drilldown`, and `MetricResult.sublabel` as its caption.
+A query returns a number, a string, or a `MetricResult`, whose fields win over the
+matching options.
+
+A metric that counts rows takes `{ count, where, range }` instead of a query. Its
+value is `ctx.count(count, where, { range })`, and it links to exactly the rows it
+counted unless you set `drilldown`. A missing `where` value counts `0` with no link.
+
+```ts
+metric("Visits", { count: "user_visit", where: (c) => ({ userId: c.id }), range: "startedAt" }, {
+  compare: true,
+});
+metric("Sign-ups", { count: "user", range: "createdAt" }, { compare: true });
+```
+
+`where` may be a function of the context. Its fields must be columns or filters of
+the counted list, and `range` one of its `daterange` filters; `defineAdmin` checks
+both. `drilldown: () => null` removes the link.
+
+`compare: true` runs the query again with `ctx.dateRange.previous` and shows the
+change; `compare: { against: "weekAgo" }` compares with the same range seven days
+earlier. Set `goodWhen: "down"` for costs and errors. A `delta` from the query wins.
+A value that was 0 in the earlier period reads "new" beside "was 0", since a
+percentage of nothing means nothing; 0 both times reads "No change".
+
+```ts
+metric("New users", async (ctx) => countSignups(ctx.db, ctx.dateRange), { compare: true });
+```
+
+A query that sums a cents column returns minor units: set `minorUnits` with
+`format: "currency"` and the card shows the amount, as a chart's `minorUnits` does.
+`stat()` and `bars()` take it too, and `tones` and `max` read the amount shown.
+
+```ts
+metric("Revenue", (ctx) => revenueCents(ctx.db, ctx.dateRange), {
+  format: "currency",
+  minorUnits: 2,
+  compare: true,
+});
+```
 
 ### MetricResult
 
@@ -104,22 +272,19 @@ as the card's `drilldown`, and `MetricResult.sublabel` as its caption.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="MetricDelta" />
 
-`goodWhen: "down"` colours a fall green — for churn, cost or latency a drop is
-the good news.
+The change prints signed (`+12%`, `−3`). Inside ±1 % it has no sign, and only a
+change of 5 % or more is coloured. With `previous` set, the old value shows beside
+it. A count whose `previous` is under 20 shows the absolute change, and a
+`format: "percent"` metric its change in points (`+3 pp`). `goodWhen: "down"`
+colours a fall as good; `"neutral"` never colours.
 
 ## table
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="table" />
 
-Point it at a registered `resource` to reuse that resource's columns, or supply
-your own `query` and `columns`.
-
-`R` is inferred from `query`, so `columns` is checked against the row that query
-returns — a misspelled column is a compile error. A column entry is either a bare
-key, which is `keyof R & string` once `R` is known and plain `string` while it is
-not, or a `WidgetColumn` object naming and formatting a column the query produced
-itself. A bare key on the `resource` path keeps that resource's declared header
-and format; an object overrides them.
+Point it at a `resource` to reuse its columns, or pass your own `query` and
+`columns`, which are checked against the query's row type. On the `resource`
+path a bare key keeps the resource's header and format; an object overrides them.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="TableWidgetOptions" />
 
@@ -127,26 +292,20 @@ and format; an object overrides them.
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="WidgetColumn" />
 
-`rowKey` names the field that identifies a row. It defaults to the resource's own
-key on the `resource` path and to `"id"` for a `query`; a row without a value
-there still renders but never acts.
+`rowKey` defaults to the resource's key, or `"id"` for a `query`. `rowHref` links
+each row (`null` for none); `seeAll: true` links the heading to the list. `limit`
+defaults to 10 on the `resource` path. `density: "compact"` sets 40 px rows.
 
-`rowHref` turns rows into links. It runs on the server, once per row, and
-returning `null` leaves that row inert. `seeAll: true` links the card heading to
-the resource's list through `ctx.href`; a string is used as the href verbatim.
+`where` narrows the `resource` read with [`ctx.read` values](/docs/reference/contexts#where-values),
+or a function such as `(c) => ({ userId: c.id })`. `range` names the timestamp the
+picked range bounds: `table({ resource: "user", range: "createdAt" })`.
 
-`emptyState` replaces the table body when there are no rows — a string becomes the
-empty state's title, any other node is rendered in the card instead of the table.
-With none set the admin's `labels.widget.empty` is used. `limit` caps the rows: it
-defaults to 10 on the `resource` path and applies to a `query`'s own rows only
-when you set it.
-
-```ts excerpt
+```ts
 table({
   resource: "orders",
   label: "Recent orders",
   columns: ["id", { field: "total", label: "Total", format: "money", align: "right" }],
-  rowHref: (row, ctx) => ctx.href("orders", row.id),
+  rowHref: (row) => ({ resource: "orders", id: row.id }),
   seeAll: true,
   limit: 5,
 });
@@ -162,13 +321,11 @@ table({
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="StatItem" />
 
-`StatValue` is `string | number | boolean | bigint | Date | null | undefined`.
-Keeping the literal side explicit preserves full `WidgetContext` autocomplete
-inside async `value` resolvers. A `Date` is rendered through the admin's
-`formatting` — its `locale` and `timeZone` — like a table cell, so no resolver
-needs to format one by hand.
+`StatValue` is `string | number | boolean | bigint | Date | null | undefined`; a
+`Date` is formatted like a table cell. A resolver may return a [`KvResult`](#kvresult)
+with its own tone and link.
 
-```ts excerpt
+```ts
 statGroup({
   label: "Account",
   span: 6,
@@ -182,35 +339,28 @@ statGroup({
 
 ## Cards
 
-Five small cards cover most of what a founder dashboard shows between its metrics
-and its tables. Each takes counts and labels only; the card derives the geometry,
-formats values through the admin's `formatting` — locale *and* currency, so one
-dashboard never prints two currencies for the same money — and marks a `tone` on
-the item it belongs to.
+Small cards take values and labels, format them with the admin's `formatting`,
+and colour items by `tone`.
 
 ### stat
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="stat" />
 
-One number with a label, without `metric()`'s delta and sparkline machinery. The
-value is a literal or a resolver.
+One number with a label, without `metric()`'s delta and sparkline.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="StatOptions" />
 
 #### StatResult
 
-A resolver may return a `StatResult` instead of a bare value, so a card computed
-from data carries its own tone, caption and link — the same arrangement
-`MetricResult` gives `metric()`. A result field wins over the matching static
-option, which stays as the fallback. A `Date` is still a value, not a result.
+A resolver may return a `StatResult`, whose fields win over the options.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="StatResult" />
 
-```ts excerpt
+```ts
 stat("Open invoices", async (ctx) => {
-  const filter = { customerId: ctx.row?.id, status: "open" };
+  const filter = { customerId: ctx.rowOf("customers").id, status: "open" } as const;
   const value = await ctx.count("invoices", filter);
-  return { value, href: ctx.href("invoices", undefined, { filter }), tone: value > 0 ? "warn" : "ok" };
+  return { value, href: { resource: "invoices", filter }, tone: value > 0 ? "warn" : "ok" };
 });
 ```
 
@@ -218,8 +368,32 @@ stat("Open invoices", async (ctx) => {
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="kv" />
 
-The facts about one thing. Each item's `format` accepts a `ColumnFormat` or a
-`NumericFormat`, resolved on the server so the card renders a finished string.
+Facts about one thing. An item's `format` takes a `ColumnFormat` or `NumericFormat`.
+An item with `field` reads the card's `record`, which runs once and defaults to the
+viewed row on a record page:
+
+```ts
+kv({
+  label: "Feed filters",
+  record: (c) => c.read("freelancer_profile", { where: { userId: c.id }, limit: 1 }).then((r) => r[0]),
+  items: [{ label: "Rate", field: "hourlyRate", format: "number" }],
+});
+```
+
+An item with `long` is a paragraph; past `lines` lines (6 by default) the rest
+folds under "Show all". `empty` replaces "—" for a missing value.
+
+```ts
+kv({
+  label: "Texts",
+  columns: 1,
+  record: profileOf,
+  items: [
+    { label: "About", field: "bio", long: true, empty: "Not filled" },
+    { label: "Resume", field: "resumeText", long: { lines: 10 }, empty: "Not uploaded" },
+  ],
+});
+```
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="KvOptions" />
 
@@ -227,14 +401,60 @@ The facts about one thing. Each item's `format` accepts a `ColumnFormat` or a
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="KvItem" />
 
+#### KvResult
+
+An item resolver may return a `KvResult`, whose `tone` and `href` win over the
+item's. `statGroup` items take the same result.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="KvResult" />
+
+```ts
+kv({
+  items: [
+    {
+      label: "Failed runs",
+      value: async (ctx) => {
+        const value = await ctx.count("runs", { status: "failed" });
+        return { value, tone: value > 0 ? "err" : "ok", href: { resource: "runs" } };
+      },
+    },
+  ],
+});
+```
+
 ### bars
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="bars" />
 
-A ranked breakdown. The query returns labels and values; the card sizes every bar
-against the largest one.
+A ranked breakdown, sized against the largest value or `max`. Set `max` for a
+rate:
+
+```ts
+bars({ label: "Win rate by budget", query: async (ctx) => winRates(ctx.db), format: "percent", max: 1 });
+```
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="BarsOptions" />
+
+`share: true` shows each row's share of the total; a top-N query returns each
+row's `share` itself. A row's `previous` shows its change with the `MetricDelta`
+rules.
+
+`compare: true` (or `{ against: "weekAgo" }`) runs the query for the earlier period
+and fills each row's `previous`, joining by `key`, else `label`. A row the earlier
+period lacks counts as 0 there, unless those rows fold the rest into "Other", where
+it shows no change. A row that grew from 0 reads "new" instead of a percentage, and
+a row at 0 both times shows no change. A query with a `LIMIT` of its own should fold
+the rest with `breakdown({ top })`, or a row that was just outside it reads "new". With `top`, pass the earlier
+rows to `breakdown({ previous })` instead.
+
+```ts
+bars({
+  label: "New orders by marketplace",
+  share: true,
+  compare: true,
+  query: async (c) => breakdown(await c.query(hourly), { by: "platform", value: "orders", keys: PLATFORMS }),
+});
+```
 
 #### BarRow
 
@@ -244,8 +464,9 @@ against the largest one.
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="funnel" />
 
-Stages in order. Give counts only: the card computes each step's share of the
-first step and its drop-off from the one before.
+Stages in order, from counts. The card shows each step's share of the first and
+its drop-off. With `alertDrop`, the largest drop-off is marked `warn` when it loses
+more than that share of the step before.
 
 <AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="FunnelOptions" />
 
@@ -257,15 +478,32 @@ first step and its drop-off from the one before.
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="list" />
 
-A short feed — latest signups, failing jobs — where a table would be too much.
+A short feed, such as latest signups or failing jobs.
 
-<AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="ListOptions" />
+<AutoTypeTable path="../../packages/core/src/types/widget-list.ts" name="ListOptions" />
+
+A row can carry `count` and `since` (printed relative). `limit` folds the rest into
+an "N more" line linking to `more`.
+
+#### banner
+
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="banner" />
+
+`list({ variant: "banner", span: 12 })`: rows ordered err, warn, info, then by
+`count`. The first row is a sentence, the rest are lines. With no rows it shows
+`allClear`.
+
+```ts
+banner({ query: priorities, limit: 3, more: { dashboard: "/system" }, allClear: "Nothing on fire" });
+```
 
 #### ListRow
 
-<AutoTypeTable path="../../packages/core/src/types/widget-cards.ts" name="ListRow" />
+<AutoTypeTable path="../../packages/core/src/types/widget-list.ts" name="ListRow" />
 
-```ts excerpt
+Set `key` when realtime updates reorder rows.
+
+```ts
 import { bars, funnel, kv, list, stat } from "@flowpanel/kit";
 
 const widgets = [
@@ -283,95 +521,319 @@ const widgets = [
 ];
 ```
 
+### tracker
+
+<ApiSignature path="../../packages/core/src/builders/widget.ts" name="tracker" />
+
+One row per key and one block per hour of a window ending now, regardless of the
+date picker. The window is 24 hours by default; past 48 hours the blocks are days.
+
+The query receives the window as `ctx.dateRange`. `at` places rows in blocks, `by`
+makes the rows, and `value` and `volume` fold each block like `series()`. `tones`
+colours blocks; a row's dot is the worst of its last three. `rows` takes prebuilt
+rows instead. Not available in drawers.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-tracker.ts" name="TrackerOptions" />
+
+```ts
+tracker({
+  label: "Marketplaces · 24 h",
+  query: hourly,
+  at: "at",
+  by: "platform",
+  labels: Platform,
+  value: errorRate,
+  volume: "runs",
+  tones: { warn: 0.3, err: 0.5, min: 20 },
+  format: "percent",
+  summary: async (row, c) => lastSuccess(await c.query(platformHealth), row.key, c.format),
+  span: 12,
+});
+```
+
+#### TrackerRow
+
+<AutoTypeTable path="../../packages/core/src/types/widget-tracker.ts" name="TrackerRow" />
+
+## timeline
+
+<ApiSignature path="../../packages/core/src/builders/timeline.ts" name="timeline" />
+
+Events newest first, grouped by day. Consecutive events of one kind with the same
+`fold` key collapse into one line. A chip per kind (`kinds`) filters, and "Older"
+pages back, under `?<id>.kind=` and `?<id>.before=`; `id` defaults to the tab key.
+
+`query(ctx, page)` returns events that are not resource rows: at or before
+`page.before`, at most `page.limit`, of `page.kinds` when set.
+
+```ts
+timeline({
+  label: "Activity",
+  kinds: Activity,
+  query: async (ctx, page) => loadEvents(ctx.db, ctx.id, page),
+});
+```
+
+On a record page a timeline covers the whole history, ignoring `detail.dateRange`.
+Not available in drawers.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-timeline.ts" name="TimelineOptions" />
+
+### Sources
+
+`timeline.source(resource, source)` reads a resource's rows as events, with the
+reader's access applied. `at` is the timestamp; `kind` is fixed or `{ field }`.
+`refs` names reference columns whose labels reach `title` and `meta`.
+
+```ts
+timeline({
+  kinds: Bot,
+  sources: [
+    timeline.source("telegram_message_log", { kind: { field: "kind" }, at: "createdAt", title: (m) => m.text }),
+    timeline.source("notification_log", {
+      kind: "failed",
+      at: "createdAt",
+      tone: "err",
+      where: { failedReason: "__notnull__", deliveredAt: "__null__" },
+      title: "Delivery failed",
+    }),
+  ],
+});
+```
+
+On a record page a source reads only rows referencing the record, AND-ed with
+`where`; `by` picks the column when several reference it. On a dashboard it reads
+rows whose `at` is in the picked range.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-timeline.ts" name="TimelineSource" />
+
+### TimelineEvent
+
+<AutoTypeTable path="../../packages/core/src/types/widget-timeline.ts" name="TimelineEvent" />
+
+### TimelinePage
+
+<AutoTypeTable path="../../packages/core/src/types/widget-timeline.ts" name="TimelinePage" />
+
+## heatmap
+
+<ApiSignature path="../../packages/core/src/builders/activity.ts" name="heatmap" />
+
+Activity per day over the last `days` days (91 by default) ending today, shaded in
+four steps.
+
+`source` counts rows, or sums `value`, per day of `at`. On a record page it reads
+rows referencing the record, like a timeline source. It reads at most 10,000 rows;
+beyond that use `query`, which returns totals per day.
+
+```ts
+heatmap({ label: "Visits, 13 weeks", source: { resource: "user_visit", at: "startedAt" }, unit: Visits });
+```
+
+The date picker does not move it.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-activity.ts" name="HeatmapOptions" />
+
+### HeatmapSource
+
+<AutoTypeTable path="../../packages/core/src/types/widget-activity.ts" name="HeatmapSource" />
+
+## checklist
+
+<ApiSignature path="../../packages/core/src/builders/activity.ts" name="checklist" />
+
+Items done or not. An item is done when `done` holds a value other than `null`,
+`undefined`, `false`, a blank string or an empty list. The summary counts
+non-`optional` items.
+
+With `ordered`, done items show their date and the gap since the previous step.
+`layout: "steps"` lays them out in a row. Not available in drawers.
+
+```ts
+checklist({
+  label: "Journey",
+  ordered: true,
+  layout: "steps",
+  items: async (c) => {
+    const user = c.rowOf("user");
+    return [
+      { label: "Signed up", done: user.createdAt },
+      { label: "Linked Telegram", done: user.telegramLinkedAt, optional: true },
+      { label: "First reply sent", done: user.firstSentAt },
+    ];
+  },
+});
+```
+
+`labels.checklist` words the summary, the gap and the marks' names for screen readers.
+
+<AutoTypeTable path="../../packages/core/src/types/widget-activity.ts" name="ChecklistOptions" />
+
+### ChecklistItem
+
+<AutoTypeTable path="../../packages/core/src/types/widget-activity.ts" name="ChecklistItem" />
+
+### filled
+
+<ApiSignature path="../../packages/core/src/builders/activity.ts" name="filled" />
+
+One checklist item per labelled field, done when the field has a value.
+
+```ts
+checklist({
+  label: "Profile",
+  items: async (c) => filled(await profileOf(c), { bio: "About", hourlyRate: "Rate" }),
+});
+```
+
 ## custom
 
 <ApiSignature path="../../packages/core/src/builders/widget.ts" name="custom" />
 
-Renders your own component in the grid. `props` may be a value or a function
-resolved on the server per request, which is how you feed it query results.
+Your own component in the grid. `props` is a value or a server function. See
+[Build a custom widget](/docs/customization/custom-widgets).
 
 <AutoTypeTable path="../../packages/core/src/types/widget.ts" name="CustomOptions" />
 
 ## Charts
 
-Chart builders live in `@flowpanel/kit/charts`, which is a separate entry point
-so the recharts bundle never loads for admins that use no charts.
+The chart builders come from `@flowpanel/kit`. Recharts loads only when a chart is on the page.
 
-```ts excerpt
-import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit/charts";
+```ts
+import { areaChart, barChart, lineChart, pieChart } from "@flowpanel/kit";
 ```
 
-Each takes `(label, query, options)`, where `query` returns an array of rows.
-The row type is inferred from `query`, so `x` / `y` (and `category` / `value` on
-a pie) must name keys of that row — a typo is a compile error. A `query` typed
-as `unknown[]` leaves them as plain strings.
+Each takes `(label, query, options)`. `x` and `y` (`category` and `value` on a pie)
+are checked against the query's row type.
 
 ### ChartOptionsBase
 
 Shared by area, bar and line charts.
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="ChartOptionsBase" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="ChartOptionsBase" />
 
 `ChartBucket` is `"minute" | "hour" | "day" | "week" | "month" | "year" | "auto"`.
 
+Without `y`, the chart plots every numeric key of its first row except `x`, which
+is what `series({ by })` returns. `labels` names the series. `bucket` only formats
+date ticks; aggregate with `series({ grain })`. For amounts stored in cents, set
+`format: "currency"` and `minorUnits: 2`, and the axis and tooltips show money.
+`minorUnits` alone divides the values but prints plain numbers, so `defineAdmin`
+warns about a chart that sets it without `format: "currency"` when the dev server
+starts, and `flowpanel doctor` lists it.
+
+One series draws in `--fp-data`; several use `--fp-chart-1` to `--fp-chart-7` in `y`
+order. `colors` pins a series to a colour:
+
+```ts
+lineChart("Signups", signupsByPlan, {
+  x: "day",
+  y: ["trial", "paid"],
+  colors: { paid: "hsl(var(--fp-chart-1))", trial: "hsl(var(--fp-chart-2))" },
+});
+```
+
 ### areaChart
 
-<ApiSignature path="../../packages/charts/src/builders/areaChart.ts" name="areaChart" />
+<ApiSignature path="../../packages/core/src/builders/charts.ts" name="areaChart" />
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="AreaChartOptions" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="AreaChartOptions" />
 
 ### barChart
 
-<ApiSignature path="../../packages/charts/src/builders/barChart.ts" name="barChart" />
+<ApiSignature path="../../packages/core/src/builders/charts.ts" name="barChart" />
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="BarChartOptions" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="BarChartOptions" />
 
 ### lineChart
 
-<ApiSignature path="../../packages/charts/src/builders/lineChart.ts" name="lineChart" />
+<ApiSignature path="../../packages/core/src/builders/charts.ts" name="lineChart" />
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="LineChartOptions" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="LineChartOptions" />
 
 ### pieChart
 
-<ApiSignature path="../../packages/charts/src/builders/pieChart.ts" name="pieChart" />
+<ApiSignature path="../../packages/core/src/builders/charts.ts" name="pieChart" />
 
 Pie charts take `category` / `value` instead of `x` / `y`. The slice legend is on
 unless you pass `showLegend: false`.
 
-<AutoTypeTable path="../../packages/core/src/types/widget.ts" name="PieChartOptions" />
+<AutoTypeTable path="../../packages/core/src/types/widget-charts.ts" name="PieChartOptions" />
 
 ## Series helpers
 
-Two pure helpers for the shape a dashboard query usually needs. Bucketing itself
-stays in SQL, where the dialect belongs.
+Pure helpers that turn query rows into chart and bar data in the admin's zone.
+
+<ApiSignature path="../../packages/core/src/runtime/series.ts" name="series" />
+
+One point per bucket across the range: hours, days, ISO weeks starting on Monday, or
+months, bucketed in `range.timeZone`. Pass `ctx.dateRange` and the admin's zone
+applies. Keys are `YYYY-MM-DD`, or `YYYY-MM-DDTHH:00` for hours, which chart ticks
+already read. `grain: "auto"` picks hours up to 2 days, days up to 92, weeks up to
+400 and months beyond.
+
+- **Gaps.** Every bucket is present. A bucket with no rows is `0` for a count or a
+  sum, and whatever the `value` function returns for `[]`: return `null` for a ratio
+  with no data.
+- **Pivots.** Without `by` the one column is `value`, so a sparkline is
+  `series(…).map((p) => p.value)`. With `by`, each value of that field is a column;
+  `keys` fixes columns that must appear, in order. `top` keeps `keys` and the largest
+  other series and folds the rest into `OTHER_KEY`, which charts name
+  `labels.widget.other`.
+- **Values.** `"12"` strings, bigints and booleans read as numbers. A `YYYY-MM-DD`
+  value is that calendar day, and a zoneless timestamp such as `2026-09-21 09:00:00`
+  is UTC, as everywhere else in FlowPanel.
+- **Whole history.** A range starting at the epoch, such as a record page's
+  `ctx.dateRange` without `detail.dateRange`, starts at the first row's bucket; with no
+  rows there are no buckets.
+- **DST.** On the day clocks skip an hour, that hour has no bucket. On the day they
+  repeat one, both of its hours share one bucket.
+
+Folding runs in JavaScript. Above about 50,000 rows, group by hour in SQL first.
+
+<AutoTypeTable path="../../packages/core/src/runtime/series.ts" name="SeriesOptions" />
+
+<ApiSignature path="../../packages/core/src/runtime/breakdown.ts" name="breakdown" />
+
+One ranked `BarRow` per value of `by`, with `key` and `share`, and each row's
+`previous` when you pass the earlier period's rows as `previous`. `top` folds
+the rest into one `OTHER_KEY` row, so the shares still add up to 1. `labels` takes a
+map, an `enumOf()` or a function. Shares only mean something for counts and sums.
+
+<AutoTypeTable path="../../packages/core/src/runtime/breakdown.ts" name="BreakdownOptions" />
+
+<ApiSignature path="../../packages/core/src/runtime/preset-range.ts" name="presetRange" />
+
+A preset's bounds now, in the admin's zone, for a query that needs a fixed window
+beside the picked one. Pass the same `now` to widgets sharing a query.
+
+```ts
+import { barChart, bars, breakdown, series, type WidgetContext } from "@flowpanel/kit";
+
+const hourly = (c: WidgetContext) => c.sql<{ at: Date; platform: string; orders: number }>`
+  select hour as at, platform, orders_new as orders
+  from scraper_hourly_stats where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}`;
+
+bars({
+  label: "New orders by marketplace",
+  share: true,
+  query: async (c) => breakdown(await c.query(hourly), { by: "platform", value: "orders", labels: Platform }),
+});
+barChart(
+  "New orders by day",
+  async (c) => series(await c.query(hourly), c.dateRange, { at: "at", by: "platform", value: "orders", grain: "day" }),
+  { x: "date", labels: Platform, stacked: true },
+);
+```
 
 <ApiSignature path="../../packages/core/src/runtime/series.ts" name="previousRange" />
 
-The range of the same length ending where the given one begins — the comparison
-period a `MetricDelta` is measured against. The shift is elapsed time, not calendar
-days: the window before a week that crosses a DST boundary starts an hour off the
-wall clock.
+The range of the same length ending where the given one begins, in elapsed time.
+`ctx.dateRange.previous` is usually what you want.
 
 <ApiSignature path="../../packages/core/src/runtime/series.ts" name="fillDays" />
 
-Turns sparse grouped rows into one point per day across the range, so a chart
-draws a flat stretch where nothing happened instead of skipping the day. Days are
-bucketed in `timeZone`, which defaults to UTC. There is one bucket per calendar day
-the range touches, both ends included, so the `last7d` preset — `now - 7d … now` —
-yields eight buckets and the first one is a partial day. Narrow the range, or slice
-the result, if a chart should show exactly seven bars.
-
-```ts excerpt
-import { fillDays, previousRange } from "@flowpanel/kit";
-
-areaChart("Signups", async ({ db, dateRange }) => {
-  const rows = await signupsByDay(db, dateRange);
-  return fillDays(rows, dateRange, { dateField: "day", valueField: "total" });
-}, { x: "date", y: "value" });
-
-const before = previousRange(dateRange);
-```
+Equals `series(rows, dateRange, { at: dateField, value: valueField, grain: "day" })`.
 
 ## Dashboards
 
@@ -379,30 +841,117 @@ const before = previousRange(dateRange);
 
 <ApiSignature path="../../packages/core/src/builders/dashboard.ts" name="page" />
 
-Both are identity functions — they exist so the object literal is checked
-against its type at the call site and reads as a builder alongside `resource()`
-and `queue()`.
+Both return their argument, typed.
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DashboardConfig" />
 
-`refresh` is `"<n>s"` or `"<n>m"`. It re-renders the whole dashboard on that
-interval, pauses while the browser tab is hidden, and shows how old the numbers
-are next to the date picker from `labels.widget.updated`.
+`refresh` (`"<n>s"` or `"<n>m"`) re-renders the dashboard on that interval while the
+tab is visible and shows the data's age by the date picker.
 
 ### SectionConfig
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="SectionConfig" />
 
+`variant: "strip"` draws `metric` and `stat` widgets as one band without cards.
+`columns` sets cells per line (up to six by default; two on a phone). A record
+page's [`detail.stats`](/docs/reference/resources#record-page) is the same strip.
+
+In a `"cards"` section, `table` and `list` cards keep their height and others
+stretch to the row; `align: "start"` or `"stretch"` sets it for all.
+
+```ts as="SectionConfig"
+{ variant: "strip", widgets: [newOrders, runs, successRate, bans] }
+```
+
 ### DateRangeConfig
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DateRangeConfig" />
 
-`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "MTD" | "QTD" | "YTD"`.
+`DateRangePreset` is `"today" | "yesterday" | "last7d" | "last30d" | "last12m" | "MTD" | "QTD" | "YTD"`.
+
+`today`, `yesterday`, `MTD`, `QTD` and `YTD` start at midnight in `formatting.timeZone`
+(UTC when it is not set); `last7d` and `last30d` are the last 7 × 24 and 30 × 24 hours.
+`last12m` starts on the 1st of the month eleven months back, so a monthly chart gets
+twelve buckets, the current month included; it compares with the same range a year back.
+
+`presets` limits the picker's choices; `preset` defaults to the first.
+
+### DashboardFilter
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="DashboardFilter" />
+
+`filters` adds a select per entry beside the date picker, stored in the URL as
+`f_<key>`. `options` takes `SelectOption[]`, an `enumOf()`, or a function of the
+widget context; a plain string list is not accepted.
+
+`filterOnClick: "<key>"` on `bars`, `tracker` or `table` sets that filter on click,
+replacing the row's link. It is rejected on a record page or in a drawer.
+
+```ts
+const byPlatform: DashboardFilter = { key: "platform", label: "Marketplace", options: Platform };
+
+const hourly = (c: WidgetContext) => c.sql<HourRow>`
+  select hour as at, platform, runs_total as runs from scraper_hourly_stats
+  where hour >= ${c.dateRange.from} and hour < ${c.dateRange.to}
+    and (${c.filters.platform ?? null}::text is null or platform = ${c.filters.platform ?? null})`;
+
+dashboard({
+  path: "/parsing",
+  label: "Parsing",
+  filters: [byPlatform],
+  sections: [{ columns: 12, widgets: [tracker({ query: hourly, at: "at", by: "platform", filterOnClick: "platform", span: 12 })] }],
+});
+```
 
 ### ResolvedDateRange
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="ResolvedDateRange" />
 
+### WidgetDateRange
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="WidgetDateRange" />
+
 ### PageConfig
 
 <AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="PageConfig" />
+
+A page's `component` gets the request as props: who is signed in, their tenant, the
+admin's formatting and its strings. `session` is what `auth.session` returned, the
+same object `access` rules see; with a provider preset that is the provider's own
+session, tokens included. Write the page as a server component and hand its client
+children only the fields they need. A `"use client"` page component gets
+`session: null` and `scope: null`, so neither reaches the browser. A component that throws shows an error card with Retry inside the
+admin, as a widget does, and the rest of the admin keeps working.
+
+```tsx
+// src/admin/pages/reports.tsx
+import { bindFormat, type PageProps } from "@flowpanel/kit";
+
+export function ReportsPage({ role, scope, formatting, searchParams }: PageProps) {
+  const format = bindFormat(formatting);
+  return (
+    <p>
+      {role} sees {String(scope?.orgId ?? "every tenant")} for {searchParams.year ?? "this year"}:{" "}
+      {format.money(1999, { minorUnits: 2 })}
+    </p>
+  );
+}
+```
+
+Register it in the config's `pages`, next to `dashboards`:
+
+```ts
+// src/admin/config/pages.ts
+import { page } from "@flowpanel/kit";
+import { ReportsPage } from "@/admin/pages/reports";
+
+export const pages = [page({ path: "/reports", label: "Reports", component: ReportsPage })];
+```
+
+Then pass it to `defineAdmin({ ..., pages })`. A `page()` put in `dashboards` fails to
+compile with `'"a page() is registered in pages: [...], not dashboards"' is missing`,
+and a plain JavaScript config fails at boot with the same advice.
+
+### PageProps
+
+<AutoTypeTable path="../../packages/core/src/types/dashboard.ts" name="PageProps" />

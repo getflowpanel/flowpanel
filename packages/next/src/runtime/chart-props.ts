@@ -1,0 +1,87 @@
+import type {
+  AreaChartWidget,
+  BarChartWidget,
+  LineChartWidget,
+  PieChartWidget,
+  ResolvedLabels,
+} from "@flowpanel/core";
+import { OTHER_KEY } from "@flowpanel/core";
+import { keyLabel } from "@flowpanel/core/internal";
+
+type ChartWidget = AreaChartWidget | BarChartWidget | LineChartWidget | PieChartWidget;
+
+export interface ChartProps {
+  options: ChartWidget["options"];
+  seriesLabels?: Record<string, string>;
+}
+
+function isNumericValue(value: unknown): boolean {
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "bigint") return true;
+  if (typeof value === "string") return value.trim() !== "" && Number.isFinite(Number(value));
+  return false;
+}
+
+function inferredY(x: string, data: readonly unknown[]): string[] {
+  const first = data[0];
+  if (typeof first !== "object" || first === null) return [];
+  const row = first as Record<string, unknown>;
+  return Object.keys(row).filter((key) => key !== x && isNumericValue(row[key]));
+}
+
+/** What a chart renderer receives: `y` filled from the data, series named in plain text, no link. */
+export function chartProps(
+  widget: ChartWidget,
+  data: readonly unknown[],
+  labels: ResolvedLabels,
+): ChartProps {
+  if (widget.kind === "pieChart") {
+    const {
+      drilldown: _drilldown,
+      freshness: _freshness,
+      coverage: _coverage,
+      access: _access,
+      ...options
+    } = widget.options;
+    return { options };
+  }
+  const {
+    drilldown: _drilldown,
+    labels: names,
+    freshness: _freshness,
+    coverage: _coverage,
+    access: _access,
+    minorUnits: _minorUnits,
+    ...options
+  } = widget.options;
+  const y = options.y ?? inferredY(options.x, data);
+  const keys = typeof y === "string" ? [y] : y;
+  const seriesLabels = Object.fromEntries(
+    keys.map((key) => {
+      const named = keyLabel(names, key);
+      return [key, key === OTHER_KEY && named === OTHER_KEY ? labels.widget.other : named];
+    }),
+  );
+  return { options: { ...options, y }, seriesLabels };
+}
+
+/** The rows a chart draws: each `y` value moved from minor units to the amount when the chart sets `minorUnits`. */
+export function chartRows(
+  widget: ChartWidget,
+  data: unknown[],
+  options: ChartWidget["options"],
+): unknown[] {
+  if (widget.kind === "pieChart" || widget.options.minorUnits === undefined) return data;
+  if (!("y" in options) || options.y === undefined) return data;
+  const factor = 10 ** widget.options.minorUnits;
+  const keys = typeof options.y === "string" ? [options.y] : options.y;
+  return data.map((row) => {
+    if (typeof row !== "object" || row === null) return row;
+    const scaled: Record<string, unknown> = { ...row };
+    for (const key of keys) {
+      const value = scaled[key];
+      if (isNumericValue(value)) scaled[key] = Number(value) / factor;
+    }
+    return scaled;
+  });
+}

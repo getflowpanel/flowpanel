@@ -1,0 +1,45 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    ".": {
+      // Scripts run by package.json, CI and by hand (pack:preview).
+      "entry": ["scripts/*.{ts,mjs}", "scripts/docs/*.ts", "scripts/onboarding/*.mjs"]
+    },
+    "apps/site": {
+      // Doc snippets are typechecked by check:snippets against the fixtures under `@/`.
+      "entry": ["content/snippets/**/*.{ts,tsx}", "!content/snippets/.generated/**"],
+      "paths": { "@/*": ["content/snippets/fixtures/src/*", "content/snippets/generated/src/*"] },
+      // Imported by eslint.config.ts and drizzle.config.ts blocks in the docs; @prisma/client is declared by the fixtures.
+      "ignoreDependencies": ["@flowpanel/eslint-plugin", "@prisma/client", "drizzle-kit"]
+    },
+    "examples/ai-scraper": {
+      // flowpanel.config.ts is what `flowpanel migrate` and `doctor` load.
+      "entry": ["flowpanel.config.ts", "scripts/*.{ts,mts}"],
+      // A peer of @flowpanel/kit/charts, which the demo's chart widgets render through.
+      "ignoreDependencies": ["recharts"]
+    },
+    "packages/cli": {
+      "ignore": ["src/**/__tests__/fixtures/**"]
+    },
+    "packages/e2e": {
+      // Started by the presentation spec in a child process.
+      "entry": ["presentation-tests/render-flowpanel-fixture.tsx"]
+    },
+    "packages/flowpanel": {
+      "entry": ["scripts/*.mjs"],
+      // The kit ships the internal packages' builds; their imports live in dist, not in src.
+      "ignoreDependencies": [
+        "@conform-to/zod",
+        "@radix-ui/.+",
+        "cmdk",
+        "drizzle-zod",
+        "recharts",
+        "tailwind-merge"
+      ]
+    },
+    "packages/adapter-prisma": {
+      "ignore": ["prisma/**"]
+    }
+  }
+}

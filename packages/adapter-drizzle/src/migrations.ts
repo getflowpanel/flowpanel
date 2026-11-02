@@ -8,10 +8,14 @@ import type { SQL } from "drizzle-orm";
 import type { DrizzleDialect } from "./dialect";
 
 const DDL: Record<DrizzleDialect, string> = {
-  pg: `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
-  id text PRIMARY KEY,
-  applied_at timestamptz NOT NULL DEFAULT now()
-)`,
+  pg: `DO $$ BEGIN
+  IF to_regclass('_flowpanel_migrations') IS NULL THEN
+    CREATE TABLE _flowpanel_migrations (
+      id text PRIMARY KEY,
+      applied_at timestamptz NOT NULL DEFAULT now()
+    );
+  END IF;
+END $$`,
   mysql: `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
   id varchar(255) NOT NULL PRIMARY KEY,
   applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -26,11 +30,7 @@ export function migrationsTableDdl(dialect: DrizzleDialect): string {
   return DDL[dialect];
 }
 
-/**
- * Split ordinary migration files without treating protected semicolons as
- * statement boundaries. Dialect-specific client directives and procedural
- * bodies that cannot be split safely are rejected before any SQL is run.
- */
+/** Splits a migration file into statements, refusing dialect-specific bodies it cannot split safely. */
 export function splitSqlStatements(rawSql: string, dialect: DrizzleDialect): string[] {
   let tokenized: ReturnType<typeof tokenizeMigrationSql>;
   try {
@@ -170,8 +170,7 @@ export function isPromiseLike<T>(value: T | PromiseLike<T>): value is PromiseLik
 }
 
 function rowsOf(raw: unknown, dialect: DrizzleDialect): Array<Record<string, unknown>> {
-  // mysql2 answers [rows, fields]; node-postgres answers { rows }; postgres-js
-  // and the sqlite drivers answer the row array itself.
+  // mysql2 answers [rows, fields]; node-postgres answers { rows }; others answer the row array.
   if (dialect === "mysql" && Array.isArray(raw)) {
     return (raw[0] ?? []) as Array<Record<string, unknown>>;
   }

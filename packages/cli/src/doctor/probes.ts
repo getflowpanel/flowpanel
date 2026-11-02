@@ -1,13 +1,22 @@
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import semver from "semver";
 import { hasMarker } from "../eject/marker";
+import { findAdminConfig } from "../scaffold/config-target";
+import { noConfigMessage } from "../utils/config-problem";
 import { detectAppDir, fileExists } from "../utils/detect";
+import { inspectDependency } from "../utils/project-packages";
 
-export { countCoreInstances } from "./installed-core";
+export { countKitInstances } from "./installed-kit";
 
-export async function checkEjectMarker(cwd: string, resourceName: string): Promise<string | null> {
+export async function checkEjectMarker(
+  cwd: string,
+  resourceName: string,
+  adminPath = "/admin",
+): Promise<string | null> {
   const appDir = await detectAppDir(cwd);
-  const candidate = path.join(cwd, appDir, "admin", resourceName, "page.tsx");
+  const candidate = path.join(cwd, appDir, adminPath, resourceName, "page.tsx");
   try {
     const src = await fs.readFile(candidate, "utf8");
     if (!hasMarker(src)) {
@@ -27,15 +36,19 @@ export async function checkEjectMarker(cwd: string, resourceName: string): Promi
  * Warnings for `admin/<name>/page.tsx` files that lost their eject marker.
  * `null` means the project has no ejected resource directories at all.
  */
-export async function staleEjectMarkers(cwd: string, appDir: string): Promise<string[] | null> {
+export async function staleEjectMarkers(
+  cwd: string,
+  appDir: string,
+  adminPath = "/admin",
+): Promise<string[] | null> {
   const entries = await fs
-    .readdir(path.join(cwd, appDir, "admin"), { withFileTypes: true })
+    .readdir(path.join(cwd, appDir, adminPath), { withFileTypes: true })
     .catch(() => []);
   const names = entries
     .filter((entry) => entry.isDirectory() && !/^[[.]/.test(entry.name))
     .map((entry) => entry.name);
   if (names.length === 0) return null;
-  const warnings = await Promise.all(names.map((name) => checkEjectMarker(cwd, name)));
+  const warnings = await Promise.all(names.map((name) => checkEjectMarker(cwd, name, adminPath)));
   return warnings.filter((warning): warning is string => warning !== null);
 }
 
@@ -56,9 +69,31 @@ export function firstDiagnostics(e: unknown, limit = 5): string | null {
  * `--fix` writes route files that import `flowpanel.config`. Outside a FlowPanel
  * project that scaffolds an admin into a tree that never asked for one.
  */
-export async function fixPrecondition(cwd: string): Promise<string | undefined> {
-  for (const name of ["flowpanel.config.ts", "flowpanel.config.tsx"]) {
-    if (await fileExists(path.join(cwd, name))) return undefined;
+export async function fixPrecondition(cwd: string, dlx = "pnpm dlx"): Promise<string | undefined> {
+  if ((await findAdminConfig(cwd)) !== null) return undefined;
+  return noConfigMessage(cwd, dlx);
+}
+
+const TYPEGEN_SINCE = "15.5.0";
+
+/** Runs `next typegen` when `.next/types` is missing; returns why it failed, or `null`. */
+export async function ensureNextTypes(cwd: string): Promise<string | null> {
+  if (await fileExists(path.join(cwd, ".next/types"))) return null;
+  const { installed } = await inspectDependency(cwd, "next");
+  const bin = installed?.manifest.bin;
+  const entry = typeof bin === "string" ? bin : bin?.next;
+  if (!installed || typeof entry !== "string") return null;
+  const version = semver.coerce(installed.version);
+  if (version === null || semver.lt(version, TYPEGEN_SINCE)) return null;
+  try {
+    execFileSync(process.execPath, [path.resolve(installed.directory, entry), "typegen"], {
+      cwd,
+      stdio: "pipe",
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+      timeout: 120_000,
+    });
+    return null;
+  } catch (e) {
+    return firstDiagnostics(e) ?? (e instanceof Error ? e.message : String(e));
   }
-  return `no flowpanel.config.ts in ${cwd} — this is not a FlowPanel project. Run \`flowpanel init\` first.`;
 }

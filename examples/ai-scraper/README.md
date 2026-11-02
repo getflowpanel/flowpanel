@@ -1,159 +1,85 @@
-# ScrapeAI — the canonical FlowPanel demo
+# ScrapeAI
 
-ScrapeAI is a fictional **Competitive price intelligence** SaaS. Customers connect product
-catalogs and marketplace monitors; ScrapeAI discovers competing offers, matches them to catalog
-products, and sends uncertain results to a human Review workflow.
+ScrapeAI is a fictional price-intelligence SaaS. Its customers set up marketplace monitors, the runs find competing listings, and uncertain matches go to human review. This is its admin, built with FlowPanel, and the source of the live demo. Next.js, Drizzle and PostgreSQL.
 
-This example is the reference for building a production-shaped admin with FlowPanel, Next.js,
-Drizzle, and PostgreSQL. The main journey uses seven screens and the public FlowPanel DSL directly:
-no generated page tree, config meta-framework, runtime crawler, or external AI call.
-
-![ScrapeAI operations overview showing monitor health, marketplace offers, AI match quality, and recent crawl runs](./public/scrapeai-overview-dark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./public/scrapeai-overview-dark.png">
+  <img alt="ScrapeAI overview in FlowPanel: monitor, listing, crawl and review figures, two of them compared with the previous week, a live crawl-rate chart and market activity" src="./public/scrapeai-overview-light.png">
+</picture>
 
 ## Run locally
 
-Prerequisites: Node.js 22+, pnpm, and Docker.
+Node.js 22+, pnpm and Docker. From the repository root:
 
 ```bash
 pnpm install
 pnpm --filter "./packages/**" build
+pnpm install
 pnpm --filter ai-scraper docker:up
 pnpm --filter ai-scraper db:push
+pnpm --filter ai-scraper db:migrate
 pnpm --filter ai-scraper db:seed
 pnpm --filter ai-scraper dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), then choose **Open admin**. The default local
-mode is interactive. Use the Admin / Support switch to see server-enforced role differences.
-The in-app persona guide points to Products and Customers, where the Support role loses the
-admin-only pricing field and destructive disable action while retaining routine operations.
+The second `pnpm install` links the `flowpanel` command the build just made; on a fresh clone pnpm skips it the first time, and `db:migrate` then fails with `flowpanel: command not found`.
 
-## Seven-screen tour
+Open [http://localhost:3000](http://localhost:3000) and choose **Open admin**. The Admin / Support switch shows server-enforced role differences: Support loses the pricing field and the disable action.
 
-**Overview** turns operational data into a concise status page: active monitors, offers found,
-crawl success, the Review backlog, marketplace activity, live throughput, and recent runs. The date
-range changes time-based metrics and charts; each summary links to its underlying resource.
+## Screens
 
-**Customers** manages the SaaS accounts that own catalogs and monitors. Search and filter the
-table, edit Company inline, import or export data, open related Monitors, Products, and Invoices in
-the drawer, and compare the Admin-only disable action with the Support persona.
+- **Overview**: monitors, listings found and crawl success against the previous week, the review backlog, live crawl rate and recent runs. Each number links to the rows it counts.
+- **Customers**: search, filters, inline edit, import and export. Each customer has a record page with counts, account facts and related monitors, products and invoices.
+- **Monitors**: typed forms, schedule and status filters, bulk pause and resume.
+- **Runs**: crawl history with throughput, duration, retries and AI usage.
+- **Listings**: full-text search, marketplace, stock and date filters, export, and each listing's AI match.
+- **Products**: grouped forms, customer references, field-level roles.
+- **Matches**: ambiguous matches, lowest confidence first, with Confirm and Reject.
+- **Audit log**: every change in your sandbox, by who, what and when. Each record's History tab shows its own changes field by field.
 
-**Monitors** shows where and how ScrapeAI crawls marketplaces for each customer. Typed forms
-validate target URLs, filters expose schedule and status, bulk actions pause or resume work, and the
-drawer connects a monitor to its recent Runs and discovered Offers.
+## Where the code is
 
-**Runs** is the operational history of every crawl. It keeps status, throughput, duration, retry,
-related Offers, and AI usage together without making operators reconstruct a run from raw tables.
-
-**Offers** is the live marketplace dataset discovered by those runs. It demonstrates full-text
-search, faceted and numeric filters, stock and rating formats, export, and a drawer that connects
-each marketplace offer to its AI match.
-
-**Products** is each customer's own catalog. It demonstrates explicit grouped forms, searchable
-customer references, category filters, money formatting, field-level RBAC, export, and related AI
-matches without exposing raw foreign-key IDs to operators.
-
-**Review** is the human-in-the-loop core. Ambiguous product/offer matches appear lowest-confidence
-first with saved views and Confirm / Reject actions; the drawer keeps the decision, marketplace
-offer, and catalog product together. Invoices and AI usage remain available through drawers without
-crowding primary navigation with implementation-level datasets.
-
-## Feature-to-code map
-
-| Capability | Canonical source |
+| What | File |
 | --- | --- |
-| Complete admin composition, auth, security, theme | `src/admin/config/index.ts` |
-| Customers, Monitors, Runs, Offers, Products, Review resources | `src/admin/config/resources/` |
-| Operational dashboard composition | `src/admin/config/overview.ts` |
-| Named, testable dashboard queries | `src/admin/overview-queries.ts` |
-| One accessible live-operations widget | `src/admin/LiveOperations.tsx` |
-| Bounded synthetic SSE feed | `src/demo/realtime/feed.ts` |
-| Six coherent customer/product stories | `src/demo/data/scenarios.ts` |
-| Deterministic relational data generator | `src/demo/data/generate.ts` |
-| Disposable demo personas | `src/demo/auth/` |
-| Drizzle tables and relations | `src/db/schema.ts` |
-| Transactional sandbox seed and reset | `src/demo/sandbox/seed.ts` |
-| Next.js admin page and API handlers | `app/admin/` and `app/api/flowpanel/` |
+| Admin config, auth, security, theme | `src/admin/config/index.ts` |
+| Resources | `src/admin/config/resources/` |
+| Enum labels and tones, declared once | `src/admin/config/enums.ts` |
+| Customer record page | `src/admin/config/resources/customer-card.ts` |
+| Overview dashboard | `src/admin/config/dashboards/overview.ts` |
+| Dashboard queries | `src/admin/overview-queries.ts` |
+| Live operations widget | `src/admin/LiveOperations.tsx` |
+| Widget and header tests | `src/admin/__tests__/` |
+| Drizzle schema | `src/db/schema.ts` |
+| Demo data, personas, realtime feed and sandboxes | `src/demo/` |
 
-The `src/admin` directory is deliberately copyable application code. Synthetic identities, data,
-and realtime simulation live under `src/demo`, making the boundary between FlowPanel usage and
-showcase infrastructure explicit.
+`src/admin` is ordinary application code; `src/demo` is demo-only.
 
-## Data model and reset
+## Seed and reset
 
-The seed creates 48 customers, 36 monitors, 60 catalog products, 252 crawl runs, and 240 offers
-with matching decisions. Six named customer stories provide recognizable products and believable
-ambiguous variants; background rows add enough volume for pagination, filters, charts, and saved
-views. Ownership and timestamps are generated as one causal graph, and exactly 26 matches begin in
-`needs_review`.
+`db:seed` creates the `local` sandbox: 48 customers, 36 monitors, 60 products, 252 runs and 240 listings, 26 of them awaiting review. Reset it with `pnpm --filter ai-scraper demo:reset -- --sandbox local`; remove expired browser sandboxes with `pnpm --filter ai-scraper demo:cleanup -- --force`.
 
-`pnpm --filter ai-scraper db:seed` idempotently creates the stable `local` sandbox. It never
-rewrites another sandbox. Reset one target explicitly with
-`pnpm --filter ai-scraper demo:reset -- --sandbox local`; remove expired browser sandboxes with
-`pnpm --filter ai-scraper demo:cleanup -- --force`.
+## Public demo
 
-## Public demo safety
+Set `DEMO_MODE=true` and a random `DEMO_SANDBOX_SECRET` of 32+ characters. Each browser then gets its own pre-filled PostgreSQL sandbox that expires after 60 minutes idle or 24 hours. At most 200 sandboxes are active, created at most 10 per hour per IP hash. Set `DEMO_TRUST_PROXY=true` only behind a proxy that rewrites forwarding headers. `DEMO_READ_ONLY=true` blocks writes, and `DEMO_LIVE=off` turns off the realtime ticker on serverless hosts.
 
-Set `DEMO_MODE=true` and a random 32+ character `DEMO_SANDBOX_SECRET` for a public deployment. Each
-browser gets a private, pre-populated PostgreSQL sandbox: create, edit, delete, actions, reloads,
-references, exports, and dashboards all stay inside that database-enforced scope. Inactivity
-expires after 60 minutes and absolute lifetime is 24 hours. A visitor can reset only their own
-sandbox; reset is atomic and rate-limited. Public bulk import is disabled to bound amplification,
-while ordinary creates remain available.
+The persona cookie is a demo mechanism; a real app uses real auth. Do not deploy the sample `.env` values.
 
-The active-sandbox cap defaults to 200 and creation throttling to 10 per IP-HMAC per hour. Set
-`DEMO_TRUST_PROXY=true` only behind a reverse proxy that replaces forwarding headers; otherwise the
-server deliberately uses one conservative unknown fingerprint bucket. Raw client IPs are never stored.
-Lazy PostgreSQL-coordinated cleanup runs at most every 15 minutes, and `demo:cleanup` is available
-for cron/observability. Set `DEMO_READ_ONLY=true` to remove mutation affordances and reject direct
-writes during an incident. Hiding controls is never the security boundary.
+## Queues
 
-The persona cookie is an unsigned, allow-listed demo mechanism only—replace all of `src/demo/auth`
-with trusted application auth in a real product.
-
-The example also enables role checks, audit events, and in-memory IP rate limiting. The realtime
-feed never writes to PostgreSQL and never calls marketplaces or an LLM. Set `DEMO_LIVE=off` on
-serverless hosts where a persistent two-second ticker is inappropriate.
-
-Never deploy the sample `.env` values as secrets. Configure `DATABASE_URL` and your real auth,
-audit sink, shared rate-limit store, and network policy for production.
-
-## Optional queues
-
-With no `REDIS_URL`, the demo starts cleanly and queue screens are absent. To exercise BullMQ:
+Without `REDIS_URL` the queue screens are absent. To try them:
 
 ```bash
 docker run -d -p 6379:6379 redis:7-alpine
 export REDIS_URL=redis://localhost:6379
-export BOARD_TOKEN=$(openssl rand -hex 16)
-pnpm --filter ai-scraper flowpanel:board
+export BOARD_SECRET=$(openssl rand -hex 32)
 pnpm --filter ai-scraper dev
 ```
 
-Queue routes stay out of primary navigation. When Redis is configured, the Live operations header
-links to the queue boards, and each board exposes the other configured queues as contextual tabs.
-`BOARD_TOKEN` is mandatory because the separate board origin exposes destructive job controls. Set
-`BOARD_URL` to a browser-reachable HTTPS origin when deployed.
+In a second terminal with the same `REDIS_URL` and `BOARD_SECRET`, start the board: `pnpm --filter ai-scraper flowpanel:board`.
+
+Set `BOARD_URL` to a browser-reachable HTTPS origin when deployed.
 
 ## Deploy
-
-Build from the repository root with the included Dockerfile, attach PostgreSQL, and set
-`DATABASE_URL`, `DEMO_MODE=true`, and `DEMO_SANDBOX_SECRET`. The container applies the schema and
-starts; it does not globally seed on restart. Browser sandboxes are populated lazily. A persistent
-Node host supports Live operations; on Vercel or another sleeping serverless runtime, set
-`DEMO_LIVE=off`.
-
-The browser-sandbox schema replaces the shared demo schema used before this release. Because every
-row in this example is synthetic, that one upgrade is intentionally a fresh-database deployment,
-not an in-place data migration. Recreate the local demo volume before the first upgraded start:
-
-```bash
-docker compose -f examples/ai-scraper/docker-compose.demo.yml down --volumes
-```
-
-For a hosted demo, retain the old database only as an archive and point the new release at a fresh
-database. Subsequent starts use `db:push` against the sandbox schema without clearing live browser
-sandboxes. Do not use this demo deployment workflow for application data that must be retained.
 
 ```bash
 docker build -f examples/ai-scraper/Dockerfile .
@@ -161,5 +87,4 @@ DEMO_SANDBOX_SECRET="$(openssl rand -hex 32)" \
   docker compose -f examples/ai-scraper/docker-compose.demo.yml up --build
 ```
 
-The result is a standard Next.js application. Railway, Fly.io, Coolify, and comparable Node hosts
-work with any PostgreSQL-compatible managed database.
+Attach PostgreSQL and set `DATABASE_URL`, `DEMO_MODE=true` and `DEMO_SANDBOX_SECRET`. The container applies the schema on start; sandboxes fill on first visit.

@@ -4,4 +4,3 @@ import config from "{{CONFIG_IMPORT}}";
 const flowpanel = createFlowpanel(config);
 
 export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
-export const runtime = "nodejs";

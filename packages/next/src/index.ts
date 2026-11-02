@@ -1,3 +1,4 @@
+export { emitAudit } from "@flowpanel/core/internal";
 export {
   bulkActionRoute,
   type SerializedBulkAction,
@@ -32,16 +33,21 @@ export {
   createFlowpanel,
   type FlowpanelRuntime,
 } from "./create-flowpanel";
+export { drawerActionRoute } from "./drawer/drawer-action-route";
 export {
   type DrawerPayload,
   type DrawerRouteCtx,
-  drawerActionRoute,
   drawerRoute,
   type SerializedDrawerAction,
   type SerializedDrawerTab,
   type SerializedWidget,
 } from "./drawer/drawer-route";
-export { Flowpanel, FlowpanelContent, type FlowpanelOptions } from "./flowpanel-page";
+export {
+  Flowpanel,
+  FlowpanelContent,
+  FlowpanelNotFound,
+  type FlowpanelOptions,
+} from "./flowpanel-page";
 export {
   type FlowpanelHandlers,
   handlers,
@@ -57,8 +63,15 @@ export type {
   ResourceControllers,
 } from "./runtime/controller-factory";
 export { buildNav, resourceNavName } from "./runtime/nav";
+export { type FlowpanelMetadata, flowpanelMetadata } from "./runtime/page-metadata";
 export { bindPublisher, publish, publishResource, subscribe } from "./runtime/publish";
 export { browserOrigin } from "./runtime/request-origin";
 export { type BuildRequestCtxArgs, buildRequestContext } from "./runtime/request-setup";
+export {
+  type RequestWidgetContextOptions,
+  type ResolvedWidget,
+  requestWidgetContext,
+  resolveWidget,
+} from "./runtime/resolve-widget";
 export { type StreamOptions, stream } from "./stream";
 export type { FlowpanelClientMetadata, WireValue } from "./wire/serialize";

@@ -1,31 +1,21 @@
-/**
- * DEVELOPMENT STUB — REPLACE BEFORE PRODUCTION.
- *
- * `flowpanel init` found no auth module in this project, so it scaffolded this
- * file: flowpanel.config.ts imports `getSession` from here, and without it the
- * config would not compile and `flowpanel migrate` would not run.
- *
- * It authenticates nobody. Every caller is handed the same static session and
- * the config maps it to the `admin` role, so the whole admin is open to anyone
- * who can reach it. It refuses to run in production rather than let that ship.
- *
- * Replace it with your real provider (Clerk, Lucia, NextAuth, …), or swap the
- * `auth` block in flowpanel.config.ts for `devAuth()` from "@flowpanel/kit".
- */
-// Read off globalThis so the stub compiles even where @types/node is absent.
-const nodeEnv = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process?.env?.NODE_ENV;
+// DEVELOPMENT STUB: every request is signed in as an admin. Replace getSession with your auth provider before deploying.
+import { FlowpanelConfigError } from "@flowpanel/kit";
+
+const WARNED = Symbol.for("flowpanel.devSessionWarned");
 
 export async function getSession(): Promise<{ id: string; user: { id: string; role: string } }> {
-  if (nodeEnv === "production") {
-    throw new Error(
-      "flowpanel: the development session stub cannot run in production — it signs " +
-        "every request in as an admin. Replace getSession() in this file with your " +
-        "real auth provider.",
+  if (process.env.NODE_ENV === "production") {
+    console.error("[flowpanel] {{FILE}}: replace this development session stub with your auth provider.");
+    throw new FlowpanelConfigError(
+      "auth.session",
+      "the development session stub signs every request in as an admin, so it refuses to run in production. Replace it with your auth provider.",
     );
   }
-  console.warn(
-    "⚠ flowpanel: development session stub in use — every request is treated as an admin.\n" +
-      "  Replace getSession() in this file before deploying.",
-  );
+  if (!Reflect.get(globalThis, WARNED)) {
+    Reflect.set(globalThis, WARNED, true);
+    console.warn(
+      "[flowpanel] {{FILE}}: signs every request in as an admin. Replace it before deploying.",
+    );
+  }
   return { id: "dev", user: { id: "dev", role: "admin" } };
 }

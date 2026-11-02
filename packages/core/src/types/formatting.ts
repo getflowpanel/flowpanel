@@ -2,21 +2,14 @@
 export interface FormattingConfig {
   /** BCP-47 locale for numbers, money and dates. Default: `"en-US"`. */
   locale?: string;
-  /**
-   * IANA zone the server renders timestamps in, and the first paint in the
-   * browser. After hydration the reader's own zone takes over. Default: `"UTC"`.
-   */
+  /** IANA zone every timestamp renders in, on the server and after hydration, `LocalTime` included. Default: `"UTC"`. */
   timeZone?: string;
   /** ISO 4217 code for the `money` format when a column names none. Default: `"USD"`. */
   currency?: string;
 }
 
 export interface ResolvedFormatting extends Required<FormattingConfig> {
-  /**
-   * Locale for timestamps. With no configured locale this stays `"en-CA"`, whose
-   * `YYYY-MM-DD HH:mm` sorts and scans in a table; a configured locale governs
-   * dates as well.
-   */
+  /** Locale for timestamps; with none configured this stays `"en-CA"`, whose `YYYY-MM-DD HH:mm` sorts and scans in a table. */
   dateLocale: string;
 }
 

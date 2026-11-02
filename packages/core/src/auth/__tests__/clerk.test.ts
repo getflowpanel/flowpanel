@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withClerk } from "../clerk";
+import { clerkSession, withClerk } from "../clerk";
 
 describe("withClerk", () => {
   it("returns AuthConfig with default role extractor (publicMetadata.role)", () => {
@@ -13,15 +13,23 @@ describe("withClerk", () => {
     expect(cfg.role({})).toBe("guest");
   });
 
-  it("forwards requireRole, signInUrl, forbiddenUrl", () => {
+  it("forwards access, signInUrl, forbiddenUrl", () => {
     const cfg = withClerk({
-      requireRole: ["admin", "support"],
+      access: ["admin", "support"],
       signInUrl: "/sign-in",
       forbiddenUrl: "/403",
     });
-    expect(cfg.requireRole).toEqual(["admin", "support"]);
+    expect(cfg.access).toEqual(["admin", "support"]);
     expect(cfg.signInUrl).toBe("/sign-in");
     expect(cfg.forbiddenUrl).toBe("/403");
+  });
+
+  it("SECURITY: a session claim named id cannot replace the Clerk user id", () => {
+    expect(clerkSession("user_123", { id: "user_admin", org: "o1" })).toEqual({
+      id: "user_123",
+      org: "o1",
+    });
+    expect(clerkSession(null, { id: "user_admin" })).toBeNull();
   });
 
   it("custom role override replaces default", () => {

@@ -83,3 +83,29 @@ describe("canonical action schemas", () => {
     ).toEqual({ ok: true, data: { count: 3 } });
   });
 });
+
+describe("validateActionInput with labels", () => {
+  it("names a missing field by its label, in the admin's language", async () => {
+    const { RU_LABELS } = await import("@flowpanel/core");
+    expect(validateActionInput([{ name: "reason", required: true }], {})).toEqual([
+      { path: ["reason"], message: "Reason is required" },
+    ]);
+    expect(
+      validateActionInput([{ name: "reason", label: "Причина", required: true }], {}, RU_LABELS),
+    ).toEqual([{ path: ["reason"], message: "Заполните поле «Причина»" }]);
+  });
+
+  it("rejects a money amount that is not a whole number of minor units", () => {
+    const form = [{ name: "refund", label: "Refund", type: "money" as const }];
+    expect(validateActionInput(form, { refund: 1250 })).toBeNull();
+    expect(validateActionInput(form, { refund: "12.345" })).toEqual([
+      {
+        path: ["refund"],
+        message: "Refund has more decimals than its currency keeps. Enter an amount like 12.50",
+      },
+    ]);
+    expect(validateActionInput(form, { refund: "lots" })).toEqual([
+      { path: ["refund"], message: "Refund must be an amount like 12.50" },
+    ]);
+  });
+});

@@ -1,0 +1,161 @@
+---
+title: Record pages and drawers
+description: Show one record on its own page, with a header, key numbers, a side column and tabs, or in a drawer over the list.
+kind: how-to
+---
+
+A record page shows one row at `/admin/<resource>/<id>`: a header, a strip of numbers, facts beside the tabs, related rows and activity. A drawer shows a row over the list without leaving it. Every piece is optional.
+
+A row click opens the record page, even before you add `detail`: without it the page lists the row's readable fields. Its header carries Edit and one menu with the resource's row actions and Delete, each shown only to a role that may run it; Delete asks first, with `delete.confirm` when you set it. Declare a `drawer` and the click opens it instead; `rowClick: false` keeps rows from opening.
+
+## Keep the card in its own file
+
+```ts
+import { type DetailOptions, type RowOf } from "@flowpanel/kit";
+
+export const customerCard = {
+  title: (c) => c.company ?? c.email,
+} satisfies DetailOptions<RowOf<"customers">>;
+```
+
+`DetailOptions<Row>` types every callback by the row. Pass it as `detail: customerCard`.
+
+## Header
+
+`title`, `subtitle` and `badge` receive the row and the admin's formatters and link builder:
+
+```ts as="DetailOptions<RowOf<'customers'>>"
+subtitle: (c, { format }) => `Customer since ${format.date(c.createdAt)}`,
+badge: (c) => [
+  AccountStatus.badge(c.status, { href: { resource: "customers", filter: { status: c.status } } }),
+  Plan.badge(c.plan),
+  c.deletedAt ? { label: "Deleted", tone: "err" } : null,
+],
+```
+
+A `null` badge is dropped; `href` makes a badge a link.
+
+## Period
+
+`dateRange` puts a date picker in the header. Its range reaches `stats`, `aside` and widget tabs. Related tabs, the timeline and the heatmap keep their own period: related tabs list every row, a timeline pages through the whole history, and a heatmap shows its last `days` days. Without `dateRange` there is no picker and widgets see the whole history.
+
+## Key numbers
+
+```ts
+export const paidInvoices = metric(
+  "Paid invoices",
+  { count: "invoices", where: { status: "paid" }, range: "paidAt" },
+  { compare: true },
+);
+
+export const customerCard = {
+  stats: [metric("Monitors", { count: "monitors" }), paidInvoices],
+} satisfies DetailOptions<RowOf<"customers">>;
+```
+
+`stats` is a strip on every tab. On a record page `{ count }` counts only rows that point at this record, through the target's `reference`, and links to them. `range` names a `daterange` filter of the counted resource.
+
+## Side column
+
+```ts as="DetailOptions<RowOf<'customers'>>"
+aside: [
+  kv({
+    label: "Account",
+    columns: 1,
+    items: [
+      { label: "Email", field: "email" },
+      { label: "Last seen", field: "lastSeenAt", format: "relative" },
+    ],
+  }),
+  checklist({ label: "Profile", items: async (c) => filled(c.rowOf("customers"), { name: "Name", company: "Company" }) }),
+],
+```
+
+A `kv` item with `field` reads the viewed row; `record: (c) => …` reads another row once for the card. `filled(row, labels)` makes a checklist item per field, done when it has a value. On a phone the side column moves below the tabs.
+
+## Related rows
+
+```ts as="DetailOptions<RowOf<'customers'>>"
+tabs: [
+  related("monitors"),
+  related("invoices", { pageSize: 10, sort: { field: "createdAt", dir: "desc" } }),
+],
+```
+
+`related` filters by the target's one column that references this resource and hides it. With none or several, `defineAdmin` asks for `by`. The label shows a row count; `count: false` hides it. `widgets` render above the rows.
+
+## Activity
+
+```ts
+timeline({
+  kinds: Activity,
+  sources: [
+    timeline.source("monitors", { kind: "monitor", at: "createdAt", title: (m) => m.name }),
+    timeline.source("customer_events", { kind: { field: "kind" }, at: "at" }),
+  ],
+});
+```
+
+Each source reads one resource filtered to this record; its `where` can narrow but not widen that. `kind: { field }` reads the kind from a column. Events merge by time, group by day and page with "Older".
+
+`heatmap({ source: { resource: "user_visit", at: "startedAt" } })` shows activity per day over 13 weeks. `checklist({ ordered: true, items })` shows dated milestones and the gaps between them.
+
+## Widget tabs
+
+A tab with `widgets` instead of `fields` draws dashboard widgets. `ctx.row` is the record and `ctx.id` its key:
+
+```ts as="DetailTab<RowOf<'customers'>>"
+{
+  key: "activity",
+  label: "Activity",
+  columns: 2,
+  widgets: [
+    stat("Orders", (ctx) => ctx.count("orders", { customerId: ctx.rowOf("customers").id })),
+    bars({ label: "Spend by month", query: (ctx) => spendByMonth(ctx.db, ctx.rowOf("customers").id) }),
+  ],
+}
+```
+
+## Drawer
+
+```ts
+resource(schema.orders, {
+  columns: ["number", "customerEmail", "status", "total"],
+  rowClick: "drawer",
+  drawer: {
+    width: "xl",
+    title: (order) => `Order ${order.number}`,
+    tabs: [
+      { key: "summary", label: "Summary", fields: "*" },
+      { key: "items", label: "Items", resource: "order_items", filter: (order) => ({ orderId: order.id }) },
+    ],
+  },
+})
+```
+
+`rowClick: "drawer"` needs a `drawer`. Fields reuse the column labels and renderers. A related tab shows the first 20 rows; link to the filtered list for more. Widget tabs render static cards, and `custom()`, `timeline`, `heatmap`, `checklist` and `tracker` belong in a record page tab instead. Drawer `actions` join the row actions, Edit and Delete in the drawer's header menu.
+
+## Test a card
+
+```ts
+import { resolveWidget, widgetContext } from "@flowpanel/kit/test/widgets";
+import { expect, it } from "vitest";
+import admin from "@/admin/config";
+import { paidInvoices } from "@/admin/config/resources/customer-card";
+
+it("counts the customer's paid invoices", async () => {
+  const customer = { id: 1, email: "ada@example.com" };
+  const invoices = [
+    { id: 1, customerId: 1, status: "paid", paidAt: new Date("2026-09-02") },
+    { id: 2, customerId: 1, status: "paid", paidAt: new Date("2026-09-20") },
+    { id: 3, customerId: 1, status: "open", paidAt: null },
+  ];
+  const ctx = widgetContext({ admin, resource: "customers", row: customer, rows: { invoices } });
+  const { props } = await resolveWidget(paidInvoices, ctx);
+  expect(props.value).toBe(2);
+});
+```
+
+Pass `admin` so the count finds its filter through the `reference` on `invoices`. See [Unit-test a widget](/docs/reference/testing#unit-test-a-widget).
+
+Every option: [Record page](/docs/reference/resources#record-page) and [Drawer](/docs/reference/drawer).

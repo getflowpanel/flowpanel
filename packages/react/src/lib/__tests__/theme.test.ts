@@ -60,6 +60,19 @@ describe("theme runtime", () => {
       expect(document.documentElement.dataset.flowpanelTheme).toBe("light");
       expect(document.documentElement.classList.contains("dark")).toBe(false);
     });
+
+    it("points the browser chrome at the chosen scheme's colour", () => {
+      document.head.innerHTML =
+        '<meta name="theme-color" media="(prefers-color-scheme: light)" data-flowpanel="light">' +
+        '<meta name="theme-color" media="(prefers-color-scheme: dark)" data-flowpanel="dark">';
+      applyThemeClass("dark");
+      const media = () =>
+        [...document.querySelectorAll<HTMLMetaElement>("meta[data-flowpanel]")].map((m) => m.media);
+      expect(media()).toEqual(["not all", "all"]);
+      applyThemeClass("light");
+      expect(media()).toEqual(["all", "not all"]);
+      document.head.innerHTML = "";
+    });
   });
 
   describe("toggleTheme", () => {

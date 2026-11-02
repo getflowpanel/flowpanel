@@ -21,7 +21,7 @@ describe("precompiled stylesheet token contract", () => {
   });
 
   it("does not duplicate token declarations in the generated app stylesheet", () => {
-    for (const file of ["admin.css.txt", "admin.css.v3.txt"]) {
+    for (const file of ["admin.css.txt"]) {
       const css = readFileSync(resolve(process.cwd(), "src/templates", file), "utf8");
       expect(css).toContain('@import "@flowpanel/kit/styles/admin.css";');
       expect(css).not.toContain("--fp-");

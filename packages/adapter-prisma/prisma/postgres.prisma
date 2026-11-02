@@ -16,4 +16,22 @@ model TestUser {
   age       Int?
   deletedAt DateTime?
   createdAt DateTime  @default(now())
+  orders    TestOrder[]
+}
+
+model TestOrder {
+  id     Int      @id @default(autoincrement())
+  userId Int      @map("user_id")
+  user   TestUser @relation(fields: [userId], references: [id])
+  total  Decimal  @db.Decimal(10, 2)
+  status String   @default("pending")
+
+  @@map("test_orders")
+}
+
+model CalendarEvent {
+  id  Int       @id
+  day DateTime? @db.Date
+
+  @@map("calendar_events")
 }

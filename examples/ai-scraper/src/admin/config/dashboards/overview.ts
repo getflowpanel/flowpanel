@@ -1,24 +1,28 @@
-import { bars, custom, dashboard, funnel, list, metric, stat, table } from "@flowpanel/kit";
+import {
+  bars,
+  custom,
+  dashboard,
+  funnel,
+  list,
+  metric,
+  type RowOf,
+  stat,
+  type Threshold,
+  table,
+} from "@flowpanel/kit";
 import { LiveOperations } from "@/src/admin/LiveOperations";
 import {
-  aiSpendDollars,
+  aiSpend,
+  crawlSuccess,
   failingCrawls,
+  listingsByMarketplace,
   matchPipeline,
-  offersByMarketplace,
-} from "@/src/admin/overview-breakdowns";
-import {
-  activeMonitorCount,
-  crawlSuccessRate,
-  offersDiscovered,
-  reviewBacklog,
-  reviewQueueSummary,
+  reviewQueue,
 } from "@/src/admin/overview-queries";
 import { ReviewQueue } from "@/src/admin/ReviewQueue";
-import type * as schema from "@/src/db/schema";
 import { getLiveOperationsSnapshot } from "@/src/demo/realtime/feed";
-import { liveQueues } from "@/src/lib/queues";
 
-type Run = typeof schema.runs.$inferSelect;
+const HEALTHY_CRAWLS: Threshold = { warn: 0.9, err: 0.8, min: 10 };
 
 export const overview = dashboard({
   path: "/",
@@ -28,14 +32,30 @@ export const overview = dashboard({
   refresh: "60s",
   sections: [
     {
-      description:
-        "Monitor customer catalogs, marketplace coverage, crawl health, and AI-assisted matching.",
       columns: 4,
       widgets: [
-        metric("Active monitors", activeMonitorCount, { sublabel: "running now" }),
-        metric("Offers discovered", offersDiscovered, { sublabel: "in this period" }),
-        metric("Crawl success", crawlSuccessRate, { sublabel: "completed runs" }),
-        metric("Needs review", reviewBacklog, { sublabel: "AI matches" }),
+        metric(
+          "Active monitors",
+          { count: "monitors", where: { status: "active" } },
+          { sublabel: "on schedule" },
+        ),
+        metric("Listings found", { count: "listings", range: "scrapedAt" }, { compare: true }),
+        metric("Crawl success", crawlSuccess, {
+          format: "percent",
+          compare: true,
+          tones: HEALTHY_CRAWLS,
+          sublabel: "finished runs",
+          drilldown: {
+            resource: "runs",
+            filter: { status: ["success", "failed"] },
+            range: "startedAt",
+          },
+        }),
+        metric(
+          "Needs review",
+          { count: "matches", where: { status: "needs_review" } },
+          { sublabel: "AI matches", goodWhen: "down" },
+        ),
       ],
     },
     {
@@ -43,23 +63,29 @@ export const overview = dashboard({
       widgets: [
         custom(
           LiveOperations,
-          async () => ({
+          async (c) => ({
             initial: getLiveOperationsSnapshot(),
-            ...(liveQueues[0] ? { queueHref: `/admin/queues/${liveQueues[0].name}` } : {}),
+            running: await c.count("runs", { status: "running" }),
+            tracked: await c.count("listings"),
           }),
-          { span: 12, frame: false },
+          { span: 12, frame: false, label: "Live operations", minHeight: 437 },
         ),
       ],
     },
     {
       columns: 12,
       widgets: [
-        custom(ReviewQueue, reviewQueueSummary, { span: 4, frame: false }),
-        table<Run>({
+        custom(ReviewQueue, reviewQueue, {
+          span: 4,
+          frame: false,
+          label: "Review queue",
+          minHeight: 357,
+        }),
+        table<RowOf<"runs">>({
           label: "Recent runs",
           resource: "runs",
           columns: ["status", "pagesCrawled", "itemsExtracted", "durationMs", "startedAt"],
-          rowHref: (row, ctx) => ctx.href("runs", row.id),
+          rowHref: (row) => ({ resource: "runs", id: row.id }),
           seeAll: true,
           limit: 5,
           span: 8,
@@ -67,13 +93,15 @@ export const overview = dashboard({
       ],
     },
     {
-      label: "Where the offers come from",
+      label: "Where the listings come from",
       columns: 12,
       widgets: [
         bars({
           label: "Top marketplaces",
-          query: offersByMarketplace,
-          emptyState: "No offers were discovered in this period.",
+          query: listingsByMarketplace,
+          share: true,
+          compare: true,
+          emptyState: "No listings were found in this period.",
           span: 4,
         }),
         funnel({
@@ -94,12 +122,18 @@ export const overview = dashboard({
       label: "Account health",
       columns: 4,
       widgets: [
-        stat("Paying accounts", (ctx) => ctx.count("customers", { status: "active" }), {
-          hint: "status: active",
-        }),
-        stat("Products tracked", (ctx) => ctx.count("products"), { hint: "customer catalogs" }),
-        stat("Failed runs", (ctx) => ctx.count("runs", { status: "failed" }), { hint: "all time" }),
-        stat("AI spend", aiSpendDollars, { format: "currency", hint: "in this period" }),
+        metric(
+          "Paying accounts",
+          { count: "customers", where: { status: "active" } },
+          { sublabel: "active subscriptions" },
+        ),
+        metric("Products tracked", { count: "products" }, { sublabel: "customer catalogs" }),
+        metric(
+          "Failed runs",
+          { count: "runs", where: { status: "failed" } },
+          { sublabel: "all time", goodWhen: "down" },
+        ),
+        stat("AI spend", aiSpend, { format: "currency", hint: "in this period" }),
       ],
     },
   ],

@@ -1,0 +1,228 @@
+# FlowPanel — Reference — Adapter contract
+
+## Adapter contract
+
+What FlowPanel needs from a database layer, method by method.
+
+Docs: https://flowpanel.tech/docs/reference/adapters
+
+Documented types: Adapter, AuditLogStore, ResourceIntrospection, ColumnMeta, drizzleAdapter, prismaAdapter, bullmqAdapter, DrizzleAdapterOptions, PrismaAdapterOptions
+
+The adapter is the only part of FlowPanel that queries your database. Implement
+this interface for a data layer without a shipped adapter. Overview:
+[Adapters and introspection](/docs/understand/adapters).
+
+Shipped adapters: [`drizzleAdapter`](/docs/introduction/drizzle) and
+[`prismaAdapter`](/docs/introduction/prisma).
+
+### Adapter
+
+`Adapter`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `kind` | `AdapterKind` | Which ORM this adapter wraps. Shipped adapters use `"drizzle"` / `"prisma"`. |
+| `db` | `DB` | The client handed to every `ctx.db`. |
+| `transaction?` | `(run: (db: DB) => Promise<T>) => Promise<T>` | Execute work against one transaction-bound database handle. |
+| `introspect` | `(ref: Ref) => ResourceIntrospection` | Describe a table: its columns, types and primary key. |
+| `inferSchema` | `(ref: Ref) => { create: z.ZodTypeAny; update: z.ZodTypeAny; select: z.ZodTypeAny; }` | Derive validation schemas from the table, used when a resource sets no `schema`. |
+| `list` | `(ref: Ref, ctx: ListQueryContext<unknown>) => Promise<ListResult<unknown>>` | One page of rows, honoring filters, sort, search, scope and soft delete. |
+| `get` | `(ref: Ref, ctx: ItemQueryContext) => Promise<unknown \| null>` | A single row by id, or null. Must respect tenant scope. |
+| `create` | `(ref: Ref, ctx: MutationContext<unknown>) => Promise<unknown>` | Insert a row. Must reject rows that fall outside the caller's scope. |
+| `update` | `(ref: Ref, ctx: MutationContext<unknown>) => Promise<unknown \| null>` | Update a row by id, or return null when it does not exist in scope. |
+| `delete` | `(ref: Ref, ctx: MutationContext<unknown>) => Promise<void>` | Delete a row — or stamp `ctx.softDelete.column` when soft delete is on. |
+| `restore?` | `(ref: Ref, ctx: MutationContext<unknown>) => Promise<void>` | Clear the soft-delete stamp. Without it, the admin hides the restore button. |
+| `sql?` | `(strings: TemplateStringsArray, ...values: unknown[]) => Promise<Row[]>` | Runs one read-only statement and returns its rows, as a tagged template; every value arrives as a bound parameter. Without it, `ctx.sql` throws. |
+| `count?` | `(ref: Ref, where?: Record<string, unknown>) => Promise<number>` | Counts matching rows without reading them; `where` is the same filter shape `list` receives. Without it, FlowPanel counts through `list` with an empty projection instead. |
+| `applyMigration?` | `(id: string, sql: string) => Promise<void>` | Optional migration support, used by `flowpanel migrate`. A concurrent-safe implementation must serialize and recheck `id` at the database boundary. |
+| `listAppliedMigrations?` | `() => Promise<Set<string>>` |  |
+| `auditLog?` | `AuditLogStore` | The `flowpanel_audit_log` table that `flowpanel migrate` creates. Without it, `audit` needs a `sink`. |
+
+`Ref` is what `resource(ref, …)` accepts; `DB` is the client widgets receive as `ctx.db`.
+`kind` is a label (`"drizzle"`, `"prisma"` or your own); nothing branches on it.
+
+`kind`, `db`, `introspect`, `inferSchema`, `list`, `get`, `create`, `update` and
+`delete` are required. Without `restore`, the restore button is hidden. `sql` and
+`count` back [`ctx.sql` and `ctx.count`](/docs/reference/contexts#raw-sql-and-counts).
+`applyMigration(id, sql)` and `listAppliedMigrations` power `flowpanel migrate`.
+
+`applyMigration` must serialize migrators at the database and recheck the ID under
+the lock, so a concurrent duplicate is a no-op. The shipped adapters run each file
+and its marker in one transaction on PostgreSQL and SQLite. On MySQL, which commits
+DDL implicitly, Drizzle holds a `GET_LOCK` advisory lock and Prisma a claim row in
+`_flowpanel_migration_claims` that records where a failed run stopped; later runs
+stop until you repair the schema and delete that row. Both reject procedural
+scripts (trigger bodies, stored procedures, `DELIMITER`) unless the body uses
+PostgreSQL dollar quoting.
+
+### Audit log
+
+`auditLog` is the `flowpanel_audit_log` table that `0001_init.sql` creates. The
+admin appends each [audit event](/docs/guides/audit-log) to it and reads the record
+History tabs and the Audit log page from it. The shipped adapters bind every value
+through the same client `flowpanel migrate` uses. `list` returns events newest
+first; with `scope` set, only those whose stored tenant key equals `scope.key`.
+`append` writes one row per id in `targetIds`, with the whole diff in `diff` and a
+copy in `diff_preview` whose long values keep their first 400 characters. `list`
+reads only `diff_preview`, so a page of events never moves the whole diffs;
+`entry` reads one event's whole `diff`, under the same `scope` and `visible`
+bounds, for **Show full value**. Without `auditLog`, an admin with `audit` on
+needs a `sink`.
+
+`AuditLogStore`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `append` | `(event: AuditEvent) => Promise<void>` |  |
+| `list` | `(query: AuditLogQuery) => Promise<AuditLogPage>` | A page of events with their bounded diff previews, never the whole stored diffs. |
+| `entry` | `(query: Pick<AuditLogQuery, "scope" \| "visible" \| "id">) => Promise<AuditLogEntry \| null>` | One event, `id` set, with its whole diff, under the same `scope` and `visible` bounds as `list`. |
+| `facets` | `(query: Pick<AuditLogQuery, "scope" \| "visible" \| "from">) => Promise<AuditLogFacets>` | Who acted and what ran among the events `query` selects, newest actors first. |
+
+### Raw SQL
+
+`sql` is a tagged template: every interpolated value must reach the database as a
+bound parameter, never concatenated.
+
+`count(ref, where)` takes the `list` filter shape. FlowPanel calls it only for
+unscoped resources and counts scoped ones through `list`. Both run on the
+adapter's own `db`, outside any transaction or per-request session settings.
+
+Two helpers match the shipped adapters' behaviour:
+
+```ts
+import { parseSqlRows, sanitizeSqlParams } from "@flowpanel/kit";
+
+async function sql<Row>(strings: TemplateStringsArray, ...values: unknown[]) {
+  const rows = await driver.query(strings, sanitizeSqlParams(values));
+  return parseSqlRows<Row>(rows);
+}
+```
+
+`sanitizeSqlParams` binds a `Date` as ISO-8601 text and a `bigint` as decimal text,
+as the Drizzle adapter does; the Prisma adapter hands both to `$queryRaw` as they are,
+so Prisma binds a timestamp and a bigint.
+`parseSqlRows` reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s, unless
+`{ parseDates: false }`.
+
+Arrays differ: Drizzle expands `${ids}` into a list, so `where id in (${ids})`
+works; Prisma binds one parameter, so write `where id = any(${ids})` or use
+`Prisma.join`.
+
+### ResourceIntrospection
+
+Returned by `introspect`. `kind: "view"` makes a resource read-only unless it sets
+[`writeTo`](/docs/reference/resources#reading-a-view).
+
+`ResourceIntrospection`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `name` | `string` | Table name, used as the resource's default `name`. |
+| `columns` | `ColumnMeta[]` |  |
+| `primaryKey` | `string` |  |
+| `keyColumns?` | `readonly string[]` | Every column of a composite primary key, in order, when the adapter can see them. |
+| `kind?` | `"table" \| "view"` | What the ref is. A view has no write path of its own; see `ResourceOptions.writeTo`. Default: `"table"`. |
+
+### ColumnMeta
+
+`ColumnMeta`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `name` | `string` |  |
+| `type` | `"string" \| "number" \| "boolean" \| "date" \| "json" \| "enum" \| "array" \| "reference"` | Normalized type. Decides the default form control and filter. |
+| `nullable` | `boolean` |  |
+| `unique` | `boolean` |  |
+| `primaryKey` | `boolean` |  |
+| `integer?` | `boolean` | A `number` column that holds whole numbers only, such as `integer` or `bigint`; `false` for decimals and floats. |
+| `dateOnly?` | `boolean` | A SQL `date` column of `date` type: a calendar day, which reads as midnight UTC and has no time or zone. |
+| `enumValues?` | `readonly string[]` | Allowed values, for `enum` columns. |
+| `references?` | `{ table: string; column: string }` | Foreign key target, when the column references another table. |
+| `maxLength?` | `number` |  |
+| `readable?` | `boolean` | Whether this column may be selected and returned by the adapter. |
+| `writableOnCreate?` | `boolean` | Whether create input may contain this column. |
+| `writableOnUpdate?` | `boolean` | Whether update input may contain this column. |
+| `generated?` | `boolean` | Database-computed column that must not be accepted as input. |
+| `hasDefault?` | `boolean` | The database or ORM fills the column when the insert omits it. |
+| `defaultValue?` | `string \| number \| boolean` | That default when it is a plain value, such as an enum's `"draft"`; a generated create form starts there. |
+| `sensitive?` | `boolean` | Adapter-discovered secret. Always excluded from generated read projections. |
+
+`type` and `enumValues` drive a fully generated form (no `create.fields` or
+`update.fields`) and editable list cells:
+
+| Column | Generated form control | Editable cell |
+| --- | --- | --- |
+| has `enumValues` | `select` | text |
+| `number` | `number` | `number` |
+| `boolean` | `checkbox` | text |
+| `date` | `datetime-local` | `datetime-local` |
+| `json` | `json` | text |
+| anything else | `text` | text |
+
+Filters and declared fields do not infer a type from the column. `references` is
+reported for your own use.
+
+### What an implementation must honor
+
+Three obligations keep the admin safe:
+
+**Tenant scope.** When `ctx.boundScope` is set, every method must constrain
+its query with `ctx.boundScope.apply`, and refuse a query the predicate leaves unconstrained. `create` and `update` included: writing or moving a row outside the
+caller's scope is as much a leak as reading one.
+
+**The search allowlist.** `list` searches only `ctx.searchFields`.
+
+**Soft delete.** When `ctx.softDelete` is set, `list` and `get` must exclude
+stamped rows unless `ctx.includeDeleted` is set, and `delete` must stamp the
+column rather than remove the row.
+
+### Adapter options
+
+`DrizzleAdapterOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `db` | `DB` |  |
+| `schema` | `Record<string, unknown>` |  |
+| `dialect?` | `DrizzleDialect` | Inferred from `schema` when omitted. |
+| `parseDates?` | `boolean` | Reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s; turn off if a text column holds timestamp-shaped strings `select *` cannot cast. Default: `true`. |
+
+`PrismaAdapterOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `prisma` | `P` |  |
+| `provider` | `PrismaProvider` | The `datasource` provider from schema.prisma; migrations are dialect-specific. |
+| `dmmf?` | `PrismaDmmf` |  |
+| `parseDates?` | `boolean` | Reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s; turn off if a text column holds timestamp-shaped strings `select *` cannot cast. Default: `true`. |
+
+`prismaAdapter` needs `provider`, a `PrismaProvider`: `"postgresql"`, `"mysql"` or
+`"sqlite"`. An adapter may also implement `transaction(run)`; both built-in
+adapters do, and the built-in bulk delete uses it so a failure deletes nothing.
+On better-sqlite3 the Drizzle adapter's transaction is `BEGIN IMMEDIATE` and
+`COMMIT` on the shared connection: it is isolated from other transactions, but a
+plain query another request runs on that connection while the transaction awaits
+joins it, and rolls back with it.
+
+`list` receives `tiebreak` when a read needs a stable order across pages, as the
+export does: the key columns to order by after `sort`. They come from
+`introspect().keyColumns` for a composite key (a Drizzle table-level
+`primaryKey()` or a Prisma `@@id`), else the primary key when it is a real column;
+a resource whose key the adapter cannot see gets none, and its export is unordered.
+
+`bullmqAdapter` takes the queue map itself, with no options object:
+`bullmqAdapter({ email: emailQueue })`.
+
+### Also exported
+
+The parts each adapter is built from:
+
+| Package | Also exports |
+| --- | --- |
+| `@flowpanel/kit/drizzle` | `introspect`, `inferSchema` |
+| `@flowpanel/kit/prisma` | `introspect`, `inferSchema`, `PrismaDmmf` (type) |
+| `@flowpanel/kit/bullmq` | `BullMQAdapter` (type) |
+
+`introspect(ref)` returns a `ResourceIntrospection`; `inferSchema(ref)` returns the
+`{ create, update, select }` Zod schemas. `PrismaDmmf` is the type of the optional
+`dmmf` option.

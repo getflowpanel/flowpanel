@@ -5,17 +5,26 @@ import {
   type ListResult,
   type MutationContext,
   parseSqlRows,
-  sanitizeSqlParams,
 } from "@flowpanel/core";
-import { buildFilterWhere } from "./filters";
+import { searchedFields } from "@flowpanel/core/internal";
+import { prismaAuditLog } from "./audit-log";
+import { plainDecimals } from "./decimals";
+import { buildFilterWhere, numberFields } from "./filters";
 import type { PrismaDmmf } from "./introspect";
 import { introspect } from "./introspect";
 import { createMigrationMethods } from "./migration-executor";
 import {
   applyScopeToData,
   applyScopeToWhere,
+  assertUpdateKeepsScope,
+  checkedDmmf,
+  InvalidIdError,
+  inTransaction,
   loadDmmf,
+  missingAsNull,
+  outOfScopeUpdate,
   type PrismaClientLike,
+  type PrismaOrderBy,
   pkWhere,
   getDelegate as resolveDelegate,
 } from "./runtime";
@@ -28,36 +37,34 @@ export interface PrismaAdapterOptions<P = unknown> {
   provider: PrismaProvider;
   dmmf?: PrismaDmmf;
   /**
-   * Read zoneless `YYYY-MM-DD HH:mm:ss` strings in a `ctx.sql` result as UTC
-   * `Date`s. Turn it off when a text column of your own holds timestamp-shaped
-   * strings that `select *` cannot cast.
+   * Reads zoneless `YYYY-MM-DD HH:mm:ss` strings as UTC `Date`s; turn off if a text column holds timestamp-shaped strings `select *` cannot cast.
    * @defaultValue true
    */
   parseDates?: boolean;
 }
 
-export { MIGRATIONS_TABLE_DDL } from "./runtime";
+export { migrationsTableDdl } from "./runtime";
 export type { PrismaProvider } from "./sql-statements";
 
 export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, string> {
   const EMPTY_PROJECTION = Symbol("flowpanel.emptyProjection");
-  let _dmmf: PrismaDmmf | undefined = opts.dmmf;
+  let _dmmf: PrismaDmmf | undefined;
   const prisma = opts.prisma as PrismaClientLike;
 
   function getDmmf(): PrismaDmmf {
-    if (!_dmmf) _dmmf = loadDmmf();
+    if (!_dmmf) _dmmf = opts.dmmf ? checkedDmmf(opts.dmmf) : loadDmmf(prisma);
     return _dmmf;
   }
 
-  function hasScope(ctx: { boundScope?: unknown; applyScope?: unknown }): boolean {
-    return ctx.boundScope !== undefined || ctx.applyScope !== undefined;
+  function hasScope(ctx: { boundScope?: unknown }): boolean {
+    return ctx.boundScope !== undefined;
   }
 
-  function getDb(ctx: { db?: unknown }): PrismaClientLike {
+  function getDb(ctx: { db?: unknown } = {}): PrismaClientLike {
     return (ctx.db ?? prisma) as PrismaClientLike;
   }
 
-  function getDelegate(modelName: string, ctx: { db?: unknown }) {
+  function getDelegate(modelName: string, ctx: { db?: unknown } = {}) {
     return resolveDelegate(getDb(ctx), modelName);
   }
 
@@ -78,6 +85,10 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     return projected;
   }
 
+  function plainRow<Row>(row: Row, modelName: string): Row {
+    return plainDecimals([row], getDmmf(), modelName)[0] ?? row;
+  }
+
   const canTransact = typeof prisma.$transaction === "function";
 
   return {
@@ -95,21 +106,21 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
     inferSchema: (modelName) => inferSchema(modelName, getDmmf()),
 
     async list(modelName, ctx: ListQueryContext<unknown>): Promise<ListResult<unknown>> {
-      const delegate = getDelegate(modelName, ctx);
+      const delegate = getDelegate(modelName);
       const dmmf = getDmmf();
       const select = projection(modelName, ctx.select);
 
-      const where = buildFilterWhere(ctx.filters);
+      const where = buildFilterWhere(ctx.filters, numberFields(modelName, dmmf));
 
-      if (ctx.search && ctx.searchFields?.length) {
-        const intro = introspect(modelName, dmmf);
+      if (ctx.search) {
         const textColSet = new Set(
-          intro.columns.filter((c) => c.type === "string" && !c.enumValues).map((c) => c.name),
+          introspect(modelName, dmmf)
+            .columns.filter((c) => c.type === "string" && !c.enumValues)
+            .map((c) => c.name),
         );
-        const textCols = ctx.searchFields.filter((f) => textColSet.has(f));
+        const textCols = searchedFields(ctx.search, ctx.searchFields, (f) => textColSet.has(f));
         if (textCols.length > 0) {
-          // Prisma accepts `mode` only on PostgreSQL; MySQL and SQLite compare
-          // case-insensitively by default collation.
+          // Prisma accepts `mode` only on PostgreSQL; other dialects compare case-insensitively by default.
           const insensitive = opts.provider === "postgresql" ? { mode: "insensitive" } : {};
           where.OR = textCols.map((name) => ({
             [name]: { contains: ctx.search, ...insensitive },
@@ -124,7 +135,25 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
 
       const scopedWhere = applyScopeToWhere(where, ctx);
 
-      const orderBy = ctx.sort ? { [ctx.sort.field]: ctx.sort.dir } : undefined;
+      const optional = new Set(
+        introspect(modelName, dmmf)
+          .columns.filter((c) => c.nullable)
+          .map((c) => c.name),
+      );
+      const orderBy: PrismaOrderBy[] = [
+        ...(ctx.sort
+          ? [
+              {
+                [ctx.sort.field]: optional.has(ctx.sort.field)
+                  ? { sort: ctx.sort.dir, nulls: "last" as const }
+                  : ctx.sort.dir,
+              },
+            ]
+          : []),
+        ...(ctx.tiebreak ?? [])
+          .filter((field) => field !== ctx.sort?.field)
+          .map((field) => ({ [field]: "asc" as const })),
+      ];
 
       const skip = (ctx.page - 1) * ctx.pageSize;
       const take = ctx.pageSize;
@@ -144,47 +173,71 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         delegate.findMany({
           where: scopedWhere,
           ...(select ? { select } : {}),
-          ...(orderBy ? { orderBy } : {}),
+          ...(orderBy.length > 0 ? { orderBy } : {}),
           skip,
           take,
         }),
         delegate.count({ where: scopedWhere }),
       ]);
 
-      return { rows, total, page: ctx.page, pageSize: ctx.pageSize };
+      return {
+        rows: plainDecimals(rows, dmmf, modelName),
+        total,
+        page: ctx.page,
+        pageSize: ctx.pageSize,
+      };
     },
 
     async get(modelName, ctx: ItemQueryContext) {
-      const delegate = getDelegate(modelName, ctx);
-      const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
-      const select = projection(modelName, ctx.select);
-      if (select === EMPTY_PROJECTION) {
-        return (await delegate.count({ where: baseWhere })) > 0 ? {} : null;
+      const delegate = getDelegate(modelName);
+      try {
+        const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
+        const select = projection(modelName, ctx.select);
+        if (select === EMPTY_PROJECTION) {
+          return (await delegate.count({ where: baseWhere })) > 0 ? {} : null;
+        }
+        const args = { where: baseWhere, ...(select ? { select } : {}) };
+        const result = hasScope(ctx)
+          ? await delegate.findFirst(args)
+          : await delegate.findUnique(args);
+        return result ? plainRow(result, modelName) : null;
+      } catch (err) {
+        if (err instanceof InvalidIdError || (err as { code?: unknown }).code === "P2023") {
+          return null;
+        }
+        throw err;
       }
-      const args = { where: baseWhere, ...(select ? { select } : {}) };
-      const result = hasScope(ctx)
-        ? await delegate.findFirst(args)
-        : await delegate.findUnique(args);
-      return result ?? null;
     },
 
     async create(modelName, ctx: MutationContext<unknown>) {
       const delegate = getDelegate(modelName, ctx);
       const data = applyScopeToData((ctx.input as Record<string, unknown>) ?? {}, ctx);
-      return delegate.create({ data });
+      return plainRow(await delegate.create({ data }), modelName);
     },
 
     async update(modelName, ctx: MutationContext<unknown>) {
       if (!ctx.id) throw new Error("prismaAdapter: update requires ctx.id");
-      const delegate = getDelegate(modelName, ctx);
-      const baseWhere = applyScopeToWhere(pkWhere(ctx.id, modelName, getDmmf()), ctx);
-      if (hasScope(ctx)) {
-        const res = await delegate.updateMany({ where: baseWhere, data: ctx.input });
-        if (res.count === 0) return null;
-        const row = await delegate.findFirst({ where: baseWhere });
-        return row ?? null;
+      const id = ctx.id;
+      const baseWhere = applyScopeToWhere(pkWhere(id, modelName, getDmmf()), ctx);
+      if (!hasScope(ctx)) {
+        const delegate = getDelegate(modelName, ctx);
+        const row = await missingAsNull(delegate.update({ where: baseWhere, data: ctx.input }));
+        return row === null ? null : plainRow(row, modelName);
       }
-      return delegate.update({ where: baseWhere, data: ctx.input });
+      const input = (ctx.input as Record<string, unknown>) ?? {};
+      assertUpdateKeepsScope(input, ctx);
+      return inTransaction(getDb(ctx), async (db) => {
+        const delegate = resolveDelegate(db, modelName);
+        const res = await delegate.updateMany({ where: baseWhere, data: input });
+        if (res.count === 0) return null;
+        const pk = Object.keys(pkWhere(id, modelName, getDmmf()))[0] ?? "id";
+        const movedId = pk in input ? String(input[pk]) : id;
+        const row = await delegate.findFirst({
+          where: applyScopeToWhere(pkWhere(movedId, modelName, getDmmf()), ctx),
+        });
+        if (!row) throw outOfScopeUpdate();
+        return plainRow(row, modelName);
+      });
     },
 
     async delete(modelName, ctx: MutationContext<unknown>): Promise<void> {
@@ -196,12 +249,14 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
         if (hasScope(ctx)) {
           await delegate.updateMany({ where: baseWhere, data: { [softCol]: new Date() } });
         } else {
-          await delegate.update({ where: baseWhere, data: { [softCol]: new Date() } });
+          await missingAsNull(
+            delegate.update({ where: baseWhere, data: { [softCol]: new Date() } }),
+          );
         }
       } else if (hasScope(ctx)) {
         await delegate.deleteMany({ where: baseWhere });
       } else {
-        await delegate.delete({ where: baseWhere });
+        await missingAsNull(delegate.delete({ where: baseWhere }));
       }
     },
 
@@ -215,7 +270,7 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       if (hasScope(ctx)) {
         await delegate.updateMany({ where: baseWhere, data: { [softCol]: null } });
       } else {
-        await delegate.update({ where: baseWhere, data: { [softCol]: null } });
+        await missingAsNull(delegate.update({ where: baseWhere, data: { [softCol]: null } }));
       }
     },
 
@@ -223,16 +278,19 @@ export function prismaAdapter<P>(opts: PrismaAdapterOptions<P>): Adapter<P, stri
       strings: TemplateStringsArray,
       ...values: unknown[]
     ): Promise<Row[]> {
-      const rows = await prisma.$queryRaw(strings, ...sanitizeSqlParams(values));
+      const rows = await prisma.$queryRaw(strings, ...values);
       return parseSqlRows<Row>(rows as Array<Record<string, unknown>>, {
         parseDates: opts.parseDates ?? true,
       });
     },
 
     async count(modelName, where): Promise<number> {
-      return resolveDelegate(prisma, modelName).count({ where: buildFilterWhere(where) });
+      return resolveDelegate(prisma, modelName).count({
+        where: buildFilterWhere(where, numberFields(modelName, getDmmf())),
+      });
     },
 
+    auditLog: prismaAuditLog(prisma, opts.provider),
     ...createMigrationMethods(prisma, opts.provider),
   };
 }

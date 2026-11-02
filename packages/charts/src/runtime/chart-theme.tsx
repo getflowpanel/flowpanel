@@ -1,4 +1,4 @@
-import type { ResolvedFormatting } from "@flowpanel/core/format";
+import { formatDurationCompact, type ResolvedFormatting } from "@flowpanel/core/format";
 import { formatNumber, type NumericFormat } from "@flowpanel/react";
 import { ChartTooltip } from "./ChartTooltip";
 
@@ -10,16 +10,24 @@ export function chartColor(i: number): string {
   return `hsl(var(--fp-chart-${(i % CHART_TOKENS) + 1}))`;
 }
 
-/** Same palette color at partial opacity — for area-chart fills. */
-export function chartColorAlpha(i: number, alpha: number): string {
-  return `hsl(var(--fp-chart-${(i % CHART_TOKENS) + 1}) / ${alpha})`;
+/** Each series' colour: its own from `colors`, else the data colour alone or the palette in order. */
+export function seriesPaint(
+  ys: readonly string[],
+  colors: Readonly<Record<string, string>> | undefined,
+): (i: number) => string {
+  return (i) => colors?.[ys[i] ?? ""] ?? (ys.length > 1 ? chartColor(i) : "hsl(var(--fp-data))");
 }
 
-/** Legend chrome for multi-series charts — matches axis text tone. */
+function legendLabel(value: unknown) {
+  return <span style={{ color: "hsl(var(--fp-text-2))" }}>{String(value)}</span>;
+}
+
+/** Legend for multi-series charts: a coloured swatch, the name in secondary text. */
 export const LEGEND_PROPS = {
-  wrapperStyle: { fontSize: 12, color: "hsl(var(--fp-text-3))" },
+  wrapperStyle: { fontSize: 12 },
   iconType: "circle",
   iconSize: 8,
+  formatter: legendLabel,
 } as const;
 
 /** Horizontal-only dashed hairline grid. */
@@ -34,7 +42,7 @@ export const AXIS_STYLE_PROPS = {
   axisLine: false,
   tickLine: false,
   stroke: "hsl(var(--fp-text-3))",
-  tick: { fill: "hsl(var(--fp-text-3))", fontSize: 11 },
+  tick: { fill: "hsl(var(--fp-text-3))", fontSize: 12 },
 } as const;
 
 /** Hover dot for line/area series — ringed with the surface color. */
@@ -45,8 +53,12 @@ export function buildValueTickFormatter(
   formatting: ResolvedFormatting,
 ): ((value: unknown) => string) | undefined {
   if (!format) return undefined;
-  return (value) =>
-    typeof value === "number" ? formatNumber(value, format, formatting) : String(value);
+  return (value) => {
+    if (typeof value !== "number") return String(value);
+    return format === "duration"
+      ? formatDurationCompact(value, formatting)
+      : formatNumber(value, format, formatting);
+  };
 }
 
 /** Resolve the extra `<Tooltip>` props driven by `ChartOptionsBase.format` and `.tooltip`. */
@@ -72,14 +84,17 @@ export const LINE_TOOLTIP_CURSOR = {
 /** Hover cursor for bar charts — a faint band highlight. */
 export const BAR_TOOLTIP_CURSOR = { fill: "hsl(var(--fp-text-1) / 0.06)" } as const;
 
-/**
- * A sparse axis: a tight tick gap prints a label under every other bar — a band
- * of timestamps nobody reads. Recharts drops ticks to satisfy the gap, so
- * narrow charts thin out on their own.
- */
+/** Every n-th tick counted back from the latest date, evenly; the right padding gives that last label room, or Recharts drops every tick but it. */
 export const AXIS_TICK_PROPS = {
-  interval: "preserveStartEnd",
+  interval: "equidistantPreserveEnd",
   minTickGap: 96,
+  padding: { left: 0, right: 24 },
+} as const;
+
+/** Category labels are each worth reading, so only a label that would overlap its neighbour is dropped. */
+export const CATEGORY_TICK_PROPS = {
+  interval: "preserveStartEnd",
+  minTickGap: 4,
 } as const;
 
 export const CHART_SURFACE_PROPS = { accessibilityLayer: false } as const;

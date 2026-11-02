@@ -14,13 +14,24 @@ function roleFromUser(s: Session | null): string {
   return (s as { user?: { role?: string } } | null)?.user?.role ?? "guest";
 }
 
-function makeResource(_name: string, requireRole?: string | string[]): ResourceConfig {
+function makeResource(_name: string, read?: string | string[]): ResourceConfig {
   return {
     __kind: "resource",
     ref: {},
-    options: { ...(requireRole !== undefined ? { requireRole } : {}) },
+    options: { ...(read !== undefined ? { access: { read } } : {}) },
   } as unknown as ResourceConfig;
 }
+
+const DECLARED = Object.fromEntries(
+  [
+    "custom",
+    "foo",
+    "x",
+    "other",
+    "ok-channel",
+    ...Array.from({ length: 40 }, (_, i) => `ch-${i}`),
+  ].map((name) => [name, {}]),
+);
 
 function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdminConfig {
   return {
@@ -29,14 +40,15 @@ function makeConfig(overrides: Partial<ResolvedAdminConfig> = {}): ResolvedAdmin
       role: roleFromUser,
     },
     resourcesByName: new Map(),
+    realtime: { driver: "memory", channels: DECLARED },
     ...overrides,
   } as ResolvedAdminConfig;
 }
 
 describe("stream() — authentication", () => {
-  it("returns 403 when session() is null and requireRole is set", async () => {
+  it("returns 403 when session() is null and auth.access is set", async () => {
     const config = makeConfig({
-      auth: { session: async () => null, role: () => "guest", requireRole: "admin" },
+      auth: { session: async () => null, role: () => "guest", access: "admin" },
     } as never);
     const res = await stream(config)(new Request("http://localhost/stream"));
     expect(res.status).toBe(403);
@@ -44,19 +56,19 @@ describe("stream() — authentication", () => {
     expect(body).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
 
-  it("returns 403 when the session's role doesn't satisfy admin-wide requireRole", async () => {
+  it("returns 403 when the session's role doesn't satisfy admin-wide access", async () => {
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "viewer" } }),
         role: roleFromUser,
-        requireRole: "admin",
+        access: "admin",
       },
     } as never);
     const res = await stream(config)(new Request("http://localhost/stream"));
     expect(res.status).toBe(403);
   });
 
-  it("allows the connection when requireRole is unset (no admin-wide policy)", async () => {
+  it("allows the connection when auth.access is unset (no admin-wide policy)", async () => {
     const config = makeConfig();
     const res = await stream(config)(new Request("http://localhost/stream"));
     expect(res.status).toBe(200);
@@ -64,12 +76,12 @@ describe("stream() — authentication", () => {
     await res.body?.cancel();
   });
 
-  it("allows the connection when the role satisfies admin-wide requireRole", async () => {
+  it("allows the connection when the role satisfies admin-wide access", async () => {
     const config = makeConfig({
       auth: {
         session: async () => ({ user: { id: "u1", role: "admin" } }),
         role: roleFromUser,
-        requireRole: "admin",
+        access: "admin",
       },
     } as never);
     const res = await stream(config)(new Request("http://localhost/stream"));
@@ -106,7 +118,7 @@ describe("stream() — channel validation", () => {
     await res.body?.cancel();
   });
 
-  it("rejects a resource.<name> channel when the resource's own requireRole fails", async () => {
+  it("rejects a resource.<name> channel when the resource's read access fails", async () => {
     const resourcesByName = new Map<string, ResourceConfig>([
       ["billing", makeResource("billing", "finance")],
     ]);
@@ -124,7 +136,7 @@ describe("stream() — channel validation", () => {
     await res.body?.cancel();
   });
 
-  it("allows a resource.<name> channel when the resource's requireRole passes", async () => {
+  it("allows a resource.<name> channel when the resource's read access passes", async () => {
     const resourcesByName = new Map<string, ResourceConfig>([
       ["billing", makeResource("billing", "finance")],
     ]);
@@ -142,7 +154,7 @@ describe("stream() — channel validation", () => {
     await res.body?.cancel();
   });
 
-  it("passes through resource.<name> channels for resources with no requireRole", async () => {
+  it("passes through resource.<name> channels for resources with no access rule", async () => {
     const resourcesByName = new Map<string, ResourceConfig>([["users", makeResource("users")]]);
     const config = makeConfig({ resourcesByName });
     const req = new Request("http://localhost/stream?channel=resource.users");
@@ -151,6 +163,48 @@ describe("stream() — channel validation", () => {
     expect(subscribeSpy.mock.calls.map((c) => c[0])).toEqual(["resource.users"]);
     await res.body?.cancel();
   });
+  it("drops a resource.<name> channel for a resource the config does not register", async () => {
+    const res = await stream(makeConfig())(
+      new Request("http://localhost/stream?channel=resource.ghost&channel=ok-channel"),
+    );
+    expect(res.status).toBe(200);
+    expect(subscribeSpy.mock.calls.map((c) => c[0])).toEqual(["ok-channel"]);
+    await res.body?.cancel();
+  });
+
+  it("sends a tenant-scoped resource's event without its row id or data", async () => {
+    const scoped = {
+      __kind: "resource",
+      ref: {},
+      options: { scope: (_scope: unknown, query: unknown) => query },
+    } as unknown as ResourceConfig;
+    const config = makeConfig({
+      resourcesByName: new Map<string, ResourceConfig>([
+        ["orders", scoped],
+        ["users", makeResource("users")],
+      ]),
+    });
+    const res = await stream(config)(
+      new Request("http://localhost/stream?channel=resource.orders&channel=resource.users"),
+    );
+    const reader = res.body!.getReader();
+    await reader.read();
+    const handlers = new Map(
+      subscribeSpy.mock.calls.map(([channel, handler]) => [channel, handler]),
+    );
+    handlers.get("resource.orders")?.({ action: "update", id: "o-1", row: { total: 5 } });
+    handlers.get("resource.users")?.({ action: "update", id: "u-1" });
+    const text = new TextDecoder();
+    const frames = [
+      text.decode((await reader.read()).value),
+      text.decode((await reader.read()).value),
+    ];
+    expect(frames[0]).toContain('"payload":{"action":"update"}');
+    expect(frames[0]).not.toContain("o-1");
+    expect(frames[1]).toContain('"id":"u-1"');
+    await reader.cancel();
+  });
+
   it("rejects a resource.<name> channel the resource's access map closes to the caller", async () => {
     const gated = {
       __kind: "resource",

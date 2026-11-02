@@ -8,7 +8,15 @@ export interface PrismaDmmfField {
   isRequired: boolean;
   isUnique: boolean;
   isList: boolean;
-  hasDefault: boolean;
+  /** Set for `@default(...)`, including `autoincrement()`, `uuid()`, `cuid()` and `now()`. */
+  hasDefaultValue: boolean;
+  /** The `@default(...)` value: a plain value, or a function such as `{ name: "now", args: [] }`. */
+  default?: unknown;
+  /** Set for `@updatedAt`; Prisma fills the value on every write. */
+  isUpdatedAt?: boolean;
+  isGenerated?: boolean;
+  /** The `@db` type and its arguments, e.g. `["Decimal", ["10", "2"]]`. */
+  nativeType?: readonly [string, readonly string[]] | null;
 }
 
 export interface PrismaDmmfEnum {
@@ -19,6 +27,8 @@ export interface PrismaDmmfEnum {
 export interface PrismaDmmfModel {
   name: string;
   fields: PrismaDmmfField[];
+  /** `@@id([...])`; `null` or absent for a single `@id`. */
+  primaryKey?: { fields: readonly string[] } | null;
 }
 
 export interface PrismaDmmf {
@@ -60,13 +70,22 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
       unique: field.isUnique,
       primaryKey: field.isId,
       readable: true,
-      // An id with a default (autoincrement/cuid/uuid) is database-generated;
-      // a non-id default stays writable.
-      writableOnCreate: !(field.isId && field.hasDefault),
+      writableOnCreate: !(field.isId && fillsItself(field)),
       writableOnUpdate: !field.isId,
-      generated: field.isId && field.hasDefault,
-      hasDefault: field.hasDefault,
+      generated: field.isId && fillsItself(field),
+      hasDefault: fillsItself(field),
     };
+
+    if (meta.type === "number") meta.integer = field.type === "Int" || field.type === "BigInt";
+    if (field.type === "DateTime" && field.nativeType?.[0] === "Date") meta.dateOnly = true;
+    const literal = field.default;
+    if (
+      typeof literal === "string" ||
+      typeof literal === "number" ||
+      typeof literal === "boolean"
+    ) {
+      meta.defaultValue = literal;
+    }
 
     if (field.kind === "enum") {
       const enumDef = dmmf.datamodel.enums.find((e) => e.name === field.type);
@@ -80,9 +99,20 @@ export function introspect(modelName: string, dmmf: PrismaDmmf): ResourceIntrosp
     columns.push(meta);
   }
 
-  const result = freeze({ name: model.name, columns, primaryKey });
+  const keyColumns = model.primaryKey?.fields;
+  const result = freeze({
+    name: model.name,
+    columns,
+    primaryKey,
+    ...(keyColumns && keyColumns.length > 0 ? { keyColumns: [...keyColumns] } : {}),
+  });
   byModel.set(modelName, result);
   return result;
+}
+
+/** Prisma or the database supplies the value when a create leaves it out. */
+export function fillsItself(field: PrismaDmmfField): boolean {
+  return field.hasDefaultValue || field.isUpdatedAt === true || field.isGenerated === true;
 }
 
 // Memoized: one object is shared by every caller, so it must not be mutable.

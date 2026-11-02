@@ -1,3 +1,0 @@
-/* Compatibility filename for projects initialized while Tailwind v3 was
-   detected. FlowPanel's CSS is precompiled and needs no Tailwind compiler. */
-@import "@flowpanel/kit/styles/admin.css";

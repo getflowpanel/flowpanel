@@ -1,0 +1,184 @@
+# FlowPanel — Reference — Scope & realtime
+
+## Scope & realtime
+
+Tenant scoping, the publisher contract, and the rate limiter.
+
+Docs: https://flowpanel.tech/docs/reference/scope-realtime
+
+Documented types: ScopeContext, assertResourceScope, ScopeCheckInput, Publisher, createRealtimeTransport, RealtimeChannel, createPublisher, PublisherClient, RedisLike, ResourceChange, encodeEnvelope, decodeEnvelope, RateLimiter
+
+### Scope
+
+A scope is resolved once per request and applied by the adapter to every query.
+Guide: [Multi-tenant scope](/docs/guides/multi-tenant-scope).
+
+```ts
+type Scope = Record<string, unknown> | null;
+// FlowpanelTypes["session"] when you register it, else Record<string, unknown>
+type Session = Record<string, unknown>;
+```
+
+`AdminDefinition.scope` receives:
+
+`ScopeContext`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `req` | `Request` |  |
+| `session` | `Session \| null` |  |
+
+```ts
+scope: async ({ session }) => ({ orgId: session?.user?.orgId }),
+```
+
+The returned object reaches resource predicates as their first argument, and
+policies, mutations and actions as `ctx.scope`. The adapter receives the
+resource's predicate bound to it as `ctx.boundScope`. Widgets get no `ctx.scope`:
+`ctx.count` and `ctx.read` apply the scope for you, and a `ctx.sql` or `ctx.db`
+query must read the tenant from `ctx.session`.
+
+Return `allTenants` from `@flowpanel/kit` for a user who works across tenants: the
+resource predicates are skipped for that request, and `isAllTenants(scope)` tells
+it apart. A resource's `scopeOf(row)` names the tenant a row belongs to, in the
+shape `scope` returns, so the audit log files that user's changes under it.
+
+#### The opt-out is mandatory
+
+With a global `scope`, every resource declares its own `scope` or
+`scope: "bypass"`. One that does neither stops `defineAdmin` at boot with
+`resource "<name>" scope: the admin has a global scope, so every resource needs its own`.
+
+`ScopeCheckInput`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `hasGlobal` | `boolean` |  |
+| `resourceScope` | `"bypass" \| ResourceScope \| undefined` |  |
+
+FlowPanel also runs this check per request, in case a resource loses its scope after boot; call it only in your own adapter or route.
+
+### Publisher
+
+The realtime transport, built from `AdminDefinition.realtime` by
+`createRealtimeTransport`. Implement it for another bus. Guide:
+[Realtime](/docs/guides/realtime). A worker uses `createPublisher` from
+`@flowpanel/kit/publish` instead.
+
+`Publisher`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `publish` | `(channel: string, payload?: unknown) => Promise<void>` |  |
+| `subscribe` | `(channel: string, handler: (payload: unknown) => void) => () => void` |  |
+| `close?` | `() => Promise<void>` | Release the transport's connections. Publishing afterwards throws. |
+
+```ts
+type PublisherOptions =
+  | { driver: "memory" }
+  | { driver: "redis"; url?: string; client?: RedisLike; keyPrefix?: string };
+```
+
+`AdminDefinition.realtime` also takes `channels`, the channels of your own the
+stream may serve ([Realtime](/docs/guides/realtime#declare-your-own-channels)):
+
+`RealtimeChannel`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `access?` | `AccessRule` | Who may subscribe. Default: everyone `auth.access` admits. |
+| `tenantSafe?` | `boolean` | The payload carries nothing tenant-specific. Under an admin-wide `scope`, a channel without it delivers `{}`, so subscribers only learn that something changed. Default: `false`. |
+
+The memory driver reaches only the publishing process. The Redis driver loads the
+optional `ioredis` peer on first use and needs `url` or `client`; with `client`,
+FlowPanel publishes on it and calls `duplicate()` only to subscribe. Nothing
+connects until the first publish or subscribe. Connection errors are logged once
+per kind and never rethrown.
+
+`keyPrefix` defaults to `"flowpanel"`, so `resource.orders` travels as
+`flowpanel:resource.orders`. Use one channel per payload shape. Payloads are
+JSON in every driver, so a `Date` arrives as an ISO string, and a payload that
+cannot be encoded is rejected.
+
+`close()` releases connections the publisher opened; a `client` you passed stays
+open. After `close()`, `publish` throws.
+
+#### Publishing from a worker
+
+A worker, cron job or script imports only `@flowpanel/kit/publish` and opens one
+connection.
+
+`PublisherClient`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `publish` | `(channel: string, payload?: unknown) => Promise<void>` |  |
+| `resource` | `(name: string, change?: ResourceChange) => Promise<void>` | Tell every open list and record page of the resource named `name` that its rows changed, on `resource.<name>`. |
+| `channelFor` | `(resource: string) => string` | The channel a resource's own events travel on: `resource.<name>`. |
+| `close` | `() => Promise<void>` | Release the connections this client opened. Idempotent; a host's client is left open. |
+
+`RedisLike`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `publish` | `(channel: string, message: string) => Promise<unknown>` |  |
+| `on` | `(event: "error", cb: (err: unknown) => void) => unknown` |  |
+| `off?` | `(event: "error", cb: (err: unknown) => void) => unknown` |  |
+| `removeListener?` | `(event: "error", cb: (err: unknown) => void) => unknown` |  |
+| `duplicate?` | `() => unknown` | A second connection for subscribing, checked at runtime for `subscribe`, `unsubscribe` and `on`. |
+
+`ResourceChange`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `action?` | `"create" \| "update" \| "delete"` | Default: `"update"`. |
+| `id?` | `string \| number` | The changed record's key, when one record changed. |
+
+```ts
+import { createPublisher } from "@flowpanel/kit/publish";
+
+const events = createPublisher({
+  redis: process.env.REDIS_URL!,
+  onError: (err) => console.error("realtime publish failed", err),
+});
+
+export async function orderChanged(id: number): Promise<void> {
+  await events.resource("orders", { id });
+}
+```
+
+It also takes the admin's `{ driver: "redis", url, keyPrefix }` options. A
+transport error resolves the call and reaches `onError`.
+
+The SSE envelope helpers, for reading the stream without FlowPanel's client:
+
+`decodeEnvelope` returns `null` for a frame that is not an envelope.
+
+#### The memory driver in a Redis deployment
+
+The publisher is bound per process from `config.realtime` and rebinds when the
+options change. It warns once per process, on the first publish or stream, when
+the driver is `memory` while `REDIS_URL` or `FLOWPANEL_REDIS_URL` is set:
+
+```text
+[flowpanel] realtime driver is memory while REDIS_URL is set — other instances
+and workers will not receive events; set realtime: { driver: 'redis', url:
+process.env.REDIS_URL } in defineAdmin
+```
+
+### RateLimiter
+
+`RateLimiter`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `check` | `(key: string) => Promise<boolean>` | Returns true if the request is allowed; false if the limit is exceeded. |
+
+```ts
+function createRateLimiter(opts: RateLimitOptions): RateLimiter;
+```
+
+`check` returns `false` over the limit, which becomes a `429`. With `per: "user"`
+the key is `AuthConfig.userId`, else the session's `id` or `user.id`, else the IP.
+The memory driver counts per process. The Redis driver's key prefix defaults to
+`"fp:rl:"`.

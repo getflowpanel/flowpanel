@@ -58,6 +58,15 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     await prisma.$disconnect();
   });
 
+  it("reads the schema off the client, extended or not, without a dmmf option", async () => {
+    for (const client of [prisma, prisma.$extends({})]) {
+      const adapter = prismaAdapter({ prisma: client, provider: "sqlite" });
+      expect(adapter.introspect("TestUser")).toEqual(
+        prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" }).introspect("TestUser"),
+      );
+    }
+  });
+
   it("list paginates: 5 seeded rows, page=1 size=3 → total 5, rows 3", async () => {
     // Seed 5 rows
     for (let i = 1; i <= 5; i++) {
@@ -252,6 +261,27 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
     expect(gone).toBeNull();
   });
 
+  it("updates a missing row to null and deletes it as a no-op, without P2025", async () => {
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    const ghost = { id: "999999", input: { name: "Nobody" }, db: undefined } as any;
+    await expect(adapter.update("TestUser", ghost)).resolves.toBeNull();
+    await expect(adapter.delete!("TestUser", ghost)).resolves.toBeUndefined();
+  });
+
+  it("creates from the email alone and leaves the defaulted columns to the database", async () => {
+    const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
+    const parsed = adapter.inferSchema("TestUser").create.safeParse({ email: "lean@example.com" });
+    expect(parsed.success).toBe(true);
+
+    const created = (await adapter.create("TestUser", {
+      input: parsed.data,
+      db: undefined,
+    } as any)) as TestRow;
+    expect(created.email).toBe("lean@example.com");
+    expect(created.createdAt).toBeInstanceOf(Date);
+    expect(Boolean(created.active)).toBe(true);
+  });
+
   it("soft-delete + restore roundtrip", async () => {
     const adapter = prismaAdapter({ prisma, dmmf: Prisma.dmmf, provider: "sqlite" });
 
@@ -312,7 +342,7 @@ describe.skipIf(!clientGenerated)("prismaAdapter — SQLite integration", () => 
           db: tx,
         } as any);
         await adapter.delete!("TestUser", {
-          id: "2147483647",
+          id: "not-an-int",
           input: {},
           db: tx,
         } as any);

@@ -5,11 +5,12 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
   WidgetConfig,
-  WidgetContext,
 } from "@flowpanel/core";
-import { DEFAULT_LABELS } from "@flowpanel/core";
+import { metric, table } from "@flowpanel/core";
 import { describe, expect, it, vi } from "vitest";
 import { serializeWidget } from "../drawer/serialize-widget";
+import { bindViewedRecord } from "../runtime/record-scope";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",
@@ -56,17 +57,7 @@ const reqCtx: RequestContext = {
   ip: null,
   userAgent: null,
 };
-const widgetCtx: WidgetContext = {
-  db: {},
-  session: null,
-  dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-  req: new Request("http://localhost/"),
-  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
-  query: (_key, fn) => fn(),
-  labels: DEFAULT_LABELS,
-  sql: async () => [],
-  count: async () => 0,
-};
+const widgetCtx = fakeWidgetContext();
 
 describe("serializeWidget — metric", () => {
   it("invokes query and returns wire-safe metric payload", async () => {
@@ -266,7 +257,7 @@ describe("serializeWidget — error & unknown", () => {
     );
     expect(out).toEqual({
       kind: "unsupported",
-      reason: "custom widgets are not supported in drawers yet",
+      reason: "A custom widget shows on dashboards and record pages, not in a drawer.",
     });
   });
 
@@ -276,7 +267,7 @@ describe("serializeWidget — error & unknown", () => {
     expect(out).toMatchObject({ kind: "unsupported" });
   });
 
-  it("catches query() errors without leaking the raw message to the browser", async () => {
+  it("keeps the title of a failed widget without leaking the raw message to the browser", async () => {
     const widget: WidgetConfig = {
       kind: "metric",
       label: "Boom",
@@ -285,8 +276,19 @@ describe("serializeWidget — error & unknown", () => {
       },
       options: {},
     } as never;
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const out = await serializeWidget(widget, mkConfig(), reqCtx, widgetCtx);
-    expect(out).toEqual({ kind: "unsupported", reason: "widget query failed", failed: true });
+    expect(out).toEqual({
+      kind: "unsupported",
+      label: "Boom",
+      reason: "Try again in a moment.",
+      failed: true,
+    });
+    expect(logged).toHaveBeenCalledWith(
+      expect.stringContaining("drawer widget «Boom» (metric) failed"),
+      expect.objectContaining({ message: "db down: postgres://user:pw@host/db" }),
+    );
+    logged.mockRestore();
   });
 });
 
@@ -312,7 +314,7 @@ describe("serializeWidget — cross-resource authorization", () => {
       pageSize: 10,
     }));
     const cfg = {
-      ...mkConfig([targetWith({ requireRole: "superadmin" })]),
+      ...mkConfig([targetWith({ access: { read: "superadmin" } })]),
       adapter: { ...fakeAdapter, list },
     } as ResolvedAdminConfig;
     const out = await serializeWidget(widget, cfg, { ...reqCtx, role: "staff" }, widgetCtx);
@@ -352,11 +354,9 @@ describe("serializeWidget — cross-resource authorization", () => {
     } as unknown as ResolvedAdminConfig;
     await serializeWidget(widget, cfg, { ...reqCtx, scope: { tenantId: "t1" } }, widgetCtx);
     const listCtx = list.mock.calls[0]?.[1] as {
-      applyScope?: (q: unknown) => unknown;
-      scopeRequired?: boolean;
+      boundScope?: { apply(q: unknown): unknown };
     };
-    expect(listCtx.scopeRequired).toBe(true);
-    listCtx.applyScope?.("q");
+    listCtx.boundScope?.apply("q");
     expect(scopePredicate).toHaveBeenCalledWith({ tenantId: "t1" }, "q");
   });
 
@@ -396,7 +396,7 @@ describe("serializeWidget — a failed widget and a Date", () => {
     expect(out).toMatchObject({ kind: "unsupported", failed: true });
   });
 
-  it("sends a statGroup Date over the wire already formatted in the admin's zone", async () => {
+  it("sends a statGroup Date over the wire as an instant the card renders through LocalTime", async () => {
     const cfg = { ...mkConfig(), formatting: { timeZone: "Asia/Bangkok" } } as ResolvedAdminConfig;
     const out = await serializeWidget(
       {
@@ -409,6 +409,69 @@ describe("serializeWidget — a failed widget and a Date", () => {
       reqCtx,
       widgetCtx,
     );
-    expect((out as { stats: { value: unknown }[] }).stats[0]?.value).toBe("2026-09-23 06:30");
+    expect((out as { stats: { value: unknown }[] }).stats[0]?.value).toEqual({
+      kind: "date",
+      iso: "2026-09-22T23:30:00.000Z",
+    });
+  });
+});
+
+describe("serializeWidget — table column formats", () => {
+  it("carries a query table's column labels and formats to the drawer", async () => {
+    const widget: WidgetConfig = {
+      kind: "table",
+      options: {
+        query: async () => [{ stage: "score", p95: 7_500_000 }],
+        columns: ["stage", { field: "p95", label: "p95", format: "duration" }],
+      },
+    };
+    expect(await serializeWidget(widget, mkConfig(), reqCtx, widgetCtx)).toMatchObject({
+      kind: "table",
+      columns: [{ field: "stage" }, { field: "p95", label: "p95", format: "duration" }],
+    });
+  });
+});
+
+describe("serializeWidget — a drawer over a record", () => {
+  const responses: ResourceConfig = {
+    __kind: "resource",
+    ref: { __name: "responses" },
+    options: {
+      columns: ["id", { field: "userId", reference: { resource: "users", labelField: "id" } }],
+    },
+  } as never;
+
+  it("narrows a resource table by its where", async () => {
+    let filters: unknown = null;
+    const adapter: Adapter = {
+      ...fakeAdapter,
+      list: async (_ref, ctx) => {
+        filters = (ctx as { filters?: unknown }).filters;
+        return { rows: [], total: 0, page: 1, pageSize: 10 };
+      },
+    };
+    const cfg = { ...mkConfig([responses]), adapter } as ResolvedAdminConfig;
+    const widget = table({ resource: "responses", where: (c) => ({ userId: c.id }) });
+    await serializeWidget(widget, cfg, reqCtx, fakeWidgetContext({ id: "u1" }));
+    expect(filters).toMatchObject({ userId: "u1" });
+  });
+
+  it("counts only the record's rows in a count metric", async () => {
+    const counted: unknown[] = [];
+    const ctx = fakeWidgetContext({
+      count: async (_resource, where) => {
+        counted.push(where);
+        return 2;
+      },
+    });
+    bindViewedRecord(ctx, "users", "u1");
+    const out = await serializeWidget(
+      metric("Responses", { count: "responses" }),
+      mkConfig([responses]),
+      reqCtx,
+      ctx,
+    );
+    expect(counted).toEqual([{ userId: "u1" }]);
+    expect(out).toMatchObject({ kind: "metric", value: 2 });
   });
 });

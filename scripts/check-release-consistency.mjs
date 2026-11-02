@@ -23,7 +23,7 @@ function read(path) {
 function walk(dir, predicate, out = []) {
   for (const entry of readdirSync(join(root, dir))) {
     const path = join(dir, entry);
-    if (["node_modules", ".next", "dist", ".git"].includes(entry)) continue;
+    if (["node_modules", ".next", "dist", ".git", ".generated"].includes(entry)) continue;
     if (statSync(join(root, path)).isDirectory()) walk(path, predicate, out);
     else if (predicate(path)) out.push(path);
   }
@@ -85,18 +85,54 @@ for (const file of publicTextFiles) {
 }
 
 const kit = JSON.parse(read("packages/flowpanel/package.json"));
-if (kit.peerDependencies.next.includes("16")) {
-  for (const file of publicTextFiles) {
-    if (/Next\.js 15\+/.test(read(file))) {
+const PUBLISHED = ["@flowpanel/cli", "@flowpanel/eslint-plugin", "@flowpanel/kit"];
+const published = manifestFiles
+  .filter((file) => file.startsWith("packages/"))
+  .map((file) => JSON.parse(read(file)))
+  .filter((manifest) => !manifest.private)
+  .map((manifest) => manifest.name)
+  .sort();
+if (published.join() !== PUBLISHED.join()) {
+  problems.push(
+    `packages: publishes ${published.join(", ")}; expected only ${PUBLISHED.join(", ")}`,
+  );
+}
+for (const field of ["dependencies", "peerDependencies", "optionalDependencies"]) {
+  for (const name of Object.keys(kit[field] ?? {})) {
+    if (name.startsWith("@flowpanel/")) {
       problems.push(
-        `${file}: says Next.js 15+ but the package peer range is ${kit.peerDependencies.next}`,
+        `packages/flowpanel/package.json: ${field} names ${name}, which ships inside the kit`,
       );
     }
   }
 }
+for (const file of manifestFiles.filter((path) => /^(?:apps|examples)\//.test(path))) {
+  const manifest = JSON.parse(read(file));
+  for (const name of Object.keys({ ...manifest.dependencies, ...manifest.devDependencies })) {
+    if (name.startsWith("@flowpanel/") && !PUBLISHED.includes(name)) {
+      problems.push(`${file}: depends on ${name}, which ships inside @flowpanel/kit`);
+    }
+  }
+}
+const nextFloor = /(\d+\.\d+)/.exec(kit.peerDependencies.next)?.[1];
+for (const file of [...publicTextFiles, "apps/site/src/views/landing/ui/GetStarted.tsx"]) {
+  for (const match of read(file).matchAll(/Next\.js (\d+(?:\.\d+)?)\+/g)) {
+    if (`${match[1]}${match[1]?.includes(".") ? "" : ".0"}` !== nextFloor) {
+      problems.push(
+        `${file}: says Next.js ${match[1]}+ but the package peer range is ${kit.peerDependencies.next}`,
+      );
+    }
+  }
+}
+function resolveCatalog(name, specifier) {
+  if (specifier !== "catalog:") return specifier;
+  const key = name.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+  return new RegExp(`^ {2}"?${key}"?: "?([^"\\n]+)"?$`, "m").exec(read("pnpm-workspace.yaml"))?.[1];
+}
+
 for (const example of ["examples/ai-scraper/package.json", "examples/with-clerk/package.json"]) {
   const pkg = JSON.parse(read(example));
-  const zod = pkg.dependencies?.zod ?? pkg.devDependencies?.zod;
+  const zod = resolveCatalog("zod", pkg.dependencies?.zod ?? pkg.devDependencies?.zod);
   if (!zod?.includes("4")) {
     problems.push(
       `${example}: uses zod ${String(zod)} but @flowpanel/kit peers on ${kit.peerDependencies.zod}`,
@@ -117,12 +153,10 @@ for (const file of walk("apps/site", (path) => /\.[jt]sx?$/.test(path))) {
   }
 }
 
-const namedRelease = readdirSync(join(root, ".changeset"))
-  .map((file) => ({ file, match: /^release-(\d+)-(\d+)-(\d+)\.md$/.exec(file) }))
-  .find(({ match }) => match !== null);
-if (namedRelease?.match) {
-  const expectedVersion = namedRelease.match.slice(1).join(".");
-  const releaseId = namedRelease.file.slice(0, -3);
+const versionedChangesets = readdirSync(join(root, ".changeset"))
+  .map((file) => ({ file, match: /-(\d+)-(\d+)-(\d+)\.md$/.exec(file) }))
+  .filter(({ match }) => match !== null);
+if (versionedChangesets.length > 0) {
   const tempDir = mkdtempSync(join(tmpdir(), "flowpanel-release-plan-"));
   const outputPath = join(tempDir, "status.json");
   try {
@@ -132,18 +166,42 @@ if (namedRelease?.match) {
       stdio: "pipe",
     });
     const status = JSON.parse(readFileSync(outputPath, "utf8"));
-    const planned = status.releases.filter(
-      (release) => release.name.startsWith("@flowpanel/") && release.changesets.includes(releaseId),
-    );
-    for (const release of planned) {
-      if (release.newVersion !== expectedVersion) {
-        problems.push(
-          `${namedRelease.file}: plans ${release.name}@${release.newVersion}, expected ${expectedVersion}`,
-        );
+    for (const { file, match } of versionedChangesets) {
+      const expectedVersion = match.slice(1).join(".");
+      const changesetId = file.slice(0, -3);
+      const planned = status.releases.filter(
+        (release) =>
+          release.name.startsWith("@flowpanel/") && release.changesets.includes(changesetId),
+      );
+      if (planned.length === 0) problems.push(`${file}: plans no @flowpanel package release`);
+      for (const release of planned) {
+        if (release.newVersion !== expectedVersion) {
+          problems.push(
+            `${file}: plans ${release.name}@${release.newVersion}, expected ${expectedVersion}`,
+          );
+        }
       }
     }
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+const coreDist = join(root, "packages/core/dist");
+if (!existsSync(coreDist)) {
+  problems.push("packages/core/dist: missing; run pnpm build before check:release");
+} else {
+  for (const file of readdirSync(coreDist, { recursive: true, encoding: "utf8" })) {
+    if (!/\.d\.c?ts$/.test(file) || file.startsWith("index.")) continue;
+    if (
+      /\btype Session =|\binterface FlowpanelTypes\b/.test(
+        readFileSync(join(coreDist, file), "utf8"),
+      )
+    ) {
+      problems.push(
+        `packages/core/dist/${file}: declares its own Session or FlowpanelTypes, which a host's registration cannot reach; import them from the core root`,
+      );
+    }
   }
 }
 

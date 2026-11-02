@@ -1,35 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ADAPTER_COOKIE,
-  ADAPTERS,
-  type Adapter,
-  DEFAULT_ADAPTER,
-  isAdapter,
-} from "@/shared/lib/adapter";
+import { ADAPTER_COOKIE, ADAPTERS, type Adapter, isAdapter } from "@/shared/lib/adapter";
 
 interface AdapterToggleProps {
   /** Server-resolved initial value — prevents flash on first paint. */
   initial: Adapter;
 }
 
-/**
- * Client island that exposes the adapter as a small button group.
- *
- * On mount we mirror `document.documentElement.dataset.adapter` (set by
- * AdapterScript from the cookie) into state, then keep both in sync on
- * every change. The dataset attribute drives CSS visibility of
- * <AdapterTabs> branches across the whole page — no re-render needed.
- *
- * Used in the docs sidebar; can be reused in any docs surface that
- * wants to expose the toggle.
- */
+// Mirrors html[data-adapter], which drives the CSS that shows one <AdapterTabs> branch.
 export function AdapterToggle({ initial }: AdapterToggleProps) {
   const [adapter, setAdapter] = useState<Adapter>(initial);
 
-  // Keep in sync if another instance (or a server navigation) updates
-  // the dataset behind our back.
+  // Another instance or a navigation can change the dataset behind our back.
   useEffect(() => {
     const ds = document.documentElement.dataset.adapter;
     if (isAdapter(ds) && ds !== adapter) setAdapter(ds);
@@ -75,5 +58,3 @@ export function AdapterToggle({ initial }: AdapterToggleProps) {
 function labelFor(adapter: Adapter): string {
   return adapter === "prisma" ? "Prisma" : "Drizzle";
 }
-
-export { DEFAULT_ADAPTER };

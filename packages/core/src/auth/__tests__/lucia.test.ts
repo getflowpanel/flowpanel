@@ -17,25 +17,25 @@ describe("withLucia", () => {
     expect(cfg.role(null)).toBe("guest");
   });
 
-  it("forwards requireRole and url overrides", () => {
+  it("forwards access and url overrides", () => {
     const cfg = withLucia({
       lucia: fakeLucia(),
-      requireRole: ["admin", "support"],
+      access: ["admin", "support"],
       signInUrl: "/login",
       forbiddenUrl: "/no-access",
     });
-    expect(cfg.requireRole).toEqual(["admin", "support"]);
+    expect(cfg.access).toEqual(["admin", "support"]);
     expect(cfg.signInUrl).toBe("/login");
     expect(cfg.forbiddenUrl).toBe("/no-access");
   });
 
-  it("session() returns null when next/headers is unavailable in test env", async () => {
-    // next/headers can't be loaded outside Next runtime.
+  it("session() says what is missing when next/headers cannot load, without a version claim", async () => {
     const cfg = withLucia({ lucia: fakeLucia() });
-    // either the import returns null and we throw, OR we return null silently
-    await expect(cfg.session(new Request("http://localhost/admin"))).rejects.toThrow(
-      /next\/headers is unavailable/,
+    const failure = cfg.session(new Request("http://localhost/admin"));
+    await expect(failure).rejects.toThrow(
+      /could not load next\/headers.*Next\.js app's server code/,
     );
+    await expect(cfg.session(new Request("http://localhost/admin"))).rejects.not.toThrow(/16\.3/);
   });
 
   it("custom role override replaces default", () => {

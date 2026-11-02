@@ -19,8 +19,7 @@ export async function readTsconfigOptions(cwd: string): Promise<TsconfigCompiler
     undefined,
     configPath,
   );
-  // This scan deliberately does not enumerate input files. Invalid/missing bases,
-  // cycles and malformed options must not turn a partial config into a valid alias.
+  // Invalid/missing bases, cycles and malformed options must not turn a partial config into a valid alias.
   if (parsed.errors.some(({ code }) => code !== 18002 && code !== 18003)) return null;
   const { baseUrl, paths } = parsed.options;
   // TypeScript records the config that declared paths when no baseUrl is set.
@@ -29,4 +28,25 @@ export async function readTsconfigOptions(cwd: string): Promise<TsconfigCompiler
     baseUrl: baseUrl ?? (typeof pathsOrigin === "string" ? pathsOrigin : cwd),
     ...(paths ? { paths } : {}),
   };
+}
+
+/** `tsconfig.json` `paths`, resolved to absolute directories a jiti alias map can use. */
+export async function readTsconfigAliases(cwd: string): Promise<Record<string, string>> {
+  try {
+    const compilerOptions = await readTsconfigOptions(cwd);
+    const paths = compilerOptions?.paths ?? {};
+    const baseUrl = compilerOptions?.baseUrl ?? ".";
+    const baseDir = path.resolve(cwd, baseUrl);
+    const out: Record<string, string> = {};
+    for (const [key, values] of Object.entries(paths)) {
+      const target = values?.[0];
+      if (!target) continue;
+      const cleanKey = key.replace(/\/\*$/, "");
+      const cleanTarget = target === "*" ? "." : target.replace(/\/\*$/, "");
+      out[cleanKey] = path.resolve(baseDir, cleanTarget);
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }

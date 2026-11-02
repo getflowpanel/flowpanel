@@ -1,22 +1,9 @@
 {
   "name": "@flowpanel/core",
   "version": "0.3.0",
-  "description": "Core logic for FlowPanel — types, defineAdmin, runtime helpers",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "admin-panel",
-    "nextjs",
-    "rbac",
-    "crud"
-  ],
+  "private": true,
+  "description": "Core of FlowPanel: types, defineAdmin, builders and runtime helpers",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/core"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -25,8 +12,14 @@
       "auth": [
         "./dist/auth.d.ts"
       ],
+      "class-names": [
+        "./dist/class-names.d.ts"
+      ],
       "format": [
         "./dist/format.d.ts"
+      ],
+      "internal": [
+        "./dist/internal.d.ts"
       ],
       "internal/migration-sql": [
         "./dist/internal/migration-sql.d.ts"
@@ -66,6 +59,16 @@
         "default": "./dist/auth.cjs"
       }
     },
+    "./class-names": {
+      "import": {
+        "types": "./dist/class-names.d.ts",
+        "default": "./dist/class-names.mjs"
+      },
+      "require": {
+        "types": "./dist/class-names.d.cts",
+        "default": "./dist/class-names.cjs"
+      }
+    },
     "./format": {
       "import": {
         "types": "./dist/format.d.ts",
@@ -74,6 +77,16 @@
       "require": {
         "types": "./dist/format.d.cts",
         "default": "./dist/format.cjs"
+      }
+    },
+    "./internal": {
+      "import": {
+        "types": "./dist/internal.d.ts",
+        "default": "./dist/internal.mjs"
+      },
+      "require": {
+        "types": "./dist/internal.d.cts",
+        "default": "./dist/internal.cjs"
       }
     },
     "./internal/migration-sql": {
@@ -130,8 +143,6 @@
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack .",
-    "lint:publish": "publint --strict",
     "test:types": "tsd",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -153,6 +164,9 @@
         "@flowpanel/core/labels": [
           "./dist/labels.d.ts"
         ],
+        "@flowpanel/core/publish": [
+          "./dist/publish.d.ts"
+        ],
         "@flowpanel/core/theme": [
           "./dist/theme.d.ts"
         ]
@@ -160,31 +174,35 @@
     }
   },
   "sideEffects": false,
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "peerDependencies": {
-    "ioredis": "^5.10.0",
+    "ioredis": "^5.10.0 || ^6.0.0",
+    "react": "^19.0.0",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "ioredis": {
+      "optional": true
+    },
+    "react": {
       "optional": true
     }
   },
   "engines": {
     "node": ">=20"
   },
+  "dependencies": {
+    "clsx": "catalog:",
+    "tailwind-merge": "catalog:"
+  },
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/react": "catalog:",
-    "expect-type": "^0.20.0",
-    "react": "^19.0.0",
+    "ioredis": "^6.0.0",
+    "react": "catalog:",
     "tsd": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "zod": "^4.0.0"
+    "zod": "catalog:"
   }
 }

@@ -1,0 +1,43 @@
+---
+title: What FlowPanel does not do yet
+description: The gaps in 0.4 that a real admin runs into, and the workaround for each.
+kind: explanation
+---
+
+FlowPanel 0.4 covers lists, forms, actions, dashboards, record pages, imports, queues and live updates. These are the gaps you will meet first, with the way to work around each one today.
+
+## File uploads
+
+No form field accepts a file. Upload the file in your own code and store its URL in a text column; the list shows it with the `url` [column format](/docs/reference/resources#columnformat). For the upload control itself, [eject the resource](/docs/customization/eject) (`flowpanel eject resource <name>`) and build the upload into its create and edit pages, or add a [`page()`](/docs/reference/widgets#pageconfig) with your own upload form.
+
+## Editing many-to-many links
+
+A form writes the columns of one table, so it cannot add or remove rows of a join table. Add a [row action](/docs/build/actions) whose form has a `multiselect` field listing the other side, and replace the join rows in its `run`. A `related()` tab on the [record page](/docs/build/detail-cards#related-rows) shows the linked rows.
+
+## Signing in as a user
+
+The admin has no "sign in as" button. Your auth provider decides how impersonation works, so call it from a [row action](/docs/build/actions): better-auth's admin plugin, for example, creates an impersonation session for a user id, and the action returns `redirect` with the path to open as that user.
+
+## Prisma 7
+
+The Prisma adapter supports Prisma 5 and 6. Prisma 7's generated client no longer carries the field metadata the adapter reads, so `init` and `doctor` stop on it. Stay on Prisma 6, or use the [Drizzle adapter](/docs/introduction/drizzle); [Prisma 7](/docs/introduction/prisma#prisma-7) has the details.
+
+## JavaScript is required
+
+The admin needs JavaScript in the browser. Pages render on the server, so a list or a record shows before the scripts run, but forms, filters, sorting, actions, imports and the command palette run in the browser. A form stays read-only until its code arrives, and with JavaScript off it cannot be sent. On a slow connection the form says it is loading until then.
+
+## Not-found status under cacheComponents
+
+With `cacheComponents` on, an unknown admin URL shows the not-found screen with status 200, because Next.js has already streamed the page shell when the admin finds that the record is missing. The page is `noindex`, so search engines skip it; an uptime check that relies on the status should look for the "Page not found" title instead. See [`createFlowpanel`](/docs/reference/next-runtime#createflowpanel).
+
+## Rate-limit status on pages
+
+A page that `rateLimit` refuses shows the "Too many requests" wall inside the admin with status 200, because an App Router page cannot answer 429. The API routes and the realtime stream answer 429 with a `Retry-After` header, the limit's window in seconds. A client or monitor that watches for 429 should call the API, or look for the wall's title on a page. See [RateLimitConfig](/docs/reference/define-config#ratelimitconfig).
+
+## Sign-in and access-denied status on pages
+
+The sign-in and access-denied screens answer 200. Next.js lets a page answer 401 or 403 only through `unauthorized()` and `forbidden()`, behind `experimental.authInterrupts`, and Next then renders the nearest `unauthorized.tsx` or `forbidden.tsx` in place of the page, outside the admin's shell, or its own bare page when the host has none. FlowPanel keeps its screens inside the admin, with the navigation and a way back, even when the host turns `authInterrupts` on. Set `auth.signInUrl` and `auth.forbiddenUrl` to answer with a redirect instead.
+
+A page one role may not open inside an admin it may use, such as an `access: "admin"` dashboard, always shows "You don't have access to …" with status 200, for the same reason. The API routes answer 403, and every admin page is `noindex`. An uptime check or test that relies on the status should look for the screen's title instead.
+
+The error screen for an `auth.session` or `scope` that throws, such as the development stub under `next start`, answers 200 too, titled "Something went wrong". With Cache Components the response starts before the page runs, so a page cannot answer 500 or 404; the API routes answer 500.

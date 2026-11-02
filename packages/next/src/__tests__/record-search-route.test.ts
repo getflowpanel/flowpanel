@@ -1,0 +1,215 @@
+import type { Adapter, ColumnMeta } from "@flowpanel/core";
+import { defineAdmin, resource } from "@flowpanel/core";
+import { describe, expect, it, vi } from "vitest";
+import { recordSearchRoute, resultLines } from "../command/record-search";
+
+const column = (name: string): ColumnMeta => ({
+  name,
+  type: "string",
+  nullable: true,
+  unique: name === "id",
+  primaryKey: name === "id",
+});
+
+const ROWS: Record<string, Record<string, unknown>[]> = {
+  customers: [
+    { id: "1", company: "Northwind Audio", email: "ops@northwind.test" },
+    { id: "2", company: "Harbor Gaming", email: "maya@harbor.test" },
+  ],
+  invoices: [{ id: "9", number: "INV-9", email: "billing@northwind.test" }],
+  notes: [{ id: "5", body: "northwind call" }],
+  contacts: [{ id: "3", email: "lead@northwind.test", phone: "555" }],
+  listings: [
+    { id: "7", title: "Sony XM5 Renewed", reviews: 1922, seller: "Amazon" },
+    { id: "8", title: "Sony XM5 Renewed", reviews: 458, seller: "Amazon" },
+    { id: "9", title: "Bose QC Ultra", reviews: 12, seller: "Northstar Retail" },
+  ],
+};
+
+function makeAdmin(role: string) {
+  const list = vi.fn(async (ref: unknown, ctx: { search?: string; pageSize: number }) => {
+    const table = (ref as { __name: string }).__name;
+    const q = (ctx.search ?? "").toLowerCase();
+    const rows = (ROWS[table] ?? []).filter((row) =>
+      Object.values(row).some((value) => String(value).toLowerCase().includes(q)),
+    );
+    return {
+      rows: rows.slice(0, ctx.pageSize),
+      total: rows.length,
+      page: 1,
+      pageSize: ctx.pageSize,
+    };
+  });
+  const adapter: Adapter = {
+    kind: "test",
+    db: {},
+    introspect: (ref) => {
+      const table = (ref as { __name: string }).__name;
+      const sample = ROWS[table]?.[0] ?? { id: "" };
+      return { name: table, primaryKey: "id", columns: Object.keys(sample).map(column) };
+    },
+    inferSchema: () => ({ create: {} as never, update: {} as never, select: {} as never }),
+    list,
+    get: async () => null,
+    create: async () => ({}),
+    update: async () => null,
+    delete: async () => undefined,
+  };
+  const config = defineAdmin({
+    adapter,
+    auth: { session: async () => ({ id: "operator" }), role: () => role },
+    resources: [
+      resource({ __name: "customers" } as never, {
+        name: "customers",
+        columns: ["company", "email"],
+        search: ["company", "email"],
+        drawer: { fields: "*" },
+      }),
+      resource({ __name: "invoices" } as never, {
+        name: "invoices",
+        columns: ["number", "email"],
+        search: ["number", "email"],
+        access: { read: "admin" },
+      }),
+      resource({ __name: "notes" } as never, { name: "notes", columns: ["body"] }),
+      resource({ __name: "contacts" } as never, {
+        name: "contacts",
+        columns: ["email", "phone"],
+        search: ["email"],
+        fieldAccess: { email: { read: "admin" } },
+      }),
+      resource({ __name: "listings" } as never, {
+        name: "listings",
+        columns: ["title", { field: "reviews", label: "Reviews", format: "number" }],
+        search: ["title", "seller"],
+        drawer: { fields: "*" },
+      }),
+    ],
+  });
+  return { route: recordSearchRoute(config), list };
+}
+
+const search = (q: string) => new Request(`http://localhost/api/flowpanel/palette/search?q=${q}`);
+
+describe("record search for the command palette", () => {
+  it("finds records through each searchable resource and links each to where its row opens", async () => {
+    const { route } = makeAdmin("admin");
+    const body = await (await route(search("northwind"))).json();
+    expect(body.groups).toEqual([
+      {
+        resource: "customers",
+        label: "Customers",
+        items: [
+          {
+            title: "Northwind Audio",
+            detail: "ops@northwind.test",
+            href: "/admin/customers?drawer=customers%3A1",
+          },
+        ],
+      },
+      {
+        resource: "invoices",
+        label: "Invoices",
+        items: [{ title: "INV-9", detail: "billing@northwind.test", href: "/admin/invoices/9" }],
+      },
+      {
+        resource: "contacts",
+        label: "Contacts",
+        items: [{ title: "lead@northwind.test", href: "/admin/contacts/3" }],
+      },
+    ]);
+  });
+
+  it("leaves out a resource whose search fields the caller may not read, instead of unmatched rows", async () => {
+    const { route, list } = makeAdmin("support");
+    const body = await (await route(search("northwind"))).json();
+    expect(body.groups.map((group: { resource: string }) => group.resource)).not.toContain(
+      "contacts",
+    );
+    expect(list.mock.calls.some(([ref]) => (ref as { __name: string }).__name === "contacts")).toBe(
+      false,
+    );
+  });
+
+  it("leaves out a resource the caller may not read", async () => {
+    const { route } = makeAdmin("support");
+    const body = await (await route(search("northwind"))).json();
+    expect(body.groups.map((group: { resource: string }) => group.resource)).toEqual(["customers"]);
+  });
+
+  it("waits for two characters before it reads anything", async () => {
+    const { route, list } = makeAdmin("admin");
+    const body = await (await route(search("n"))).json();
+    expect(body.groups).toEqual([]);
+    expect(list).not.toHaveBeenCalled();
+  });
+});
+
+describe("a palette result's second line", () => {
+  it("shows a search field that matched even when no list column shows it", async () => {
+    const { route } = makeAdmin("admin");
+    const body = await (await route(search("northstar"))).json();
+    const listings = body.groups.find((g: { resource: string }) => g.resource === "listings");
+    expect(listings.items).toEqual([
+      expect.objectContaining({ title: "Bose QC Ultra", detail: "Northstar Retail" }),
+    ]);
+  });
+
+  it("names the list column that tells look-alikes apart", async () => {
+    const { route } = makeAdmin("admin");
+    const body = await (await route(search("xm5"))).json();
+    const listings = body.groups.find((g: { resource: string }) => g.resource === "listings");
+    expect(listings.items.map((item: { detail?: string }) => item.detail)).toEqual([
+      "Reviews: 1,922",
+      "Reviews: 458",
+    ]);
+  });
+
+  const fields = ["title", "brand", "asin", "seller"];
+
+  it("shows the field that matched when the title did not", () => {
+    const rows = [
+      { title: "Sony WH-1000XM5", brand: "Sony", asin: "B0A", seller: "Northwind Audio" },
+    ];
+    expect(resultLines(rows, fields, "north")).toEqual([["Sony WH-1000XM5", "Northwind Audio"]]);
+    expect(resultLines(rows, fields, "sony")).toEqual([["Sony WH-1000XM5", "Sony"]]);
+  });
+
+  it("tells rows that read alike apart by the first field that differs", () => {
+    const twin = { title: "Sony WH-1000XM5 Renewed", brand: "Sony", seller: "Northwind" };
+    const rows = [
+      { ...twin, asin: "B01" },
+      { ...twin, asin: "B02" },
+      { title: "Bose QC45", brand: "Bose", asin: "B03", seller: "Harbor" },
+    ];
+    expect(resultLines(rows, fields, "renewed").map((line) => line[1])).toEqual([
+      "B01",
+      "B02",
+      "Bose",
+    ]);
+  });
+
+  it("keeps the field that matched beside what tells look-alikes apart", () => {
+    const twin = { title: "Sony WH-1000XM5 Renewed", brand: "Sony", seller: "Northwind" };
+    const rows = [
+      { ...twin, asin: "B01" },
+      { ...twin, asin: "B02" },
+    ];
+    expect(resultLines(rows, fields, "north").map((line) => line[1])).toEqual([
+      "Northwind · B01",
+      "Northwind · B02",
+    ]);
+  });
+
+  it("falls back to a list column when the search fields read alike", () => {
+    const rows = [{ title: "Sony WH-1000XM5 Renewed" }, { title: "Sony WH-1000XM5 Renewed" }];
+    const shown = [
+      ["Amazon", "$249.00"],
+      ["eBay", "$249.00"],
+    ];
+    expect(resultLines(rows, fields, "sony", shown).map((line) => line[1])).toEqual([
+      "Amazon",
+      "eBay",
+    ]);
+  });
+});

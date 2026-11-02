@@ -1,16 +1,5 @@
 #!/usr/bin/env node
-/**
- * Enforces the one-way import graph documented in README.md.
- *
- *     app → views → widgets → features → shared
- *
- * A file in layer X may import from any layer to its right, never to
- * its left. Cross-slice imports inside the same layer are also
- * forbidden (e.g. `views/landing` may not import `views/docs`).
- *
- * Runs from `apps/site/` via `pnpm boundaries`. Exits non-zero on the
- * first violation set so CI fails loudly.
- */
+// Enforces the one-way import graph app → views → widgets → features → shared, and no cross-slice imports.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";

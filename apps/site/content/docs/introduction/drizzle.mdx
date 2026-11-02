@@ -1,33 +1,111 @@
 ---
 title: Drizzle setup
-description: Connect FlowPanel to an existing Drizzle ORM project.
+description: Connect FlowPanel to an existing Drizzle ORM project on PostgreSQL, MySQL or SQLite.
 kind: how-to
+metaTitle: Drizzle ORM admin panel setup
 ---
 
-The Drizzle adapter uses your schema objects for row types and introspection, then executes resource operations through your existing database client.
+The Drizzle adapter reads row types and columns from your schema and runs queries through your `db` client. Import it from `@flowpanel/kit/drizzle`. PostgreSQL, MySQL and SQLite are supported; version ranges are in [Getting started](/docs/introduction/getting-started#before-you-start).
 
-## Requirements
+## Connect the database
 
-Install and configure Drizzle before adding FlowPanel. The supported package range appears in [Getting started](/docs/introduction/getting-started#before-you-start). PostgreSQL, MySQL, and SQLite dialects are supported.
+`db` is a Drizzle client created with your schema, in a module of your app. These are the modules `init` prints when it finds none, one per driver.
 
-The adapter is included in `@flowpanel/kit`; import it from `@flowpanel/kit/drizzle`.
+PostgreSQL with `pg`:
+
+```ts fragment="needs the driver package installed"
+// server/lib/db.ts
+import { drizzle } from "drizzle-orm/node-postgres";
+import * as schema from "./db/schema";
+
+// Without DATABASE_URL every query fails into the admin's error card instead of a blank page.
+const connectionString = process.env.DATABASE_URL || "postgresql://DATABASE_URL-is-not-set.invalid./db";
+
+export const db = drizzle({ connection: { connectionString }, schema });
+```
+
+MySQL with `mysql2`. Drizzle needs `mode: "default"` next to a schema:
+
+```ts fragment="needs the driver package installed"
+// server/lib/db.ts
+import { drizzle } from "drizzle-orm/mysql2";
+import * as schema from "./db/schema";
+
+// Without DATABASE_URL every query fails into the admin's error card instead of a blank page.
+const uri = process.env.DATABASE_URL || "mysql://DATABASE_URL-is-not-set.invalid./db";
+
+export const db = drizzle({ connection: { uri }, schema, mode: "default" });
+```
+
+SQLite with `better-sqlite3`, on a file next to `package.json`:
+
+```ts fragment="needs the driver package installed"
+// server/lib/db.ts
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import * as schema from "./db/schema";
+
+export const db = drizzle({ client: new Database("local.db"), schema });
+```
+
+better-sqlite3 13 ships prebuilt binaries. Earlier versions compile on install, a step pnpm 10 skips until you approve it: run `pnpm approve-builds` and select `better-sqlite3`, or the first query fails with "Could not locate the bindings file". `init` says so when it finds one unbuilt.
+
+Without `DATABASE_URL`, the PostgreSQL and MySQL modules point at a reserved `.invalid.` host that never resolves, rather than letting the driver reach for a database on localhost. `next build` runs; every read fails into the admin's error card, which says "Check DATABASE_URL" in `next dev` and "Couldn't load …" in production; and `migrate` and `doctor` still say the variable is unset.
 
 ## Configure the adapter
 
 <include>../../snippets/getting-started/drizzle-config.ts</include>
 
-Pass the same `db` and schema namespace used by the application. The adapter normally infers the dialect from a table in `schema`; set `dialect` explicitly only when the schema object contains no detectable Drizzle table.
+Pass the `db` and schema namespace your app already uses. The dialect is inferred from a table in `schema`; set `dialect` only when the schema has no Drizzle table. With `schema` registered in `FlowpanelTypes`, every table and view is a typed resource name and row.
 
-`resource(schema.users, …)` infers its row from `$inferSelect`. Column names, search fields, filters, form fields, action rows, and renderers use that type. The `FlowpanelTypes.db` augmentation gives dashboard and action contexts the type of your real client.
+Search and filters are dialect-aware, pagination is offset-based, and a configured soft-delete field is set instead of deleting the row.
 
-## Database behavior
+## drizzle-kit
 
-Search and filter expressions are dialect-aware. Pagination is offset-based. A configured soft-delete field is set instead of removing the row; normal lists exclude non-null deleted values and can expose a restore workflow.
+`flowpanel migrate` creates `_flowpanel_migrations` and `flowpanel_audit_log`, which your schema does not declare, so `drizzle-kit push` offers to drop them. Leave them out in `drizzle.config.ts`:
 
-FlowPanel's initial migration is PostgreSQL SQL. Review and adapt it before applying it to MySQL or SQLite.
+```ts
+// drizzle.config.ts
+import { defineConfig } from "drizzle-kit";
+
+export default defineConfig({
+  dialect: "postgresql",
+  schema: "./db/schema.ts",
+  dbCredentials: { url: process.env.DATABASE_URL! },
+  tablesFilter: ["!_flowpanel_migrations", "!flowpanel_audit_log"],
+});
+```
+
+On MySQL set `dialect: "mysql"`. On SQLite set `dialect: "sqlite"` and `dbCredentials: { url: "local.db" }`, the file the client opens.
+
+`pnpm flowpanel doctor` warns while the config lets `push` drop them. See [Keep your ORM away from FlowPanel's tables](/docs/guides/audit-log#keep-your-orm-away-from-flowpanels-tables).
+
+## Views
+
+A resource can read a SQL view, so the list sorts and filters by numbers the view computes per row. Declare the view with `.existing()` so drizzle-kit leaves it alone, and create it in your own migration:
+
+```ts
+import { integer, pgView, text } from "drizzle-orm/pg-core";
+
+export const adminUserRow = pgView("admin_user_row", {
+  id: text("id").primaryKey(),
+  name: text("name"),
+  sent30d: integer("sent_30d"),
+}).existing();
+```
+
+```sql
+create view admin_user_row as
+select u.id, u.name,
+  (select count(*) from response r
+    where r.user_id = u.id and r.sent_at > now() - interval '30 days')::int as sent_30d
+from "user" u;
+```
+
+Write each per-row number as a correlated subquery rather than a `group by` over the table: reading one record stays an index lookup, and sorting computes the number only for the page's rows.
+
+`resource(adminUserRow, { name: "user", writeTo: user })` reads the view and writes edits to `user`. Without `writeTo` the resource is read-only. See [Reading a view](/docs/reference/resources#reading-a-view).
 
 ## Limitation
 
-Automatic introspection covers scalar table columns returned by Drizzle. Relations declared with `relations()` are not turned into joined list values. Use a [reference field](/docs/build/forms#relation-fields), a [custom column renderer](/docs/customization/column-renderers), or a custom adapter when a view needs joined data.
-
-Continue with [Getting started](/docs/introduction/getting-started) or see the generated [Adapter reference](/docs/reference/adapters).
+Relations declared with `relations()` do not become joined list columns. Use a [reference field](/docs/build/forms#relation-fields), a [column renderer](/docs/customization/column-renderers) or a view.

@@ -19,20 +19,29 @@ import {
   buildTooltipProps,
   buildValueTickFormatter,
   CHART_SURFACE_PROPS,
-  chartColor,
   GRID_PROPS,
   LEGEND_PROPS,
   LINE_TOOLTIP_CURSOR,
   STATIC_SERIES_PROPS,
+  seriesPaint,
 } from "./chart-theme";
 import { DEFAULT_CHART_HEIGHT } from "./defaults";
 import { buildTickFormatter } from "./format-tick";
+import { seriesKeys } from "./series-keys";
 
-export function LineChart({ data, options }: { data: unknown[]; options: LineChartOptions }) {
+export function LineChart({
+  data,
+  options,
+  names,
+}: {
+  data: unknown[];
+  options: LineChartOptions;
+  names?: Readonly<Record<string, string>> | undefined;
+}) {
   const formatting = useFormatting();
   const height = options.height ?? DEFAULT_CHART_HEIGHT;
-  if (data.length === 0) return <ChartEmptyState height={height} />;
-  const ys = Array.isArray(options.y) ? options.y : [options.y];
+  if (data.length === 0) return <ChartEmptyState />;
+  const ys = seriesKeys(options.y);
   const multiSeries = ys.length > 1;
   const tickFormatter = buildTickFormatter(
     data as Record<string, unknown>[],
@@ -41,7 +50,7 @@ export function LineChart({ data, options }: { data: unknown[]; options: LineCha
     formatting,
   );
   const valueTickFormatter = buildValueTickFormatter(options.format, formatting);
-  const seriesColor = (i: number) => (multiSeries ? chartColor(i) : "hsl(var(--fp-accent))");
+  const seriesColor = seriesPaint(ys, options.colors);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RcLine {...CHART_SURFACE_PROPS} data={data as object[]}>
@@ -54,7 +63,7 @@ export function LineChart({ data, options }: { data: unknown[]; options: LineCha
         />
         <YAxis
           {...AXIS_STYLE_PROPS}
-          width={40}
+          width="auto"
           {...(valueTickFormatter ? { tickFormatter: valueTickFormatter } : {})}
         />
         {options.tooltip !== false ? (
@@ -69,8 +78,9 @@ export function LineChart({ data, options }: { data: unknown[]; options: LineCha
             key={y}
             type={options.smooth ? "monotone" : "linear"}
             dataKey={y}
+            name={names?.[y] ?? y}
             stroke={seriesColor(i)}
-            strokeWidth={2}
+            strokeWidth={1.75}
             dot={options.markers ?? false}
             activeDot={{ ...ACTIVE_DOT_PROPS, fill: seriesColor(i) }}
             {...STATIC_SERIES_PROPS}

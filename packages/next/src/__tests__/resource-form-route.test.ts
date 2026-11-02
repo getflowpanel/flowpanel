@@ -9,6 +9,7 @@ vi.mock("../runtime/publish", () => ({
 
 import type { Adapter, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import { z } from "zod";
+import { makeActions } from "../actions/resource-actions";
 import { resourceCreateRoute, resourceUpdateRoute } from "../actions/resource-form";
 import { publishResource } from "../runtime/publish";
 
@@ -23,7 +24,7 @@ const updateSchema = z.object({
 
 function makeConfig(opts: {
   role?: string;
-  requireRole?: string | string[];
+  access?: string | string[];
   createDisabled?: boolean;
   updateDisabled?: boolean;
   readOnly?: boolean;
@@ -31,6 +32,7 @@ function makeConfig(opts: {
   updateReturn?: Record<string, unknown> | null;
   createCaptured?: { value?: unknown };
   updateCaptured?: { value?: unknown };
+  createFields?: unknown[];
 }) {
   const adapter: Adapter = {
     kind: "drizzle",
@@ -67,8 +69,18 @@ function makeConfig(opts: {
     ref: { __name: "users" },
     options: {
       columns: [{ field: "id" }, { field: "email" }, { field: "priceCents" }],
-      ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
+      ...(opts.access !== undefined
+        ? {
+            access: {
+              read: opts.access,
+              create: opts.access,
+              update: opts.access,
+              delete: opts.access,
+            },
+          }
+        : {}),
       ...(opts.createDisabled ? { create: { disabled: true } } : {}),
+      ...(opts.createFields ? { create: { fields: opts.createFields } } : {}),
       ...(opts.updateDisabled ? { update: { disabled: true } } : {}),
     },
   } as never;
@@ -83,6 +95,7 @@ function makeConfig(opts: {
     resourcesByName: new Map([["users", resource]]),
     dashboardsByPath: new Map(),
     ...(opts.readOnly ? { readOnly: true } : {}),
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return config;
@@ -93,6 +106,52 @@ function formRequest(url: string, fields: Record<string, string>): Request {
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   return new Request(url, { method: "POST", body: fd });
 }
+
+describe("a money field", () => {
+  const fields = [{ name: "email" }, { name: "priceCents", label: "Price", type: "money" }];
+
+  it("stores the typed amount in minor units", async () => {
+    const captured: { value?: unknown } = {};
+    const handler = resourceCreateRoute(
+      makeConfig({ createCaptured: captured, createFields: fields }),
+    );
+    const req = formRequest("http://localhost/x", { email: "a@b.com", priceCents: "399.99" });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
+    expect(res.status).toBe(200);
+    expect(captured.value).toEqual({ email: "a@b.com", priceCents: 39999 });
+  });
+
+  it("refuses more decimals than the currency keeps, naming the field", async () => {
+    const captured: { value?: unknown } = {};
+    const handler = resourceCreateRoute(
+      makeConfig({ createCaptured: captured, createFields: fields }),
+    );
+    const req = formRequest("http://localhost/x", { email: "a@b.com", priceCents: "3.999" });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { fieldErrors?: Record<string, string> };
+    expect(body.fieldErrors).toEqual({
+      priceCents: "Price has more decimals than its currency keeps. Enter an amount like 12.50",
+    });
+    expect(captured.value).toBeUndefined();
+  });
+
+  it("reports a bad amount together with every other field error", async () => {
+    const required = [
+      { name: "email", label: "Email", required: true },
+      { name: "priceCents", label: "Price", type: "money" },
+    ];
+    const handler = resourceCreateRoute(makeConfig({ createFields: required }));
+    const req = formRequest("http://localhost/x", { email: "", priceCents: "12.345" });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { fieldErrors?: Record<string, string> };
+    expect(body.fieldErrors).toEqual({
+      email: "Email is required",
+      priceCents: "Price has more decimals than its currency keeps. Enter an amount like 12.50",
+    });
+  });
+});
 
 describe("resourceCreateRoute", () => {
   beforeEach(() => {
@@ -121,8 +180,8 @@ describe("resourceCreateRoute", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns 403 when the session's role doesn't satisfy requireRole", async () => {
-    const handler = resourceCreateRoute(makeConfig({ role: "viewer", requireRole: "admin" }));
+  it("returns 403 when the session's role doesn't satisfy the resource's access", async () => {
+    const handler = resourceCreateRoute(makeConfig({ role: "viewer", access: "admin" }));
     const req = formRequest("http://localhost/x", { email: "a@b.com" });
     const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
     expect(res.status).toBe(403);
@@ -199,10 +258,34 @@ describe("resourceCreateRoute", () => {
     expect(res.status).toBe(422);
     const body = (await res.json()) as { ok: boolean; fieldErrors?: Record<string, string> };
     expect(body.ok).toBe(false);
-    expect(body.fieldErrors?.priceCents).toBe("Price cents must be a number");
+    expect(body.fieldErrors?.priceCents).toBe("Price (cents) must be a number");
+  });
+
+  it("answers 422 'Email is already taken' when the database reports a duplicate", async () => {
+    const config = makeConfig({});
+    config.adapter.create = async () => {
+      throw new Error("Failed query", {
+        cause: Object.assign(new Error("duplicate key value violates unique constraint"), {
+          code: "23505",
+          detail: "Key (email)=(a@b.com) already exists.",
+        }),
+      });
+    };
+    const handler = resourceCreateRoute(config);
+    const req = formRequest("http://localhost/x", { email: "a@b.com" });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "Validation failed",
+      code: "validation_failed",
+      requestId: expect.any(String),
+      fieldErrors: { email: "Email is already taken" },
+    });
   });
 
   it("returns a generic 500 error (not the raw adapter error) on an unrelated throw", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const config = makeConfig({});
     config.adapter.create = async () => {
       throw Object.assign(new Error("db exploded"), { safeMessage: "Action failed" });
@@ -213,8 +296,14 @@ describe("resourceCreateRoute", () => {
     expect(res.status).toBe(500);
     const body = await res.json();
     expect(body.ok).toBe(false);
-    expect(body.error).toBe("Action failed");
+    expect(body.error).toBe("Internal server error");
+    expect(body.requestId).toEqual(expect.any(String));
     expect(body.error).not.toMatch(/db exploded/);
+    expect(log).toHaveBeenCalledWith(
+      `[flowpanel] create failed, requestId ${body.requestId}:`,
+      expect.objectContaining({ message: "db exploded" }),
+    );
+    log.mockRestore();
   });
 });
 
@@ -238,8 +327,8 @@ describe("resourceUpdateRoute", () => {
     expect((await res.json()).error).toMatch(/disabled/);
   });
 
-  it("returns 403 when the session's role doesn't satisfy requireRole", async () => {
-    const handler = resourceUpdateRoute(makeConfig({ role: "viewer", requireRole: "admin" }));
+  it("returns 403 when the session's role doesn't satisfy the resource's access", async () => {
+    const handler = resourceUpdateRoute(makeConfig({ role: "viewer", access: "admin" }));
     const req = formRequest("http://localhost/x", { email: "new@b.com" });
     const res = await handler(req, { params: Promise.resolve({ resource: "users", id: "u1" }) });
     expect(res.status).toBe(403);
@@ -273,10 +362,125 @@ describe("resourceUpdateRoute", () => {
     expect(captured.value).toEqual({ email: "new@b.com", priceCents: 2500 });
   });
 
+  it("answers 422 'Email is required' when an edit empties a NOT NULL column", async () => {
+    const captured: { value?: unknown } = {};
+    const handler = resourceUpdateRoute(makeConfig({ updateCaptured: captured }));
+    const req = formRequest("http://localhost/x", { email: "", priceCents: "" });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users", id: "u1" }) });
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "Validation failed",
+      code: "validation_failed",
+      requestId: expect.any(String),
+      fieldErrors: { email: "Email is required" },
+    });
+    expect(captured.value).toBeUndefined();
+  });
+
   it("returns 404 when the adapter reports the row doesn't exist", async () => {
     const handler = resourceUpdateRoute(makeConfig({ updateReturn: null }));
     const req = formRequest("http://localhost/x", { email: "new@b.com" });
     const res = await handler(req, { params: Promise.resolve({ resource: "users", id: "u1" }) });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("required and read-only fields through the form routes", () => {
+  function configWithFields(fields: unknown[], captured?: { value?: unknown }) {
+    const config = makeConfig({
+      role: "editor",
+      ...(captured ? { updateCaptured: captured } : {}),
+    });
+    const resource = config.resourcesByName.get("users");
+    if (!resource) throw new Error("users resource missing");
+    Object.assign(resource.options, { create: { fields } });
+    return config;
+  }
+  const requiredPrice = [{ name: "email" }, { name: "priceCents", label: "Price", required: true }];
+  const editParams = () => ({ params: Promise.resolve({ resource: "users", id: "u1" }) });
+
+  it("answers 422 with a field error when a create leaves a required field blank", async () => {
+    const handler = resourceCreateRoute(configWithFields(requiredPrice));
+    const req = formRequest("http://localhost/x", { email: "a@b.com", priceCents: "" });
+    const res = await handler(req, { params: Promise.resolve({ resource: "users" }) });
+    expect(res.status).toBe(422);
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      fieldErrors: { priceCents: "Price is required" },
+    });
+  });
+
+  it("answers 422 when an edit clears a required field and 200 when it keeps a value", async () => {
+    const handler = resourceUpdateRoute(configWithFields(requiredPrice));
+    const cleared = await handler(
+      formRequest("http://localhost/x", { email: "a@b.com", priceCents: "" }),
+      editParams(),
+    );
+    expect(cleared.status).toBe(422);
+    expect(await cleared.json()).toMatchObject({
+      fieldErrors: { priceCents: "Price is required" },
+    });
+    const kept = await handler(
+      formRequest("http://localhost/x", { email: "a@b.com", priceCents: "5" }),
+      editParams(),
+    );
+    expect(kept.status).toBe(200);
+  });
+
+  it("saves an edit form that shows a read-only field, without writing that field", async () => {
+    const captured: { value?: unknown } = {};
+    const handler = resourceUpdateRoute(
+      configWithFields([{ name: "email" }, { name: "priceCents", readOnly: true }], captured),
+    );
+    const res = await handler(
+      formRequest("http://localhost/x", { email: "c@d.com", priceCents: "3" }),
+      editParams(),
+    );
+    expect(res.status).toBe(200);
+    expect(captured.value).toEqual({ email: "c@d.com" });
+  });
+
+  it("saves an edit form for a role that fieldAccess.write keeps from a shown field", async () => {
+    const captured: { value?: unknown } = {};
+    const config = configWithFields([{ name: "email" }, { name: "priceCents" }], captured);
+    const resource = config.resourcesByName.get("users");
+    if (!resource) throw new Error("users resource missing");
+    Object.assign(resource.options, { fieldAccess: { priceCents: { write: "admin" } } });
+    const res = await resourceUpdateRoute(config)(
+      formRequest("http://localhost/x", { email: "c@d.com", priceCents: "" }),
+      editParams(),
+    );
+    expect(res.status).toBe(200);
+    expect(captured.value).toEqual({ email: "c@d.com" });
+  });
+
+  it("still rejects a field fieldAccess.write forbids when it comes from the API", async () => {
+    const config = configWithFields([{ name: "email" }, { name: "priceCents" }]);
+    const resource = config.resourcesByName.get("users");
+    if (!resource) throw new Error("users resource missing");
+    Object.assign(resource.options, { fieldAccess: { priceCents: { write: "admin" } } });
+    const reqCtx = { role: "editor", session: null, scope: {} } as never;
+    await expect(
+      makeActions(config, resource, { reqCtx, publish: false }).update("u1", {
+        email: "c@d.com",
+        priceCents: 3,
+      }),
+    ).rejects.toThrow('Field "priceCents" cannot be changed.');
+  });
+
+  it("saves an edit form for a role that cannot see a role-gated field", async () => {
+    const captured: { value?: unknown } = {};
+    const config = configWithFields([{ name: "email" }, { name: "priceCents" }], captured);
+    Object.assign(config.resourcesByName.get("users")?.options ?? {}, {
+      fieldAccess: { priceCents: { read: "admin", write: "admin" } },
+    });
+    const handler = resourceUpdateRoute(config);
+    const res = await handler(
+      formRequest("http://localhost/x", { email: "c@d.com" }),
+      editParams(),
+    );
+    expect(res.status).toBe(200);
+    expect(captured.value).toEqual({ email: "c@d.com" });
   });
 });

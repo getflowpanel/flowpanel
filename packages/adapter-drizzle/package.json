@@ -1,22 +1,9 @@
 {
   "name": "@flowpanel/adapter-drizzle",
   "version": "0.3.0",
+  "private": true,
   "description": "Drizzle ORM adapter for FlowPanel",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "adapter",
-    "drizzle",
-    "drizzle-orm",
-    "orm"
-  ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/adapter-drizzle"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -30,8 +17,6 @@
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only",
-    "lint:publish": "publint --strict",
     "test:types": "tsd",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -46,6 +31,12 @@
       "paths": {
         "@flowpanel/adapter-drizzle": [
           "./dist/index.d.ts"
+        ],
+        "@flowpanel/core": [
+          "../core/dist/index.d.ts"
+        ],
+        "@flowpanel/core/auth": [
+          "../core/dist/auth.d.ts"
         ]
       }
     }
@@ -58,27 +49,23 @@
     "drizzle-orm": ">=0.45.2 <1.0.0",
     "zod": "^4.0.0"
   },
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "dependencies": {
     "@flowpanel/core": "workspace:*",
-    "drizzle-zod": "^0.5.0"
+    "drizzle-zod": "^0.8.3"
   },
   "devDependencies": {
-    "@testcontainers/mysql": "^11.14.0",
-    "@testcontainers/postgresql": "^10.0.0",
-    "@types/better-sqlite3": "^7.6.13",
+    "@testcontainers/mysql": "^12.2.0",
+    "@testcontainers/postgresql": "^12.2.0",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "catalog:",
-    "better-sqlite3": "^12.9.0",
-    "drizzle-orm": "^0.45.2",
-    "mysql2": "^3.22.2",
-    "postgres": "^3.4.0",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "catalog:",
+    "mysql2": "^3.24.5",
+    "postgres": "^3.4.9",
     "tsd": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "zod": "^4.0.0"
+    "zod": "catalog:"
   }
 }

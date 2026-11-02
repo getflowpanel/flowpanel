@@ -2,10 +2,11 @@ import { eq, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../../db/schema";
 import { generateDemoData } from "../data/generate";
+import { deleteSandboxAudit } from "./audit-rows";
 import { SANDBOX_ABSOLUTE_MS, SANDBOX_INACTIVITY_MS } from "./config";
 import { SeedMappingError, seedRows } from "./seed-rows";
 
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 type Db = NodePgDatabase<typeof schema>;
 type Transaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -39,6 +40,7 @@ async function clearSandboxRows(tx: Transaction, sandboxId: string) {
   await tx.delete(schema.runs).where(eq(schema.runs.sandboxId, sandboxId));
   await tx.delete(schema.monitors).where(eq(schema.monitors.sandboxId, sandboxId));
   await tx.delete(schema.customers).where(eq(schema.customers.sandboxId, sandboxId));
+  await deleteSandboxAudit(tx, [sandboxId]);
 }
 
 /** Seed inside a caller-owned transaction so first-time provisioning remains atomic. */

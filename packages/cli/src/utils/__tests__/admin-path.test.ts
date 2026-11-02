@@ -27,12 +27,12 @@ describe("admin mount preflight", () => {
     expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
   });
 
-  it("uses the runtime legacy fallback when paths only configures the API", async () => {
+  it("defaults the admin mount when paths only configures the API", async () => {
     await write(
       "flowpanel.config.ts",
-      'export default defineAdmin({ basePath: "/ops", paths: { api: "/api/internal" } });',
+      'export default defineAdmin({ paths: { api: "/api/internal" } });',
     );
-    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/internal" });
+    expect(await readAdminMount(root)).toEqual({ path: "/admin", api: "/api/internal" });
   });
 
   it("never selects another default when a named config is re-exported", async () => {
@@ -60,6 +60,17 @@ describe("admin mount preflight", () => {
     expect(await findAdminRouteConflicts(root, "app", "/admin")).toEqual([
       "app/(ops)/admin/users/page.tsx",
       "app/admin/[resource]/page.tsx",
+    ]);
+  });
+
+  it("does not count a page eject wrote as a collision, so doctor passes after eject", async () => {
+    await write(
+      "app/admin/users/page.tsx",
+      "// flowpanel: ejected @ 0.4.0 — this file is yours\nexport default function Page() {}\n",
+    );
+    await write("app/admin/reports/page.tsx", "export default function Page() {}\n");
+    expect(await findAdminRouteConflicts(root, "app", "/admin")).toEqual([
+      "app/admin/reports/page.tsx",
     ]);
   });
 
@@ -94,17 +105,12 @@ describe("admin mount preflight", () => {
     expect(await findAdminRouteConflicts(root, "app", "/ops")).toEqual([]);
   });
 
-  it.each([
-    "/",
-    "/../admin",
-    "/admin?x=1",
-    "/[admin]",
-    "/_admin",
-    "//admin",
-    "/admin%2fops",
-  ])("rejects non-static or unsafe mount %s", (value) => {
-    expect(() => normalizeAdminPath(value)).toThrow();
-  });
+  it.each(["/", "/../admin", "/admin?x=1", "/[admin]", "/_admin", "//admin", "/admin%2fops"])(
+    "rejects non-static or unsafe mount %s",
+    (value) => {
+      expect(() => normalizeAdminPath(value)).toThrow();
+    },
+  );
   it("normalizes a nested path without introducing route syntax", () => {
     expect(normalizeAdminPath("ops/admin/")).toBe("/ops/admin");
   });
@@ -129,8 +135,6 @@ describe("admin mount preflight", () => {
   it("defaults the API mount only when the config declares none", async () => {
     await write("flowpanel.config.ts", 'export default defineAdmin({ paths: { admin: "/ops" } });');
     expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
-    await write("flowpanel.config.ts", 'export default defineAdmin({ basePath: "/ops" });');
-    expect(await readAdminMount(root)).toEqual({ path: "/ops", api: "/api/flowpanel" });
   });
 
   it("does not guess /admin for a dynamic configured mount", async () => {
@@ -138,7 +142,9 @@ describe("admin mount preflight", () => {
       "flowpanel.config.ts",
       "export default defineAdmin({ paths: { admin: process.env.ADMIN_PATH } });",
     );
-    expect(await readAdminMount(root)).toMatchObject({ error: expect.stringContaining("dynamic") });
+    expect(await readAdminMount(root)).toMatchObject({
+      error: expect.stringContaining("[flowpanel] paths.admin: "),
+    });
   });
 
   it("reads only the exported config, not unrelated admins in the same tree", async () => {

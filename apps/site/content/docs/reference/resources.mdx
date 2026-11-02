@@ -2,33 +2,28 @@
 title: resource()
 description: Every option on a resource, its columns, fields and filters.
 kind: reference
+metaTitle: "resource() options reference"
 ---
 
 <ApiSignature path="../../packages/core/src/builders/resource.ts" name="resource" />
 
-`ref` is whatever your adapter understands — a Drizzle table object, or a
-Prisma model name. The row type comes from
-[`InferRow<Ref>`](/docs/reference/registry#inferrow): a Drizzle table resolves
-through `$inferSelect`, a string ref through your `FlowpanelResources`
-augmentation, and anything else falls back to `Record<string, unknown>`. When
-it resolves to a real row type, `columns`, `search`, `filters` and
-`defaultSort` only accept real column names; when it falls back, they are
-plain `string` and the check moves to
-[`defineAdmin`'s introspect-time validation](/docs/build/resources#typos-and-column-validation).
+`ref` is a Drizzle table or a Prisma model name. The row type comes from
+[`InferRow<Ref>`](/docs/reference/registry#inferrow), which types `columns`,
+`search`, `filters` and `defaultSort`.
 
-```ts excerpt
+```ts
 import { resource } from "@flowpanel/kit";
 import { orders } from "@/db/schema";
 
 export const ordersResource = resource(orders, {
-  label: "Order",
+  labelOne: "Order",
   plural: "Orders",
   icon: "shopping-cart",
   columns: ["id", "customerEmail", { field: "total", format: "money" }, "status"],
   search: ["customerEmail"],
   filters: ["status", { field: "createdAt", type: "daterange" }],
   defaultSort: { field: "createdAt", dir: "desc" },
-  detail: { header: (row) => `Order · ${row.customerEmail}` },
+  detail: { title: (row) => `Order · ${row.customerEmail}` },
 });
 ```
 
@@ -36,21 +31,32 @@ export const ordersResource = resource(orders, {
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceOptions" />
 
+`label` names both one row and the list, so it suits a word that reads the same
+either way. Set `labelOne` and `plural` when they differ: a resource with only
+`label: "Order"` titles its list "Order" too. Without any of the three, the
+resource name is humanized and made singular for one row.
+
+An empty list shows `empty.title`, `description`, `icon` and `action`. Without
+them it says "No customers", "Customers you create show up here." and offers
+"Create customer" when the reader may create rows. When search or filters leave
+no rows it shows `empty.filtered` (or `empty.searched` during a search; both fill
+`{query}`) and a button that clears them. On a phone the list shows 10 rows as
+cards with the rest behind "N more".
+
+Search, filters, sort and pages load in place: the rows dim and a thin bar runs
+along the table while the next ones are on their way. A filter, sort or page
+change is a history entry, so Back undoes it; typing in the search box is not.
+
 ### Detail headings and editing
 
-Three callbacks fill the detail page's header, and each one receives the same
-authorized row projection as detail tabs: declared readable fields plus permitted
-`detail.expose` fields, never undeclared adapter fields and never fields denied by
-`fieldAccess`.
+Three callbacks fill the record page header. Each receives the row's readable
+declared and `detail.expose` fields.
 
-- `detail.title(row)` is the content of the `h1`. Return text or inline React
-  elements, not another heading or a complete page header.
-- `detail.subtitle(row)` is the line under it, rendered through the header's
-  `description` slot. Return a string.
-- `detail.badge(row)` is a status pill beside the title: `{ label, tone }`, with
-  `tone` from the shared `Tone` vocabulary.
+- `detail.title(row)` is the `h1` content: text or inline elements.
+- `detail.subtitle(row)` is the line under it.
+- `detail.badge(row)` is a pill beside the title: `{ label, tone }`.
 
-```ts excerpt
+```ts as="ResourceOptions<RowOf<'customers'>>"
 detail: {
   title: (row) => row.email,
   subtitle: (row) => `Customer since ${row.createdAt}`,
@@ -58,68 +64,154 @@ detail: {
 }
 ```
 
-Return `null` or `undefined` from any of them and that slot is simply absent; a
-nullish `title` falls back to the resource's singular label and the readable row
-identifier. `detail.header` still works and still wins nothing: `title` takes
-precedence when both are declared, and `header` is deprecated for removal in 1.0.
+A nullish return leaves the slot empty; a nullish `title` falls back to the row's
+`name`, `title` or `email`, then to the resource label and the row identifier.
 
-The generated edit action sits beside the heading; it is omitted when
-`update.disabled` is true or the resource's update access policy denies the
-request, including asynchronous policies. Set `labels.actions.edit` to translate
-its text. The edit route enforces its own authorization as well. At narrow widths
-the actions wrap below the title rather than squeezing it.
-
-Custom `PageHeader` slots should use the exported `PageHeaderProps` type: `title`
-accepts React content as well as strings, and `badge` takes the same
-`{ label, tone }` object.
+The Edit button sits beside the heading as a secondary button;
+`update: { emphasis: "primary" }` fills it. It is hidden when `update.disabled` is
+set or the update policy denies the request. A custom `PageHeader` slot uses the
+exported `PageHeaderProps`.
 
 Without `detail.tabs`, the page renders one key/value block. `detail.fields`
 chooses and orders the fields in it; omitted, every readable declared field shows.
 
 ### Opening a row
 
-`rowClick` decides what a click on a row — and Enter on the focused row — does.
+`rowClick` decides what a click on a row, or Enter on it, does.
 
 | Value | Effect |
 | --- | --- |
-| `"detail"` | Navigates to the row's own page under the admin's `basePath`. |
+| `"detail"` | Navigates to the row's own page under `paths.admin`. |
 | `"drawer"` | Opens the [drawer](/docs/reference/drawer). Requires a `drawer` config; `defineAdmin` refuses the combination without one. |
 | `false` | Rows render, but a click does nothing. |
 
-Omitted, it follows the resource: `"detail"` when `detail` is configured and
-`drawer` is not, `"drawer"` when only a drawer is, and `false` when neither is.
+Omitted, it follows the resource: `"drawer"` when a drawer is configured, with or
+without `detail`, and `"detail"` otherwise. The record page renders without a
+`detail` config, so every row opens unless you set `rowClick: false`.
 An explicit value always wins, so `rowClick: "detail"` on a resource that also
 has a drawer sends the click to the page and leaves the drawer to its own
 affordances.
 
-A row the projection could not identify never navigates — the row identity rule
-applies to the keyboard exactly as it does to the pointer, and the table's
-"Enter opens" hint (`labels.table.rowsHint`) is announced only when some row on
-the page can be opened. The mobile card list follows the same rule.
+A row without a key never opens. Opening is a router push, not a link, so
+cmd-click does not open a new tab; add a column whose `render` returns an anchor
+for that.
 
-Navigation is a router push on the row, not a link: cmd-click, middle-click and
-"open in new tab" do not open a second tab from a row. Reach the same page as a
-real link through the detail page's own URL, or add a column whose `render`
-returns an anchor.
+In a row that opens, an `editable` column starts editing from its pencil icon, a
+double click or Enter; a single click opens the row.
+
+### Reading a view
+
+A resource's ref may be a database view. The list, the record page, counts, exports,
+reference labels, related tabs and `ctx.read` read the view; create, update, delete,
+restore, import and inline edits write to `writeTo`:
+
+```ts
+resource(adminUserRow, {
+  name: "user",
+  writeTo: user,
+  update: { fields: [{ name: "internal", type: "switch" }] },
+});
+```
+
+`writeTo` must be a table whose primary key the view selects. Every field a form or an
+inline `editable` column writes must be a column of both: form fields are typed against the view's row, so select each
+writable column in the view. `defineAdmin` checks both and names the missing column. The
+write schema is inferred from `writeTo`, the generated edit form offers the table's
+writable columns, and an update answers with the view's row, so computed columns are fresh
+after a save.
+
+Without `writeTo`, a resource over a view is read-only: its create, update and delete are
+disabled, and declaring any of them (or `import`, or an `editable` column) throws at
+`defineAdmin`.
 
 ### Icons
 
-`ResourceOptions.icon`, dashboard/page/queue icons, action icons and
-`CommandItem.icon` all use the same serializable `IconName` union. FlowPanel
-turns the name into a decorative Lucide SVG in the sidebar, tab strip and ⌘K
-palette, so the config remains safe to pass through a React Server Component
-boundary. Unknown names are rejected by TypeScript instead of disappearing at
-runtime. Built-in names include `users`, `settings`, `layout-dashboard`,
-`database`, `shopping-cart`, `archive`, `refresh`, `play`, `ban` and
-`trash-2`; editor autocomplete shows the complete `IconName` set.
+Resource, dashboard, page, queue, action and command icons take an `IconName`, one
+of these Lucide icon names. Other Lucide names, such as `building-2` or `receipt`,
+are a type error:
 
-For custom pages and slots, render the same registry directly:
+```ts of="@flowpanel/kit"
+type IconName =
+  | "activity"
+  | "archive"
+  | "badge-dollar-sign"
+  | "ban"
+  | "bar-chart"
+  | "bell"
+  | "book-open"
+  | "box"
+  | "boxes"
+  | "briefcase"
+  | "calendar"
+  | "check"
+  | "circle-dollar-sign"
+  | "circle-help"
+  | "clipboard-list"
+  | "command"
+  | "credit-card"
+  | "database"
+  | "file-text"
+  | "gauge"
+  | "heart-pulse"
+  | "history"
+  | "home"
+  | "inbox"
+  | "layout-dashboard"
+  | "list"
+  | "lock"
+  | "mail"
+  | "moon"
+  | "package"
+  | "play"
+  | "refresh"
+  | "search"
+  | "settings"
+  | "shield"
+  | "shopping-cart"
+  | "sparkles"
+  | "tags"
+  | "trash-2"
+  | "user"
+  | "user-cog"
+  | "users"
+  | "workflow"
+  | "wrench"
+  | "x";
+```
 
-```tsx excerpt
+To render one in your own component:
+
+```tsx
 import { FlowpanelIcon } from "@flowpanel/kit/react";
 
 <FlowpanelIcon name="workflow" className="size-4" />;
 ```
+
+### Saved views
+
+`views` puts named filter, sort and search presets in a menu above the list.
+Filters are keyed by the row's fields:
+
+```ts as="ResourceOptions<RowOf<'user'>>"
+views: [
+  { name: "New this week", filters: { createdAt: "last7d" } },
+  { name: "Paying, falling asleep", filters: { plan: ["starter", "pro"], daysSinceSeen: { gte: 7 } } },
+  { name: "No Telegram", filters: { telegramLinked: false } },
+],
+```
+
+A `daterange` filter also takes a preset name (`today`, `yesterday`, `last7d`,
+`last30d`, `last12m`, `MTD`, `QTD`, `YTD`), resolved on each request. A view may filter only
+fields the list declares in `columns`, `filters` or `search`, with values that
+match the filter type; `defineAdmin` rejects the rest. For "older than N days",
+compute the number in a view and use a `numeric-range` filter. The menu button
+names the view whose filters, sort and search match the list, counting the
+resource's `defaultSort` and filter defaults, so `?f_status=needs_review` reads
+"View: Needs review".
+
+"Save current view…" keeps a person's own views in their browser's `localStorage`
+under `flowpanel:views:<resource>`, so they stay on that browser and do not follow
+the person to another device. Views every operator should see belong in `views`.
 
 ## ColumnDef
 
@@ -127,114 +219,306 @@ An entry in `columns`. A bare string is shorthand for `{ field: "name" }`.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ColumnDef" />
 
-`field` is optional so a column can render a value no row property holds — a
-join, something computed. Such a column must set both `render` and `label`,
-never sorts or filters, and is skipped by export; see
+A column without `field` must set `render` and `label`; it never sorts or
+filters and is skipped by export. See
 [Joined or computed values](/docs/customization/column-renderers#joined-or-computed-values).
+
+`secondary` shows another field as a muted second line in the cell, such as the
+email under a name. Sorting and search still use `field`.
+
+```ts as="ResourceOptions<RowOf<'user'>>"
+columns: [{ field: "name", label: "User", secondary: "email" }],
+```
 
 ### ColumnFormat
 
-Declarative cell rendering — reach for this before writing a `render` function.
+Declarative cell formatting.
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type ColumnFormat =
-  | "badge"
-  | "money"
-  | "number"
-  | { kind: "badge"; tones?: Record<string, Tone> }
-  | { kind: "money"; currency?: string; scale?: number };
+  | "badge" | "money" | "number"
+  | "date" | "relative" | "percent" | "duration" | "boolean" | "url"
+  | { kind: "badge"; tones?: Record<string, Tone>; labels?: Record<string, string> }
+  | { kind: "money"; currency?: string; minorUnits?: number; scale?: number }
+  | { kind: "number"; tones?: Threshold }
+  | { kind: "date"; time?: boolean; calendarDay?: boolean }
+  | { kind: "percent"; digits?: number; heat?: boolean; tones?: Threshold }
+  | { kind: "duration"; unit?: "ms" | "s"; tones?: Threshold }
+  | { kind: "boolean"; labels?: { true?: string; false?: string } }
+  | { kind: "url"; label?: string };
 ```
+
+A money column whose value holds minor units takes `minorUnits`, the same option as a
+`money` field: `{ kind: "money", minorUnits: 2 }` shows `5900` as `$59.00`. `scale`, the
+0.3 name (`scale: 100` is `minorUnits: 2`), still works and is deprecated.
 
 `Tone` is `"default" | "accent" | "ok" | "warn" | "err" | "info" | "muted"`.
 The object form of `badge` maps each cell value to a tone:
 
-```ts excerpt
+```ts as="ColumnDef<RowOf<'orders'>>"
 { field: "status", format: { kind: "badge", tones: { paid: "ok", failed: "err" } } }
 ```
 
+`labels` gives each raw value its display text. Tones stay keyed by the raw
+value, and a value with no label shows as is.
+
+```ts as="ColumnDef<RowOf<'user'>>"
+{
+  field: "role",
+  format: {
+    kind: "badge",
+    tones: { admin: "warn" },
+    labels: { admin: "Administrator", freelancer: "Freelancer" },
+  },
+}
+```
+
+The other kinds:
+
+- `date` shows the day in the admin's `timeZone`; `{ kind: "date", time: true }` adds the time. A `YYYY-MM-DD` value shows as itself; a zoneless `YYYY-MM-DD HH:mm:ss` is read as UTC. Set `calendarDay: true` for a SQL `date` column, such as a Prisma `@db.Date` or a Drizzle `date({ mode: "date" })`: the driver returns midnight UTC, and the cell shows that day in every time zone.
+- `relative` shows how long ago, such as `5 minutes ago`, in the admin's `locale`.
+- `percent` reads a fraction: `0.423` is `42.3%`. `digits` caps the decimals, and `heat: true` shades the cell by its value, for a retention grid that still sorts by number.
+- `duration` reads milliseconds, or seconds with `unit: "s"`, and prints the largest units that fit: `4.2 sec`, `2 hr 5 min`.
+- `boolean` prints `✓` and `✕`, or `labels: { true: "Yes", false: "No" }`. SQLite's `1` and `0` read as true and false.
+- `url` links `http(s)` and same-site values. `label` replaces the text, which defaults to the host and path; any other scheme stays text.
+- `{ kind: "number" | "percent" | "duration", tones }` colours the text by a [`Threshold`](/docs/reference/widgets#thresholds), comparing the stored number, so a `duration` in seconds compares seconds. With `tones`, a percent cell is coloured instead of shaded.
+
+```ts as="ResourceOptions<Record<string, unknown>>"
+columns: [
+  { field: "week", label: "Cohort" },
+  { field: "w1", label: "Week 1", format: { kind: "percent", heat: true } },
+  { field: "p95Ms", label: "p95", format: "duration" },
+  { field: "url", format: "url" },
+  { field: "lastSeenAt", label: "Last seen", format: "relative" },
+]
+```
+
+`relative` renders a `<time>` with the exact timestamp in its tooltip, and `url`
+opens absolute URLs in a new tab without opening the row.
+
 ### Formatting values yourself
 
-Two formatters back every cell, card and export, and both take the admin's
-resolved `formatting`, so locale, currency and time zone come from one place.
+The formatters behind every cell, card and export. Each takes the admin's
+resolved `formatting`.
 
 <ApiSignature path="../../packages/core/src/format-column.ts" name="formatColumnValue" />
 
 <ApiSignature path="../../packages/core/src/format-column.ts" name="formatNumber" />
 
-`formatColumnValue` renders the string variants of `ColumnFormat`; `formatNumber`
-renders a widget's `NumericFormat` (`number`, `currency`, `percent`, `bytes`,
-`duration`). Both live in `@flowpanel/core`, so a server component may call them —
-`@flowpanel/react` only re-exports `formatNumber` for client code.
+`formatColumnValue` renders a `ColumnFormat`; `formatNumber` renders a widget's
+`NumericFormat` (`number`, `currency`, `percent`, `bytes`, `duration`). Import both
+from `@flowpanel/kit`; `@flowpanel/kit/react` also exports `formatNumber`.
+`formatDurationValue`, `formatPercentValue` and `formatRelativeValue` print one
+kind each.
+
+## Enums
+
+`enumOf()` declares an enum's labels and tones once, for a column's `format`,
+filter and field `options`, badges and timeline chips.
+
+<ApiSignature path="../../packages/core/src/builders/enum-of.ts" name="enumOf" />
+
+```ts
+import { enumOf, resource } from "@flowpanel/kit";
+import { customers, planTier } from "@/db/schema";
+
+export const Plan = enumOf(planTier.enumValues, {
+  free: ["Free", "muted"],
+  starter: ["Starter", "info"],
+  pro: { label: "Pro", tone: "accent" },
+  business: { label: "Business", tone: "accent" },
+});
+
+resource(customers, {
+  columns: [{ field: "plan", format: Plan.format }],
+  filters: [{ field: "plan", type: "select", options: Plan.options }],
+  detail: { badge: (customer) => Plan.badge(customer.plan) },
+});
+```
+
+With the database enum's values first, a missing or extra label is a compile
+error; otherwise the entry keys are the values. An entry is a label, a
+`[label, tone]` pair or `{ label, tone }`. `label()` prints an unknown value as
+itself and a missing one as `—`; `badge()` returns `null` for a missing value;
+`badge(value, { href })` makes the pill a link.
+
+<AutoTypeTable path="../../packages/core/src/builders/enum-of.ts" name="EnumDef" />
 
 ## FieldDef
 
 An entry in `create.fields`, `update.fields`, a `DetailTab`, or an action's
-`form`. Every rule here is enforced on the server, not just in the UI.
+`form`. `required` marks the control required and the server rejects a missing
+value. `readOnly` and the resource's `fieldAccess` apply to rendering and to writes; a function
+`readOnly` is called with the stored row, so it guards edits. `hidden` only removes
+the control. `defaultValue` fills a key a create leaves empty and pre-fills a visible
+control; the resource's `create.defaultValues` fills keys on the server only and wins
+when both name the same key.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FieldDef" />
 
 ### FieldType
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type FieldType =
   | "text" | "textarea" | "number" | "email" | "password" | "url"
   | "date" | "datetime" | "time"
   | "boolean" | "switch" | "checkbox"
   | "select" | "multiselect" | "radio"
-  | "json" | "markdown" | "tags" | "reference" | "hidden" | "color";
+  | "json" | "markdown" | "tags" | "reference" | "hidden" | "color" | "money";
 ```
 
-Omit it on a declared field and the control is `"text"` — or `"reference"`
-when the field sets `reference`. The adapter's `ColumnMeta.type` is consulted
-only by the fully generated form a resource gets when it declares **no**
-`create.fields` / `update.fields` at all, and even there it only maps
-`number`, `boolean`, `date` and `json`; every other column type renders as
-text. So `enum`, `array` and `reference` columns need an explicit `type` (plus
-`options` / `reference`) to get a richer control.
+Without `type`, a field is `"text"`, or `"reference"` when it sets `reference`.
+A `"money"` field edits major units (`399.99`) beside the currency's sign. `storage`
+says whether the column holds minor units (`39999`) or the amount itself; `currency`
+and `minorUnits` (the currency's own digits) set the rest. See
+[money fields](/docs/build/forms#money-fields).
+Only a fully generated form (no `create.fields` or `update.fields`) reads the
+column type, and only for numbers, booleans, dates and JSON.
+
+## `hidden` and default values
+
+`hidden` means something different at each level, and none of them is an access
+rule; use `access` and `fieldAccess` for that.
+
+| Where | What `hidden` does |
+| --- | --- |
+| A resource or a queue | Leaves it out of the navigation and the palette. Its routes still work. |
+| A column | Keeps it out of the table. Export and the drawer still read it. |
+| A filter | Applies the filter, and its `defaultValue`, without a control. |
+| A row action | Deprecated: write `when` with the condition reversed. |
+| A form field, `hidden: true` or a function of the values | Leaves the control out of the form. The server still fills its `defaultValue`. |
+| A form field with `type: "hidden"` | Renders `<input type="hidden">`, which posts its value and which anyone can edit in the page. |
+
+Two options fill a create's values. `FieldDef.defaultValue` fills a key the
+submission left empty, on the server, and on a visible field pre-fills the
+control, so the browser sees it. `create.defaultValues` fills keys on the server
+only and wins when both name the same key; put trusted values such as the tenant
+there. A filter's `defaultValue` is unrelated: it applies the filter while the
+URL has no value for it.
 
 ## FilterDef
 
-An entry in `filters`. A bare string is **always** a `text` filter — there is
-no inference from the column's type, so declare a `FilterDef` with an explicit
-`type` for a select, a date range, or anything else.
+An entry in `filters`. A bare string is a `text` filter; set `type` for anything
+else. A `select` or `multiselect` filter without `options` on a column formatted
+with badge `labels`, such as an `enumOf` format, lists those labels.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="FilterDef" />
 
+### Default and hidden filters
+
+`defaultValue` applies while the URL has no value for the filter, to the rows,
+totals and export alike. Clearing it writes an empty `f_<field>=` to the URL. A
+saved view or link turns it off with `null`. `hidden: true` applies the filter
+without a control.
+
+```ts as="ResourceOptions<RowOf<'user'>>"
+filters: [
+  { field: "isTest", label: "Test accounts", type: "boolean", defaultValue: false },
+],
+views: [{ name: "Everyone", filters: { isTest: null } }],
+```
+
+A filter compares one column. To filter by an expression or through a relation,
+read the resource from a view that computes the column and set
+[`writeTo`](#reading-a-view).
+
 ### FilterType
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type FilterType =
   | "text" | "select" | "multiselect"
   | "daterange" | "numeric-range" | "boolean" | "tag";
 ```
 
 `daterange` and `numeric-range` reach your adapter as a `FilterRangeValue`;
-`multiselect` as a `FilterInValue`. Both are documented under
+`multiselect` as a `FilterInValue`. A `numeric-range` filter on a money column takes
+the amount the column shows: with `minorUnits: 2` on its format, `60` to `90` matches
+`6000` to `9000`, in the list, its URL, the export and the JSON API. A `{ gte, lte }`
+in a `where`, a view, a link's `filter` or a `defaultValue` stays in stored units, and
+its link opens the same rows. Both are documented under
 [Contexts](/docs/reference/contexts#filter-values).
+
+## Record page
+
+`detail` configures `<paths.admin>/<resource>/<id>`. Type a card that lives in its own file
+with `DetailOptions<Row>`:
+
+```ts
+import { type DetailOptions, kv, metric, related, type RowOf } from "@flowpanel/kit";
+
+export const card = {
+  title: (u) => u.name ?? u.email,
+  subtitle: (u, { format }) => `with us since ${format.date(u.createdAt)}`,
+  badge: (u) => [Lifecycle.badge(u.lifecycle), Plan.badge(u.plan)],
+  dateRange: { preset: "last30d", presets: ["last7d", "last30d", "QTD"] },
+  stats: [metric("Visits", { count: "user_visit", range: "startedAt" }, { compare: true })],
+  aside: [kv({ label: "Profile", columns: 1, items: [{ label: "Email", field: "email" }] })],
+  tabs: [related("response")],
+} satisfies DetailOptions<RowOf<"user">>;
+```
+
+- `title`, `subtitle` and `badge` receive the row and a `DetailHeaderContext`: the
+  admin's `format`, `labels` and `link`. `badge` returns one pill or a list, in order;
+  `null` entries are dropped, and a pill with `href` is a link.
+- `stats` renders as a hairline strip under the header, on every tab.
+- `aside` is a column beside the tabs from the `lg` breakpoint and below them on a phone,
+  on every tab.
+- `dateRange` adds a date picker to the header. Its range, with `previous`, reaches
+  `stats`, `aside` and every widgets tab. Related rows list every row, a
+  [timeline](/docs/reference/widgets#timeline) pages through the whole history and a
+  heatmap shows its last `days` days. Without `dateRange` the page has no picker and
+  widgets see the record's whole history.
+- `history: false` drops the History tab the [audit log](/docs/guides/audit-log) adds to
+  every record. `audit: false` on the resource stops recording its events and drops the
+  tab too.
+
+The header, strip, aside and open tab share one widget context, so a repeated
+`ctx.count`, `ctx.read` or `ctx.query` runs once per page.
+
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailOptions" />
+
+### DetailHeaderContext
+
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailHeaderContext" />
+
+### DetailBadge
+
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailBadge" />
 
 ## DetailTab
 
-A tab on the full-page detail view at `/<basePath>/<resource>/<id>`.
+A tab on the record page. The open tab is the `?tab=<key>` query parameter, and
+only that tab runs on the server.
 
-The tab in view is the `?tab=<key>` search parameter — a real query parameter the
-server reads, not a URL fragment — so a tab is linkable, bookmarkable and survives
-a reload. Only the selected tab runs on the server; the others render their label
-and nothing else.
-
-A tab declares exactly one kind of content, and they resolve in this order:
-`render`, `widgets`, `resource`, then fields.
+A tab shows `render` when it has one. Otherwise it shows its `widgets` and its
+`resource` list, widgets above the rows, or its fields when it has neither.
 
 ### Fields and sections
 
-`fields` renders a flat key/value view; `"*"` shows every readable field. Each
-entry is a bare field name or a `FieldDef`, whose `label` overrides the column
-header the list page uses. Column `format` and `render` from `columns` apply here
-too, so a value reads the same on both pages.
+`fields` renders key/value pairs; `"*"` shows every readable field. An entry is a
+field name or a `FieldDef`. Column `format` and `render` apply here too.
+
+A `FieldDef` with `render(row, ctx)` shows its result instead of the value. It
+runs on the server, only when the reader may read `name`, concurrently with the
+tab's other renders. A render that throws is logged and the field shows its
+formatted value; see [server-rendered cells](/docs/reference/drawer#server-rendered-cells)
+for the drawer:
+
+```ts as="FieldDef<RowOf<'job'>>"
+{
+  name: "categoryId",
+  label: "Category",
+  render: async (job, ctx) => {
+    const category = await findCategory(ctx, job.categoryId);
+    return `${category.title} (${category.openJobs})`;
+  },
+}
+```
 
 `sections` groups those fields into titled blocks and wins over `fields` on the
 same tab:
 
-```ts excerpt
+```ts as="DetailTab<RowOf<'customers'>>"
 {
   key: "overview",
   label: "Overview",
@@ -245,74 +529,88 @@ same tab:
 }
 ```
 
-Fields named by `fields` or by any `sections` entry are declared dependencies:
-they are added to the tab's projection and loaded when that tab is the one in
-view. A tab that ends up with nothing the reader may see shows
-`labels.detail.noFields`.
+Fields named here are loaded when the tab is open. A field the reader may not
+read is left out.
 
 ### Widgets
 
-`widgets` puts dashboard widgets in a detail tab, in the dashboard's own grid —
-see [widgets in detail tabs](/docs/build/dashboards#widgets-in-detail-tabs).
-`columns` sets the grid width, defaulting to 2. Each widget's `ctx.row` is the
-record being viewed, and each one renders inside its own error boundary, so a
-query that fails costs you that card and not the page. Declaring `widgets: []` is
-still a widgets tab — it renders empty rather than falling through to the other
-modes, because an empty array is a typo, not a choice.
+`widgets` puts dashboard widgets in the tab; see
+[widget tabs](/docs/build/detail-cards#widget-tabs). `columns` defaults to 2, or 12
+once a widget sets `span`. `ctx.row` is the record. A failing widget shows its own
+error card.
 
 ### Related rows
 
-A tab with a `resource` renders that resource's list columns and paginates under
-its own URL key `relatedPage.<key>` — so two tabs page independently and Back,
-Forward and reload restore the page the reader was on. Reference columns resolve
-to the referenced row's label, exactly as they do on a list page and in a table
-widget.
+A tab with `resource` shows that resource's list columns, paged under the URL key
+`relatedPage.<key>` and sorted under `relatedSort.<key>`. `hide` drops columns and
+their values; the parent foreign key is the usual one. `sort` sets the default
+order. An "Open list" link to the filtered list appears when every filter value is
+a scalar on a field the target declares.
 
-`hide` drops columns before anything is rendered, and the hidden fields are also
-projected out of the rows sent to the browser; the parent foreign key is the usual
-candidate, since every row in the tab shares it. The tab's own row key is always
-kept, since the table needs it for row identity. A hidden column cannot be sorted
-from the URL either.
+`filter` is a constraint: an undefined parent value yields no rows and no query.
+A row opens by the target's [`rowClick`](#opening-a-row); a drawer opens over the
+record page under `?drawer=<resource>:<id>`.
 
-An "Open list →" link appears only when it would tell the truth: every filter
-value has to be a scalar (`string`, `number`, `boolean` or `bigint`) and every
-filter field has to be one the target resource declares, since the list page
-accepts `?f_<field>=<value>` on no other terms. A tab filtered on a range, an `in`
-set, or an undeclared field keeps its rows and drops the link. `sort` sets the tab's
-default order, falling back to the target's `defaultSort` and then to its primary
-key. Clicking a header re-sorts through the URL key `relatedSort.<key>`, written
-as `<field>.<asc|desc>` and accepted only for a visible column the target
-resource really has. Above the table, an "Open list →" link
-(`labels.related.openList`) leads to the target's own list page with the
-relationship already applied as `?f_<field>=<value>`, so the full paginated list
-is one click away.
+`pageSize` defaults to 25. `count: true` shows the row count in the label.
+`widgets` on the same tab render above the rows.
 
-The tab's `filter` is a constraint, not a refinement: an undefined parent value or
-a field the reader may not read yields no rows and no query.
+`by` names the target's field that points at this record: it becomes `filter`, reading the
+record's `rowKey`, and `hide`, unless you give those yourself.
+
+### Related tabs in one line
+
+<ApiSignature path="../../packages/core/src/builders/related.ts" name="related" />
+
+`related(resource, options)` builds a counted related tab. Without `by`, `defineAdmin` finds
+the one column of the target whose `reference.resource` is this resource and uses it; none
+or several throw and ask for `by`. `by`, `hide` and `sort.field` are fields of the target's
+row, so a typo is a compile error once resources are typed, and `defineAdmin` names the
+closest column otherwise. The label defaults to the target's `plural`.
+
+```ts as="ResourceOptions<RowOf<'user'>>"
+detail: {
+  tabs: [
+    related("response", { label: "Responses", widgets: [responseFunnel] }),
+    related("payment", { pageSize: 10, sort: { field: "createdAt", dir: "desc" } }),
+  ],
+}
+```
+
+A tab with neither `by` nor `filter` reads every row of its target.
+
+<AutoTypeTable path="../../packages/core/src/builders/related.ts" name="RelatedOptions" />
+
+### Empty state
+
+`emptyState` replaces the default text when a tab has no rows, widgets or
+readable fields.
+
+```ts as="DetailTab<RowOf<'user'>>"
+{ key: "responses", label: "Responses", resource: "response", filter: (u) => ({ userId: u.id }), emptyState: "No responses yet" }
+```
 
 ### Custom content
 
-`render(row, ctx)` returns whatever you like. `row` is the projected row — the
-declared and `detail.expose` fields, nothing else — and `ctx` is a
-[`DetailTabContext`](#detailtabcontext): `db`, `session`, `dateRange`, `href`,
-`labels` and the per-request `query` memo, the same pieces a widget query gets.
+`render(row, ctx)` returns any React content. `row` holds the declared and
+`detail.expose` fields; `ctx` is a [`DetailTabContext`](#detailtabcontext).
 
-<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="DetailTab" />
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailTab" />
 
 ## DetailTabContext
 
 What `DetailTab.render` receives as its second argument.
 
-<AutoTypeTable path="../../packages/core/src/types/resource.ts" name="DetailTabContext" />
+<AutoTypeTable path="../../packages/core/src/types/detail.ts" name="DetailTabContext" />
 
 ## SelectOption
 
-```ts excerpt
+```ts of="@flowpanel/kit"
 type SelectOption = { label: string; value: string | number | boolean };
 ```
 
-Wherever `options` is accepted, you may pass `string[]`, `SelectOption[]`, or a
-function resolved per request.
+A filter's or field's `options` takes `string[]`, `SelectOption[]`, or a function
+resolved per request. A dashboard filter takes `SelectOption[]`, an `enumOf()`, or
+a function of the widget context. A drawer action input takes `string[]`.
 
 ## ListResult
 
@@ -322,6 +620,6 @@ What a `list` returns, from the adapter through to the pagination control.
 
 ## ResourceConfig
 
-What `resource()` returns. You pass it to `defineAdmin`; you rarely read it.
+What `resource()` returns.
 
 <AutoTypeTable path="../../packages/core/src/types/resource.ts" name="ResourceConfig" />

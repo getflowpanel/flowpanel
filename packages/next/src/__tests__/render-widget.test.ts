@@ -5,7 +5,6 @@ import type {
   ResolvedAdminConfig,
   ResourceConfig,
   WidgetConfig,
-  WidgetContext,
 } from "@flowpanel/core";
 import { DEFAULT_LABELS } from "@flowpanel/core";
 import { MetricCard, RealtimeRefresh, TableWidget } from "@flowpanel/react";
@@ -13,6 +12,7 @@ import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ServerCard } from "../runtime/_server-card";
 import { renderWidget } from "../runtime/render-widget";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 const fakeAdapter: Adapter = {
   kind: "drizzle",
@@ -37,20 +37,11 @@ const cfg: ResolvedAdminConfig = {
   resources: [],
   resourcesByName: new Map(),
   dashboardsByPath: new Map(),
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   __resolved: true,
 } as never;
 
-const ctx: WidgetContext = {
-  db: {},
-  session: null,
-  dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-  req: new Request("http://localhost/"),
-  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
-  query: (_key, fn) => fn(),
-  labels: DEFAULT_LABELS,
-  sql: async () => [],
-  count: async () => 0,
-};
+const ctx = fakeWidgetContext();
 
 const reqCtx: RequestContext = {
   req: new Request("http://localhost/"),
@@ -386,6 +377,7 @@ describe("renderWidget — table widget row projection", () => {
       resources: [usersResource],
       resourcesByName: new Map([["users", usersResource]]),
       dashboardsByPath: new Map(),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
     const widget: WidgetConfig = {
@@ -433,6 +425,7 @@ describe("renderWidget — table widget row projection", () => {
       resources: [usersResource],
       resourcesByName: new Map([["users", usersResource]]),
       dashboardsByPath: new Map(),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
     const widget: WidgetConfig = {
@@ -462,6 +455,7 @@ describe("renderWidget — resource table widget cell pipeline", () => {
       resourcesByName: new Map(resources.map((r) => [(r.ref as { __name: string }).__name, r])),
       dashboardsByPath: new Map(),
       ...(scope ? { scope } : {}),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
   }
@@ -516,9 +510,9 @@ describe("renderWidget — resource table widget cell pipeline", () => {
     );
     const el = node as ReactElement<{ columns: Record<string, unknown>[] }>;
     expect(el.props.columns).toEqual([
-      { field: "scraperId", label: "Scraper", type: "reference" },
+      { field: "scraperId", label: "Scraper", type: "reference", textRem: expect.any(Number) },
       { field: "status", label: "Status", format: "badge" },
-      { field: "durationMs", label: "Duration" },
+      { field: "durationMs", label: "Duration", textRem: expect.any(Number) },
     ]);
   });
 
@@ -609,6 +603,7 @@ describe("renderWidget — cross-resource authorization", () => {
       resourcesByName: new Map([["users", usersResource]]),
       dashboardsByPath: new Map(),
       ...(globalScope ? { scope: globalScope } : {}),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
     return { cfg, list };
@@ -620,7 +615,7 @@ describe("renderWidget — cross-resource authorization", () => {
   } as never;
 
   it("does not read a role-gated target the viewer cannot access", async () => {
-    const { cfg, list } = boundConfig({ requireRole: "superadmin" });
+    const { cfg, list } = boundConfig({ access: { read: "superadmin" } });
     const staffCtx: RequestContext = { ...reqCtx, role: "staff" };
     const node = await renderWidget(tableWidget, ctx, cfg, staffCtx);
     const el = node as ReactElement<{ rows: Record<string, unknown>[] }>;
@@ -642,11 +637,9 @@ describe("renderWidget — cross-resource authorization", () => {
     const scoped: RequestContext = { ...reqCtx, scope: { tenantId: "t1" } };
     await renderWidget(tableWidget, ctx, cfg, scoped);
     const listCtx = list.mock.calls[0]?.[1] as {
-      applyScope?: (q: unknown) => unknown;
-      scopeRequired?: boolean;
+      boundScope?: { apply(q: unknown): unknown };
     };
-    expect(listCtx.scopeRequired).toBe(true);
-    listCtx.applyScope?.("q");
+    listCtx.boundScope?.apply("q");
     expect(scopePredicate).toHaveBeenCalledWith({ tenantId: "t1" }, "q");
   });
 
@@ -673,6 +666,7 @@ describe("renderWidget — cross-resource authorization", () => {
       resources: [usersResource],
       resourcesByName: new Map([["users", usersResource]]),
       dashboardsByPath: new Map(),
+      paths: { admin: "/admin", api: "/api/flowpanel" },
       __resolved: true,
     } as never;
 

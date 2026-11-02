@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MIGRATIONS_TABLE_DDL, prismaAdapter } from "../adapter";
+import { migrationsTableDdl, prismaAdapter } from "../adapter";
 import type { PrismaDmmf } from "../introspect";
 import type { PrismaClientLike } from "../runtime";
 import { splitSqlStatements } from "../sql-statements";
@@ -42,9 +42,14 @@ describe("prismaAdapter migrations bookkeeping", () => {
     });
 
     expect(adapter.applyMigration).toEqual(expect.any(Function));
-    expect(adapter.runMigrationSql).toEqual(expect.any(Function));
     expect(adapter.listAppliedMigrations).toEqual(expect.any(Function));
-    expect(adapter.markMigrationApplied).toEqual(expect.any(Function));
+  });
+
+  it("guards the bookkeeping table on PostgreSQL, so an existing table raises no NOTICE", () => {
+    expect(migrationsTableDdl("postgresql")).toContain(
+      "IF to_regclass('_flowpanel_migrations') IS NULL",
+    );
+    expect(migrationsTableDdl("postgresql")).not.toContain("IF NOT EXISTS");
   });
 
   it("creates the bookkeeping table with dialect-portable DDL", async () => {
@@ -54,7 +59,7 @@ describe("prismaAdapter migrations bookkeeping", () => {
     await adapter.listAppliedMigrations?.();
 
     const ddl = prisma.$executeRawUnsafe.mock.calls[0]?.[0] as string;
-    expect(ddl).toBe(MIGRATIONS_TABLE_DDL);
+    expect(ddl).toBe(migrationsTableDdl("sqlite"));
     expect(ddl).not.toMatch(/timestamptz/i);
     expect(ddl).not.toMatch(/DEFAULT\s+now\(\)/i);
     expect(ddl).toMatch(/DEFAULT CURRENT_TIMESTAMP/);
@@ -67,17 +72,6 @@ describe("prismaAdapter migrations bookkeeping", () => {
     await expect(adapter.listAppliedMigrations?.()).resolves.toEqual(
       new Set(["0001_init", "0002_posts"]),
     );
-  });
-
-  it("records an applied migration through a parameterized compatibility insert", async () => {
-    const prisma = makeMockPrisma();
-    const adapter = prismaAdapter({ prisma, dmmf, provider: "sqlite" });
-
-    await adapter.markMigrationApplied?.("0003_orders");
-
-    const [strings, ...values] = prisma.$executeRaw.mock.calls[0] as [string[], ...unknown[]];
-    expect(strings.join("?")).toMatch(/INSERT INTO _flowpanel_migrations/);
-    expect(values).toEqual(["0003_orders"]);
   });
 });
 
@@ -117,7 +111,7 @@ describe("prismaAdapter PostgreSQL migrations", () => {
       "marker",
       "transaction:commit",
     ]);
-    expect(root.$executeRawUnsafe).toHaveBeenCalledWith(MIGRATIONS_TABLE_DDL);
+    expect(root.$executeRawUnsafe).toHaveBeenCalledWith(migrationsTableDdl("postgresql"));
     expect(tx.$queryRawUnsafe.mock.calls[0]).toEqual([
       expect.stringContaining("pg_advisory_xact_lock"),
       "0001_init",
@@ -143,7 +137,7 @@ describe("prismaAdapter PostgreSQL migrations", () => {
       /^SELECT id FROM _flowpanel_migrations/,
     );
     expect(prisma.$executeRawUnsafe).toHaveBeenCalledTimes(1);
-    expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith(MIGRATIONS_TABLE_DDL);
+    expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith(migrationsTableDdl("postgresql"));
   });
 
   it("does not record the marker when a statement fails", async () => {
@@ -200,7 +194,7 @@ describe("prismaAdapter SQLite migrations", () => {
       "marker",
     ]);
     expect(root.$executeRawUnsafe.mock.calls.map(([sql]) => sql)).toEqual([
-      MIGRATIONS_TABLE_DDL,
+      migrationsTableDdl("sqlite"),
       expect.stringMatching(/^CREATE TABLE IF NOT EXISTS _flowpanel_migration_lock/),
     ]);
   });
@@ -460,7 +454,7 @@ describe("prismaAdapter migration SQL validation", () => {
     ] as const) {
       const prisma = makeMockPrisma();
       const adapter = prismaAdapter({ prisma, dmmf, provider });
-      await expect(adapter.runMigrationSql?.(sql)).rejects.toThrow(
+      await expect(adapter.applyMigration?.("0001", sql)).rejects.toThrow(
         /client directive|procedural migration SQL/,
       );
       expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
@@ -488,7 +482,7 @@ describe("prismaAdapter migration SQL validation", () => {
     const adapter = prismaAdapter({ prisma, dmmf, provider: "mysql" });
 
     await expect(
-      adapter.runMigrationSql?.("/*!40101 SET @flowpanel_probe = 1 */ SELECT 1;"),
+      adapter.applyMigration?.("0001", "/*!40101 SET @flowpanel_probe = 1 */ SELECT 1;"),
     ).rejects.toThrow(/executable MySQL comments are not supported/);
     expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
   });

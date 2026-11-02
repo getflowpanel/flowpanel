@@ -1,6 +1,9 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Node, Project } from "ts-morph";
+import { hasMarker } from "../eject/marker";
+import { findAdminConfig } from "../scaffold/config-target";
+import { configProblem } from "./config-problem";
 import { resolveProjectModule } from "./module-path";
 
 /** Where `flowpanel init` mounts the route handlers when the config says nothing. */
@@ -44,6 +47,12 @@ function routeSegments(parent: string[], name: string): string[] {
   return [...segments, rest];
 }
 
+/** An ejected admin page is FlowPanel's own page moved to source, not a route in the way of the mount. */
+async function isEjected(file: string): Promise<boolean> {
+  const source = await fs.readFile(file, "utf8").catch(() => "");
+  return hasMarker(source);
+}
+
 export async function findAdminRouteConflicts(
   cwd: string,
   appDir: string,
@@ -60,7 +69,9 @@ export async function findAdminRouteConflicts(
         if (entry.name.startsWith("_") || entry.name.startsWith(".")) continue;
         await walk(rel, routeSegments(segments, entry.name));
       } else if (/^(page|route)\.[cm]?[jt]sx?$/.test(entry.name) && rel !== ignoreFile) {
-        if (overlapsMount(segments, target)) conflicts.push(rel);
+        if (overlapsMount(segments, target) && !(await isEjected(path.join(cwd, rel)))) {
+          conflicts.push(rel);
+        }
       }
     }
   }
@@ -88,7 +99,10 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
   const visited = new Set<string>();
   async function read(file: string, exportName = "default"): Promise<AdminMount> {
     const unresolved = (): AdminMount => ({
-      error: `${path.relative(cwd, file)}: dynamic or unresolved admin config; pass --path with its resolved admin URL.`,
+      error: configProblem(
+        "paths.admin",
+        `${path.relative(cwd, file)} builds the config at runtime, so the admin URL is unknown. Pass --path with the resolved admin URL.`,
+      ),
     });
     const key = `${file}#${exportName}`;
     if (visited.has(key)) return unresolved();
@@ -127,14 +141,18 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
     }
     if (config.getProperties().some(Node.isSpreadAssignment)) return unresolved();
     const paths = config.getProperty("paths");
-    const legacy = config.getProperty("basePath");
     let value: Node | undefined;
     let apiValue: Node | undefined;
     let apiDeclared = false;
     if (paths) {
       const init = Node.isPropertyAssignment(paths) ? paths.getInitializer() : undefined;
       if (!Node.isObjectLiteralExpression(init)) {
-        return { error: `${file}: dynamic paths; pass --path with the resolved admin URL.` };
+        return {
+          error: configProblem(
+            "paths",
+            `${path.relative(cwd, file)} computes paths at runtime. Pass --path with the resolved admin URL.`,
+          ),
+        };
       }
       if (init.getProperties().some(Node.isSpreadAssignment)) return unresolved();
       const admin = init.getProperty("admin");
@@ -143,14 +161,15 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
       apiDeclared = api !== undefined;
       apiValue = api && Node.isPropertyAssignment(api) ? api.getInitializer() : api;
     }
-    if (!value && legacy) {
-      value = Node.isPropertyAssignment(legacy) ? legacy.getInitializer() : legacy;
-    }
     if (value && !Node.isStringLiteral(value) && !Node.isNoSubstitutionTemplateLiteral(value)) {
-      return { error: `${file}: dynamic admin path; pass --path with the resolved admin URL.` };
+      return {
+        error: configProblem(
+          "paths.admin",
+          `${path.relative(cwd, file)} computes it at runtime. Pass --path with the resolved admin URL.`,
+        ),
+      };
     }
-    // A declared but non-literal `paths.api` is unknown, not the default: repairing
-    // the default would write routes the config never points at.
+    // A declared but non-literal `paths.api` is unknown, not the default.
     const staticApi =
       apiValue && (Node.isStringLiteral(apiValue) || Node.isNoSubstitutionTemplateLiteral(apiValue))
         ? apiValue.getLiteralText()
@@ -165,9 +184,14 @@ export async function readAdminMount(cwd: string): Promise<AdminMount> {
           : DEFAULT_API_PATH,
       };
     } catch (e) {
-      return { error: `${file}: ${e instanceof Error ? e.message : String(e)}` };
+      return {
+        error: configProblem(
+          "paths.admin",
+          `${e instanceof Error ? e.message : String(e)} (${path.relative(cwd, file)})`,
+        ),
+      };
     }
   }
-  const root = await resolveProjectModule(cwd, "./flowpanel.config");
-  return root ? read(root) : { path: "/admin", api: DEFAULT_API_PATH };
+  const config = await findAdminConfig(cwd);
+  return config ? read(config.root) : { path: "/admin", api: DEFAULT_API_PATH };
 }

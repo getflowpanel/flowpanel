@@ -1,0 +1,97 @@
+import { quoted } from "../../internal/validate-shared";
+import { didYouMean } from "../../suggest";
+import type { ColumnMeta } from "../../types/adapter";
+import { FlowpanelConfigError } from "../../types/config-error";
+import type { ResourceConfig } from "../../types/resource";
+
+interface ColumnSite {
+  /** Column name the config points at. */
+  target: string;
+  /** Human-readable config path, used verbatim in the error. */
+  where: string;
+}
+
+function bareName(entry: unknown): string | null {
+  if (typeof entry === "string") return entry;
+  if (typeof entry === "number" || typeof entry === "symbol") return String(entry);
+  return null;
+}
+
+function pushColumnSites(list: unknown, where: string, out: ColumnSite[]): void {
+  if (!Array.isArray(list)) return;
+  list.forEach((entry, i) => {
+    const bare = bareName(entry);
+    if (bare !== null) {
+      out.push({ target: bare, where: `${where}[${i}]` });
+      return;
+    }
+    if (!entry || typeof entry !== "object") return;
+    const field = (entry as { field?: unknown }).field;
+    if (typeof field === "string") out.push({ target: field, where: `${where}[${i}].field` });
+  });
+}
+
+function pushFormFieldSites(list: unknown, where: string, out: ColumnSite[]): void {
+  if (!Array.isArray(list)) return;
+  list.forEach((entry, i) => {
+    if (!entry || typeof entry !== "object") return;
+    const name = (entry as { name?: unknown }).name;
+    if (typeof name === "string") out.push({ target: name, where: `${where}[${i}].name` });
+  });
+}
+
+function pushSecondarySites(list: unknown, out: ColumnSite[]): void {
+  if (!Array.isArray(list)) return;
+  list.forEach((entry, i) => {
+    const secondary = (entry as { secondary?: unknown } | null)?.secondary;
+    if (typeof secondary === "string")
+      out.push({ target: secondary, where: `columns[${i}].secondary` });
+  });
+}
+
+function columnSites(resource: ResourceConfig): ColumnSite[] {
+  const out: ColumnSite[] = [];
+  const o = resource.options;
+  pushColumnSites(o.columns, "columns", out);
+  pushSecondarySites(o.columns, out);
+  pushColumnSites(o.filters, "filters", out);
+  pushColumnSites(o.search, "search", out);
+  pushColumnSites(o.expose, "expose", out);
+  pushColumnSites(o.detail?.expose, "detail.expose", out);
+  if (o.defaultSort && typeof o.defaultSort.field === "string") {
+    out.push({ target: o.defaultSort.field, where: "defaultSort.field" });
+  }
+  if (typeof o.rowKey === "string") out.push({ target: o.rowKey, where: "rowKey" });
+  pushFormFieldSites(o.create?.fields, "create.fields", out);
+  pushFormFieldSites(o.update?.fields, "update.fields", out);
+  pushColumnSites(o.update?.expose, "update.expose", out);
+  return out;
+}
+
+/** Throws when a resource points at a column the adapter does not report; skipped when it reports none. */
+export function validateResourceColumns(
+  name: string,
+  resource: ResourceConfig,
+  introspected: readonly ColumnMeta[],
+): void {
+  resource.options.columns?.forEach((column: unknown, index: number) => {
+    if (typeof column !== "object" || column === null) return;
+    const candidate = column as { field?: unknown; render?: unknown };
+    if (candidate.render !== undefined && candidate.field === undefined) {
+      throw new FlowpanelConfigError(
+        `resource "${name}" columns[${index}]`,
+        "it uses render without a field. Declare the field the server renderer reads.",
+      );
+    }
+  });
+  if (introspected.length === 0) return;
+  const known = introspected.map((c) => c.name);
+  for (const site of columnSites(resource)) {
+    if (known.includes(site.target)) continue;
+    throw new FlowpanelConfigError(
+      `resource "${name}" ${site.where}`,
+      `it points at column "${site.target}", which the adapter does not report.` +
+        `${didYouMean(site.target, known)} Known columns: ${quoted(known)}.`,
+    );
+  }
+}

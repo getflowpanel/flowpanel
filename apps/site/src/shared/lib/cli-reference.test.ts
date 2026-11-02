@@ -15,11 +15,11 @@ describe("readCliReference", () => {
     expect(docs.map((command) => command.name)).toEqual([
       "flowpanel",
       "init",
+      "new",
+      "dev",
       "migrate",
       "doctor",
       "eject",
-      "dev",
-      "new",
     ]);
 
     for (const [index, doc] of docs.entries()) {
@@ -29,13 +29,14 @@ describe("readCliReference", () => {
 
     expect(docs.find((command) => command.name === "dev")?.options).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ flags: "--port <port>", defaultValue: "3000" }),
+        expect.objectContaining({
+          flags: "--port <port>",
+          description: "Next.js dev port (default: 3000)",
+        }),
       ]),
     );
     expect(docs.find((command) => command.name === "new")?.options).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ flags: "--kind <kind>", defaultValue: "drizzle" }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ flags: "--kind <kind>" })]),
     );
   });
 

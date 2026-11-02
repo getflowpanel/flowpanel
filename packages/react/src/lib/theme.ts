@@ -42,6 +42,9 @@ export function writeStoredTheme(value: ThemeChoice): void {
 export function applyThemeClass(choice: ThemeChoice): void {
   if (typeof document === "undefined") return;
   document.documentElement.dataset.flowpanelTheme = choice;
+  for (const meta of document.querySelectorAll<HTMLMetaElement>("meta[data-flowpanel]")) {
+    meta.media = meta.dataset.flowpanel === choice ? "all" : "not all";
+  }
   for (const root of document.querySelectorAll<HTMLElement>("[data-flowpanel-root]")) {
     root.dataset.theme = choice;
   }

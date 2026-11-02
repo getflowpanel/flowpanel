@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Adapter, AdminConfig } from "../index";
+import { resetDevWarningsForTests } from "../compiler/validate/warn-create-fields";
+import type { Adapter, AdminDefinition } from "../index";
 import { defineAdmin, resource } from "../index";
 
 const fakeAdapter: Adapter = {
@@ -14,7 +15,7 @@ const fakeAdapter: Adapter = {
   delete: async () => {},
 };
 
-const open: AdminConfig = {
+const open: AdminDefinition = {
   adapter: fakeAdapter,
   auth: { session: async () => null, role: () => "guest" },
   resources: [resource({ __name: "users" }, { columns: [] })],
@@ -27,6 +28,7 @@ beforeEach(() => {
   originalEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = "development";
   warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  resetDevWarningsForTests();
 });
 
 afterEach(() => {
@@ -43,27 +45,31 @@ describe("no-access-control warning", () => {
     expect(msg).toContain("auth: { allowUnauthenticated: true }");
   });
 
-  it("is silent when auth.requireRole is set", () => {
-    defineAdmin({ ...open, auth: { ...open.auth, requireRole: (s) => s !== null } });
+  it("is silent when auth.access is set", () => {
+    defineAdmin({ ...open, auth: { ...open.auth, access: ({ session }) => session !== null } });
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("is silent when any resource sets requireRole", () => {
+  it("is silent when any resource sets access", () => {
     defineAdmin({
       ...open,
-      resources: [resource({ __name: "users" }, { columns: [], requireRole: "admin" })],
+      resources: [resource({ __name: "users" }, { columns: [], access: { read: "admin" } })],
     });
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("is silent when a global scope is configured", () => {
-    defineAdmin({ ...open, scope: () => null });
+    defineAdmin({
+      ...open,
+      scope: () => null,
+      resources: [resource({ __name: "users" }, { columns: [], scope: "bypass" })],
+    });
     expect(warn).not.toHaveBeenCalled();
   });
 
   it("fails closed in production when anonymous access was not acknowledged", () => {
     process.env.NODE_ENV = "production";
-    expect(() => defineAdmin({ ...open })).toThrow(/production admin requires auth\.requireRole/i);
+    expect(() => defineAdmin({ ...open })).toThrow(/auth\.access: a production admin requires it/);
     expect(warn).not.toHaveBeenCalled();
   });
 
@@ -84,5 +90,50 @@ describe("no-access-control warning", () => {
   it("is silent when the deployment opts out explicitly", () => {
     defineAdmin({ ...open, auth: { ...open.auth, allowUnauthenticated: true } });
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe("an auth.access that lets a signed-out visitor in", () => {
+  const renamed = (s: unknown) => s !== null;
+
+  it("warns in development about the renamed 0.3 null check", () => {
+    defineAdmin({ ...open, auth: { ...open.auth, access: renamed } });
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0]?.[0])).toContain("lets a signed-out visitor in");
+  });
+
+  it("warns for access: true and for a role list holding the signed-out role", () => {
+    defineAdmin({ ...open, auth: { ...open.auth, access: true } });
+    expect(warn).toHaveBeenCalledTimes(1);
+    defineAdmin({ ...open, auth: { ...open.auth, access: true } });
+    expect(warn).toHaveBeenCalledTimes(1);
+    resetDevWarningsForTests();
+    defineAdmin({ ...open, auth: { ...open.auth, access: ["guest", "admin"] } });
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses to start in production, like an admin without access", () => {
+    process.env.NODE_ENV = "production";
+    expect(() => defineAdmin({ ...open, auth: { ...open.auth, access: renamed } })).toThrow(
+      /auth\.access: it lets a signed-out visitor in.*\(\{ session \}\) => session !== null/,
+    );
+    expect(() =>
+      defineAdmin({
+        ...open,
+        readOnly: true,
+        auth: { ...open.auth, access: renamed, allowUnauthenticated: true },
+      }),
+    ).not.toThrow();
+  });
+
+  it("stays quiet for rules that turn a signed-out visitor away or answer asynchronously", () => {
+    process.env.NODE_ENV = "production";
+    for (const access of [
+      ({ session }: { session: unknown }) => session !== null,
+      "admin",
+      async () => true,
+    ]) {
+      expect(() => defineAdmin({ ...open, auth: { ...open.auth, access } })).not.toThrow();
+    }
   });
 });

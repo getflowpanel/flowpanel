@@ -13,7 +13,7 @@ import {
   table,
 } from "../index";
 
-describe("M2 builders", () => {
+describe("widget builders", () => {
   it("metric() produces MetricWidget with kind and defaults", () => {
     const w = metric("Users", async () => 42);
     expect(w.kind).toBe("metric");

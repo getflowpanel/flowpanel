@@ -1,106 +1,32 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import * as p from "@clack/prompts";
 import type { Command } from "commander";
 import pc from "picocolors";
-import { editConfigToAddResource } from "../eject/addResource";
+import { editConfigToAddResource } from "../eject/add-resource";
+import { findSplitResourcesDir } from "../eject/edit-config";
 import { createFilesystemPlan, publicPlan } from "../plan/filesystem-plan";
 import { applyFilesystemPlan } from "../plan/transaction";
-import { fileExists } from "../utils/detect";
-import { writeJson, writePlanJson } from "../utils/output";
+import type { FilesystemPlan } from "../plan/types";
+import { dirSpecifier, typePrismaModel, wireResourcesDir } from "../scaffold/config-edits";
+import { findAdminConfig } from "../scaffold/config-target";
+import { describeSchema } from "../scaffold/describe-schema";
+import { planNewIntoDir, planPrismaModelIntoDir } from "../scaffold/plan-new";
+import { linkPrismaReferences, registeredPrismaNames } from "../scaffold/prisma-references";
+import {
+  describePrismaSchema,
+  findPrismaModel,
+  prismaResourceName,
+} from "../scaffold/prisma-schema";
+import { renderResourceEntry } from "../scaffold/render-resource";
+import { checkSchemaExport } from "../scaffold/schema-export";
+import { noConfigMessage } from "../utils/config-problem";
+import { detectPackageManager, pmCommands } from "../utils/detect";
+import { resolveProjectModule } from "../utils/module-path";
+import { planLines, writeJson, writePlanJson } from "../utils/output";
+import { noNextProject } from "../utils/project-root";
+import { createUi, failCommand } from "../utils/ui";
 
-/** Locate the user's flowpanel config. */
-async function findConfigFile(
-  cwd: string,
-): Promise<{ path: string; filename: "flowpanel.config.ts" | "flowpanel.config.tsx" } | null> {
-  for (const fname of ["flowpanel.config.ts", "flowpanel.config.tsx"] as const) {
-    const full = path.join(cwd, fname);
-    if (await fileExists(full)) return { path: full, filename: fname };
-  }
-  return null;
-}
-
-/** Resolve the module specifier a config imports its schema from to a file on disk. */
-async function resolveSchemaFile(cwd: string, spec: string): Promise<string | null> {
-  const bare = spec.startsWith("@/")
-    ? spec.slice(2)
-    : spec.startsWith("./") || spec.startsWith("../")
-      ? spec
-      : null;
-  if (bare === null) return null;
-  const roots = spec.startsWith("@/") ? [path.join(cwd, "src"), cwd] : [cwd];
-  for (const root of roots) {
-    for (const suffix of [".ts", ".tsx", "/index.ts", ""]) {
-      const candidate = path.join(root, `${bare}${suffix}`);
-      if (await fileExists(candidate)) {
-        return (await fs.stat(candidate)).isFile() ? candidate : null;
-      }
-    }
-  }
-  return null;
-}
-
-/** Names a module exports, as far as a source scan can tell. */
-function exportedNames(source: string): Set<string> {
-  const names = new Set<string>();
-  for (const m of source.matchAll(
-    /export\s+(?:declare\s+)?(?:const|let|var|function|class)\s+(\w+)/g,
-  )) {
-    names.add(m[1] as string);
-  }
-  for (const m of source.matchAll(/export\s*\{([^}]*)\}/g)) {
-    for (const raw of (m[1] as string).split(",")) {
-      const name = raw
-        .trim()
-        .split(/\s+as\s+/)
-        .pop()
-        ?.trim();
-      if (name) names.add(name);
-    }
-  }
-  return names;
-}
-
-type SchemaCheck =
-  | { status: "ok" }
-  | { status: "missing"; message: string }
-  | { status: "unverified"; reason: string };
-
-/**
- * Checks the resource maps to a real table before writing it into the config —
- * otherwise `flowpanel new` happily produces a line that cannot compile.
- */
-async function checkSchemaExport(
-  cwd: string,
-  configSource: string,
-  name: string,
-): Promise<SchemaCheck> {
-  const importMatch = /import\s+\*\s+as\s+schema\s+from\s+["']([^"']+)["']/.exec(configSource);
-  if (!importMatch) {
-    return { status: "unverified", reason: "the config has no `import * as schema` line" };
-  }
-  const spec = importMatch[1] as string;
-  const file = await resolveSchemaFile(cwd, spec);
-  if (!file) {
-    return { status: "unverified", reason: `"${spec}" does not resolve to a file under ${cwd}` };
-  }
-  const names = exportedNames(await fs.readFile(file, "utf8"));
-  if (names.size === 0) {
-    return {
-      status: "unverified",
-      reason: `no exports could be read from ${path.relative(cwd, file)}`,
-    };
-  }
-  if (names.has(name)) return { status: "ok" };
-  const available = [...names].sort().slice(0, 12).join(", ");
-  return {
-    status: "missing",
-    message:
-      `${path.relative(cwd, file)} has no export named "${name}".\n` +
-      (available ? `Exports there: ${available}\n` : "") +
-      `Pass the table expression yourself with --table if it lives elsewhere.`,
-  };
-}
+export { checkSchemaExport };
 
 export type AdapterKind = "drizzle" | "prisma";
 export const ADAPTER_KINDS: ReadonlyArray<AdapterKind> = ["drizzle", "prisma"];
@@ -111,90 +37,263 @@ export function parseAdapterKind(raw: string | undefined): AdapterKind | null {
   return ADAPTER_KINDS.includes(raw as AdapterKind) ? (raw as AdapterKind) : null;
 }
 
+/** The adapter a config source builds, so `new` writes the entry that adapter takes. */
+export function adapterKindOf(source: string): AdapterKind {
+  return /\bprismaAdapter\s*\(/.test(source) ? "prisma" : "drizzle";
+}
+
+interface NewOptions {
+  table?: string;
+  kind?: string;
+  dir?: string;
+  hidden?: boolean;
+  dryRun?: boolean;
+  json?: boolean;
+}
+
+function stop(opts: NewOptions, message: string): never {
+  return failCommand("new", opts.json, message);
+}
+
+async function finish(
+  plan: FilesystemPlan,
+  opts: NewOptions,
+  done: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  const ui = createUi(opts.json);
+  if (opts.dryRun) {
+    if (opts.json) writePlanJson("new", plan, false, extra);
+    else {
+      ui.note(planLines(plan), "Filesystem plan (no changes applied)");
+      ui.outro(pc.dim("Dry run complete."));
+    }
+    return;
+  }
+  await applyFilesystemPlan(plan);
+  if (opts.json) writeJson({ command: "new", applied: true, plan: publicPlan(plan), ...extra });
+  else ui.outro(pc.green(done));
+}
+
+/** `"<column> → <table>"` as `planNewIntoDir` reports it, parsed for the `--json` payload. */
+export function unlinkedColumns(
+  unlinked: readonly string[],
+): Array<{ table: string; column: string }> {
+  return unlinked.map((entry) => {
+    const [column, table] = entry.split(" → ");
+    return { table: table ?? "", column: column ?? "" };
+  });
+}
+
+async function noConfig(cwd: string): Promise<string> {
+  return noConfigMessage(cwd, pmCommands(await detectPackageManager(cwd)).dlx);
+}
+
+async function newIntoDir(cwd: string, resource: string, dir: string, opts: NewOptions) {
+  if (opts.table !== undefined) stop(opts, "--dir reads your schema, so it does not take --table.");
+  const config = await findAdminConfig(cwd);
+  if (!config) stop(opts, await noConfig(cwd));
+  const configSource = await fs.readFile(config.file, "utf8");
+  const kind = opts.kind === undefined ? adapterKindOf(configSource) : parseAdapterKind(opts.kind);
+  if (kind === null) {
+    stop(opts, `Unknown --kind "${opts.kind}". Use one of: ${ADAPTER_KINDS.join(", ")}`);
+  }
+  const absoluteDir = path.resolve(cwd, dir);
+  const shownDir = path.relative(cwd, absoluteDir) || ".";
+  const prisma =
+    kind === "prisma"
+      ? await planPrismaModelIntoDir(cwd, resource, {
+          dir,
+          hidden: opts.hidden === true,
+          registered: registeredPrismaNames(configSource),
+        })
+      : null;
+  if (prisma && prisma.model !== resource) {
+    createUi(opts.json).info(`Using the ${prisma.model} model for "${resource}".`);
+  }
+  const { intents, unlinked } =
+    prisma ?? (await planNewIntoDir(cwd, resource, { dir, hidden: opts.hidden === true }));
+  const index = path.join(absoluteDir, "index.ts");
+  const importsDir = new Set<string>();
+  for (const match of configSource.matchAll(/from\s+["']([^"']+)["']/g)) {
+    const spec = match[1] ?? "";
+    if ((await resolveProjectModule(cwd, spec, config.file)) === index) importsDir.add(spec);
+  }
+  const wiring = wireResourcesDir(
+    configSource,
+    await dirSpecifier(cwd, config.file, absoluteDir),
+    (spec) => importsDir.has(spec),
+  );
+  const wired = wiring.kind === "wired" ? wiring.source : configSource;
+  const typed = await typePrismaModel(cwd, config.file, wired, prisma?.name, prisma?.model ?? "");
+  if (typed !== configSource) {
+    intents.push({
+      path: path.relative(cwd, config.file),
+      content: typed,
+      expectedContent: configSource,
+    });
+  }
+  const plan = await createFilesystemPlan(cwd, intents);
+  const conflicts = plan.operations.filter((operation) => operation.kind === "conflict");
+  if (conflicts.length > 0) {
+    stop(
+      opts,
+      `Nothing was written: ${conflicts.map((c) => c.path).join(", ")} already exists with other content.`,
+    );
+  }
+  const ui = createUi(opts.json);
+  if (unlinked.length > 0) {
+    ui.info(
+      `No reference on ${unlinked.join(", ")}: the target has no resource in ${shownDir} yet. Add it with new <table> --dir ${shownDir}, then set reference on those columns.`,
+    );
+  }
+  if (wiring.kind === "manual") {
+    ui.warn(
+      `${path.relative(cwd, config.file)} does not read ${shownDir} yet. Add ${wiring.line}.`,
+    );
+  }
+  const extra = {
+    ...(unlinked.length > 0 ? { unlinked: unlinkedColumns(unlinked) } : {}),
+    ...(wiring.kind === "manual" ? { wiring: wiring.line } : {}),
+  };
+  await finish(plan, opts, `Added resource "${prisma?.name ?? resource}" to ${shownDir}`, extra);
+}
+
+/** The entry `new` writes for a Drizzle table: columns, search, filters and sort, read from the schema. */
+async function drizzleEntry(
+  cwd: string,
+  configFile: string,
+  configSource: string,
+  exportName: string,
+  hidden: boolean,
+): Promise<{ entry: string } | { reason: string }> {
+  const spec = /import\s+\*\s+as\s+schema\s+from\s+["']([^"']+)["']/.exec(configSource)?.[1];
+  const file = spec ? await resolveProjectModule(cwd, spec, configFile) : null;
+  if (!file) return { reason: "the config's schema import does not resolve to a file" };
+  try {
+    const tables = await describeSchema(cwd, file);
+    const table = tables.find((t) => t.exportName === exportName);
+    if (!table) return { reason: `${exportName} is not a Drizzle table` };
+    const registered = new Set(
+      [...configSource.matchAll(/resource\(\s*schema\.(\w+)/g)].map((m) => m[1] ?? ""),
+    );
+    const columns = table.columns.map((column) => {
+      const target = column.references?.table;
+      if (!target || target === table.tableName) return column;
+      if (tables.some((t) => t.tableName === target && registered.has(t.exportName))) {
+        return column;
+      }
+      const { references: _references, ...plain } = column;
+      return plain;
+    });
+    return {
+      entry: renderResourceEntry({ ...table, columns }, `schema.${exportName}`, { hidden }),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { reason: message.split("\n")[0] ?? message };
+  }
+}
+
 export function newCommand(cli: Command): void {
   cli
     .command("new <resource>")
-    .description("Add a resource(...) entry to flowpanel.config.ts")
-    .option("--table <expr>", "First argument expression (default: schema.<resource>)")
-    .option("--kind <kind>", "Adapter kind: drizzle (default) or prisma", "drizzle")
+    .description("Add a resource for a table or model to the admin config")
+    .option(
+      "--table <expr>",
+      "The resource's first argument, as code (default: schema.<resource> on Drizzle, the model name on Prisma)",
+    )
+    .option("--kind <kind>", "Adapter kind: drizzle or prisma (default: the config's adapter)")
+    .option("--dir <dir>", "Write the resource to <dir>/<name>.ts and add it to <dir>/index.ts")
+    .option("--hidden", "Register the resource without a navigation entry")
     .option("--dry-run", "Print the filesystem plan without writing")
     .option("--json", "Emit machine-readable JSON")
-    .action(
-      async (
-        resource: string,
-        opts: { table?: string; kind?: string; dryRun?: boolean; json?: boolean },
-      ) => {
-        if (!opts.json) p.intro(pc.bgGreen(pc.black(" FlowPanel new ")));
-
-        const cwd = process.cwd();
-        const kind = parseAdapterKind(opts.kind);
-        if (kind === null) {
-          const message = `Unknown --kind "${opts.kind}". Use one of: ${ADAPTER_KINDS.join(", ")}`;
-          if (opts.json) writeJson({ command: "new", applied: false, error: message });
-          else p.cancel(message);
-          process.exit(1);
+    .action(async (resource: string, opts: NewOptions) => {
+      const ui = createUi(opts.json);
+      ui.intro(pc.bgGreen(pc.black(" FlowPanel new ")));
+      const cwd = process.cwd();
+      const notProject = await noNextProject(cwd);
+      if (notProject) stop(opts, notProject);
+      try {
+        if (opts.dir !== undefined) {
+          await newIntoDir(cwd, resource, opts.dir, opts);
+          return;
         }
-
-        const found = await findConfigFile(cwd);
-        if (!found) {
-          const message = "flowpanel.config.ts not found — run `flowpanel init` first.";
-          if (opts.json) writeJson({ command: "new", applied: false, error: message });
-          else p.cancel(message);
-          process.exit(1);
+        const requested = parseAdapterKind(opts.kind);
+        if (requested === null) {
+          stop(opts, `Unknown --kind "${opts.kind}". Use one of: ${ADAPTER_KINDS.join(", ")}`);
         }
-
-        const source = await fs.readFile(found.path, "utf8");
-
+        const found = await findAdminConfig(cwd);
+        if (!found) stop(opts, await noConfig(cwd));
+        const source = await fs.readFile(found.file, "utf8");
+        const kind = opts.kind === undefined ? adapterKindOf(source) : requested;
+        const splitDir = await findSplitResourcesDir(cwd, found.file, source);
+        if (splitDir && opts.table === undefined) {
+          await newIntoDir(cwd, resource, path.relative(cwd, splitDir) || ".", opts);
+          return;
+        }
+        const hidden = opts.hidden === true;
+        let resourceName = resource;
+        let entry: string | undefined;
+        let prismaName: string | null = null;
         if (kind === "drizzle" && opts.table === undefined) {
-          const check = await checkSchemaExport(cwd, source, resource);
-          if (check.status === "missing") {
-            if (opts.json) writeJson({ command: "new", applied: false, error: check.message });
-            else p.cancel(check.message);
-            process.exit(1);
+          const check = await checkSchemaExport(cwd, found.file, source, resource);
+          if (check.status === "missing") stop(opts, check.message);
+          if (check.status === "ok") {
+            resourceName = check.exportName;
+            const rendered = await drizzleEntry(cwd, found.file, source, resourceName, hidden);
+            if ("entry" in rendered) entry = rendered.entry;
+            else {
+              ui.warn(
+                `Could not read the columns of "${resourceName}" (${rendered.reason}), so the entry lists every column.`,
+              );
+            }
           }
-          if (check.status === "unverified" && !opts.json) {
-            p.log.warn(
-              `Could not verify that "${resource}" is a real table — ${check.reason}.\n` +
-                "Writing the entry anyway; check that it compiles.",
+          if (check.status === "unverified") {
+            ui.warn(
+              `Could not verify that "${resource}" is a real table: ${check.reason}. Writing the entry anyway; check that it compiles.`,
             );
           }
         }
-
-        try {
-          const updated = editConfigToAddResource(source, resource, {
-            ...(opts.table !== undefined ? { table: opts.table } : {}),
-            kind,
-            filename: found.filename,
-          });
-          const plan = await createFilesystemPlan(cwd, [
-            {
-              path: path.relative(cwd, found.path),
-              content: updated,
-              expectedContent: source,
-            },
-          ]);
-          if (opts.dryRun) {
-            if (opts.json) writePlanJson("new", plan, false);
-            else {
-              p.note(
-                publicPlan(plan)
-                  .operations.map((operation) => `${operation.kind.padEnd(6)} ${operation.path}`)
-                  .join("\n"),
-                "Filesystem plan (no changes applied)",
+        if (kind === "prisma" && opts.table === undefined) {
+          const models = await describePrismaSchema(cwd);
+          if (models.length === 0) {
+            ui.warn("Could not find schema.prisma, so the model name is not checked.");
+          } else {
+            const model = findPrismaModel(models, resource);
+            if (!model) {
+              stop(
+                opts,
+                `schema.prisma has no model named "${resource}".\nModels: ${models.map((m) => m.exportName).join(", ")}`,
               );
-              p.outro(pc.dim("Dry run complete."));
             }
-            return;
+            if (model.exportName !== resource) {
+              ui.info(`Using the ${model.exportName} model for "${resource}".`);
+            }
+            resourceName = model.exportName;
+            prismaName = prismaResourceName(model);
+            entry = renderResourceEntry(
+              linkPrismaReferences(model, prismaName, registeredPrismaNames(source)),
+              JSON.stringify(model.exportName),
+              { hidden, ...(prismaName === model.exportName ? {} : { name: prismaName }) },
+            );
           }
-          await applyFilesystemPlan(plan);
-          if (opts.json) writeJson({ command: "new", applied: true, plan: publicPlan(plan) });
-          else p.outro(pc.green(`Added resource "${resource}" to ${found.filename}`));
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (opts.json) writeJson({ command: "new", applied: false, error: msg });
-          else p.cancel(`Failed: ${msg}`);
-          process.exit(1);
         }
-      },
-    );
+        const relative = path.relative(cwd, found.file);
+        const added = editConfigToAddResource(source, resourceName, {
+          ...(opts.table !== undefined ? { table: opts.table } : {}),
+          ...(entry !== undefined ? { entry } : {}),
+          ...(hidden ? { hidden: true } : {}),
+          kind,
+          filename: relative,
+        });
+        const updated = await typePrismaModel(cwd, found.file, added, prismaName, resourceName);
+        const plan = await createFilesystemPlan(cwd, [
+          { path: relative, content: updated, expectedContent: source },
+        ]);
+        await finish(plan, opts, `Added resource "${prismaName ?? resourceName}" to ${relative}`);
+      } catch (e: unknown) {
+        stop(opts, e instanceof Error ? e.message : String(e));
+      }
+    });
 }

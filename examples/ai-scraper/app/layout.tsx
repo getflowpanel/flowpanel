@@ -9,7 +9,7 @@ import { DemoSandboxNotice } from "@/src/demo/ui/DemoSandboxNotice";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ScrapeAI — FlowPanel demo",
+  title: { template: "%s — ScrapeAI", default: "ScrapeAI" },
   description: "Competitive price-intelligence operations, built with FlowPanel",
 };
 
@@ -23,13 +23,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <ThemeScript defaultMode="auto" />
       </head>
-      <body
-        data-flowpanel-root=""
-        className="flex min-h-screen flex-col bg-fp-bg-2 text-fp-text-1 antialiased"
-      >
+      <body className="flex min-h-screen flex-col bg-demo-page text-demo-text antialiased">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-fp-sm focus:bg-fp-accent focus:px-3 focus:py-2 focus:text-fp-accent-text"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-demo-accent focus:px-3 focus:py-2 focus:text-demo-accent-text"
         >
           Skip to main content
         </a>
@@ -39,14 +36,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
         <div className="flex-1">{children}</div>
 
-        <footer className="border-t border-fp-border-1 bg-fp-bg-1">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 text-xs text-fp-text-3 sm:px-6">
+        <footer className="border-t border-demo-border bg-demo-surface">
+          <div className="mx-auto flex max-w-[103rem] items-center justify-between gap-4 px-4 py-4 text-xs text-demo-subtle sm:px-6">
             <span>Built with FlowPanel.</span>
             <a
               href={demoLinks.config}
               target="_blank"
               rel="noreferrer"
-              className="font-medium text-fp-text-2 hover:text-fp-text-1"
+              className="-my-1 py-1 font-medium text-demo-muted hover:text-demo-text"
             >
               View config
             </a>

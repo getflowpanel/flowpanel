@@ -30,14 +30,47 @@ afterEach(async () => {
 });
 
 describe("runEject — resource", () => {
-  it("ejects a resource end-to-end (writes files + edits config)", async () => {
+  it("writes the pages and keeps the resource registered, since its actions read through it", async () => {
+    const before = await fs.readFile(path.join(tmp, "flowpanel.config.ts"), "utf8");
     await runEject({ cwd: tmp, target: "resource", name: "users", version: "1.0.0" });
     const page = await fs.readFile(path.join(tmp, "app/admin/users/page.tsx"), "utf8");
     expect(page).toMatch(/ejected @ 1\.0\.0/);
-    const cfg = await fs.readFile(path.join(tmp, "flowpanel.config.ts"), "utf8");
-    expect(cfg).toContain("// ejected: app/admin/users");
-    expect(cfg).toContain('    // resource(schema.users, { columns: ["email"] }),');
-    expect(cfg).toMatch(/^\s*resource\(schema\.jobs,/m);
+    const actions = await fs.readFile(path.join(tmp, "app/admin/users/actions.ts"), "utf8");
+    expect(actions).toContain('request.resource("users")');
+    expect(await fs.readFile(path.join(tmp, "flowpanel.config.ts"), "utf8")).toBe(before);
+  });
+
+  it("refuses a resource the config does not register", async () => {
+    await expect(
+      runEject({ cwd: tmp, target: "resource", name: "ghosts", version: "1.0.0" }),
+    ).rejects.toThrow('[flowpanel] resources: no resource "ghosts" in flowpanel.config.ts.');
+  });
+
+  it("writes under the configured admin mount", async () => {
+    const config = path.join(tmp, "flowpanel.config.ts");
+    await fs.writeFile(
+      config,
+      (await fs.readFile(config, "utf8")).replace(
+        "defineAdmin({",
+        'defineAdmin({\n  paths: { admin: "/ops/admin" },',
+      ),
+    );
+    const written = await runEject({
+      cwd: tmp,
+      target: "resource",
+      name: "users",
+      version: "1.0.0",
+    });
+    expect(written[0]).toBe("app/ops/admin/users/page.tsx");
+    const actions = await fs.readFile(path.join(tmp, "app/ops/admin/users/actions.ts"), "utf8");
+    expect(actions).toContain('import config from "../../../../flowpanel.config";');
+    await runEject({ cwd: tmp, target: "dashboard", name: "/monitoring", version: "1.0.0" });
+    await expect(
+      fs.access(path.join(tmp, "app/ops/admin/monitoring/page.tsx")),
+    ).resolves.toBeUndefined();
+    expect(await fs.readFile(config, "utf8")).toContain("// ejected: app/ops/admin/monitoring");
+    await runEject({ cwd: tmp, target: "layout", name: "", version: "1.0.0" });
+    await expect(fs.access(path.join(tmp, "app/ops/admin/layout.tsx"))).resolves.toBeUndefined();
   });
 
   it("reports every file it wrote, relative to cwd", async () => {
@@ -98,7 +131,7 @@ describe("runEject — dashboard", () => {
   it("throws when the dashboard path is not in the config", async () => {
     await expect(
       runEject({ cwd: tmp, target: "dashboard", name: "/ghost", version: "1.0.0" }),
-    ).rejects.toThrow(/dashboard with path "\/ghost" not found/);
+    ).rejects.toThrow(/\[flowpanel\] dashboards: no dashboard with path "\/ghost"/);
   });
 });
 
@@ -108,6 +141,9 @@ describe("runEject — layout", () => {
     const layout = await fs.readFile(path.join(tmp, "app/admin/layout.tsx"), "utf8");
     expect(layout).toMatch(/ejected @ 1\.0\.0/);
     expect(layout).toMatch(/AdminShell/);
+    expect(layout).toContain('import "../../styles/admin.css";');
+    expect(layout).toContain('<ThemeScript defaultMode="auto" nonce={nonce ?? undefined} />');
+    expect(layout).toContain("currentPath={config.paths.admin}");
     // Layout eject does NOT touch flowpanel.config.ts.
     const cfg = await fs.readFile(path.join(tmp, "flowpanel.config.ts"), "utf8");
     expect(cfg).not.toMatch(/ejected: app\/admin\/layout/);
@@ -150,7 +186,9 @@ describe("runEject — before init", () => {
   it("fails with an actionable message instead of a raw ENOENT", async () => {
     await expect(
       runEject({ cwd: bare, target: "resource", name: "users", version: "1.0.0" }),
-    ).rejects.toThrow(/flowpanel\.config\.ts not found\. Run `flowpanel init` first/);
+    ).rejects.toThrow(
+      /\[flowpanel\] flowpanel\.config\.ts: not found in .*\. Run `\w+( dlx)? @flowpanel\/cli init` first/,
+    );
   });
 
   it("leaves no half-ejected files behind (copyResourceTemplates has no rollback)", async () => {
@@ -164,7 +202,7 @@ describe("runEject — before init", () => {
   it("checks before ejecting a dashboard too", async () => {
     await expect(
       runEject({ cwd: bare, target: "dashboard", name: "/", version: "1.0.0" }),
-    ).rejects.toThrow(/flowpanel\.config\.ts not found/);
+    ).rejects.toThrow(/flowpanel\.config\.ts: not found/);
     expect(await fs.readdir(bare)).toEqual([]);
   });
 });
@@ -199,8 +237,6 @@ export default defineAdmin({
     await runEject({ cwd: srcTmp, target: "resource", name: "users", version: "1.0.0" });
     const page = await fs.readFile(path.join(srcTmp, "src/app/admin/users/page.tsx"), "utf8");
     expect(page).toMatch(/ejected @ 1\.0\.0/);
-    const cfg = await fs.readFile(path.join(srcTmp, "flowpanel.config.ts"), "utf8");
-    expect(cfg).toContain("// ejected: src/app/admin/users");
     await expect(fs.access(path.join(srcTmp, "app"))).rejects.toThrow();
   });
 
@@ -219,5 +255,127 @@ export default defineAdmin({
     expect(layout).toMatch(/ejected @ 1\.0\.0/);
     expect(layout).toMatch(/AdminShell/);
     await expect(fs.access(path.join(srcTmp, "app"))).rejects.toThrow();
+  });
+});
+
+describe("runEject — split config (root re-export)", () => {
+  let splitTmp: string;
+  beforeEach(async () => {
+    splitTmp = await fs.mkdtemp(path.join(os.tmpdir(), "fp-eject-split-"));
+    await fs.mkdir(path.join(splitTmp, "src/admin/config"), { recursive: true });
+    await fs.writeFile(
+      path.join(splitTmp, "flowpanel.config.ts"),
+      'export { default } from "./src/admin/config";\n',
+    );
+  });
+  afterEach(async () => {
+    await fs.rm(splitTmp, { recursive: true, force: true });
+  });
+
+  it("follows a root re-export to a single-file config", async () => {
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/index.ts"),
+      `import { dashboard, defineAdmin, resource } from "@flowpanel/kit";
+import * as schema from "../../db/schema";
+export default defineAdmin({
+  resources: [resource(schema.users, { columns: ["email"] })],
+  dashboards: [dashboard({ path: "/", label: "Overview", sections: [] })],
+});
+`,
+    );
+    await runEject({ cwd: splitTmp, target: "dashboard", name: "/", version: "1.0.0" });
+    const cfg = await fs.readFile(path.join(splitTmp, "src/admin/config/index.ts"), "utf8");
+    expect(cfg).toContain("// ejected: app/admin");
+    expect(cfg).toContain('/* dashboard({ path: "/", label: "Overview", sections: [] }) */');
+    // The root re-export file itself is untouched.
+    const root = await fs.readFile(path.join(splitTmp, "flowpanel.config.ts"), "utf8");
+    expect(root).toBe('export { default } from "./src/admin/config";\n');
+  });
+
+  it("finds a resource in a one-file-per-resource directory and leaves every config file loadable", async () => {
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/index.ts"),
+      `import { defineAdmin } from "@flowpanel/kit";
+import { resources } from "./resources";
+export default defineAdmin({
+  resources,
+});
+`,
+    );
+    await fs.mkdir(path.join(splitTmp, "src/admin/config/resources"), { recursive: true });
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/resources/index.ts"),
+      `import { customers } from "./customers";
+import { monitors } from "./monitors";
+
+export const resources = [customers, monitors] as const;
+`,
+    );
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/resources/customers.ts"),
+      `import { resource } from "@flowpanel/kit";
+import * as schema from "../../../db/schema";
+
+export const customers = resource(schema.customers, {
+  columns: ["name"],
+});
+`,
+    );
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/resources/monitors.ts"),
+      `import { resource } from "@flowpanel/kit";
+import * as schema from "../../../db/schema";
+
+export const monitors = resource(schema.monitors, {
+  columns: ["url"],
+});
+`,
+    );
+
+    const dir = path.join(splitTmp, "src/admin/config/resources");
+    const snapshot = async () =>
+      Promise.all(
+        ["index.ts", "customers.ts", "monitors.ts"].map((file) =>
+          fs.readFile(path.join(dir, file), "utf8"),
+        ),
+      );
+    const before = await snapshot();
+
+    await runEject({ cwd: splitTmp, target: "resource", name: "customers", version: "1.0.0" });
+
+    expect(await snapshot()).toEqual(before);
+    expect(before.join("\n")).not.toContain("undefined");
+
+    const monitorsFile = await fs.readFile(
+      path.join(splitTmp, "src/admin/config/resources/monitors.ts"),
+      "utf8",
+    );
+    expect(monitorsFile).toContain("resource(schema.monitors,");
+    const index = await fs.readFile(path.join(splitTmp, "src/admin/config/index.ts"), "utf8");
+    expect(index).not.toContain("ejected");
+
+    const page = await fs.readFile(path.join(splitTmp, "app/admin/customers/page.tsx"), "utf8");
+    expect(page).toMatch(/ejected @ 1\.0\.0/);
+  });
+
+  it("reports both locations searched when the resource is nowhere", async () => {
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/index.ts"),
+      `import { defineAdmin } from "@flowpanel/kit";
+import { resources } from "./resources";
+export default defineAdmin({
+  resources,
+});
+`,
+    );
+    await fs.mkdir(path.join(splitTmp, "src/admin/config/resources"), { recursive: true });
+    await fs.writeFile(
+      path.join(splitTmp, "src/admin/config/resources/index.ts"),
+      "export const resources = [] as const;\n",
+    );
+
+    await expect(
+      runEject({ cwd: splitTmp, target: "resource", name: "ghost", version: "1.0.0" }),
+    ).rejects.toThrow(/no resource "ghost" in .*index\.ts or .*resources/);
   });
 });

@@ -4,7 +4,7 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./presentation-tests",
   timeout: 60_000,
-  use: { headless: true },
+  use: { headless: true, actionTimeout: 15_000 },
   projects: [
     { name: "chromium", use: { browserName: "chromium" } },
     { name: "webkit", use: { browserName: "webkit" } },

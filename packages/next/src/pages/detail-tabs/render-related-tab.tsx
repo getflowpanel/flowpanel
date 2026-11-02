@@ -5,17 +5,20 @@ import type {
   ResolvedAdminConfig,
   ResourceName,
 } from "@flowpanel/core";
-import { mergeLabels } from "@flowpanel/core";
+import { mergeLabels, resolveFormatting } from "@flowpanel/core";
 import { RelatedTabTable } from "@flowpanel/next/client";
 import type { ReactNode } from "react";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../../runtime/defaults";
+import { fieldLabels, namedFields } from "../../runtime/field-labels";
 import { declaredFieldSet, parsePage } from "../../runtime/parse-list-params";
 import { prerenderResourceCells } from "../../runtime/prerender-cells";
 import { projectRowFields } from "../../runtime/project-row";
 import { readOrCard } from "../../runtime/query-error";
 import { withReferenceCells } from "../../runtime/reference-cells";
 import { readRelatedPage } from "../../runtime/require-authorized";
-import { buildDetailTabContext } from "../../runtime/widget-context";
+import { pluralLabel } from "../../runtime/resource-title";
+import { openRowHrefs } from "../../runtime/row-click";
+import { rowKeyOf } from "../../runtime/row-identity";
+import { widgetHref } from "../../runtime/widget-context";
 
 const RELATED_TAB_PAGE_SIZE = 25;
 /** Each related tab paginates and sorts under its own URL keys. */
@@ -77,14 +80,19 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   const target = config.resourcesByName.get(resourceName);
   if (!target) {
     return (
-      <div data-fp-error="" className="text-fp-text-3">
+      <div data-fp-error="" className="fp-text-faint">
         {labels.detail.unknownResource.replace("{resource}", String(resourceName))}
       </div>
     );
   }
 
   const intro = config.adapter.introspect(target.ref);
-  const hidden = new Set(tab.hide ?? []);
+  const filters = tab.filter ? tab.filter(row) : {};
+  // A column a filter pins to one value, such as the one that points back here, says the same on every row.
+  const pinned = Object.entries(filters).filter(
+    ([, value]) => value === null || typeof value !== "object",
+  );
+  const hidden = new Set([...(tab.hide ?? []), ...pinned.map(([field]) => field)]);
   const targetCols = (
     target.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>> | undefined
   )?.filter((c) => !hidden.has(typeof c === "object" ? String(c.field ?? "") : String(c)));
@@ -96,8 +104,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   const sortParam = `${RELATED_SORT_PREFIX}${tab.key}`;
   const pageParam = `${RELATED_PAGE_PREFIX}${tab.key}`;
   const urlSort = parseRelatedSort(sp.get(sortParam), sortable);
-  // The fallback has to be a column the adapter will accept, so it is the
-  // introspected primary key rather than the configured display key.
+  // The fallback is the introspected primary key, not the configured display key, so the adapter accepts it.
   const sort: RelatedSort = urlSort ??
     tab.sort ??
     (target.options.defaultSort as RelatedSort | undefined) ?? {
@@ -105,12 +112,11 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
       dir: "asc",
     };
 
-  const filters = tab.filter ? tab.filter(row) : {};
   const read = (page: number) =>
     readRelatedPage(config, target, reqCtx, {
       filters,
       page,
-      pageSize: RELATED_TAB_PAGE_SIZE,
+      pageSize: tab.pageSize ?? RELATED_TAB_PAGE_SIZE,
       sort,
     });
 
@@ -120,6 +126,7 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
       config,
       resource: String(tab.resource),
       operation: "list",
+      label: pluralLabel(target, resourceName),
       ...(reqCtx.requestId ? { requestId: reqCtx.requestId } : {}),
     },
     async () => {
@@ -135,7 +142,11 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
   if (listed.failed) return listed.card;
   const result = listed.value;
   if (!result) {
-    return <div className="px-2 py-6 text-sm text-fp-text-3">{labels.noResults}</div>;
+    return (
+      <div className="fp-px-2 fp-py-6 fp-text-sm fp-text-faint">
+        {tab.emptyState ?? labels.table.noResults}
+      </div>
+    );
   }
 
   const rows = result.rows as Row[];
@@ -146,6 +157,8 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
     reqCtx,
     {
       metaByField,
+      formatting: resolveFormatting(config.formatting),
+      labelOf: fieldLabels(target, [], namedFields(config)),
     },
   );
   for (const column of columns) column.sortable = sortable.has(column.field);
@@ -157,13 +170,21 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
     columns,
     prerenderedCells,
   );
-  const ctx = buildDetailTabContext(config, reqCtx, req, row);
   const openList = openListFilter(filters, declaredFieldSet(target.options));
   // A hidden column is hidden from the payload too, not just from the header.
+  const rowKey = rowKeyOf(target);
   const visible = new Set<string>([
-    ...columns.map((column) => column.field as string),
-    (target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY,
+    ...columns.flatMap((column) => [
+      column.field as string,
+      ...(column.secondary ? [column.secondary] : []),
+    ]),
+    rowKey,
   ]);
+  const rowHrefs = openRowHrefs(config, resourceName, target, rows, rowKey, {
+    path: new URL(req.url).pathname,
+    params: sp,
+    tab: tab.key,
+  });
 
   return (
     <RelatedTabTable<Row>
@@ -175,13 +196,20 @@ export async function renderRelatedTab<Row extends Record<string, unknown>>(
       total={result.total}
       page={result.page}
       pageSize={result.pageSize}
-      rowKey={
-        ((target.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY) as keyof Row &
-          string
-      }
+      rowKey={rowKey as keyof Row & string}
+      {...(rowHrefs ? { rowHrefs } : {})}
+      {...(tab.emptyState ? { emptyTitle: tab.emptyState } : {})}
       {...(openList
         ? {
-            openListHref: ctx.href(resourceName, undefined, { filter: openList }),
+            openListHref: widgetHref(
+              config,
+              resolveFormatting(config.formatting).timeZone,
+              resourceName,
+              undefined,
+              {
+                filter: openList,
+              },
+            ),
             openListLabel: labels.related.openList,
           }
         : {})}

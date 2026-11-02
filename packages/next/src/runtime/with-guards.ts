@@ -1,44 +1,32 @@
-import type {
-  AccessRule,
-  ErrorContext,
-  RequestContext,
-  RequireRole,
-  ResolvedAdminConfig,
-  ResourceConfig,
-  ResourceOperation,
-} from "@flowpanel/core";
+import type { ErrorContext, RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
 import {
-  authorizeOperation,
-  checkRequireRole,
   errorResult as coreErrorResult,
   FlowpanelAccessError,
   FlowpanelError,
   FlowpanelOperationDisabledError,
   reportUnexpectedError,
-  resolveOperationAccess,
 } from "@flowpanel/core";
+import { actionFailure, withRequestId } from "./action-failure";
+import { requireTargetRules, type TargetAccess } from "./action-gate";
 import { actorIdFromSession } from "./action-helpers";
 import { browserOrigin } from "./request-origin";
 import { buildRequestContext, requestIdFrom } from "./request-setup";
 import { requireAuthorized } from "./require-authorized";
+import { withRetryAfter } from "./retry-after";
 
-export interface GuardSpec {
-  resource?: ResourceConfig | undefined;
-  pageRequireRole?: RequireRole | undefined;
-  actionRequireRole?: string | string[] | undefined;
-  actionAccess?: AccessRule | undefined;
-  operation?: ResourceOperation | undefined;
+export interface GuardFrame {
   route?: string | undefined;
   /** Read-only routes pass `false` so `config.readOnly` does not block them. */
   write?: boolean | undefined;
   /**
-   * Which body this route speaks. Routes answering with `Result` — the JSON API and the
-   * programmatic controllers — must fail in that envelope too, or `@flowpanel/client`
-   * reads every guard rejection as an unrecognised response. Action and form routes
-   * answer with `ActionResult`, whose `error` is the operator-facing message.
+   * Which body this route speaks. `Result` routes must fail in that envelope too, or `@flowpanel/client`
+   * reads every guard rejection as unrecognised; action/form routes answer with `ActionResult`.
    */
   envelope?: "result" | undefined;
 }
+
+/** The rules a route's target sets, checked after the caller is identified. */
+export interface GuardSpec extends GuardFrame, TargetAccess {}
 
 function errorResponse(
   err: unknown,
@@ -48,19 +36,15 @@ function errorResponse(
   const result = coreErrorResult(err, requestId);
   if (result.ok) throw new Error("errorResult unexpectedly returned success");
   const status = err instanceof FlowpanelError ? err.status : 500;
-  const headers = { "x-request-id": requestId };
-  if (envelope === "result") return Response.json(result, { status, headers });
+  if (envelope === "result") {
+    return Response.json(result, { status, headers: { "x-request-id": requestId } });
+  }
   const { code, message, fieldErrors } = result.error;
-  return Response.json(
-    {
-      ok: false,
-      error: message,
-      code,
-      requestId,
-      ...(fieldErrors ? { fieldErrors } : {}),
-    },
-    { status, headers },
-  );
+  return actionFailure(code, message, {
+    status,
+    requestId,
+    ...(fieldErrors ? { fieldErrors } : {}),
+  });
 }
 
 const CROSS_ORIGIN_ERROR = "Cross-origin write requests are not allowed.";
@@ -95,22 +79,33 @@ function guardSameOrigin(
   }
 
   // Modern browsers send Fetch Metadata even when Origin is unavailable.
-  // Header-less requests remain available to trusted server-to-server clients.
   if (req.headers.get("sec-fetch-site") === "cross-site") {
     return errorResponse(new FlowpanelAccessError(CROSS_ORIGIN_ERROR), requestId, envelope);
   }
   return null;
 }
 
-export async function withGuards(
+/** Origin, identity, `readOnly`, then the target the URL names, then its access rules, then `handler`. */
+export async function withResolvedGuards<Target>(
   config: ResolvedAdminConfig,
   req: Request,
-  spec: GuardSpec,
-  handler: (reqCtx: RequestContext) => Promise<Response>,
+  frame: GuardFrame,
+  resolve: (reqCtx: RequestContext) => { spec: GuardSpec; target: Target } | Response,
+  handler: (reqCtx: RequestContext, target: Target) => Promise<Response>,
+): Promise<Response> {
+  return withRetryAfter(await guarded(config, req, frame, resolve, handler), config);
+}
+
+async function guarded<Target>(
+  config: ResolvedAdminConfig,
+  req: Request,
+  frame: GuardFrame,
+  resolve: (reqCtx: RequestContext) => { spec: GuardSpec; target: Target } | Response,
+  handler: (reqCtx: RequestContext, target: Target) => Promise<Response>,
 ): Promise<Response> {
   const requestId = requestIdFrom(req);
-  if (spec.write !== false) {
-    const originGuard = guardSameOrigin(config, req, requestId, spec.envelope);
+  if (frame.write !== false) {
+    const originGuard = guardSameOrigin(config, req, requestId, frame.envelope);
     if (originGuard) return originGuard;
   }
 
@@ -118,86 +113,67 @@ export async function withGuards(
   try {
     reqCtx = await buildRequestContext({ req, config, requestId });
   } catch (err) {
-    const context = errorContext(req, requestId, spec);
+    const context = errorContext(config, req, requestId, frame);
     await reportUnexpectedError(err, context, config.hooks?.onError);
-    return errorResponse(err, requestId, spec.envelope);
+    return errorResponse(err, requestId, frame.envelope);
   }
 
-  if (spec.write !== false) {
-    if (config.readOnly) {
-      return errorResponse(
-        new FlowpanelOperationDisabledError("This admin is read-only."),
-        requestId,
-        spec.envelope,
-      );
-    }
-  }
-
-  if (spec.resource) {
-    try {
-      requireAuthorized(config, spec.resource, reqCtx);
-    } catch (err) {
-      return errorResponse(err, requestId, spec.envelope);
-    }
-    // Action routes set no operation. An action that carries its own rule is governed
-    // by it — the same rule that decides whether the action is offered at all. An
-    // action that carries none inherits the resource's write rule instead of running
-    // ungated, which is what a resource using the canonical `access` map would do.
-    const actionCarriesOwnRule =
-      spec.actionAccess !== undefined || spec.actionRequireRole !== undefined;
-    const operation = spec.operation ?? (actionCarriesOwnRule ? undefined : "update");
-    if (operation) {
-      try {
-        const rule = resolveOperationAccess(
-          spec.resource.options.access,
-          spec.resource.options.requireRole,
-          operation,
-        );
-        await authorizeOperation(rule, reqCtx);
-      } catch (err) {
-        return errorResponse(err, requestId, spec.envelope);
-      }
-    }
-  }
-
-  if (spec.pageRequireRole !== undefined) {
-    try {
-      checkRequireRole(spec.pageRequireRole, reqCtx.role, reqCtx.session);
-    } catch (err) {
-      return errorResponse(err, requestId, spec.envelope);
-    }
-  }
-
-  if (spec.actionAccess !== undefined && spec.actionRequireRole !== undefined) {
+  if (frame.write !== false && config.readOnly) {
     return errorResponse(
-      new Error("An action cannot declare both access and requireRole."),
+      new FlowpanelOperationDisabledError("This admin is read-only."),
       requestId,
+      frame.envelope,
     );
   }
-  if (spec.actionAccess !== undefined) {
-    try {
-      await authorizeOperation(spec.actionAccess, reqCtx);
-    } catch (err) {
-      return errorResponse(err, requestId, spec.envelope);
-    }
-  } else {
-    try {
-      checkRequireRole(spec.actionRequireRole, reqCtx.role, reqCtx.session);
-    } catch (err) {
-      return errorResponse(err, requestId, spec.envelope);
-    }
+
+  const resolved = resolve(reqCtx);
+  if (resolved instanceof Response) {
+    return frame.envelope === "result" ? resolved : withRequestId(resolved, requestId);
+  }
+  const { spec, target } = resolved;
+
+  try {
+    await requireTargetAccess(config, spec, reqCtx);
+  } catch (err) {
+    return errorResponse(err, requestId, frame.envelope);
   }
 
   try {
-    return await handler(reqCtx);
+    const res = await handler(reqCtx, target);
+    return frame.envelope === "result" ? res : await withRequestId(res, requestId);
   } catch (err) {
-    const context = errorContext(req, requestId, spec, reqCtx);
+    const context = errorContext(config, req, requestId, { ...frame, ...spec }, reqCtx);
     await reportUnexpectedError(err, context, config.hooks?.onError);
-    return errorResponse(err, requestId, spec.envelope);
+    return errorResponse(err, requestId, frame.envelope);
   }
 }
 
+async function requireTargetAccess(
+  config: ResolvedAdminConfig,
+  spec: GuardSpec,
+  reqCtx: RequestContext,
+): Promise<void> {
+  if (spec.resource) requireAuthorized(config, spec.resource);
+  await requireTargetRules(spec, reqCtx);
+}
+
+export function withGuards(
+  config: ResolvedAdminConfig,
+  req: Request,
+  spec: GuardSpec,
+  handler: (reqCtx: RequestContext) => Promise<Response>,
+): Promise<Response> {
+  return withResolvedGuards(
+    config,
+    req,
+    spec,
+    () => ({ spec, target: undefined }),
+    (reqCtx) => handler(reqCtx),
+  );
+}
+
 function errorContext(
+  config: ResolvedAdminConfig,
   req: Request,
   requestId: string,
   spec: GuardSpec,
@@ -209,7 +185,7 @@ function errorContext(
     ...(spec.route ? { route: spec.route } : {}),
     method: req.method,
     url: req.url,
-    actorId: reqCtx ? actorIdFromSession(reqCtx.session) : null,
+    actorId: reqCtx ? actorIdFromSession(reqCtx.session, config.auth.userId) : null,
     ip: reqCtx?.ip ?? null,
     userAgent: reqCtx?.userAgent ?? req.headers.get("user-agent"),
   };

@@ -10,6 +10,7 @@ import { DEFAULT_LABELS } from "@flowpanel/core";
 import type { ReactElement, ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { renderWidget } from "../runtime/render-widget";
+import { fakeWidgetContext } from "./widget-context-fixture";
 
 interface TableProps {
   rows: Record<string, unknown>[];
@@ -53,7 +54,7 @@ const adapter: Adapter = {
 };
 
 const cfg: ResolvedAdminConfig = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter,
   auth: { session: async () => null, role: () => "admin" },
   resources: [runs],
@@ -71,17 +72,7 @@ const reqCtx: RequestContext = {
   userAgent: null,
 };
 
-const ctx: WidgetContext = {
-  db: {},
-  session: null,
-  dateRange: { from: new Date(0), to: new Date(), preset: "custom" },
-  req: new Request("http://localhost/"),
-  href: (resource, id) => (id === undefined ? `/admin/${resource}` : `/admin/${resource}/${id}`),
-  query: (_key, fn) => fn(),
-  labels: DEFAULT_LABELS,
-  sql: async () => [],
-  count: async () => 0,
-};
+const ctx = fakeWidgetContext();
 
 async function props(widget: WidgetConfig): Promise<TableProps> {
   const node = (await renderWidget(widget, ctx, cfg, reqCtx)) as ReactElement<TableProps>;
@@ -120,6 +111,16 @@ describe("table widget columns", () => {
   });
 });
 
+describe("table widget density", () => {
+  it("hands a compact density to the table, and none by default", async () => {
+    const query = async () => [{ id: "1" }];
+    const compact = await props({ kind: "table", options: { query, density: "compact" } } as never);
+    expect((compact as TableProps & { density?: string }).density).toBe("compact");
+    const plain = await props({ kind: "table", options: { query } } as never);
+    expect((plain as TableProps & { density?: string }).density).toBeUndefined();
+  });
+});
+
 describe("table widget row identity", () => {
   it("takes the row key from the resource", async () => {
     const rendered = await props({ kind: "table", options: { resource: "runs" } } as never);
@@ -141,7 +142,8 @@ describe("table widget row links", () => {
       kind: "table",
       options: {
         query: async () => [{ id: "1" }, { id: "2" }],
-        rowHref: (row: { id: string }, c: WidgetContext) => c.href("runs", row.id),
+        rowHref: (row: { id: string }, c: WidgetContext) =>
+          c.link({ resource: "runs", id: row.id }),
       },
     } as never);
     expect(rendered.hrefs).toEqual(["/admin/runs/1", "/admin/runs/2"]);

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { DashboardPage, dashboardRefreshMs } from "../pages/dashboard";
 
 const cfg: ResolvedAdminConfig = {
-  basePath: "/admin",
+  paths: { admin: "/admin", api: "/api/flowpanel" },
   adapter: { kind: "drizzle", db: {} },
   auth: { session: async () => null, role: () => "admin" },
   resources: [],

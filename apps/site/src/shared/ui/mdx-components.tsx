@@ -8,16 +8,8 @@ import { CliReference } from "@/shared/ui/cli-reference";
 import { Compatibility } from "@/shared/ui/compatibility";
 import { ThemeSlots } from "@/shared/ui/theme-slots";
 
-/**
- * Registry of components available inside MDX content.
- *
- * Anything exported here can be used directly in `.mdx` files —
- * Fumadocs picks this up via `getMDXComponents` on the doc page.
- */
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
-  // Fumadocs's `defaultMdxComponents.img` props don't satisfy MDX's
-  // `exactOptionalPropertyTypes` shape — the runtime behavior is correct,
-  // only the optional-property modeling differs. Cast at the boundary.
+  // Fumadocs' img props miss exactOptionalPropertyTypes; the runtime is fine, so cast here.
   return {
     ...(defaultMdxComponents as MDXComponents),
     AdapterTabs,

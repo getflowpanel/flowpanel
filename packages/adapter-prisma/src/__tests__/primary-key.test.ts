@@ -11,7 +11,7 @@ function field(name: string, type: string, over: Partial<PrismaDmmfField> = {}):
     isRequired: true,
     isUnique: false,
     isList: false,
-    hasDefault: false,
+    hasDefaultValue: false,
     ...over,
   };
 }
@@ -31,6 +31,11 @@ const dmmf: PrismaDmmf = {
         name: "Ticket",
         fields: [field("ticketNo", "Int", { isId: true }), field("subject", "String")],
       },
+      {
+        name: "Membership",
+        fields: [field("orgId", "String"), field("userId", "String"), field("role", "String")],
+        primaryKey: { fields: ["orgId", "userId"] },
+      },
     ],
     enums: [],
   },
@@ -48,7 +53,7 @@ function makeMockPrisma() {
     delete: vi.fn().mockResolvedValue({}),
     deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
   };
-  return { article: delegate, ticket: delegate, _delegate: delegate };
+  return { article: delegate, ticket: delegate, membership: delegate, _delegate: delegate };
 }
 
 describe("prismaAdapter with a non-`id` primary key", () => {
@@ -116,17 +121,60 @@ describe("prismaAdapter with a non-`id` primary key", () => {
     expect(prisma._delegate.findUnique).toHaveBeenCalledWith({ where: { ticketNo: 42 } });
   });
 
-  it("still throws when the id cannot be coerced to a numeric @id field", async () => {
+  it("reads an id that cannot be a numeric @id field as no row", async () => {
     const prisma = makeMockPrisma();
     const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
 
-    await expect(adapter.get("Ticket", { id: "abc", db: undefined } as never)).rejects.toThrow(
-      /cannot coerce/,
-    );
+    await expect(adapter.get("Ticket", { id: "abc", db: undefined } as never)).resolves.toBeNull();
   });
 
   it("introspect reports the @id field as the primary key", () => {
     const adapter = prismaAdapter({ prisma: {}, dmmf, provider: "postgresql" });
     expect(adapter.introspect("Article").primaryKey).toBe("slug");
+  });
+});
+
+describe("prismaAdapter with an @@id composite key", () => {
+  it("reports every key field and orders a stable list by all of them", async () => {
+    const prisma = makeMockPrisma();
+    prisma._delegate.findMany.mockResolvedValue([]);
+    prisma._delegate.count.mockResolvedValue(0);
+    const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
+    expect(adapter.introspect("Membership").keyColumns).toEqual(["orgId", "userId"]);
+
+    await adapter.list("Membership", {
+      filters: {},
+      sort: { field: "role", dir: "desc" },
+      tiebreak: ["orgId", "userId"],
+      page: 1,
+      pageSize: 10,
+      search: "",
+    } as never);
+    expect(prisma._delegate.findMany.mock.calls[0]?.[0]).toMatchObject({
+      orderBy: [{ role: "desc" }, { orgId: "asc" }, { userId: "asc" }],
+    });
+  });
+});
+
+describe("prismaAdapter sorting an optional field", () => {
+  it("puts rows with no value last in both directions", async () => {
+    const prisma = makeMockPrisma();
+    prisma._delegate.findMany.mockResolvedValue([]);
+    prisma._delegate.count.mockResolvedValue(0);
+    const adapter = prismaAdapter({ prisma, dmmf, provider: "postgresql" });
+    for (const dir of ["asc", "desc"] as const) {
+      await adapter.list("Article", {
+        filters: {},
+        sort: { field: "deletedAt", dir },
+        page: 1,
+        pageSize: 10,
+        search: "",
+      } as never);
+    }
+    const orders = prisma._delegate.findMany.mock.calls.map((call) => call[0]?.orderBy);
+    expect(orders).toEqual([
+      [{ deletedAt: { sort: "asc", nulls: "last" } }],
+      [{ deletedAt: { sort: "desc", nulls: "last" } }],
+    ]);
   });
 });

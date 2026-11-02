@@ -1,20 +1,15 @@
 import type {
   FieldAccessMap,
   FieldDef,
-  QueryContext,
   RequestContext,
   ResolvedAdminConfig,
-  ResolvedLabels,
   ResourceConfig,
 } from "@flowpanel/core";
-import {
-  assertWritableInput,
-  declaredWriteFields,
-  formatLabel,
-  humanize,
-  runWithRequestContext,
-} from "@flowpanel/core";
+import { assertWritableInput, runWithRequestContext } from "@flowpanel/core";
+import { declaredWriteFields, writeTarget } from "@flowpanel/core/internal";
 import type { z } from "zod";
+import { columnDefs } from "../runtime/column-defs";
+import { declaredFormFields, fieldFlag } from "../runtime/resolve-form-fields";
 
 export { declaredWriteFields };
 
@@ -31,7 +26,7 @@ export function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig
   const userSchema = resource.options.schema;
   if (userSchema) {
     if (isSchemaPair(userSchema)) {
-      const inferred = config.adapter.inferSchema(resource.ref);
+      const inferred = config.adapter.inferSchema(writeTarget(resource));
       return {
         create: userSchema.create ?? inferred.create,
         update: userSchema.update ?? inferred.update,
@@ -39,8 +34,18 @@ export function schemasFor(config: ResolvedAdminConfig, resource: ResourceConfig
     }
     return { create: userSchema, update: userSchema };
   }
-  const inferred = config.adapter.inferSchema(resource.ref);
+  const inferred = config.adapter.inferSchema(writeTarget(resource));
   return { create: inferred.create, update: inferred.update };
+}
+
+/** The schema narrowed to one column, so an inline edit is not failed by the columns it leaves alone. */
+export function pickSchema(
+  schema: z.ZodTypeAny | undefined,
+  field: string,
+): z.ZodTypeAny | undefined {
+  const pick = (schema as { pick?: (mask: Record<string, true>) => z.ZodTypeAny } | undefined)
+    ?.pick;
+  return typeof pick === "function" ? pick.call(schema, { [field]: true }) : schema;
 }
 
 /** The generated form may only offer columns a write is allowed to carry. */
@@ -69,23 +74,38 @@ function effectiveFieldPolicies(
     ...(resource.options.fieldAccess as FieldAccessMap<Record<string, unknown>> | undefined),
   };
   for (const field of fields ?? []) {
-    if (policies[field.name]?.write !== undefined) continue;
-    if (field.requireRole !== undefined) {
-      const requireRole = field.requireRole;
-      policies[field.name] = {
-        ...policies[field.name],
-        write:
-          typeof requireRole === "function" ? ({ session }) => requireRole(session) : requireRole,
-      };
-      continue;
+    if (fieldFlag(field.readOnly, current ?? {})) {
+      policies[field.name] = { ...policies[field.name], write: false };
     }
-    const readOnly =
-      typeof field.readOnly === "function"
-        ? current !== null && field.readOnly(current)
-        : field.readOnly === true;
-    if (readOnly) policies[field.name] = { ...policies[field.name], write: false };
   }
   return policies;
+}
+
+/** Whether the generated form shows this field as an editable control to this caller. */
+export function formOffersField(
+  field: FieldDef<Record<string, unknown>>,
+  shown: Record<string, unknown>,
+  denied: ReadonlySet<string>,
+): boolean {
+  return (
+    !denied.has(field.name) && !fieldFlag(field.hidden, shown) && !fieldFlag(field.readOnly, shown)
+  );
+}
+
+/** A posted form also carries read-only and unrendered fields for display; only editable ones are input. */
+export function formInput(
+  fields: FieldDef<Record<string, unknown>>[] | undefined,
+  input: unknown,
+  current: Record<string, unknown> | null,
+  denied: ReadonlySet<string>,
+): unknown {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return input;
+  const out: Record<string, unknown> = { ...input };
+  for (const name of denied) delete out[name];
+  for (const field of fields ?? []) {
+    if (!formOffersField(field, current ?? {}, denied)) delete out[field.name];
+  }
+  return out;
 }
 
 /** Reject undeclared or forbidden submitted fields; never silently strip them. */
@@ -108,14 +128,12 @@ export async function assertResourceWritableInput(
 
 /** Fill `FieldDef.defaultValue` for keys absent from the input (create only). */
 export async function applyFieldDefaults(
-  config: ResolvedAdminConfig,
   resource: ResourceConfig,
   fields: FieldDef<Record<string, unknown>>[] | undefined,
-  input: unknown,
+  input: Record<string, unknown>,
   reqCtx: RequestContext,
-): Promise<unknown> {
-  if (typeof input !== "object" || input === null) return input;
-  const out = { ...(input as Record<string, unknown>) };
+): Promise<Record<string, unknown>> {
+  const out = { ...input };
   for (const [name, value] of Object.entries(resource.options.create?.defaultValues ?? {})) {
     if (out[name] === undefined) out[name] = value;
   }
@@ -123,11 +141,10 @@ export async function applyFieldDefaults(
   for (const f of defaulted) {
     if (out[f.name] !== undefined) continue;
     if (typeof f.defaultValue === "function") {
-      const resolve = f.defaultValue as (ctx: QueryContext) => Promise<unknown>;
+      const resolve = f.defaultValue;
       out[f.name] = await runWithRequestContext(reqCtx, () =>
         resolve({
           ...reqCtx,
-          db: config.adapter.db,
           dateRange: { from: new Date(0), to: new Date() },
           searchParams: new URLSearchParams(),
           signal: new AbortController().signal,
@@ -140,59 +157,64 @@ export async function applyFieldDefaults(
   return out;
 }
 
-export async function runFieldValidators(
-  fields: FieldDef<Record<string, unknown>>[] | undefined,
-  values: Record<string, unknown>,
-): Promise<Record<string, string> | null> {
-  if (!fields) return null;
-  const out: Record<string, string> = {};
-  for (const f of fields) {
-    if (f.validate === undefined) continue;
-    const value = values[f.name];
-    if (value === undefined) continue;
-    if (typeof f.validate === "function") {
-      const msg = await f.validate(value, values);
-      if (msg) out[f.name] = msg;
-    } else {
-      const result = f.validate.safeParse(value);
-      const first = result.success ? undefined : result.error.issues[0];
-      if (first) out[f.name] = first.message;
+/** The create fields judged on the starting values; for an API write, `readOnly` also on `input` over them and `hidden` only so. */
+export async function createFormFields(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  reqCtx: RequestContext,
+  input?: unknown,
+): Promise<FieldDef<Record<string, unknown>>[] | undefined> {
+  const fields = declaredFormFields(resource, "create");
+  const judged = (f: FieldDef<Record<string, unknown>>) =>
+    typeof f.hidden === "function" || typeof f.readOnly === "function";
+  if (!fields?.some(judged)) return fields;
+  const starting = await startingValues(config, resource, fields, {}, reqCtx);
+  const given = typeof input === "object" && input !== null && !Array.isArray(input) ? input : null;
+  const merged = given
+    ? await startingValues(config, resource, fields, { ...given }, reqCtx)
+    : starting;
+  return fields.map((f) =>
+    judged(f)
+      ? {
+          ...f,
+          hidden: fieldFlag(f.hidden, merged),
+          readOnly: fieldFlag(f.readOnly, starting) || fieldFlag(f.readOnly, merged),
+        }
+      : f,
+  );
+}
+
+/** `input` over the field and resource defaults, then the columns' database defaults. */
+async function startingValues(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  fields: FieldDef<Record<string, unknown>>[],
+  input: Record<string, unknown>,
+  reqCtx: RequestContext,
+): Promise<Record<string, unknown>> {
+  const values = await applyFieldDefaults(resource, fields, input, reqCtx);
+  for (const column of config.adapter.introspect(writeTarget(resource)).columns) {
+    if (values[column.name] === undefined && column.defaultValue !== undefined) {
+      values[column.name] = column.defaultValue;
     }
   }
-  return Object.keys(out).length > 0 ? out : null;
+  return values;
 }
 
-/** A missing value, as the schema reports one — never an author's own message. */
-function isMissingValueIssue(issue: z.core.$ZodIssue): boolean {
-  if (issue.code === "invalid_type") return true;
-  // Zod's own ">=1 characters" wording; an authored `.min(1, "…")` passes through.
-  return issue.code === "too_small" && issue.minimum === 1 && issue.message.startsWith("Too small");
+/** The update's fields plus `extra` columns the form does not list, such as an inline-editable one. */
+export function updateFields(
+  resource: ResourceConfig,
+  extra: readonly string[],
+): FieldDef<Record<string, unknown>>[] | undefined {
+  const fields = declaredFormFields(resource, "update");
+  if (!fields) return fields;
+  const missing = extra.filter((name) => !fields.some((f) => f.name === name));
+  return [...fields, ...missing.map((name) => ({ name }))];
 }
 
-/**
- * Turn a schema rejection into per-field messages a reader can act on: a value
- * the write needs but did not get reads as `labels.form.required` under the
- * field's own label, and every other issue keeps the message it came with.
- */
-export function friendlyFieldErrors(
-  fields: FieldDef<Record<string, unknown>>[] | undefined,
-  input: unknown,
-  err: z.ZodError,
-  labels: ResolvedLabels,
-): Record<string, string> {
-  const fieldByName = new Map((fields ?? []).map((f) => [f.name, f]));
-  const values = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
-  const out: Record<string, string> = {};
-  for (const issue of err.issues) {
-    const key = issue.path.map(String).join(".");
-    if (!key || key in out) continue;
-    const value = values[key];
-    const isEmpty = value === undefined || value === null || value === "";
-    const field = fieldByName.get(key);
-    out[key] =
-      isEmpty && isMissingValueIssue(issue)
-        ? formatLabel(labels.form.required, { label: field?.label ?? humanize(field?.name ?? key) })
-        : issue.message;
-  }
-  return out;
+/** Columns the list edits in place: a script may write them wherever the list can. */
+export function editableColumns(resource: ResourceConfig): string[] {
+  return columnDefs(resource).flatMap((column) =>
+    column.editable === true && column.field ? [column.field] : [],
+  );
 }

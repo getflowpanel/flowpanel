@@ -1,14 +1,18 @@
 "use client";
-import { Button, useApiBase, useLabels, useToast } from "@flowpanel/react";
+import { formatLabel } from "@flowpanel/core/labels";
+import { Button, connectionMessage, useApiBase, useLabels, useToast } from "@flowpanel/react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { readActionFailure } from "./read-action-failure";
 
 export interface RestoreButtonProps {
   resource: string;
   id: string;
+  /** Runs once the row is back, after the page refreshed. */
+  onRestored?: () => void;
 }
 
-export function RestoreButton({ resource, id }: RestoreButtonProps) {
+export function RestoreButton({ resource, id, onRestored }: RestoreButtonProps) {
   const router = useRouter();
   const apiBase = useApiBase();
   const toast = useToast();
@@ -22,18 +26,19 @@ export function RestoreButton({ resource, id }: RestoreButtonProps) {
         `${apiBase}/${encodeURIComponent(resource)}/${encodeURIComponent(id)}/restore`,
         { method: "POST" },
       );
-      const result = (await res.json()) as
-        | { ok: true }
-        | { ok: false; error?: string | { message?: string } };
+      const result = (await res.json()) as { ok: boolean };
       if (!result.ok) {
-        const message = typeof result.error === "string" ? result.error : result.error?.message;
-        toast.error(message || `${labels.actions.restore} failed`);
+        toast.error(
+          readActionFailure(result, labels.errors).message ||
+            formatLabel(labels.errors.actionFailed, { label: labels.actions.restore }),
+        );
         return;
       }
       toast.success(labels.actions.restore);
       router.refresh();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Network error");
+      onRestored?.();
+    } catch {
+      toast.error(connectionMessage(labels.errors));
     } finally {
       setPending(false);
     }

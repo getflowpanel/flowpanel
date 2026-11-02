@@ -1,42 +1,91 @@
 import type {
   ColumnDef,
   ColumnFormat,
+  ColumnMeta,
   DetailTab,
   FieldDef,
   RequestContext,
+  ResolvedAdminConfig,
   ResolvedFormatting,
   ResourceConfig,
 } from "@flowpanel/core";
+import { ReferenceCell } from "@flowpanel/react";
 import type * as React from "react";
+import { logCaught } from "../../runtime/caught-error";
+import { fieldLabels } from "../../runtime/field-labels";
 import { formatFieldValue } from "../../runtime/format-field-value";
-import { prerenderResourceCells } from "../../runtime/prerender-cells";
+import { buildHref } from "../../runtime/href";
+import { renderMarkdown } from "../../runtime/markdown";
+import { CALENDAR_DAY, prerenderResourceCells } from "../../runtime/prerender-cells";
 import { renderColumnFormat } from "../../runtime/render-column-format";
+import { resolveReferences } from "../../runtime/resolve-references";
 
 export interface DetailCell {
   label?: string;
   format?: ColumnFormat;
   node?: React.ReactNode;
+  /** An enum column's values with the labels the list and the form show. */
+  options?: ReadonlyArray<{ value: string; label: string }>;
 }
 
-/** Field → the list page's own label / render / format for that column. */
+/** Field → the list page's own label / render / format for that column; a SQL `date` field reads as its calendar day either way. */
 export function buildDetailCells<Row extends Record<string, unknown>>(
   resource: ResourceConfig,
   row: Row,
   reqCtx: RequestContext,
+  named: Readonly<Record<string, string>> = {},
+  metaByField?: ReadonlyMap<string, ColumnMeta>,
 ): Map<string, DetailCell> {
   const out = new Map<string, DetailCell>();
-  const defs = resource.options.columns as ReadonlyArray<keyof Row | ColumnDef<Row>> | undefined;
-  if (!defs || defs.length === 0) return out;
-  const { columns, prerenderedCells } = prerenderResourceCells<Row>(defs, [row], reqCtx);
+  const defs = (resource.options.columns ?? []) as ReadonlyArray<keyof Row | ColumnDef<Row>>;
+  const { columns, prerenderedCells } = prerenderResourceCells<Row>(defs, [row], reqCtx, {
+    labelOf: fieldLabels(resource, [], named),
+    ...(metaByField ? { metaByField } : {}),
+  });
   columns.forEach((c, i) => {
     const cell: DetailCell = {};
     if (c.label !== undefined) cell.label = c.label;
     if (c.format !== undefined) cell.format = c.format;
+    if (c.options !== undefined) cell.options = c.options;
     const node = prerenderedCells?.[0]?.[i];
     if (node !== undefined) cell.node = node;
     out.set(c.field as string, cell);
   });
+  for (const [name, meta] of metaByField ?? []) {
+    if (meta.dateOnly && !out.has(name)) out.set(name, { format: CALENDAR_DAY });
+  }
   return out;
+}
+
+/** A shown `reference` column reads as its record's label with a link, as the list shows it. */
+export async function withReferenceCells<Row extends Record<string, unknown>>(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  resource: ResourceConfig,
+  row: Row,
+  shown: ReadonlySet<string>,
+  cells: Map<string, DetailCell>,
+): Promise<Map<string, DetailCell>> {
+  const defs = (resource.options.columns ?? []) as ReadonlyArray<keyof Row | ColumnDef<Row>>;
+  const references = defs.filter(
+    (def): def is ColumnDef<Row> =>
+      typeof def === "object" && def.reference !== undefined && shown.has(String(def.field)),
+  );
+  if (references.length === 0) return cells;
+  const labelsByField = await resolveReferences<Row>(config, reqCtx, references, [row]);
+  for (const def of references) {
+    const field = String(def.field);
+    const raw = row[field];
+    const label =
+      raw === null || raw === undefined ? undefined : labelsByField.get(field)?.get(String(raw));
+    if (label === undefined || !def.reference) continue;
+    const href = buildHref(config, def.reference.resource, String(raw));
+    cells.set(field, {
+      ...cells.get(field),
+      node: <ReferenceCell label={String(label)} href={href} />,
+    });
+  }
+  return cells;
 }
 
 export function detailValue(
@@ -46,15 +95,51 @@ export function detailValue(
 ): React.ReactNode {
   if (cell?.node !== undefined) return cell.node;
   if (cell?.format !== undefined) return renderColumnFormat(cell.format, value, formatting);
-  return formatFieldValue(value);
+  const choice = cell?.options?.find((option) => option.value === value);
+  return choice ? choice.label : formatFieldValue(value);
 }
 
 export interface DetailField {
   name: string;
   label?: string;
+  render?: (row: never, ctx: RequestContext) => React.ReactNode | Promise<React.ReactNode>;
 }
 
-/** Flatten a declared field list; `"*"` and an omitted list mean every readable key. */
+/**
+ * Each field's own `render`, run concurrently for a field the projected row carries; one that
+ * throws or renders nothing is left out, so the field shows its formatted value, "—" when empty, as a list does.
+ */
+export async function renderDetailFields(
+  row: Record<string, unknown>,
+  fields: DetailField[],
+  reqCtx: RequestContext,
+  markdown: ReadonlySet<string> = new Set(),
+): Promise<Map<string, React.ReactNode>> {
+  const written = fields
+    .filter((field) => !field.render && markdown.has(field.name) && Object.hasOwn(row, field.name))
+    .flatMap((field) => {
+      const node = renderMarkdown(row[field.name]);
+      return node === null ? [] : [[field.name, node] as const];
+    });
+  const rendered = await Promise.all(
+    fields
+      .filter((field) => field.render && Object.hasOwn(row, field.name))
+      .map(async (field): Promise<readonly [string, React.ReactNode] | null> => {
+        try {
+          const node = await field.render?.(row as never, reqCtx);
+          return node === null || node === undefined || node === false || node === ""
+            ? null
+            : [field.name, node];
+        } catch (error) {
+          logCaught(`[flowpanel] detail render failed for "${field.name}"`, error);
+          return null;
+        }
+      }),
+  );
+  return new Map([...written, ...rendered.filter((entry) => entry !== null)]);
+}
+
+/** Flatten a declared field list to the fields the row carries; `"*"` or none means all of them. */
 export function selectFields<Row extends Record<string, unknown>>(
   row: Row,
   fields: DetailTab<Row>["fields"],
@@ -62,13 +147,17 @@ export function selectFields<Row extends Record<string, unknown>>(
   if (fields === undefined || fields === "*") {
     return Object.keys(row).map((k) => ({ name: k }));
   }
-  return fields.map((f) => {
-    if (typeof f === "string" || typeof f === "number" || typeof f === "symbol") {
-      return { name: String(f) };
-    }
-    const def = f as FieldDef<Row>;
-    return def.label !== undefined
-      ? { name: String(def.name), label: def.label }
-      : { name: String(def.name) };
-  });
+  return fields
+    .map((f) => {
+      if (typeof f === "string" || typeof f === "number" || typeof f === "symbol") {
+        return { name: String(f) };
+      }
+      const def = f as FieldDef<Row>;
+      return {
+        name: String(def.name),
+        ...(def.label !== undefined ? { label: def.label } : {}),
+        ...(def.render ? { render: def.render as DetailField["render"] } : {}),
+      } as DetailField;
+    })
+    .filter((field) => Object.hasOwn(row, field.name));
 }

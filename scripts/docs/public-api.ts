@@ -41,13 +41,21 @@ function entryBaseName(target: string): string {
     .replace(/\.(?:ts|tsx|mts|cts)$/, "");
 }
 
+function bundlerEntries(packageDir: string, files: string[]): string[] {
+  const configPath = join(packageDir, "tsup.config.ts");
+  if (!existsSync(configPath)) return [];
+  const config = readFileSync(configPath, "utf8");
+  return files.filter((file) => config.includes(`"src/${file}"`));
+}
+
 function prefixedSourceEntry(packageDir: string, name: string): string | null {
   const directory = join(packageDir, "src");
   if (!existsSync(directory)) return null;
   const matches = readdirSync(directory).filter(
     (entry) => /\.tsx?$/.test(entry) && entry.startsWith(`${name}-`),
   );
-  return matches.length === 1 ? join(directory, matches[0] as string) : null;
+  const [only, ...rest] = matches.length > 1 ? bundlerEntries(packageDir, matches) : matches;
+  return only !== undefined && rest.length === 0 ? join(directory, only) : null;
 }
 
 function resolveSourceEntry(packageDir: string, exportPath: string, target: string): string | null {
@@ -73,6 +81,7 @@ interface PackageEntry {
   packageName: string;
   exportPath: string;
   entryPath: string;
+  published: boolean;
 }
 
 function workspaceEntries(packagesDir: string): PackageEntry[] {
@@ -85,22 +94,21 @@ function workspaceEntries(packagesDir: string): PackageEntry[] {
     const packageJsonPath = join(packageDir, "package.json");
     if (!existsSync(packageJsonPath)) continue;
     const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as PackageJson;
-    if (!packageJson.name || packageJson.private || !packageJson.exports) continue;
+    if (!packageJson.name || !packageJson.exports) continue;
+    const published = packageJson.private !== true;
     for (const exportPath of Object.keys(packageJson.exports).sort(compareText)) {
       if (exportPath === "./package.json") continue;
       const target = findTypesTarget(packageJson.exports[exportPath]);
       if (!target) continue;
       const entryPath = resolveSourceEntry(packageDir, exportPath, target);
-      if (entryPath) entries.push({ packageName: packageJson.name, exportPath, entryPath });
+      if (entryPath)
+        entries.push({ packageName: packageJson.name, exportPath, entryPath, published });
     }
   }
   return entries;
 }
 
-/**
- * Workspace specifiers resolve to source, not to a sibling package's `dist`
- * types, so a re-exported symbol is read from the declaration its author wrote.
- */
+/** Workspace specifiers, private packages' too, resolve to source, so a re-export reads the declaration its author wrote. */
 function sourcePaths(entries: PackageEntry[]): Record<string, string[]> {
   const paths: Record<string, string[]> = {};
   for (const entry of entries) {
@@ -228,7 +236,7 @@ export function collectPublicSymbols(root: string): PublicSymbol[] {
 
   const result: PublicSymbol[] = [];
 
-  for (const { packageName, exportPath, entryPath } of entries) {
+  for (const { packageName, exportPath, entryPath } of entries.filter((e) => e.published)) {
     const entry = project.getSourceFile(entryPath) ?? project.addSourceFileAtPath(entryPath);
 
     for (const exported of entry.getExportSymbols()) {

@@ -2,14 +2,7 @@ import { readRawDocBody } from "@/shared/lib/raw-doc";
 import { siteConfig } from "@/shared/lib/site-config";
 import { source } from "@/shared/lib/source";
 
-/**
- * Concatenates every doc body into one plain-text stream for LLM
- * consumers. Each page is preceded by an H2 with its title and URL so
- * the LLM can cite back.
- *
- * Built once: the bodies are assembled from repository sources, which the
- * deployed image does not carry.
- */
+// Every doc body in one stream, built once: the image does not carry the sources.
 export const dynamic = "force-static";
 
 export async function GET(): Promise<Response> {

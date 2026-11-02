@@ -1,22 +1,9 @@
 {
   "name": "@flowpanel/test",
   "version": "0.3.0",
-  "description": "Playwright smoke test for a FlowPanel admin — one call walks every page and fails on errors",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "playwright",
-    "smoke-test",
-    "accessibility",
-    "testing"
-  ],
+  "private": true,
+  "description": "Playwright smoke test for a FlowPanel admin, and a widget context for unit tests",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/test"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -31,37 +18,38 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./widgets": {
+      "import": {
+        "types": "./dist/widgets.d.ts",
+        "default": "./dist/widgets.mjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "sideEffects": false,
-  "files": [
-    "dist",
-    "README.md"
-  ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack .",
-    "lint:publish": "publint --strict",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "peerDependencies": {
-    "@axe-core/playwright": "^4.10.0",
-    "@playwright/test": "^1.50.0"
-  },
-  "peerDependenciesMeta": {
-    "@axe-core/playwright": {
-      "optional": true
-    }
+  "dependencies": {
+    "@flowpanel/core": "workspace:*",
+    "@flowpanel/next": "workspace:*"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.11.1",
-    "@playwright/test": "^1.59.1",
+    "@axe-core/playwright": "catalog:",
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

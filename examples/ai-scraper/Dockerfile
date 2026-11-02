@@ -25,11 +25,7 @@ RUN pnpm install --frozen-lockfile
 # (every admin route is server-rendered on demand, not statically generated).
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL=postgres://placeholder:placeholder@localhost:5432/placeholder
-# Build the demo and every workspace package it (transitively) depends on,
-# in topological order. The `...` suffix pulls in the flowpanel umbrella and
-# all @flowpanel/* packages it re-exports (core, react, next, charts, client,
-# adapter-drizzle, adapter-prisma, adapter-bullmq) so DTS never races a
-# missing sibling on a clean build.
+# `ai-scraper...` builds the demo after @flowpanel/kit and the packages the kit vendors.
 RUN pnpm --filter "ai-scraper..." build
 
 WORKDIR /repo/examples/ai-scraper
@@ -41,4 +37,5 @@ EXPOSE 3000
 # Public data is provisioned per browser on first use; container restarts never
 # rewrite live visitor sandboxes. `db:ensure` creates the target database when
 # it does not exist yet, so a fresh deployment needs only DATABASE_URL.
-CMD ["sh", "-c", "pnpm db:ensure && pnpm db:push && pnpm start"]
+# `db:migrate` creates the audit log table behind History and the Audit log page.
+CMD ["sh", "-c", "pnpm db:ensure && pnpm db:push && pnpm db:migrate && pnpm start"]

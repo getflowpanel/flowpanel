@@ -1,5 +1,6 @@
 import type { ColumnMeta, ResolvedLabels } from "@flowpanel/core";
 import { formatLabel, humanize } from "@flowpanel/core";
+import { parseWallTime } from "@flowpanel/core/internal";
 
 export interface CoerceRowResult {
   /** The row with column-typed values swapped in for coercible string cells. */
@@ -9,21 +10,23 @@ export interface CoerceRowResult {
 }
 
 /**
- * Coerce a raw row's string cells to the JS type its column expects, ahead of Zod
- * validation. A cell that cannot be coerced is reported through `labels.form`,
- * naming the column the way the form's label does.
+ * Coerces a raw row's string cells to the JS type its column expects, ahead of Zod validation.
+ * A cell that cannot be coerced is reported through `labels.form`, naming the column as the form's label does.
+ * With `wallTimeZone`, a zoneless `datetime-local` value is read on that zone's clock, as the form showed it.
  */
 export function coerceRowByColumns(
   columns: ColumnMeta[],
   row: Record<string, unknown>,
   labels: ResolvedLabels,
+  wallTimeZone?: string,
+  labelOf: (name: string) => string = humanize,
 ): CoerceRowResult {
   const columnsByName = new Map(columns.map((c) => [c.name, c]));
   const values: Record<string, unknown> = { ...row };
   const fieldErrors: Record<string, string> = {};
 
   const invalid = (key: string, template: string): void => {
-    fieldErrors[key] = formatLabel(template, { label: humanize(key) });
+    fieldErrors[key] = formatLabel(template, { label: labelOf(key) });
   };
 
   for (const [key, raw] of Object.entries(row)) {
@@ -31,9 +34,7 @@ export function coerceRowByColumns(
     if (!column || typeof raw !== "string") continue;
 
     if (raw === "") {
-      // A NOT NULL column can never accept null. Omitting the key lets a
-      // database default apply, and leaves a column without one to be reported
-      // as required by the insert schema.
+      // Omitting the key lets a database default apply, or the insert schema report it as required.
       if (column.nullable) values[key] = null;
       else delete values[key];
       continue;
@@ -50,7 +51,9 @@ export function coerceRowByColumns(
       else if (lower === "false" || lower === "0") values[key] = false;
       else invalid(key, labels.form.invalidBoolean);
     } else if (column.type === "date") {
-      const d = new Date(trimmed);
+      const d =
+        (wallTimeZone === undefined ? null : parseWallTime(trimmed, wallTimeZone)) ??
+        new Date(trimmed);
       if (Number.isNaN(d.getTime())) invalid(key, labels.form.invalidDate);
       else values[key] = d;
     }

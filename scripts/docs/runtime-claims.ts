@@ -16,7 +16,7 @@ export const RUNTIME_DOC_CLAIMS = [
     id: "tenant-scope-fails-closed",
     pages: ["/docs/guides/multi-tenant-scope", "/docs/reference/scope-realtime"],
     testFile: "packages/adapter-drizzle/src/__tests__/scope.integration.test.ts",
-    testName: "FAIL-CLOSED: list throws when scopeRequired && no applyScope",
+    testName: "FAIL-CLOSED: list throws when a bound scope predicate adds no where clause",
   },
   {
     id: "field-write-filtering",

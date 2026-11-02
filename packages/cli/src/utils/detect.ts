@@ -2,17 +2,6 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { readTsconfigOptions } from "./tsconfig";
 
-export interface Stack {
-  nextjs: string | null;
-  nextjsMajor: number | null;
-  typescript: boolean;
-  drizzle: boolean;
-  prisma: boolean;
-  bullmq: boolean;
-  tailwind: boolean;
-  tailwindMajor: number | null;
-}
-
 export async function fileExists(p: string): Promise<boolean> {
   try {
     await fs.access(p);
@@ -33,39 +22,6 @@ export async function readPkg(cwd: string): Promise<Record<string, unknown>> {
   }
 }
 
-function majorOf(v: string | undefined): number | null {
-  if (!v) return null;
-  const m = /(\d+)/.exec(v);
-  return m?.[1] ? Number(m[1]) : null;
-}
-
-/** True when the declared range names a Next.js release FlowPanel supports. */
-export function isSupportedNextVersion(version: string | null): boolean {
-  if (!version) return false;
-  const match = /(\d+)\.(\d+)/.exec(version);
-  if (!match?.[1] || !match[2]) return false;
-  return Number(match[1]) === 16 && Number(match[2]) >= 3;
-}
-
-export async function detectStack(cwd: string): Promise<Stack> {
-  const pkg = await readPkg(cwd);
-  const deps: Record<string, string> = {
-    ...((pkg.dependencies as Record<string, string> | undefined) ?? {}),
-    ...((pkg.devDependencies as Record<string, string> | undefined) ?? {}),
-  };
-  const tw = deps.tailwindcss;
-  return {
-    nextjs: deps.next ?? null,
-    nextjsMajor: majorOf(deps.next),
-    typescript: !!deps.typescript,
-    drizzle: !!deps["drizzle-orm"],
-    prisma: !!deps["@prisma/client"],
-    bullmq: !!deps.bullmq,
-    tailwind: !!tw,
-    tailwindMajor: majorOf(tw),
-  };
-}
-
 /** How the project maps `@/*` to filesystem paths in `tsconfig.json`. */
 export type PathAliasMode = "strip-src" | "root" | "none";
 
@@ -82,10 +38,18 @@ export async function detectPathAlias(cwd: string): Promise<PathAliasMode> {
 }
 
 export function aliasOf(relPath: string, mode: PathAliasMode): string {
-  const noExt = relPath.replace(/\.tsx?$/, "");
+  const noExt = relPath.replace(/\.tsx?$/, "").replace(/\/index$/, "");
   if (mode === "strip-src") return `@/${noExt.replace(/^src\//, "")}`;
   if (mode === "root") return `@/${noExt}`;
   return `./${noExt}`;
+}
+
+/** How project file `fromFile` imports the project path `target`: through `@/` when the alias reaches it, else relatively. */
+export function specifierFrom(fromFile: string, target: string, mode: PathAliasMode): string {
+  if (mode === "root" && !target.startsWith("../")) return `@/${target}`;
+  if (mode === "strip-src" && target.startsWith("src/")) return `@/${target.slice(4)}`;
+  const relative = path.posix.relative(path.posix.dirname(fromFile), target);
+  return relative.startsWith(".") ? relative : `./${relative}`;
 }
 
 export function configImportFor(fileDir: string, mode: PathAliasMode): string {

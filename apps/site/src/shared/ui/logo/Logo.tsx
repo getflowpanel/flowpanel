@@ -3,13 +3,6 @@ interface LogoProps {
   className?: string;
 }
 
-/**
- * FlowPanel mark — a wave breaking through a rounded square. A potrace
- * vectorization of the brand logo (2x-supersampled and corner-smoothed),
- * so it reproduces the original curve while keeping the frame corners
- * clean. Filled with `currentColor`, so color it via text color. Carries a
- * `<title>` for the accessible name.
- */
 export function Logo({ size = 24, className }: LogoProps) {
   return (
     <svg

@@ -1,9 +1,10 @@
-import type { AuthConfig } from "../types/config";
-import type { Session } from "../types/session";
+import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
+import { fromProvider } from "../auth-provider";
+import { assertNoAuthRequireRole } from "../compiler/validate/removed-keys";
 
 export interface ClerkAuthOptions {
-  /** Roles allowed into the admin. Pass a single role, an array, or a custom predicate. */
-  requireRole?: string | string[] | ((s: Session | null) => boolean);
+  /** Who may enter the admin: a role, a role list, or a predicate. */
+  access?: AccessRule;
   /** URL to redirect unauthenticated users to. */
   signInUrl?: string;
   /** URL to redirect users without the required role. */
@@ -14,9 +15,19 @@ export interface ClerkAuthOptions {
   userId?: (s: Session | null) => string | null;
 }
 
+/** The Clerk user id always wins over a custom session claim named `id`. */
+export function clerkSession(
+  userId: string | null,
+  sessionClaims: Record<string, unknown> | undefined,
+): Session | null {
+  if (!userId) return null;
+  return { ...sessionClaims, id: userId } as Session;
+}
+
 /** First-class Clerk integration. */
 export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
-  return {
+  assertNoAuthRequireRole("withClerk", opts);
+  return fromProvider("Clerk", {
     async session(): Promise<Session | null> {
       const specifier = "@clerk/nextjs/server";
       const mod = (await import(/* webpackIgnore: true */ specifier).catch(() => null)) as {
@@ -26,8 +37,7 @@ export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
         throw new Error("withClerk: @clerk/nextjs is not installed. Run `pnpm add @clerk/nextjs`.");
       }
       const { userId, sessionClaims } = await mod.auth();
-      if (!userId) return null;
-      return { id: userId, ...sessionClaims } as Session;
+      return clerkSession(userId, sessionClaims);
     },
     role:
       opts.role ??
@@ -42,8 +52,8 @@ export function withClerk(opts: ClerkAuthOptions = {}): AuthConfig {
         const id = (s as { id?: unknown } | null)?.id;
         return typeof id === "string" ? id : null;
       }),
-    ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
+    ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),
     ...(opts.forbiddenUrl ? { forbiddenUrl: opts.forbiddenUrl } : {}),
-  };
+  });
 }

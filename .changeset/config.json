@@ -1,24 +1,10 @@
 {
-  "changelog": "@changesets/cli/changelog",
+  "changelog": "./changelog.cjs",
   "commit": false,
-  "fixed": [
-    [
-      "@flowpanel/kit",
-      "@flowpanel/core",
-      "@flowpanel/next",
-      "@flowpanel/react",
-      "@flowpanel/client",
-      "@flowpanel/adapter-drizzle",
-      "@flowpanel/adapter-bullmq",
-      "@flowpanel/cli",
-      "@flowpanel/charts",
-      "@flowpanel/adapter-prisma",
-      "@flowpanel/eslint-plugin",
-      "@flowpanel/test"
-    ]
-  ],
+  "fixed": [["@flowpanel/kit", "@flowpanel/cli", "@flowpanel/eslint-plugin"]],
   "linked": [],
   "access": "public",
+  "privatePackages": { "version": false, "tag": false },
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "___experimentalUnsafeOptions_WILL_CHANGE_IN_PATCH": {

@@ -9,3 +9,9 @@ expectError(buildThemeInitScript("system"));
 expectAssignable<ThemeConfig>({
   cssVarsDark: { "--fp-text-1": "0 0% 98%" },
 });
+
+expectAssignable<ThemeConfig>({
+  cssVars: { "--fp-data": "185 45% 40%", "--fp-font-sans": "'IBM Plex Sans'", "--fp-own": "1" },
+});
+expectError<ThemeConfig>({ cssVars: { "--fp-data": 1 } });
+expectType<string | undefined>(({} as NonNullable<ThemeConfig["cssVars"]>)["--fp-data"]);

@@ -16,7 +16,7 @@ const dmmf: PrismaDmmf = {
             isRequired: true,
             isUnique: false,
             isList: false,
-            hasDefault: true,
+            hasDefaultValue: true,
           },
         ],
       },
@@ -53,17 +53,18 @@ describe("prismaAdapter sql capability", () => {
     expect(values).toEqual([hostile, 3]);
   });
 
-  it("sanitises a Date and a bigint before binding them", async () => {
+  it("hands a Date and a bigint to Prisma as they are, so it binds them as a timestamp and a bigint", async () => {
     const { sql: query, queryRaw } = adapterFor();
-    await query`select 1 where at > ${new Date("2026-01-02T03:04:05.000Z")} and n = ${10n}`;
+    const at = new Date("2026-01-02T03:04:05.000Z");
+    await query`select 1 where at > ${at} and n = ${10n}`;
     const [, ...values] = queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
-    expect(values).toEqual(["2026-01-02T03:04:05.000Z", "10"]);
+    expect(values).toEqual([at, 10n]);
   });
 
   it("reads a zoneless timestamp string in the result as UTC", async () => {
     const { sql: query } = adapterFor([{ at: "2026-01-02 03:04:05", label: "2026-01-02" }]);
     const [row] = await query<{ at: Date; label: string }>`select at, label from "User"`;
-    expect((row?.at as Date).toISOString()).toBe("2026-01-02T03:04:05.000Z");
+    expect((row!.at as Date).toISOString()).toBe("2026-01-02T03:04:05.000Z");
     expect(row?.label).toBe("2026-01-02");
   });
 

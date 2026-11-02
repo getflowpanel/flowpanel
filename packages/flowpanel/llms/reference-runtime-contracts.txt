@@ -1,0 +1,150 @@
+# FlowPanel — Reference — Runtime contracts
+
+## Runtime contracts
+
+Low-level policy, result, adapter and pipeline APIs for custom runtimes and third-party adapters.
+
+Docs: https://flowpanel.tech/docs/reference/runtime-contracts
+
+Lower-level contracts from `@flowpanel/kit` for adapter authors and custom
+integrations. An app built with `defineAdmin` and `createFlowpanel` does not need
+them.
+
+```ts
+import {
+  accessAllows,
+  assertWritableInput,
+  bindAdapterScope,
+  resolveScopeApplier,
+  errorResult,
+  filterReadableProjection,
+  reportUnexpectedError,
+  requireAccess,
+  resolveOperationAccess,
+  resultResponse,
+  FLOWPANEL_ERROR_STATUS,
+  type AccessContext,
+  type AccessRule,
+  type AdminDefinition,
+  type AdminPaths,
+  type AdminPathsInput,
+  type AnyResourceConfig,
+  type AdapterScopeContext,
+  type BoundAdapterScope,
+  type ErrorContext,
+  type FieldAccess,
+  type FieldAccessMap,
+  type FieldWriteContext,
+  type FlowpanelErrorCode,
+  type FlowpanelResult,
+  type FlowpanelResultError,
+  type FlowpanelResultMeta,
+  type FlowpanelWarning,
+  type FlowpanelWarningCode,
+  type JsonValue,
+  type ResourceAccess,
+  type ResourceOperation,
+} from "@flowpanel/kit";
+```
+
+### Definitions and paths
+
+`AdminDefinition<Resources>` is the immutable public input accepted by
+`defineAdmin`; `AnyResourceConfig` is its generic resource constraint.
+`AdminPathsInput` is the partial `{ admin, api }` input and `AdminPaths` is the
+normalized resolved pair. Both paths have a leading slash and no trailing
+slash.
+
+Useful when a factory returns a definition:
+
+```ts
+function companyAdmin(): AdminDefinition {
+  return {
+    adapter,
+    auth: flowpanelAuth,
+    paths: { admin: "/ops", api: "/api/ops" },
+  };
+}
+```
+
+### Access and field policy
+
+`AccessRule` is a boolean, role string, role list, or predicate receiving
+`AccessContext` (`session`, `role`, `scope`). `ResourceAccess` maps those rules
+to the four `ResourceOperation` values: `read`, `create`, `update`, `delete`.
+
+- `accessAllows(rule, context)` evaluates one normalized rule.
+- `resolveOperationAccess(access, operation)` returns the rule `access` sets for
+  that operation, or `undefined` when it sets none.
+- `requireAccess(rule, context)` throws the safe access error when the rule rejects
+  the request. It takes a rule, and a missing one denies; pass `true` to allow
+  everyone.
+
+`FieldAccess<Row>` adds `read`, `write` and `sensitive` policy. A
+`FieldAccessMap<Row>` maps it by field name; write predicates receive
+`FieldWriteContext<Row>` with both the current row and submitted input.
+
+- `filterReadableProjection(fields, policy, context)` removes fields the
+  caller may not read before the adapter query is built.
+- `assertWritableInput({ declaredFields, policies, input, context })` resolves to
+  the input as `Partial<Row>`. It throws on an unknown, sensitive or forbidden
+  field; it never drops one silently.
+
+### Bound adapter scope
+
+A tenant policy crosses the runtime/adapter boundary as an opaque
+`BoundAdapterScope`. Create it with `bindAdapterScope(apply)`. Adapters must
+apply it to list, get, update and delete operations and fail closed when the
+bound predicate leaves the query unconstrained.
+
+`resolveScopeApplier(ctx)` returns the bound predicate, or `null` when the
+resource declares none. The first-party adapters throw `FlowpanelAccessError`
+when the predicate adds no condition; an adapter that applies scope by hand must
+refuse the query in the same case.
+
+Create and update must also leave the row inside the scope. The first-party
+adapters throw `FlowpanelAccessError` and write nothing when the new or changed
+row would fall outside it, such as an update that sets the tenant column to
+another tenant. A custom adapter must do the same.
+
+### Post-commit effects
+
+Post-commit audit, realtime or revalidation failures do not turn a committed
+mutation into a false failure. Each is logged on the server with `console.error`
+(`[flowpanel] audit write failed`, `realtime effect failed`, `revalidation effect
+failed`) and the response reports the write as done.
+
+### Result envelope
+
+Every protected controller and v1 JSON CRUD endpoint returns
+`FlowpanelResult<T>`:
+
+```ts
+type FlowpanelResult<T> =
+  | { ok: true; data: T; meta: FlowpanelResultMeta }
+  | { ok: false; error: FlowpanelResultError };
+```
+
+The JSON resource API (`GET`/`POST`/`PATCH`/`DELETE <paths.api>/<resource>`) fails as
+`{ ok: false, error: { code, message, requestId } }`. The routes the generated UI posts
+to (actions, create and edit forms, drawers, inline edits, import, restore and export)
+fail as `{ ok: false, error, code, requestId?, fieldErrors? }`; see
+[Errors](/docs/reference/errors).
+
+`FlowpanelResultMeta` carries the request id and optional warnings.
+`FlowpanelResultError` carries a stable `FlowpanelErrorCode`, a safe message,
+optional field errors and request id. `FLOWPANEL_ERROR_STATUS` is the canonical
+code-to-HTTP-status table.
+
+- `errorResult(error, requestId)` converts known errors to the envelope and
+  redacts unexpected failures to `internal`.
+- `resultResponse(result)` produces a JSON `Response` with the canonical status.
+- `reportUnexpectedError(error, context, onError)` invokes `hooks.onError` at
+  most once for the same error object, and skips a `FlowpanelError` entirely.
+  Without `onError` it logs the error once with `console.error` and the request id. `ErrorContext` includes request,
+  operation, actor, IP and user-agent diagnostics but no submitted secrets.
+
+An action should throw a FlowPanel error or return an `ActionResult` rather than
+build the envelope. The generated form, drawer, action, import, restore and SSE
+routes use their own compact responses; use `createFlowpanelClient` for the
+envelope above.

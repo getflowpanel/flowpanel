@@ -20,9 +20,8 @@ export async function detectAuthProvider(cwd: string): Promise<AuthProvider | nu
 }
 
 /**
- * The FlowPanel preset each provider maps to, and the export the generated
- * session module reads from the project's own auth instance. Clerk needs none:
- * `withClerk` imports `@clerk/nextjs/server` itself.
+ * The FlowPanel preset each provider maps to, and the export its session module reads from the auth instance.
+ * Clerk needs none: `withClerk` imports `@clerk/nextjs/server` itself.
  */
 export const AUTH_PRESETS: Record<AuthProvider, { preset: string; instance: string | null }> = {
   "better-auth": { preset: "withBetterAuth", instance: "auth" },

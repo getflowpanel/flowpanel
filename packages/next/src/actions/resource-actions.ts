@@ -1,46 +1,60 @@
 import type {
-  AuditEvent,
-  ItemQueryContext,
   MutationContext,
   RequestContext,
   ResolvedAdminConfig,
   ResourceConfig,
 } from "@flowpanel/core";
 import {
-  authorizeOperation,
-  emitAudit,
-  FlowpanelAccessError,
   FlowpanelNotFoundError,
   FlowpanelOperationDisabledError,
-  FlowpanelValidationError,
   mergeLabels,
+  resolveFormatting,
   resolveOperationAccess,
   runWithRequestContext,
 } from "@flowpanel/core";
-import { revalidatePath } from "next/cache";
-import { actorIdFromSession } from "../runtime/action-helpers";
+import { writeTarget } from "@flowpanel/core/internal";
+import { changesRow } from "../runtime/action-helpers";
 import { buildServerRequest } from "../runtime/build-server-request";
-import { DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { explainWrite } from "../runtime/constraint-error";
 import { deleteRow } from "../runtime/delete-row";
+import { keepUntouchedTimes } from "../runtime/form-dates";
 import { buildHref } from "../runtime/href";
+import { keepUntouchedMoney, moneyShapes } from "../runtime/money-field";
 import { resourceNavName } from "../runtime/nav";
-import { bindPublisher, publishResource } from "../runtime/publish";
-import { readRow } from "../runtime/read-row";
+import { bindPublisher } from "../runtime/publish";
+import { readLiveRow, readRow } from "../runtime/read-row";
 import { buildRequestContext } from "../runtime/request-setup";
+import { requireAccessIfSet } from "../runtime/require-access";
 import { requireAuthorized } from "../runtime/require-authorized";
-import { declaredFormFields } from "../runtime/resolve-form-fields";
+import { deniedFieldWrites } from "../runtime/resolve-form-fields";
+import { rowKeyOf } from "../runtime/row-identity";
 import { scopeBinding } from "../runtime/scope-binding";
+import { auditDiff, commitEffects, type WriteEffects } from "../runtime/write-pipeline";
 import {
   applyFieldDefaults,
   assertResourceWritableInput,
-  friendlyFieldErrors,
-  runFieldValidators,
+  createFormFields,
+  editableColumns,
+  formInput,
+  pickSchema,
   schemasFor,
+  updateFields,
 } from "./field-pipeline";
+import { checkedValues } from "./field-validation";
+
+export interface CreateOptions {
+  /** Fields the form or file decoding refused, reported with every other field error. */
+  decodeErrors?: Readonly<Record<string, string>>;
+}
+
+export interface UpdateOptions extends CreateOptions {
+  /** An inline edit of this one column: it need not be a form field, and only it is validated. */
+  inline?: string;
+}
 
 export interface ResourceActions {
-  create: (input: unknown) => Promise<unknown>;
-  update: (id: string, input: unknown) => Promise<unknown>;
+  create: (input: unknown, options?: CreateOptions) => Promise<unknown>;
+  update: (id: string, input: unknown, options?: UpdateOptions) => Promise<unknown>;
   delete: (id: string) => Promise<void>;
 }
 
@@ -49,8 +63,19 @@ export interface MakeActionsOptions {
   reqCtx?: RequestContext;
   /** Publish + revalidate per call. Default `true`; set `false` to batch-notify once yourself. */
   publish?: boolean;
+  /** The input is a posted form, which also carries the fields it showed read-only. */
+  fromForm?: boolean;
 }
 
+function dateColumnsOf(config: ResolvedAdminConfig, resource: ResourceConfig): Set<string> {
+  const { columns } = config.adapter.introspect(writeTarget(resource));
+  return new Set(columns.filter((c) => c.type === "date").map((c) => c.name));
+}
+
+/**
+ * The guarded write path behind every create, update and delete: access, `readOnly`, disabled
+ * operations, field rules, the scoped write, one audit event and the realtime publish.
+ */
 export function makeActions(
   config: ResolvedAdminConfig,
   resource: ResourceConfig,
@@ -69,166 +94,201 @@ export function makeActions(
     });
   }
 
-  async function baseAudit(
-    action: string,
+  async function guard(
     reqCtx: RequestContext,
-    partial: Partial<AuditEvent>,
+    operation: "create" | "update" | "delete",
   ): Promise<void> {
-    if (resource.options.audit === false) return;
-    const actorId = actorIdFromSession(reqCtx.session, config.auth.userId);
-    await emitAudit(config.audit, {
-      actorId,
-      action,
-      resource: name,
-      at: new Date(),
-      ...(reqCtx.ip ? { ip: reqCtx.ip } : {}),
-      ...(reqCtx.userAgent ? { userAgent: reqCtx.userAgent } : {}),
-      ...partial,
-    });
+    requireAuthorized(config, resource);
+    await requireAccessIfSet(resolveOperationAccess(resource.options.access, operation), reqCtx);
+    if (config.readOnly) throw new FlowpanelOperationDisabledError("This admin is read-only.");
+    if (resource.options[operation]?.disabled) {
+      throw new FlowpanelOperationDisabledError(DISABLED[operation]);
+    }
   }
 
-  async function runPostCommitEffects(
-    payload: { action: "create" | "update" | "delete"; id?: string },
+  async function commit(
+    reqCtx: RequestContext,
+    change: { action: "create" | "update" | "delete"; id?: string },
+    audit: WriteEffects["audit"],
     paths: string[],
   ): Promise<void> {
-    if (opts.publish === false) return;
-    try {
-      await publishResource(name, payload);
-    } catch (error) {
-      console.error("[flowpanel] realtime effect failed", error);
-    }
-    for (const path of paths) {
-      try {
-        revalidatePath(path);
-      } catch (error) {
-        console.error("[flowpanel] revalidation effect failed", error);
-      }
-    }
+    await commitEffects(
+      config,
+      reqCtx,
+      { ok: true },
+      {
+        audit: { ...audit, resource: name },
+        resourceAudit: resource.options.audit,
+        publish: opts.publish === false ? {} : { resourceName: name, change, pathname: paths },
+      },
+    );
   }
 
   return {
-    async create(input) {
+    async create(input, options = {}) {
       const reqCtx = await ctxFor(buildHref(config, name, "new"));
-      requireAuthorized(config, resource, reqCtx);
-      await authorizeOperation(
-        resolveOperationAccess(resource.options.access, resource.options.requireRole, "create"),
-        reqCtx,
-      );
-      if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
-      if (resource.options.create?.disabled) {
-        throw new FlowpanelOperationDisabledError("Create is disabled for this resource.");
-      }
+      await guard(reqCtx, "create");
 
-      const fields = declaredFormFields(resource, "create");
-      const safe = await assertResourceWritableInput(resource, fields, input, null, reqCtx);
-      const withDefaults = await applyFieldDefaults(config, resource, fields, safe, reqCtx);
-      const parsed = schemas.create.safeParse(withDefaults);
-      if (!parsed.success) {
-        const fieldErrors = friendlyFieldErrors(fields, withDefaults, parsed.error, labels);
-        throw new FlowpanelValidationError(fieldErrors);
-      }
-      const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);
-      if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
+      const fields = await createFormFields(
+        config,
+        resource,
+        reqCtx,
+        opts.fromForm ? undefined : input,
+      );
+      const denied = await deniedFieldWrites(resource, reqCtx, null);
+      const submitted = opts.fromForm ? formInput(fields, input, null, denied) : input;
+      const safe = await assertResourceWritableInput(resource, fields, submitted, null, reqCtx);
+      const withDefaults = await applyFieldDefaults(resource, fields, safe, reqCtx);
+      const values = await checkedValues(
+        config,
+        resource,
+        labels,
+        schemas.create,
+        fields,
+        withDefaults,
+        null,
+        reqCtx,
+        denied,
+        options.decodeErrors,
+      );
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
         db: config.adapter.db,
-        input: parsed.data as Partial<Record<string, unknown>>,
-        ...scopeBinding(config, resource, reqCtx),
+        input: values,
+        ...scopeBinding(resource, reqCtx),
       };
-      const row = (await runWithRequestContext(reqCtx, () =>
-        config.adapter.create(resource.ref, mctx),
+      const row = (await explainWrite(config, resource, "create", () =>
+        runWithRequestContext(reqCtx, () => config.adapter.create(writeTarget(resource), mctx)),
       )) as Record<string, unknown> | null | undefined;
-      const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
-      const rowId = row && typeof row === "object" ? row[rowKey] : undefined;
-      await baseAudit(`${name}.create`, reqCtx, {
-        ...(rowId !== undefined && rowId !== null ? { targetId: String(rowId) } : {}),
-      });
-      await runPostCommitEffects(
+      const rowId = row && typeof row === "object" ? row[rowKeyOf(resource)] : undefined;
+      const id = rowId !== undefined && rowId !== null ? String(rowId) : undefined;
+      await commit(
+        reqCtx,
+        { action: "create", ...(id !== undefined ? { id } : {}) },
         {
-          action: "create",
-          ...(rowId !== undefined && rowId !== null ? { id: String(rowId) } : {}),
+          action: `${name}.create`,
+          ...(id !== undefined ? { targetId: id } : {}),
+          ...(id !== undefined && row ? { rows: new Map([[id, row]]) } : {}),
+          diff: () => auditDiff(config, resource, null, row ?? values, reqCtx, Object.keys(values)),
         },
         [buildHref(config, name)],
       );
       return row;
     },
 
-    async update(id, input) {
+    async update(id, input, options = {}) {
       const reqCtx = await ctxFor(buildHref(config, name, id, "edit"));
-      requireAuthorized(config, resource, reqCtx);
-      await authorizeOperation(
-        resolveOperationAccess(resource.options.access, resource.options.requireRole, "update"),
-        reqCtx,
-      );
-      if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
-      if (resource.options.update?.disabled) {
-        throw new FlowpanelOperationDisabledError("Update is disabled for this resource.");
-      }
+      await guard(reqCtx, "update");
 
-      const fields = declaredFormFields(resource, "update");
-      const itemCtx: ItemQueryContext = {
-        ...reqCtx,
-        db: config.adapter.db,
-        dateRange: { from: new Date(0), to: new Date() },
-        searchParams: new URLSearchParams(),
-        signal: new AbortController().signal,
-        id,
-        ...scopeBinding(config, resource, reqCtx),
-      };
-      const current = (await runWithRequestContext(reqCtx, () =>
-        config.adapter.get(resource.ref, itemCtx),
-      )) as Record<string, unknown> | null;
+      const fields = updateFields(
+        resource,
+        options.inline !== undefined
+          ? [options.inline]
+          : opts.fromForm
+            ? []
+            : editableColumns(resource),
+      );
+      const current = await readLiveRow(config, resource, id, reqCtx);
       if (!current) throw new FlowpanelNotFoundError();
-      const safe = await assertResourceWritableInput(resource, fields, input, current, reqCtx);
-      const parsed = schemas.update.safeParse(safe);
-      if (!parsed.success) {
-        const fieldErrors = friendlyFieldErrors(fields, safe, parsed.error, labels);
-        throw new FlowpanelValidationError(fieldErrors);
-      }
-      const ruleErrors = await runFieldValidators(fields, parsed.data as Record<string, unknown>);
-      if (ruleErrors) throw new FlowpanelValidationError(ruleErrors);
+      const denied = await deniedFieldWrites(resource, reqCtx, current);
+      const submitted = opts.fromForm
+        ? keepUntouchedMoney(
+            keepUntouchedTimes(
+              formInput(fields, input, current, denied),
+              current,
+              dateColumnsOf(config, resource),
+            ),
+            current,
+            moneyShapes(
+              fields,
+              config.adapter.introspect(writeTarget(resource)).columns,
+              resolveFormatting(config.formatting),
+            ),
+          )
+        : input;
+      const safe = await assertResourceWritableInput(resource, fields, submitted, current, reqCtx);
+      const schema =
+        options.inline === undefined ? schemas.update : pickSchema(schemas.update, options.inline);
+      const values = await checkedValues(
+        config,
+        resource,
+        labels,
+        schema,
+        fields,
+        safe,
+        current,
+        reqCtx,
+        denied,
+        options.decodeErrors,
+      );
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
         db: config.adapter.db,
-        input: parsed.data as Partial<Record<string, unknown>>,
+        input: values,
         id,
-        ...scopeBinding(config, resource, reqCtx),
+        ...scopeBinding(resource, reqCtx),
       };
-      const row = await runWithRequestContext(reqCtx, () =>
-        config.adapter.update(resource.ref, mctx),
+      const written = await explainWrite(config, resource, "update", () =>
+        runWithRequestContext(reqCtx, () => config.adapter.update(writeTarget(resource), mctx)),
       );
-      if (!row) throw new FlowpanelNotFoundError();
-      await baseAudit(`${name}.update`, reqCtx, { targetId: id });
-      await runPostCommitEffects({ action: "update", id }, [
-        buildHref(config, name),
-        buildHref(config, name, id),
-      ]);
+      if (!written) throw new FlowpanelNotFoundError();
+      const row =
+        resource.options.writeTo === undefined
+          ? written
+          : ((await readRow(config, resource, id, reqCtx)) ?? written);
+      await commit(
+        reqCtx,
+        { action: "update", id },
+        {
+          action: options.inline === undefined ? `${name}.update` : `${name}.inline-update`,
+          targetId: id,
+          rows: new Map([[id, current]]),
+          ...(changesRow(current, values) ? {} : { unchanged: true }),
+          diff: () =>
+            auditDiff(
+              config,
+              resource,
+              current,
+              { ...current, ...values },
+              reqCtx,
+              Object.keys(values),
+            ),
+        },
+        [buildHref(config, name), buildHref(config, name, id)],
+      );
       return row;
     },
 
     async delete(id) {
       const reqCtx = await ctxFor(buildHref(config, name, id));
-      requireAuthorized(config, resource, reqCtx);
-      await authorizeOperation(
-        resolveOperationAccess(resource.options.access, resource.options.requireRole, "delete"),
-        reqCtx,
-      );
-      if (config.readOnly) throw new FlowpanelAccessError("This admin is read-only.");
-      if (resource.options.delete?.disabled) {
-        throw new FlowpanelOperationDisabledError("Delete is disabled for this resource.");
-      }
+      await guard(reqCtx, "delete");
 
-      const current = await readRow(config, resource, id, reqCtx);
+      const current = await readLiveRow(config, resource, id, reqCtx);
       if (!current) throw new FlowpanelNotFoundError();
 
       await deleteRow(config, resource, id, reqCtx);
-      await baseAudit(`${name}.delete`, reqCtx, { targetId: id });
-      await runPostCommitEffects({ action: "delete", id }, [buildHref(config, name)]);
+      await commit(
+        reqCtx,
+        { action: "delete", id },
+        {
+          action: `${name}.delete`,
+          targetId: id,
+          diff: () => auditDiff(config, resource, current, null, reqCtx),
+          rows: new Map([[id, current]]),
+        },
+        [buildHref(config, name)],
+      );
     },
   };
 }
+
+const DISABLED = {
+  create: "Create is disabled for this resource.",
+  update: "Update is disabled for this resource.",
+  delete: "Delete is disabled for this resource.",
+} as const;
 
 export interface FormActionResult {
   ok: boolean;

@@ -17,3 +17,10 @@ model TestUser {
   deletedAt DateTime?
   createdAt DateTime  @default(now())
 }
+
+model CalendarEvent {
+  id  Int       @id
+  day DateTime? @db.Date
+
+  @@map("calendar_events")
+}

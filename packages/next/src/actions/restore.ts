@@ -1,94 +1,69 @@
-import type { ItemQueryContext, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
-import { runWithRequestContext } from "@flowpanel/core";
-import { buildAuditEvent, maybeEmitAudit, notFoundResponse } from "../runtime/action-helpers";
-import { applyActionResult } from "../runtime/apply-action-result";
+import type { MutationContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
+import { FlowpanelOperationDisabledError, runWithRequestContext } from "@flowpanel/core";
+import { writeTarget } from "@flowpanel/core/internal";
+import { actionFailure } from "../runtime/action-failure";
 import { buildHref } from "../runtime/href";
-import { bindPublisher } from "../runtime/publish";
+import { readRow } from "../runtime/read-row";
 import { scopeBinding } from "../runtime/scope-binding";
-import { withGuards } from "../runtime/with-guards";
+import {
+  auditDiff,
+  commitEffects,
+  guardedRoute,
+  lookupResource,
+  rowNotFound,
+} from "../runtime/write-pipeline";
 
 export function restoreRoute(config: ResolvedAdminConfig) {
-  bindPublisher(config);
-
-  return async function POST(
-    req: Request,
-    ctx: { params: Promise<{ resource: string; id: string }> },
-  ): Promise<Response> {
-    const { resource: resourceName, id } = await ctx.params;
-    const resource = config.resourcesByName.get(resourceName);
-    if (!resource) {
-      return notFoundResponse("resource", resourceName, [...config.resourcesByName.keys()]);
-    }
-
-    const softDelete = resource.options.delete?.softDelete;
-    if (!softDelete) {
-      return Response.json(
-        { ok: false, error: "resource does not support restore" },
-        { status: 404 },
-      );
-    }
-    if (typeof config.adapter.restore !== "function") {
-      return Response.json(
-        { ok: false, error: "the configured adapter does not implement restore" },
-        { status: 501 },
-      );
-    }
-    const restore = config.adapter.restore;
-
-    const softDeleteColumn = String(softDelete);
-
-    return withGuards(config, req, { resource, operation: "update" }, async (reqCtx) => {
-      const itemCtx: ItemQueryContext = {
-        ...reqCtx,
-        db: config.adapter.db,
-        dateRange: { from: new Date(0), to: new Date() },
-        searchParams: new URLSearchParams(),
-        signal: new AbortController().signal,
-        id,
-        ...scopeBinding(config, resource, reqCtx),
-      };
-      const existing = (await runWithRequestContext(reqCtx, () =>
-        config.adapter.get(resource.ref, itemCtx),
-      )) as Record<string, unknown> | null;
-      if (!existing) {
-        return Response.json({ ok: false, error: "not found" }, { status: 404 });
+  return guardedRoute<{ resource: string; id: string }, ResourceConfig>(config, {
+    resolve: (params) => {
+      const resource = lookupResource(config, params.resource);
+      if (resource instanceof Response) return resource;
+      return { spec: { resource, operation: "update" }, target: resource };
+    },
+    handle: async ({ reqCtx, target: resource, params: { resource: name, id } }) => {
+      if (resource.options.update?.disabled) {
+        throw new FlowpanelOperationDisabledError("Update is disabled for this resource.");
       }
+      const softDelete = resource.options.delete?.softDelete;
+      if (!softDelete) return actionFailure("not_found", "resource does not support restore");
+      const restore = config.adapter.restore;
+      if (typeof restore !== "function") {
+        return actionFailure(
+          "operation_disabled",
+          "the configured adapter does not implement restore",
+          { status: 501 },
+        );
+      }
+      const column = String(softDelete);
+      const existing = await readRow(config, resource, id, reqCtx);
+      if (!existing || existing[column] == null) return rowNotFound();
 
       const mctx: MutationContext<Record<string, unknown>> = {
         ...reqCtx,
         db: config.adapter.db,
         input: {},
         id,
-        softDelete: { column: softDeleteColumn },
-        ...scopeBinding(config, resource, reqCtx),
+        softDelete: { column },
+        ...scopeBinding(resource, reqCtx),
       };
-      await runWithRequestContext(reqCtx, () => restore(resource.ref, mctx));
+      await runWithRequestContext(reqCtx, () => restore(writeTarget(resource), mctx));
 
-      await maybeEmitAudit(
-        { ok: true },
-        config.audit,
-        resource.options.audit,
-        buildAuditEvent(
-          reqCtx,
-          {
-            action: `${resourceName}.restore`,
-            resource: resourceName,
-            targetId: id,
-            diff: {
-              before: { [softDeleteColumn]: existing[softDeleteColumn] },
-              after: { [softDeleteColumn]: null },
-            },
-          },
-          config.auth.userId,
-        ),
-      );
-
-      await applyActionResult(
-        { ok: true, refresh: true },
-        { resourceName, pathname: buildHref(config, resourceName) },
-      );
-
+      const result = { ok: true, refresh: true } as const;
+      await commitEffects(config, reqCtx, result, {
+        audit: {
+          action: `${name}.restore`,
+          resource: name,
+          targetId: id,
+          diff: () =>
+            auditDiff(config, resource, existing, { ...existing, [column]: null }, reqCtx, [
+              column,
+            ]),
+          rows: new Map([[id, existing]]),
+        },
+        resourceAudit: resource.options.audit,
+        publish: { resourceName: name, pathname: buildHref(config, name) },
+      });
       return Response.json({ ok: true });
-    });
-  };
+    },
+  });
 }

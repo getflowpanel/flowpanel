@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeShallowDiff, isAuditActive } from "../runtime/action-helpers";
+import { computeShallowDiff } from "../runtime/action-helpers";
 
 describe("computeShallowDiff", () => {
   it("returns undefined when both snapshots are null", () => {
@@ -47,33 +47,17 @@ describe("computeShallowDiff", () => {
     expect(computeShallowDiff(before, after)).toBeUndefined();
   });
 
-  it("does not deep-compare nested references", () => {
-    const nested = { a: 1 };
-    // Same reference → not flagged (documented shallow behaviour).
-    expect(computeShallowDiff({ obj: nested }, { obj: nested })).toBeUndefined();
-    // Different reference, equal contents → flagged.
-    const diff = computeShallowDiff({ obj: { a: 1 } }, { obj: { a: 1 } });
-    expect(diff).toBeDefined();
-  });
-});
-
-describe("isAuditActive", () => {
-  const sink = async () => undefined;
-
-  it("false when no audit config", () => {
-    expect(isAuditActive(undefined, undefined)).toBe(false);
-  });
-
-  it("false when audit config has no sink", () => {
-    expect(isAuditActive({}, undefined)).toBe(false);
-  });
-
-  it("true when a sink is configured and resource didn't opt out", () => {
-    expect(isAuditActive({ sink }, undefined)).toBe(true);
-    expect(isAuditActive({ sink }, true)).toBe(true);
-  });
-
-  it("false when the resource opted out via audit:false", () => {
-    expect(isAuditActive({ sink }, false)).toBe(false);
+  it("treats equal dates and equal JSON in new objects as unchanged", () => {
+    const at = "2026-10-09T10:00:00.000Z";
+    expect(
+      computeShallowDiff(
+        { obj: { a: 1 }, at: new Date(at), tags: ["x"] },
+        { obj: { a: 1 }, at: new Date(at), tags: ["x"] },
+      ),
+    ).toBeUndefined();
+    expect(computeShallowDiff({ obj: { a: 1 } }, { obj: { a: 2 } })).toEqual({
+      before: { obj: { a: 1 } },
+      after: { obj: { a: 2 } },
+    });
   });
 });

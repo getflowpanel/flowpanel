@@ -24,7 +24,7 @@ function widget(label: string, value: number): string {
       ...(label === "C" ? { delta: { value: 0.123, vs: "last month" } } : {}),
     }),
   );
-  return `<div class="${legacy ? slot.replace("h-full", "") : slot}">${legacy ? markup.replaceAll("h-full", "") : markup}</div>`;
+  return `<div class="${legacy ? slot.replace("fp-h-full", "") : slot}">${legacy ? markup.replaceAll("fp-h-full", "") : markup}</div>`;
 }
 
 function slot(widget: WidgetConfig, id: string, content: string): string {

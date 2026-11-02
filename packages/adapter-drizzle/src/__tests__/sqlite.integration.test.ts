@@ -45,7 +45,10 @@ afterAll(() => {
 });
 
 describe("drizzleAdapter SQLite CRUD", () => {
-  const adapter = drizzleAdapter({ db: null as any, schema: { users }, dialect: "sqlite" });
+  let adapter: ReturnType<typeof drizzleAdapter>;
+  beforeAll(() => {
+    adapter = drizzleAdapter({ db, schema: { users }, dialect: "sqlite" });
+  });
 
   function ctx(overrides: Partial<ListQueryContext<any>> = {}): ListQueryContext<any> {
     return {
@@ -69,42 +72,42 @@ describe("drizzleAdapter SQLite CRUD", () => {
   }
 
   it("list returns rows with pagination", async () => {
-    const r = await adapter.list(users, ctx({ db, pageSize: 10, page: 1 }));
+    const r = await adapter.list(users, ctx({ pageSize: 10, page: 1 }));
     expect(r.total).toBe(25);
     expect(r.rows).toHaveLength(10);
   });
 
   it("enforces explicit list/get projections", async () => {
-    const listed = await adapter.list(users, ctx({ db, pageSize: 1, select: ["id", "email"] }));
+    const listed = await adapter.list(users, ctx({ pageSize: 1, select: ["id", "email"] }));
     expect(Object.keys(listed.rows[0] as object).sort()).toEqual(["email", "id"]);
 
     const item = await adapter.get(users, {
-      ...ctx({ db }),
+      ...ctx(),
       id: "u3",
       select: ["id", "name"],
     } as any);
     expect(Object.keys(item as object).sort()).toEqual(["id", "name"]);
-    await expect(adapter.list(users, ctx({ db, select: ["missing"] }))).rejects.toThrow(
+    await expect(adapter.list(users, ctx({ select: ["missing"] }))).rejects.toThrow(
       /unknown column "missing"/,
     );
     await expect(
-      adapter.list(users, ctx({ db, select: Array.from({ length: 1025 }, () => "id") })),
+      adapter.list(users, ctx({ select: Array.from({ length: 1025 }, () => "id") })),
     ).rejects.toThrow(/select exceeds 1024 columns/);
   });
 
   it("returns value-free rows and existence for an explicit empty projection", async () => {
     const firstQuery = sqlLog.length;
-    const first = await adapter.list(users, ctx({ db, page: 1, pageSize: 2, select: [] }));
+    const first = await adapter.list(users, ctx({ page: 1, pageSize: 2, select: [] }));
     expect(first).toMatchObject({ total: 25, page: 1, pageSize: 2 });
     expect(first.rows).toEqual([{}, {}]);
 
-    const partial = await adapter.list(users, ctx({ db, page: 13, pageSize: 2, select: [] }));
+    const partial = await adapter.list(users, ctx({ page: 13, pageSize: 2, select: [] }));
     expect(partial.rows).toEqual([{}]);
-    const outOfRange = await adapter.list(users, ctx({ db, page: 14, pageSize: 2, select: [] }));
+    const outOfRange = await adapter.list(users, ctx({ page: 14, pageSize: 2, select: [] }));
     expect(outOfRange.rows).toEqual([]);
 
-    expect(await adapter.get(users, { ...ctx({ db }), id: "u3", select: [] } as any)).toEqual({});
-    expect(await adapter.get(users, { ...ctx({ db }), id: "nope", select: [] } as any)).toBeNull();
+    expect(await adapter.get(users, { ...ctx(), id: "u3", select: [] } as any)).toEqual({});
+    expect(await adapter.get(users, { ...ctx(), id: "nope", select: [] } as any)).toBeNull();
 
     const emptyProjectionQueries = sqlLog.slice(firstQuery).join("\n").toLowerCase();
     expect(emptyProjectionQueries).toContain("select 1");
@@ -114,50 +117,57 @@ describe("drizzleAdapter SQLite CRUD", () => {
   });
 
   it("list filter by equality", async () => {
-    const r = await adapter.list(users, ctx({ db, filters: { email: "u5@e.co" } }));
+    const r = await adapter.list(users, ctx({ filters: { email: "u5@e.co" } }));
     expect(r.total).toBe(1);
     expect((r.rows[0] as any).id).toBe("u5");
   });
 
   it("list search matches within declared searchFields", async () => {
-    const r = await adapter.list(users, ctx({ db, search: "User 7", searchFields: ["name"] }));
+    const r = await adapter.list(users, ctx({ search: "User 7", searchFields: ["name"] }));
     expect(r.rows.some((row: any) => row.id === "u7")).toBe(true);
   });
 
   it("list search does NOT match columns outside searchFields", async () => {
     // "u5@e.co" only appears in `email`; searchFields only declares `name`.
-    const r = await adapter.list(users, ctx({ db, search: "u5@e.co", searchFields: ["name"] }));
+    const r = await adapter.list(users, ctx({ search: "u5@e.co", searchFields: ["name"] }));
     expect(r.total).toBe(0);
   });
 
   it("FAIL-CLOSED: search has no effect when searchFields is undeclared", async () => {
     // A hand-crafted `?search=` on a resource with no declared search fields
     // must not become a data oracle across every text column.
-    const r = await adapter.list(users, ctx({ db, search: "User 7" }));
+    const r = await adapter.list(users, ctx({ search: "User 7" }));
     expect(r.total).toBe(25);
   });
 
   it("list sort ascending", async () => {
-    const r = await adapter.list(
-      users,
-      ctx({ db, sort: { field: "age", dir: "asc" }, pageSize: 5 }),
-    );
+    const r = await adapter.list(users, ctx({ sort: { field: "age", dir: "asc" }, pageSize: 5 }));
     expect((r.rows[0] as any).age).toBe(20);
   });
 
   it("list sort descending", async () => {
-    const r = await adapter.list(
-      users,
-      ctx({ db, sort: { field: "age", dir: "desc" }, pageSize: 5 }),
-    );
+    const r = await adapter.list(users, ctx({ sort: { field: "age", dir: "desc" }, pageSize: 5 }));
     expect((r.rows[0] as any).age).toBe(44);
   });
 
+  it("puts rows with no value last in both sort directions", async () => {
+    sqlite
+      .prepare("INSERT INTO users (id, email, name) VALUES ('noage', 'noage@e.co', 'No age')")
+      .run();
+    const last = async (dir: "asc" | "desc") => {
+      const r = await adapter.list(users, ctx({ sort: { field: "age", dir }, pageSize: 50 }));
+      return { first: (r.rows[0] as any).age, last: (r.rows.at(-1) as any).id };
+    };
+    expect(await last("asc")).toEqual({ first: 20, last: "noage" });
+    expect(await last("desc")).toEqual({ first: 44, last: "noage" });
+    sqlite.prepare("DELETE FROM users WHERE id = 'noage'").run();
+  });
+
   it("get returns a row or null", async () => {
-    expect(await adapter.get(users, { ...ctx({ db }), id: "u3" } as any)).toMatchObject({
+    expect(await adapter.get(users, { ...ctx(), id: "u3" } as any)).toMatchObject({
       id: "u3",
     });
-    expect(await adapter.get(users, { ...ctx({ db }), id: "nope" } as any)).toBeNull();
+    expect(await adapter.get(users, { ...ctx(), id: "nope" } as any)).toBeNull();
   });
 
   it("create inserts and returns the row (non-RETURNING branch)", async () => {
@@ -225,7 +235,7 @@ describe("drizzleAdapter SQLite CRUD", () => {
       input: {},
     } as any);
 
-    expect(await adapter.get(users, { ...ctx({ db }), id: "del1" } as any)).toBeNull();
+    expect(await adapter.get(users, { ...ctx(), id: "del1" } as any)).toBeNull();
   });
 });
 

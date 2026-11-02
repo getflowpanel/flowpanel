@@ -4,22 +4,15 @@ CLAUDE.md
 .claude/
 .superpowers/
 
-# Local internal notes stay ignored, except the named quality specifications below.
+# Local internal notes stay out of the repository.
 # Anchored to repo root so it does NOT match apps/site/content/docs/.
 /docs/
-!/docs/
-/docs/*
-!/docs/spec/
-/docs/spec/*
-!/docs/spec/2026-09-08-10-of-10-from-freelance-radar.md
-!/docs/spec/2026-09-08-friction-log-freelance-radar.md
-!/docs/spec/2026-09-08-developer-experience-quality-plan.md
-!/docs/spec/2026-09-08-quality-delivery-record.md
 
 # Dependencies
 node_modules/
 
 # Build outputs
+packages/cli/src/scaffold/__tests__/fixtures/.run-*
 dist/
 build/
 !apps/site/content/docs/build/
@@ -65,3 +58,8 @@ DESIGN-IS-*/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Docs code blocks extracted for typechecking
+/apps/site/content/snippets/.generated/
+/apps/site/content/snippets/.boot-test/
+.vitest/

@@ -2,6 +2,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../lib/cn";
+import { useLabels } from "../provider/LabelsContext";
 import type { RealtimeStatus } from "../realtime/context";
 import { useRealtimeStats } from "../realtime/hooks";
 import { formatTime, LOG_LIMIT, useStatusLog } from "./useStatusLog";
@@ -9,19 +10,11 @@ import { formatTime, LOG_LIMIT, useStatusLog } from "./useStatusLog";
 /** Dev-only floating panel for debugging a FlowPanel dashboard. */
 
 const STATUS_DOT_CLASS: Record<RealtimeStatus, string> = {
-  idle: "bg-fp-text-3",
-  connecting: "bg-fp-text-3",
-  live: "bg-fp-ok",
-  reconnecting: "bg-fp-warn",
-  offline: "bg-fp-text-3",
-};
-
-const STATUS_LABEL: Record<RealtimeStatus, string> = {
-  idle: "Idle",
-  connecting: "Connecting…",
-  live: "Live",
-  reconnecting: "Reconnecting…",
-  offline: "Offline",
+  idle: "fp-bg-faint",
+  connecting: "fp-bg-faint",
+  live: "fp-bg-ok",
+  reconnecting: "fp-bg-warn",
+  offline: "fp-bg-faint",
 };
 
 const PULSING: ReadonlySet<RealtimeStatus> = new Set<RealtimeStatus>([
@@ -34,9 +27,9 @@ function StatusDot({ status }: { status: RealtimeStatus }): React.JSX.Element {
     <span
       aria-hidden
       className={cn(
-        "inline-block h-2 w-2 rounded-full",
+        "fp-inline-block fp-h-2 fp-w-2 fp-rounded-full",
         STATUS_DOT_CLASS[status],
-        PULSING.has(status) && "animate-pulse",
+        PULSING.has(status) && "fp-animate-pulse",
       )}
     />
   );
@@ -52,10 +45,10 @@ function Section({
   children: React.ReactNode;
 }): React.JSX.Element {
   return (
-    <div className="border-t border-fp-border-1 px-3 py-2.5">
-      <div className="mb-1.5 text-[10px] uppercase tracking-wide text-fp-text-2">{title}</div>
+    <div className="fp-border-t fp-border-line fp-px-3 fp-py-2.5">
+      <div className="fp-mb-1.5 fp-text-xs fp-text-soft">{title}</div>
       {children}
-      {hint ? <div className="mt-1.5 text-[10px] text-fp-text-3">{hint}</div> : null}
+      {hint ? <div className="fp-mt-1.5 fp-text-[10px] fp-text-faint">{hint}</div> : null}
     </div>
   );
 }
@@ -73,6 +66,7 @@ export function DevToolsPanel({
   const [mounted, setMounted] = React.useState(false);
   const { status, log } = useStatusLog();
   const { channels, eventCount } = useRealtimeStats();
+  const { realtime } = useLabels();
 
   React.useEffect(() => setMounted(true), []);
 
@@ -80,42 +74,48 @@ export function DevToolsPanel({
   if (!mounted || typeof document === "undefined") return null;
 
   const node = (
-    <div data-flowpanel-portal="" className="fixed bottom-4 right-4 z-50 font-mono text-fp-text-1">
+    <div
+      data-flowpanel-portal=""
+      className="fp-fixed fp-bottom-4 fp-right-4 fp-z-50 fp-font-mono fp-text-ink"
+    >
       {open ? (
         <div
           role="dialog"
           aria-label="FlowPanel DevTools"
-          className="mb-2 max-h-[70vh] w-80 overflow-auto rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-md"
+          className="fp-mb-2 fp-max-h-[70vh] fp-w-80 fp-overflow-auto fp-rounded-lg fp-border fp-border-line fp-bg-surface fp-shadow-md"
         >
-          <div className="flex items-center justify-between px-3 py-2.5">
-            <strong className="text-xs">FlowPanel DevTools</strong>
+          <div className="fp-flex fp-items-center fp-justify-between fp-px-3 fp-py-2.5">
+            <strong className="fp-text-xs">FlowPanel DevTools</strong>
             <button
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close DevTools"
-              className="-mr-2 inline-flex size-11 cursor-pointer items-center justify-center border-none bg-transparent text-sm leading-none text-fp-text-2 sm:size-9"
+              className="-fp-mr-2 fp-inline-flex fp-size-11 fp-cursor-pointer fp-items-center fp-justify-center fp-border-none fp-bg-transparent fp-text-sm fp-leading-none fp-text-soft sm:fp-size-9"
             >
               ×
             </button>
           </div>
 
           <Section title="Realtime status">
-            <div className="flex items-center gap-2">
+            <div className="fp-flex fp-items-center fp-gap-2">
               <StatusDot status={status} />
-              <span className="text-[13px]">{STATUS_LABEL[status]}</span>
+              <span className="fp-text-[13px]">{realtime[status]}</span>
             </div>
           </Section>
 
           <Section title="Status log" hint={`last ${LOG_LIMIT} transitions`}>
             {log.length === 0 ? (
-              <div className="text-[11px] text-fp-text-3">No transitions yet.</div>
+              <div className="fp-text-[11px] fp-text-faint">No transitions yet.</div>
             ) : (
-              <ul className="m-0 list-none p-0">
+              <ul className="fp-m-0 fp-list-none fp-p-0">
                 {log.map((e) => (
-                  <li key={e.id} className="flex items-center gap-2 py-0.5 text-[11px]">
-                    <span className="text-fp-text-3 tabular-nums">{formatTime(e.at)}</span>
+                  <li
+                    key={e.id}
+                    className="fp-flex fp-items-center fp-gap-2 fp-py-0.5 fp-text-[11px]"
+                  >
+                    <span className="fp-text-faint fp-tabular-nums">{formatTime(e.at)}</span>
                     <StatusDot status={e.status} />
-                    <span>{STATUS_LABEL[e.status]}</span>
+                    <span>{realtime[e.status]}</span>
                   </li>
                 ))}
               </ul>
@@ -124,11 +124,11 @@ export function DevToolsPanel({
 
           <Section title="Active channels" hint={`${channels.length} on one EventSource`}>
             {channels.length === 0 ? (
-              <div className="text-[11px] text-fp-text-3">No active channels.</div>
+              <div className="fp-text-[11px] fp-text-faint">No active channels.</div>
             ) : (
-              <ul className="m-0 list-none p-0">
+              <ul className="fp-m-0 fp-list-none fp-p-0">
                 {channels.map((ch) => (
-                  <li key={ch} className="py-px text-[11px] tabular-nums">
+                  <li key={ch} className="fp-py-px fp-text-[11px] fp-tabular-nums">
                     {ch}
                   </li>
                 ))}
@@ -137,7 +137,7 @@ export function DevToolsPanel({
           </Section>
 
           <Section title="Events received" hint="since panel mounted">
-            <div className="text-xl font-semibold tabular-nums">{eventCount}</div>
+            <div className="fp-text-xl fp-font-semibold fp-tabular-nums">{eventCount}</div>
           </Section>
         </div>
       ) : null}
@@ -147,7 +147,7 @@ export function DevToolsPanel({
         onClick={() => setOpen((v) => !v)}
         aria-label="Toggle FlowPanel DevTools"
         aria-expanded={open}
-        className="ml-auto flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-fp-border-1 bg-fp-bg-1 px-3 py-1.5 text-xs font-semibold text-fp-text-1 shadow-fp-md"
+        className="fp-ml-auto fp-flex fp-min-h-11 fp-cursor-pointer fp-items-center fp-gap-1.5 fp-rounded-full fp-border fp-border-line fp-bg-surface fp-px-3 fp-py-1.5 fp-text-xs fp-font-semibold fp-text-ink fp-shadow-md"
       >
         <StatusDot status={status} />
         fp

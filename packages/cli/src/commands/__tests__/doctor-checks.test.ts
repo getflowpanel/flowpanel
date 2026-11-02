@@ -42,7 +42,7 @@ async function check(name: string): Promise<Check> {
 describe("doctor — Next.js check", () => {
   it("says Next.js is missing rather than offering an upgrade", async () => {
     await seedPkg({});
-    const nextCheck = await check("Next.js ≥ 16.3 < 17");
+    const nextCheck = await check("Next.js 15.5 or 16");
     expect(nextCheck.ok).toBe(false);
     expect(nextCheck.hint).toContain("not in package.json");
     expect(nextCheck.hint).not.toContain("Upgrade:");
@@ -50,7 +50,7 @@ describe("doctor — Next.js check", () => {
 
   it("offers an upgrade when a too-old Next.js is installed", async () => {
     await seedPkg({ next: "15.0.0" });
-    const nextCheck = await check("Next.js ≥ 16.3 < 17");
+    const nextCheck = await check("Next.js 15.0.0 (15.5 or 16)");
     expect(nextCheck.ok).toBe(false);
     expect(nextCheck.hint).toContain("Found 15.0.0");
   });
@@ -80,6 +80,16 @@ describe("doctor — eject marker check", () => {
     const marker = await check("Ejected admin pages carry the eject marker");
     expect(marker.ok).toBe(false);
     expect(marker.hint).toContain(path.join("app", "admin", "orders", "page.tsx"));
+  });
+
+  it("ignores the layout and not-found files init writes beside the catch-all", async () => {
+    await seedPkg({ next: "16.3.0" });
+    await fs.mkdir(path.join(tmp, "app/admin"), { recursive: true });
+    await fs.writeFile(path.join(tmp, "app/admin/layout.tsx"), "export default 1;\n");
+    await fs.writeFile(path.join(tmp, "app/admin/not-found.tsx"), "export default 1;\n");
+    const { checks } = await runDoctorChecks(tmp, false);
+    expect(checks.find((c) => c.name.startsWith("Ejected admin pages"))).toBeUndefined();
+    expect(checks.find((c) => c.name === "Not-found page")?.ok).toBe(true);
   });
 
   it("ignores the catch-all route segment", async () => {

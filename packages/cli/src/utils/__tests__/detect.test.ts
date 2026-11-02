@@ -12,10 +12,9 @@ import {
   detectPackageManagerDetails,
   detectPathAlias,
   detectSchema,
-  detectStack,
-  isSupportedNextVersion,
   platformBin,
   pmCommands,
+  specifierFrom,
 } from "../detect";
 
 describe("detect*", () => {
@@ -49,17 +48,6 @@ describe("detect*", () => {
     await fs.rm(tmp, { recursive: true, force: true });
   });
 
-  it("detectStack pulls Next, TS, Drizzle, Tailwind", async () => {
-    const s = await detectStack(tmp);
-    expect(s.nextjs).toBe("^16.3.0");
-    expect(s.nextjsMajor).toBe(16);
-    expect(s.typescript).toBe(true);
-    expect(s.drizzle).toBe(true);
-    expect(s.prisma).toBe(false);
-    expect(s.tailwind).toBe(true);
-    expect(s.tailwindMajor).toBe(4);
-  });
-
   it("detectDbClient returns @/ path when src/server/lib/db.ts exists", async () => {
     expect(await detectDbClient(tmp)).toBe("@/server/lib/db");
   });
@@ -79,16 +67,6 @@ describe("detect*", () => {
     } finally {
       await fs.rm(empty, { recursive: true, force: true });
     }
-  });
-});
-
-describe("isSupportedNextVersion", () => {
-  it.each(["^16.3.0", "16.3.1", ">=16.4.0 <17"])("accepts %s", (version) => {
-    expect(isSupportedNextVersion(version)).toBe(true);
-  });
-
-  it.each([null, "latest", "^15.5.23", "^16.2.12", "^17.0.0"])("rejects %s", (version) => {
-    expect(isSupportedNextVersion(version)).toBe(false);
   });
 });
 
@@ -257,6 +235,17 @@ describe("aliasOf", () => {
   });
   it("strips .ts and .tsx extensions", () => {
     expect(aliasOf("src/db/client.tsx", "strip-src")).toBe("@/db/client");
+  });
+});
+
+describe("specifierFrom", () => {
+  it("imports a project path through @/ and one outside the project relatively", () => {
+    expect(specifierFrom("lib/prisma.ts", "app/generated/prisma/client", "root")).toBe(
+      "@/app/generated/prisma/client",
+    );
+    expect(specifierFrom("lib/prisma.ts", "../shared/prisma/client", "root")).toBe(
+      "../../shared/prisma/client",
+    );
   });
 });
 

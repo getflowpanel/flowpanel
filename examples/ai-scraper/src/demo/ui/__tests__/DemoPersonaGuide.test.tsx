@@ -14,8 +14,9 @@ describe("ScrapeAI demo personas", () => {
   it("presents the demo context, role switcher, and GitHub exit in one banner", async () => {
     const html = await renderGuide("admin");
 
-    expect(html).toContain('aria-label="FlowPanel demo"');
-    expect(html).toContain("FlowPanel demo");
+    expect(html).toContain('aria-label="ScrapeAI"');
+    expect(html).toContain(">ScrapeAI</a>");
+    expect(html).not.toContain("FlowPanel demo");
     expect(html).toContain('aria-label="Demo persona"');
     expect(html).toContain('aria-pressed="true"');
     expect(html).toContain('href="https://github.com/getflowpanel/flowpanel"');

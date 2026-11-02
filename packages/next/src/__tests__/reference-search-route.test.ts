@@ -4,13 +4,13 @@ import { referenceSearchRoute } from "../actions/reference-search";
 
 interface FixtureOpts {
   role?: string;
-  sourceRequireRole?: string;
-  targetRequireRole?: string;
-  fieldRequireRole?: string;
+  sourceReadAccess?: string;
+  targetReadAccess?: string;
+  fieldReadAccess?: string;
   registerTarget?: boolean;
   /** All rows a real DB would hold — `list` filters by `ctx.search` server-side. */
   targetRows?: { id: string; email: string }[];
-  scopeCapture?: { applyScope?: unknown; scopeRequired?: unknown }[];
+  scopeCapture?: { boundScope?: unknown }[];
   searchFieldsCapture?: (string[] | undefined)[];
   listThrows?: boolean;
 }
@@ -22,8 +22,7 @@ function makeConfig(opts: FixtureOpts) {
 
   const list = vi.fn(async (_ref: unknown, listCtx: Record<string, unknown>) => {
     opts.scopeCapture?.push({
-      applyScope: listCtx.applyScope,
-      scopeRequired: listCtx.scopeRequired,
+      boundScope: listCtx.boundScope,
     });
     opts.searchFieldsCapture?.push(listCtx.searchFields as string[] | undefined);
     if (opts.listThrows) throw new Error("db exploded");
@@ -47,14 +46,14 @@ function makeConfig(opts: FixtureOpts) {
     ref: { __name: "orders" },
     options: {
       columns: [],
-      ...(opts.sourceRequireRole ? { requireRole: opts.sourceRequireRole } : {}),
+      ...(opts.sourceReadAccess ? { access: { read: opts.sourceReadAccess } } : {}),
+      ...(opts.fieldReadAccess ? { fieldAccess: { ownerId: { read: opts.fieldReadAccess } } } : {}),
       create: {
         fields: [
           {
             name: "ownerId",
             type: "reference",
             reference: { resource: "users", labelField: "email" },
-            ...(opts.fieldRequireRole ? { requireRole: opts.fieldRequireRole } : {}),
           },
           { name: "title" },
         ],
@@ -67,7 +66,7 @@ function makeConfig(opts: FixtureOpts) {
     ref: { __name: "users" },
     options: {
       columns: [],
-      ...(opts.targetRequireRole ? { requireRole: opts.targetRequireRole } : {}),
+      ...(opts.targetReadAccess ? { access: { read: opts.targetReadAccess } } : {}),
     },
   } as never;
 
@@ -127,7 +126,7 @@ describe("referenceSearchRoute", () => {
   });
 
   it("enforces resource-level authorization: 403 when the session lacks the source resource's role", async () => {
-    const { config } = makeConfig({ role: "staff", sourceRequireRole: "admin" });
+    const { config } = makeConfig({ role: "staff", sourceReadAccess: "admin" });
     const handler = referenceSearchRoute(config);
     const res = await handler(reqFor("orders", "ownerId"), {
       params: paramsFor("orders", "ownerId"),
@@ -135,8 +134,8 @@ describe("referenceSearchRoute", () => {
     expect(res.status).toBe(403);
   });
 
-  it("enforces field-level authorization: 403 when the session lacks the reference field's role", async () => {
-    const { config } = makeConfig({ role: "staff", fieldRequireRole: "admin" });
+  it("enforces field-level authorization: 403 when fieldAccess hides the reference field", async () => {
+    const { config } = makeConfig({ role: "staff", fieldReadAccess: "admin" });
     const handler = referenceSearchRoute(config);
     const res = await handler(reqFor("orders", "ownerId"), {
       params: paramsFor("orders", "ownerId"),
@@ -145,7 +144,7 @@ describe("referenceSearchRoute", () => {
   });
 
   it("answers 403 — never ok:true — when the session lacks the TARGET resource's role", async () => {
-    const { config, list } = makeConfig({ role: "staff", targetRequireRole: "admin" });
+    const { config, list } = makeConfig({ role: "staff", targetReadAccess: "admin" });
     const handler = referenceSearchRoute(config);
     const res = await handler(reqFor("orders", "ownerId"), {
       params: paramsFor("orders", "ownerId"),
@@ -187,7 +186,7 @@ describe("referenceSearchRoute", () => {
   });
 
   it("respects tenant scope: binds the target resource's scope predicate onto the list query", async () => {
-    const scopeCapture: { applyScope?: unknown; scopeRequired?: unknown }[] = [];
+    const scopeCapture: { boundScope?: unknown }[] = [];
     const { config } = makeConfig({ scopeCapture });
     // No `config.scope` configured here — `scopeBinding` still runs and this
     // asserts the route always threads its result through, so a resource
@@ -196,7 +195,7 @@ describe("referenceSearchRoute", () => {
     const handler = referenceSearchRoute(config);
     await handler(reqFor("orders", "ownerId", ""), { params: paramsFor("orders", "ownerId") });
     expect(scopeCapture).toHaveLength(1);
-    expect(scopeCapture[0]?.scopeRequired).toBe(false);
+    expect(scopeCapture[0]?.boundScope).toBeUndefined();
   });
 
   it("returns an initial page (no query) for a fresh picker open", async () => {
@@ -232,14 +231,13 @@ describe("referenceSearchRoute", () => {
   });
 
   it("binds the target's scope predicate to the request's scope value", async () => {
-    const scopeCapture: { applyScope?: unknown; scopeRequired?: unknown }[] = [];
+    const scopeCapture: { boundScope?: unknown }[] = [];
     const scopePredicate = vi.fn((scope: unknown, query: unknown) => ({ scope, query }));
     const { config } = makeConfig({ scopeCapture });
     withGlobalScope(config, { source: "bypass", target: scopePredicate });
     const handler = referenceSearchRoute(config);
     await handler(reqFor("orders", "ownerId", ""), { params: paramsFor("orders", "ownerId") });
-    expect(scopeCapture[0]?.scopeRequired).toBe(true);
-    (scopeCapture[0]?.applyScope as (q: unknown) => unknown)("q");
+    (scopeCapture[0]!.boundScope as { apply(q: unknown): unknown }).apply("q");
     expect(scopePredicate).toHaveBeenCalledWith({ tenantId: "t1" }, "q");
   });
 });

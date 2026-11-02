@@ -11,10 +11,6 @@ interface BreadcrumbsProps {
   items: BreadcrumbItem[];
 }
 
-/**
- * Top-of-page crumb trail: flowpanel / Docs / Section / Current page.
- * The last item is treated as the current page (not linked).
- */
 export function Breadcrumbs({ items }: BreadcrumbsProps) {
   const all: BreadcrumbItem[] = [
     { label: siteConfig.name, href: "/" },

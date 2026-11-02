@@ -1,0 +1,71 @@
+# FlowPanel — Understand FlowPanel
+
+## How FlowPanel works
+
+How config becomes an admin, what runs on the server and in the browser, and the order of checks on every request.
+
+Docs: https://flowpanel.tech/docs/understand/how-flowpanel-works
+
+FlowPanel compiles your config once, then serves every admin page and API request through one server pipeline that checks access before it touches data.
+
+### From schema to compiled admin
+
+1. A resource points at a Drizzle table or a Prisma model name.
+2. The adapter supplies the queries and the column metadata.
+3. `resource()`, `dashboard()`, `page()` and the other builders return typed definitions and do no I/O.
+4. `defineAdmin()` resolves names and defaults and validates columns, references, routes and action keys. A mistake throws here, at startup.
+5. `createFlowpanel(config)` binds the result to the page, HTTP handlers, client metadata and event publisher.
+
+### Server and browser
+
+| Runs | What |
+| --- | --- |
+| Once, at startup | Config, adapter, compilation, publisher |
+| On the server, per request | Session, role, access, scope, queries and writes, column renderers, widget queries, action `run` |
+| In the browser | Tables, forms, drawers, client hooks, the SSE subscription |
+
+The config, database client and secrets never reach the browser. Do not import `flowpanel.config.ts` from a `"use client"` module. The browser receives serialized metadata and the declared fields of the rows on screen. A column renderer may return a client component; its props must be serializable.
+
+### Reads
+
+1. Resolve the session, actor ID and role.
+2. Check the admin-wide gate and the resource's access rule.
+3. Resolve the tenant scope and bind the resource predicate.
+4. Accept only declared search, filter, sort and pagination fields.
+5. Query through the adapter.
+6. Drop fields the role may not read and serialize the declared fields.
+
+### Writes
+
+1. Authenticate and authorize, before looking at the input.
+2. Bind scope and load the target row.
+3. Reject fields the operation may not write.
+4. Fill server defaults and validate.
+5. Run the adapter or the action's `run`.
+6. After commit, emit audit, realtime and revalidation.
+
+A failure in step 6 is logged on the server and leaves the write committed; the response reports the write as done ([post-commit effects](/docs/reference/runtime-contracts#post-commit-effects)). Generated pages, API calls, forms, actions, imports and drawers all use this pipeline. Your own pages, queries and workers do not: apply scope and policies there yourself.
+
+## Adapters and introspection
+
+Understand how FlowPanel maps your schema to resource operations and metadata.
+
+Docs: https://flowpanel.tech/docs/understand/adapters
+
+An adapter is the only part of FlowPanel that talks to the database. FlowPanel ships one for Drizzle and one for Prisma; the runtime depends on the adapter interface, not on either ORM.
+
+### Operations and introspection
+
+An adapter's operations list, get, create, update, delete and optionally restore rows. Each receives the request context: pagination, filters, sort, the projected fields, the scope binding and the input.
+
+Introspection reports each resource's primary key and scalar columns with their types. FlowPanel uses it to fill omitted `columns`, pick generated form controls and validate the names in your config. It does not turn relations into joins.
+
+### Drizzle and Prisma
+
+Drizzle receives a table object, so TypeScript reads the row from `$inferSelect`, and scope becomes an SQL predicate. Prisma receives a model name string resolved through DMMF, so its row type comes from `FlowpanelResources`, and scope merges into the `where` object. See [Drizzle setup](/docs/introduction/drizzle) and [Prisma setup](/docs/introduction/prisma).
+
+### Custom adapters
+
+Write one for a data source with stable CRUD that can honour scope, projection, the search allowlist and pagination, and test it against real storage. For one aggregate or joined screen, a custom query in a widget or page is simpler.
+
+The contract, method by method: [Adapter reference](/docs/reference/adapters).

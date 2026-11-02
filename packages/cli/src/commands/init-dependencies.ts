@@ -59,17 +59,14 @@ export async function inspectRequirements(
   );
 }
 
+/** Not installed, or installed but absent from package.json, where the next install would prune it. */
 export function missingDependencies(
   inspected: ReadonlyArray<InspectedDependency>,
 ): InspectedDependency[] {
-  return inspected.filter(({ state }) => state.installed === null);
+  return inspected.filter(({ state }) => state.installed === null || state.declaration === null);
 }
 
-/**
- * A declaration may be a workspace/file/tag/range pin the user chose, and a plain
- * install honours it. A peer declaration is not one a manager installs, so it
- * still needs an add.
- */
+// A peer declaration is not one a manager installs on a plain install, so it still needs an add.
 function installsAsDeclared({ state }: InspectedDependency): boolean {
   return state.declaration !== null && state.declaration.section !== "peerDependencies";
 }
@@ -102,7 +99,7 @@ export async function installMissing(input: {
   for (const entry of input.missing) {
     if (attempts.length > 0) {
       const current = await input.inspect(input.cwd, entry.dependency.pkg);
-      if (current.installed !== null) continue;
+      if (current.installed !== null && current.declaration !== null) continue;
     }
     const args = installArgs(entry, input.pmc);
     const result = await input.run(input.pm, args, input.cwd);
@@ -147,7 +144,9 @@ export function dependencyReport(input: {
     const detail =
       entry.state.error === "invalid-manifest"
         ? `${pkg} is installed in this project but its package manifest cannot be read.`
-        : `The package manager completed, but ${pkg} did not resolve in this project.`;
+        : entry.state.installed === null
+          ? `The package manager completed, but ${pkg} did not resolve in this project.`
+          : `${pkg} is installed but missing from package.json, so the next install would remove it.`;
     add(pkg, detail, recoveryFor(entry, input.pm, input.pmc));
   }
 
@@ -168,9 +167,7 @@ export function dependencyReport(input: {
     add("@flowpanel/cli", cliMismatch, input.pmc.addDisplay(pinnedSpec("@flowpanel/cli"), true));
   }
 
-  // A manager that exits non-zero over an unrelated package still leaves
-  // FlowPanel installable. Say what it said, but do not invent a failure with
-  // no failing package and no command to run.
+  // A manager can exit non-zero over an unrelated package and still leave FlowPanel installable.
   const ok = failed.length === 0;
   return {
     ok,
@@ -179,8 +176,7 @@ export function dependencyReport(input: {
     ),
     failed,
     recovery,
-    // A package that never arrived is explained by the manager; one that arrived
-    // and does not fit is explained by the mismatch.
+    // A package that never arrived is explained by the manager; a wrong-fit one by the mismatch.
     reason: ok ? null : ((hasUnresolved ? input.installFailure : null) ?? details[0] ?? null),
     warning: ok ? input.installFailure : null,
   };

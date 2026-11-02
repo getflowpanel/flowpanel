@@ -4,7 +4,7 @@ import { drizzleAdapter } from "@flowpanel/adapter-drizzle";
 import type { AdapterKind } from "@flowpanel/core";
 import { expectAssignable } from "tsd";
 
-// `kind` is an open union since ADR 0016 — the factory still labels itself.
+// `kind` is an open union; the factory still labels itself.
 declare const db: object;
 const a = drizzleAdapter({ db, schema: {}, dialect: "pg" });
 expectAssignable<{ kind: AdapterKind }>(a);

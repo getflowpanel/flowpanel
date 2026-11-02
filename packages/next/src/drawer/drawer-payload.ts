@@ -1,0 +1,291 @@
+import type {
+  ColumnDef,
+  ColumnFormat,
+  DrawerConfig,
+  DrawerTab,
+  RequestContext,
+  ResolvedAdminConfig,
+  ResourceConfig,
+  WidgetContext,
+} from "@flowpanel/core";
+import { mergeLabels } from "@flowpanel/core";
+import { isColumnDef } from "../runtime/column-defs";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
+import { buildHref } from "../runtime/href";
+import { markdownFields, withMarkdown } from "../runtime/markdown";
+import { projectRowFields } from "../runtime/project-row";
+import { filterColumnsByReadableFields, resolveReadableColumns } from "../runtime/readable-fields";
+import { type RecordActions, recordActions } from "../runtime/record-actions";
+import { readRelatedRows } from "../runtime/require-authorized";
+import { resolveReferences } from "../runtime/resolve-references";
+import { singularLabel, singularTitle } from "../runtime/resource-title";
+import { rowKeyOf } from "../runtime/row-identity";
+import { visibleWidgets } from "../runtime/widget-access";
+import { buildWidgetContext } from "../runtime/widget-context";
+import type { SerializedDrawerAction } from "./drawer-action";
+import { prerenderDrawerCells } from "./prerender";
+import { fieldRenders, type SerializedFieldList, serializeFields } from "./serialize-fields";
+import { type SerializedWidget, serializeWidget } from "./serialize-widget";
+
+export type { SerializedDrawerAction, SerializedFieldList, SerializedWidget };
+
+export type SerializedDrawerTab =
+  | { kind: "fields"; key: string; label: string; fields: SerializedFieldList }
+  | {
+      kind: "resource";
+      key: string;
+      label: string;
+      resource: string;
+      rows: Record<string, unknown>[];
+      columns: string[];
+      /** Column → its header, as the related list labels it. */
+      columnLabels: Record<string, string>;
+    }
+  | {
+      kind: "widgets";
+      key: string;
+      label: string;
+      widgets: SerializedWidget[];
+    };
+
+export interface DrawerPayload extends Omit<RecordActions, "drawerActions"> {
+  row: Record<string, unknown>;
+  title: string;
+  /** The line under the title, from `drawer.subtitle`. */
+  subtitle?: string;
+  /** The resource's display label, so the drawer never shows the raw registry name. */
+  resourceLabel: string;
+  width: "sm" | "md" | "lg" | "xl" | "2xl" | "full";
+  fields: SerializedFieldList;
+  tabs: SerializedDrawerTab[] | null;
+  actions: SerializedDrawerAction[];
+  /** Field → HTML for fields whose column declares a `render`. */
+  prerendered: Record<string, string>;
+  /** Field → the label it shows on every other surface, so drawer rows read like their table headers. */
+  labels: Record<string, string>;
+  /** Field → column `format`. Plain data, rendered client-side exactly as the table does. */
+  formats: Record<string, ColumnFormat>;
+  /** Field → the record a `reference` column points at, so a drawer opened from a link reads like one opened from its row. */
+  references: Record<string, { label: string; href: string }>;
+  /** The record's own page, when the resource configures `detail`. */
+  detailHref: string | null;
+  /** Soft-deleted, shown only to a caller who could restore it. */
+  deleted: boolean;
+  /** The notice over a deleted row: "This customer was deleted". */
+  deletedTitle?: string;
+  /** A deleted row whose resource takes updates, so Restore can bring it back. */
+  restorable: boolean;
+}
+
+/** Field → label and link of each `reference` column's record, through the target's own read rules. */
+async function referenceLinks(
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  columns: ReadonlyArray<keyof Record<string, unknown> | ColumnDef<Record<string, unknown>>>,
+  row: Record<string, unknown>,
+): Promise<Record<string, { label: string; href: string }>> {
+  const labels = await resolveReferences(config, reqCtx, columns, [row]);
+  const out: Record<string, { label: string; href: string }> = {};
+  for (const column of columns.filter(isColumnDef)) {
+    const field = String(column.field ?? "");
+    const id = row[field];
+    const label = labels.get(field)?.get(String(id));
+    if (!column.reference || id === null || id === undefined || label === undefined) continue;
+    out[field] = {
+      label: String(label),
+      href: buildHref(config, column.reference.resource, String(id)),
+    };
+  }
+  return out;
+}
+
+/** Map of field → column `format`, so drawer rows format like their table cells. */
+function buildFieldFormats(columns: ReadonlyArray<unknown>): Record<string, ColumnFormat> {
+  const out: Record<string, ColumnFormat> = {};
+  for (const col of columns.filter(isColumnDef)) {
+    if (col.field && col.format !== undefined) out[col.field] = col.format;
+  }
+  return out;
+}
+
+/** Field → the label it shows everywhere else, for each field the reader may see. */
+function buildFieldLabels(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  row: Record<string, unknown>,
+): Record<string, string> {
+  const labelOf = fieldLabels(resource, [], namedFields(config));
+  return Object.fromEntries(Object.keys(row).map((field) => [field, labelOf(field)]));
+}
+
+async function serializeTab(
+  tab: DrawerTab,
+  row: Record<string, unknown>,
+  readableSourceFields: ReadonlySet<string>,
+  config: ResolvedAdminConfig,
+  reqCtx: RequestContext,
+  req: Request,
+  rowKey: string,
+  resource: string,
+): Promise<SerializedDrawerTab> {
+  if ("fields" in tab) {
+    return {
+      kind: "fields",
+      key: tab.key,
+      label: tab.label,
+      fields: serializeFields(tab.fields, readableSourceFields),
+    };
+  }
+  if ("widgets" in tab) {
+    const widgetCtx: WidgetContext = buildWidgetContext(
+      config,
+      reqCtx,
+      req,
+      { from: new Date(0), to: new Date(), preset: "custom" },
+      row,
+      rowKey,
+      resource,
+    );
+    const widgets: SerializedWidget[] = [];
+    for (const w of await visibleWidgets(tab.widgets, reqCtx)) {
+      widgets.push(await serializeWidget(w, config, reqCtx, widgetCtx));
+    }
+    return { kind: "widgets", key: tab.key, label: tab.label, widgets };
+  }
+  const target = config.resourcesByName.get(tab.resource);
+  const rows = target
+    ? await readRelatedRows(config, target, reqCtx, {
+        filters: typeof tab.filter === "function" ? tab.filter(row) : {},
+        pageSize: 20,
+      })
+    : null;
+  if (!target || !rows) {
+    return {
+      kind: "resource",
+      key: tab.key,
+      label: tab.label,
+      resource: tab.resource,
+      rows: [],
+      columns: [],
+      columnLabels: {},
+    };
+  }
+  const readableColumns = await resolveReadableColumns(
+    target.options.columns as never[],
+    target.options.fieldAccess,
+    reqCtx,
+  );
+  const columns = readableColumns.map((c) => {
+    if (typeof c === "string") return c;
+    const col = c as { field?: string };
+    return String(col.field ?? "");
+  });
+  const shown = columns.filter((c) => c);
+  const labelOf = fieldLabels(target, [], namedFields(config));
+  return {
+    kind: "resource",
+    key: tab.key,
+    label: tab.label,
+    resource: tab.resource,
+    rows,
+    columns: shown,
+    columnLabels: Object.fromEntries(shown.map((c) => [c, labelOf(c)])),
+  };
+}
+
+export interface DrawerPayloadArgs {
+  config: ResolvedAdminConfig;
+  resource: ResourceConfig;
+  drawer: DrawerConfig;
+  name: string;
+  id: string;
+  row: Record<string, unknown>;
+  readable: ReadonlySet<string>;
+  reqCtx: RequestContext;
+  req: Request;
+  deleted?: boolean;
+}
+
+function deletedTitle(config: ResolvedAdminConfig, resource: ResourceConfig, name: string): string {
+  const labels = mergeLabels(config.labels);
+  return singularTitle(labels.detail.deleted, resource, name, labels.dateRange.locale);
+}
+
+/** Everything the drawer shows for one row, built from fields the caller may read. */
+export async function buildDrawerPayload({
+  config,
+  resource,
+  drawer,
+  name,
+  id,
+  row,
+  readable,
+  reqCtx,
+  req,
+  deleted = false,
+}: DrawerPayloadArgs): Promise<DrawerPayload> {
+  const projectedRow = projectRowFields(row, readable);
+  const rowKey = rowKeyOf(resource);
+  const title =
+    typeof drawer.title === "function"
+      ? String(drawer.title(projectedRow) ?? "")
+      : String(projectedRow[rowKey] ?? "");
+
+  const tabs: SerializedDrawerTab[] | null = drawer.tabs
+    ? await Promise.all(
+        drawer.tabs.map((t) =>
+          serializeTab(t, projectedRow, readable, config, reqCtx, req, rowKey, name),
+        ),
+      )
+    : null;
+
+  const { drawerActions, ...menu } = await recordActions(
+    config,
+    resource,
+    name,
+    id,
+    projectedRow,
+    reqCtx,
+    deleted,
+  );
+  const columns = filterColumnsByReadableFields(
+    (resource.options.columns as ReadonlyArray<
+      keyof Record<string, unknown> | ColumnDef<Record<string, unknown>>
+    >) ?? [],
+    readable,
+  );
+  return {
+    row: projectedRow,
+    title,
+    ...(drawer.subtitle ? { subtitle: String(drawer.subtitle(projectedRow) ?? "") } : {}),
+    resourceLabel: singularLabel(resource, name),
+    width: drawer.width ?? "lg",
+    fields: serializeFields(drawer.fields ?? "*", readable),
+    tabs,
+    actions: drawerActions,
+    prerendered: await prerenderDrawerCells(
+      columns,
+      withMarkdown(
+        fieldRenders(
+          [
+            drawer.fields,
+            ...(drawer.tabs ?? []).map((t) => ("fields" in t ? t.fields : undefined)),
+          ],
+          readable,
+        ),
+        markdownFields(resource),
+        readable,
+      ),
+      projectedRow,
+      reqCtx,
+    ),
+    labels: buildFieldLabels(config, resource, projectedRow),
+    formats: buildFieldFormats(columns),
+    references: await referenceLinks(config, reqCtx, columns, projectedRow),
+    detailHref: resource.options.detail ? buildHref(config, name, id) : null,
+    deleted,
+    ...(deleted ? { deletedTitle: deletedTitle(config, resource, name) } : {}),
+    restorable: deleted && !resource.options.update?.disabled,
+    ...menu,
+  };
+}

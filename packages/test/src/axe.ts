@@ -1,16 +1,25 @@
 import type { Page } from "@playwright/test";
+import type { SmokeA11yOptions } from "./types";
 import type { A11yScanner } from "./walk";
 
 const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 interface AxeResults {
-  violations: Array<{ id: string; impact?: string | null }>;
+  violations: Array<{
+    id: string;
+    impact?: string | null;
+    nodes?: Array<{ target?: unknown[] }>;
+  }>;
 }
 
 interface AxeRun {
   withTags(tags: string[]): AxeRun;
+  exclude(selector: string): AxeRun;
+  disableRules(rules: string[]): AxeRun;
   analyze(): Promise<AxeResults>;
 }
+
+const MAX_TARGETS = 5;
 
 type AxeBuilderCtor = new (options: { page: Page }) => AxeRun;
 
@@ -28,17 +37,34 @@ async function loadAxeBuilder(): Promise<AxeBuilderCtor | null> {
 }
 
 /**
- * `@axe-core/playwright` is an optional peer: a project that has not installed
- * it gets the walk without the scan rather than a resolution failure.
+ * Third-party frames, such as a queue's bull-board, are left out: their markup is not the admin's to fix.
+ * `@axe-core/playwright` is an optional peer, needed only for `a11y: true`. Asking for the scan
+ * without it fails, so a project that forgot the install never reads a pass it did not earn.
  */
-export async function createAxeScanner(page: Page): Promise<A11yScanner | null> {
+export async function createAxeScanner(
+  page: Page,
+  options: SmokeA11yOptions = {},
+): Promise<A11yScanner> {
   const AxeBuilder = await loadAxeBuilder();
-  if (!AxeBuilder) return null;
+  if (!AxeBuilder) {
+    throw new Error(
+      "smokeAdmin: a11y: true needs @axe-core/playwright. Install it as a dev dependency, " +
+        "or drop a11y.",
+    );
+  }
+  const disabled = options.disableRules ?? [];
   return async () => {
-    const { violations } = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-    return violations.map((violation) => ({
-      id: violation.id,
-      ...(violation.impact ? { impact: violation.impact } : {}),
-    }));
+    const run = new AxeBuilder({ page }).withTags(WCAG_TAGS).exclude("iframe");
+    const { violations } = await (disabled.length > 0 ? run.disableRules(disabled) : run).analyze();
+    return violations.map((violation) => {
+      const targets = (violation.nodes ?? [])
+        .slice(0, MAX_TARGETS)
+        .map((node) => (node.target ?? []).map(String).join(" "));
+      return {
+        id: violation.id,
+        ...(violation.impact ? { impact: violation.impact } : {}),
+        ...(targets.length > 0 ? { targets } : {}),
+      };
+    });
   };
 }

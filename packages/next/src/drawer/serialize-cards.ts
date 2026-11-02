@@ -1,25 +1,30 @@
 import type {
   BarRow,
   FunnelStep,
-  KvItem,
-  ListRow,
   NumericFormat,
+  RealtimeOption,
   RequestContext,
   ResolvedAdminConfig,
-  StatValue,
   WidgetConfig,
   WidgetContext,
 } from "@flowpanel/core";
 import { resolveFormatting, runWithRequestContext } from "@flowpanel/core";
-import { kvDisplay } from "../runtime/kv-display";
-import { statDisplay, statResultOf } from "../runtime/stat-result";
+import type { CardDate } from "@flowpanel/react";
+import { barRows } from "../runtime/bar-rows";
+import { type ListCardData, listCardData } from "../runtime/list-card-data";
+import { inAmount } from "../runtime/minor-units";
+import { realtimeProp } from "../runtime/realtime-channels";
+import { type LinkedRow, linkRows, resolveLink } from "../runtime/resolve-link";
+import { statDisplay } from "../runtime/stat-result";
+import { thresholdTone } from "../runtime/threshold-tone";
+import { kvItems, resolveItem } from "../runtime/widget-items";
 
 /** Wire-safe shape of the card widgets a drawer renders with the dashboard's own components. */
 export type SerializedCardWidget =
   | {
       kind: "stat";
       label: string;
-      value: number | string;
+      value: number | string | CardDate;
       format?: NumericFormat;
       hint?: string;
       href?: string;
@@ -30,7 +35,15 @@ export type SerializedCardWidget =
   | {
       kind: "kv";
       label?: string;
-      items: { label: string; value: string; tone?: string; href?: string }[];
+      items: {
+        label: string;
+        value: string | CardDate;
+        tone?: string;
+        href?: string;
+        long?: true;
+        rest?: string;
+        more?: string;
+      }[];
       columns?: 1 | 2;
       span?: number;
       realtime?: string | string[];
@@ -38,8 +51,11 @@ export type SerializedCardWidget =
   | {
       kind: "bars";
       label?: string;
-      rows: BarRow[];
+      rows: LinkedRow<BarRow>[];
       format?: NumericFormat;
+      max?: number;
+      share?: boolean;
+      goodWhen?: "up" | "down" | "neutral";
       emptyState: string;
       span?: number;
       realtime?: string | string[];
@@ -47,30 +63,21 @@ export type SerializedCardWidget =
   | {
       kind: "funnel";
       label?: string;
-      steps: FunnelStep[];
+      steps: LinkedRow<FunnelStep>[];
       format?: NumericFormat;
+      alertDrop?: number;
       emptyState: string;
       span?: number;
       realtime?: string | string[];
     }
-  | {
-      kind: "list";
-      label?: string;
-      rows: ListRow[];
-      emptyState: string;
-      span?: number;
-      realtime?: string | string[];
-    };
+  | ({ kind: "list"; span?: number; realtime?: string | string[]; emptyState: string } & Omit<
+      ListCardData,
+      "emptyState"
+    >);
 
-async function resolveStat(
-  value: StatValue | ((ctx: WidgetContext) => Promise<StatValue>),
-  reqCtx: RequestContext,
-  ctx: WidgetContext,
-): Promise<StatValue> {
-  return typeof value === "function"
-    ? await runWithRequestContext(reqCtx, () => value(ctx))
-    : value;
-}
+/** An empty state as text for the wire; a node only renders on a page, so it gives way to `fallback`. */
+const textOr = (value: unknown, fallback: string): string =>
+  typeof value === "string" ? value : fallback;
 
 /** `null` for a widget kind this module does not own. */
 export async function serializeCardWidget(
@@ -79,26 +86,23 @@ export async function serializeCardWidget(
   reqCtx: RequestContext,
   ctx: WidgetContext,
 ): Promise<SerializedCardWidget | null> {
-  const common = (options: { span?: number; realtime?: string | string[] }) => ({
+  const common = (options: { span?: number; realtime?: RealtimeOption }) => ({
     ...(options.span ? { span: options.span } : {}),
-    ...(options.realtime ? { realtime: options.realtime } : {}),
+    ...realtimeProp(options.realtime),
   });
   switch (w.kind) {
     case "stat": {
-      const formatting = resolveFormatting(config.formatting);
-      const resolver = w.value;
-      const produced =
-        typeof resolver === "function"
-          ? await runWithRequestContext(reqCtx, () => resolver(ctx))
-          : resolver;
-      const result = statResultOf(produced);
+      const result = inAmount(await resolveItem(w.value, ctx, reqCtx), w.options.minorUnits);
       const hint = result.hint ?? w.options.hint;
-      const href = result.href ?? w.options.href;
-      const tone = result.tone ?? w.options.tone;
+      const href = resolveLink(config, ctx, result.href ?? w.options.href);
+      const tone =
+        result.tone ??
+        w.options.tone ??
+        thresholdTone(result.value, w.options.tones, result.volume, w.options.goodWhen);
       return {
         kind: "stat",
         label: w.label,
-        value: statDisplay(result.value, formatting),
+        value: statDisplay(result.value),
         ...(w.options.format ? { format: w.options.format } : {}),
         ...(hint ? { hint } : {}),
         ...(href ? { href } : {}),
@@ -108,14 +112,7 @@ export async function serializeCardWidget(
     }
     case "kv": {
       const formatting = resolveFormatting(config.formatting);
-      const items = await Promise.all(
-        w.options.items.map(async (item: KvItem) => ({
-          label: item.label,
-          value: kvDisplay(await resolveStat(item.value, reqCtx, ctx), item.format, formatting),
-          ...(item.tone ? { tone: item.tone } : {}),
-          ...(item.href ? { href: item.href } : {}),
-        })),
-      );
+      const items = await kvItems(w.options, ctx, formatting, config, reqCtx);
       return {
         kind: "kv",
         ...(w.options.label ? { label: w.options.label } : {}),
@@ -128,26 +125,33 @@ export async function serializeCardWidget(
       return {
         kind: "bars",
         ...(w.options.label ? { label: w.options.label } : {}),
-        rows: await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
+        rows: linkRows(config, ctx, await runWithRequestContext(reqCtx, () => barRows(w, ctx))),
         ...(w.options.format ? { format: w.options.format } : {}),
-        emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
+        ...(w.options.max !== undefined ? { max: w.options.max } : {}),
+        ...(w.options.share ? { share: true } : {}),
+        ...(w.options.goodWhen ? { goodWhen: w.options.goodWhen } : {}),
+        emptyState: textOr(w.options.emptyState, ctx.labels.widget.empty),
         ...common(w.options),
       };
     case "funnel":
       return {
         kind: "funnel",
         ...(w.options.label ? { label: w.options.label } : {}),
-        steps: await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
+        steps: linkRows(
+          config,
+          ctx,
+          await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
+        ),
         ...(w.options.format ? { format: w.options.format } : {}),
-        emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
+        ...(w.options.alertDrop !== undefined ? { alertDrop: w.options.alertDrop } : {}),
+        emptyState: textOr(w.options.emptyState, ctx.labels.widget.empty),
         ...common(w.options),
       };
     case "list":
       return {
         kind: "list",
-        ...(w.options.label ? { label: w.options.label } : {}),
-        rows: await runWithRequestContext(reqCtx, () => w.options.query(ctx)),
-        emptyState: w.options.emptyState ?? ctx.labels.widget.empty,
+        ...(await runWithRequestContext(reqCtx, () => listCardData(w, ctx, config))),
+        emptyState: textOr(w.options.emptyState, ctx.labels.widget.empty),
         ...common(w.options),
       };
     default:

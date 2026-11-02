@@ -6,11 +6,9 @@ export const DOC_KINDS = [
   "troubleshooting",
 ] as const;
 
-export type DocKind = (typeof DOC_KINDS)[number];
-
 export interface DocRedirect {
   source: "/docs" | `/docs/${string}`;
-  destination: `/docs/${string}`;
+  destination: `/docs/${string}` | "/changelog";
 }
 
 export const DOC_REDIRECTS = [
@@ -28,6 +26,25 @@ export const DOC_REDIRECTS = [
   { source: "/docs/core-concepts/queues", destination: "/docs/guides/queues" },
   { source: "/docs/core-concepts/realtime-multi-instance", destination: "/docs/guides/realtime" },
   { source: "/docs/guides/troubleshooting", destination: "/docs/troubleshooting" },
+  { source: "/docs/guides/auth-with-clerk", destination: "/docs/guides/authentication" },
+  { source: "/docs/guides/auth-with-better-auth", destination: "/docs/guides/authentication" },
+  { source: "/docs/guides/realtime-with-redis", destination: "/docs/guides/realtime" },
+  { source: "/docs/build/analytics", destination: "/docs/build/dashboards" },
+  { source: "/docs/build/drawers", destination: "/docs/build/detail-cards" },
+  { source: "/docs/customization/theme-slots", destination: "/docs/customization/styling" },
+  {
+    source: "/docs/introduction/project-structure",
+    destination: "/docs/introduction/getting-started",
+  },
+  {
+    source: "/docs/understand/request-lifecycle",
+    destination: "/docs/understand/how-flowpanel-works",
+  },
+  {
+    source: "/docs/understand/server-client-boundaries",
+    destination: "/docs/understand/how-flowpanel-works",
+  },
+  { source: "/docs/understand/type-inference", destination: "/docs/reference/registry" },
 ] as const satisfies readonly DocRedirect[];
 
 export function validateDocRedirects(

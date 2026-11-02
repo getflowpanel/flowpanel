@@ -14,15 +14,6 @@ export interface CompatibilityItem {
   source: string;
 }
 
-export const COMPATIBILITY_OVERRIDES = [
-  {
-    id: "next",
-    range: "^16.3.0",
-    reason:
-      "The CLI init and doctor commands enforce Next.js 16.3 or newer because the generated App Router wiring depends on that baseline.",
-  },
-] as const;
-
 function readPackage(root: string, path: string): PackageMetadata {
   return JSON.parse(readFileSync(join(root, path), "utf8")) as PackageMetadata;
 }
@@ -34,61 +25,55 @@ function requireValue(value: string | undefined, source: string): string {
 
 export function readCompatibility(root: string): CompatibilityItem[] {
   const cli = readPackage(root, "packages/cli/package.json");
-  const next = readPackage(root, "packages/next/package.json");
-  const react = readPackage(root, "packages/react/package.json");
-  const drizzle = readPackage(root, "packages/adapter-drizzle/package.json");
-  const prisma = readPackage(root, "packages/adapter-prisma/package.json");
-  const nextOverride = COMPATIBILITY_OVERRIDES.find((item) => item.id === "next");
+  const kit = readPackage(root, "packages/flowpanel/package.json");
 
   return [
     {
       id: "node",
       requirement: "Node.js",
       range: requireValue(cli.engines?.node, "packages/cli/package.json#engines.node"),
-      note: "Required by the CLI and runtime packages.",
+      note: "Required by the CLI and the kit.",
       source: "packages/cli/package.json#engines.node",
     },
     {
       id: "next",
       requirement: "Next.js",
-      range:
-        nextOverride?.range ??
-        requireValue(
-          next.peerDependencies?.next,
-          "packages/next/package.json#peerDependencies.next",
-        ),
-      note: nextOverride?.reason ?? "App Router only.",
-      source: "packages/next/package.json#peerDependencies.next",
+      range: requireValue(
+        kit.peerDependencies?.next,
+        "packages/flowpanel/package.json#peerDependencies.next",
+      ),
+      note: "App Router only. Use 15.5.28+ or 16.4.1+, which fix critical security advisories. With `cacheComponents` on, 16.3 or newer.",
+      source: "packages/flowpanel/package.json#peerDependencies.next",
     },
     {
       id: "react",
       requirement: "React",
       range: requireValue(
-        react.peerDependencies?.react,
-        "packages/react/package.json#peerDependencies.react",
+        kit.peerDependencies?.react,
+        "packages/flowpanel/package.json#peerDependencies.react",
       ),
       note: "React DOM uses the same major version.",
-      source: "packages/react/package.json#peerDependencies.react",
+      source: "packages/flowpanel/package.json#peerDependencies.react",
     },
     {
       id: "drizzle",
       requirement: "Drizzle ORM",
       range: requireValue(
-        drizzle.peerDependencies?.["drizzle-orm"],
-        "packages/adapter-drizzle/package.json#peerDependencies.drizzle-orm",
+        kit.peerDependencies?.["drizzle-orm"],
+        "packages/flowpanel/package.json#peerDependencies.drizzle-orm",
       ),
       note: "Required only when using the Drizzle adapter.",
-      source: "packages/adapter-drizzle/package.json#peerDependencies.drizzle-orm",
+      source: "packages/flowpanel/package.json#peerDependencies.drizzle-orm",
     },
     {
       id: "prisma",
       requirement: "Prisma Client",
       range: requireValue(
-        prisma.peerDependencies?.["@prisma/client"],
-        "packages/adapter-prisma/package.json#peerDependencies.@prisma/client",
+        kit.peerDependencies?.["@prisma/client"],
+        "packages/flowpanel/package.json#peerDependencies.@prisma/client",
       ),
-      note: "Required only when using the Prisma adapter.",
-      source: "packages/adapter-prisma/package.json#peerDependencies.@prisma/client",
+      note: "Prisma 5 and 6, only when using the Prisma adapter. Prisma 7 is not supported yet.",
+      source: "packages/flowpanel/package.json#peerDependencies.@prisma/client",
     },
   ];
 }

@@ -45,6 +45,16 @@ describe("useAdminTable", () => {
     expect(result.current.page).toBe(1);
   });
 
+  it("reads and writes the page size as ?pageSize=, the name the API uses", () => {
+    params = new URLSearchParams("?pageSize=50");
+    const { result } = renderHook(() => useAdminTable());
+    expect(result.current.pageSize).toBe(50);
+    act(() => result.current.setPageSize(100));
+    const url = replaceMock.mock.calls[0]![0] as string;
+    expect(url).toContain("pageSize=100");
+    expect(url).not.toContain("perPage");
+  });
+
   it("setFilter writes to URL and resets page", () => {
     const { result } = renderHook(() => useAdminTable());
     act(() => result.current.setFilter("plan", "free"));

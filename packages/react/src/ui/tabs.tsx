@@ -2,52 +2,68 @@
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import * as React from "react";
 import { cn } from "../lib/cn";
+import { named } from "../lib/named";
 
 const Tabs = TabsPrimitive.Root;
 
-const TabsList = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      "inline-flex h-9 items-center justify-center rounded-fp-lg bg-fp-bg-3/70 p-1 text-fp-text-2",
-      className,
-    )}
-    {...props}
-  />
-));
-TabsList.displayName = TabsPrimitive.List.displayName;
+const TabsList = /* @__PURE__ */ named(
+  /* @__PURE__ */ React.forwardRef<
+    React.ElementRef<typeof TabsPrimitive.List>,
+    React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
+  >(({ className, ...props }, ref) => (
+    <TabsPrimitive.List
+      ref={ref}
+      className={cn(
+        "fp-inline-flex fp-items-center fp-justify-center fp-rounded-lg fp-bg-fill/70 fp-p-1 fp-text-soft sm:fp-h-9",
+        className,
+      )}
+      {...props}
+    />
+  )),
+  TabsPrimitive.List,
+);
 
-const TabsTrigger = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-fp px-3 py-1 text-sm font-medium transition-all hover:text-fp-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-fp-bg-1 data-[state=active]:text-fp-text-1 data-[state=active]:shadow-fp-sm",
-      className,
-    )}
-    {...props}
-  />
-));
-TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
+/** `focusVisible` is in every engine but not yet in TypeScript's `FocusOptions`. */
+const POINTER_FOCUS = { preventScroll: false, focusVisible: false };
 
-const TabsContent = React.forwardRef<
-  React.ElementRef<typeof TabsPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.Content
-    ref={ref}
-    className={cn(
-      "mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fp-focus/40",
-      className,
-    )}
-    {...props}
-  />
-));
-TabsContent.displayName = TabsPrimitive.Content.displayName;
+const TabsTrigger = /* @__PURE__ */ named(
+  /* @__PURE__ */ React.forwardRef<
+    React.ElementRef<typeof TabsPrimitive.Trigger>,
+    React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
+  >(({ className, onMouseDown, ...props }, ref) => (
+    <TabsPrimitive.Trigger
+      ref={ref}
+      onMouseDown={(event) => {
+        onMouseDown?.(event);
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || props.disabled) return;
+        // Focus first without the ring; Radix's own focus() then finds the tab focused and draws none.
+        event.currentTarget.focus(POINTER_FOCUS);
+      }}
+      className={cn(
+        "fp-inline-flex fp-min-h-11 fp-items-center fp-justify-center fp-whitespace-nowrap fp-rounded fp-px-3 fp-py-1 fp-text-sm sm:fp-min-h-0 fp-font-medium fp-transition-all hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60 disabled:fp-pointer-events-none disabled:fp-opacity-50 data-[state=active]:fp-bg-surface data-[state=active]:fp-text-ink data-[state=active]:fp-shadow-sm",
+        className,
+      )}
+      {...props}
+    />
+  )),
+  TabsPrimitive.Trigger,
+);
+
+const TabsContent = /* @__PURE__ */ named(
+  /* @__PURE__ */ React.forwardRef<
+    React.ElementRef<typeof TabsPrimitive.Content>,
+    React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content>
+  >(({ className, ...props }, ref) => (
+    <TabsPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fp-mt-2 focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+        className,
+      )}
+      {...props}
+    />
+  )),
+  TabsPrimitive.Content,
+);
 
 export { Tabs, TabsContent, TabsList, TabsTrigger };

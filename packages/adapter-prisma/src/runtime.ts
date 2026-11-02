@@ -1,15 +1,18 @@
-import { createRequire } from "node:module";
 import { FlowpanelAccessError, resolveScopeApplier } from "@flowpanel/core";
 import type { PrismaDmmf } from "./introspect";
 
-const require = createRequire(import.meta.url);
+/** One `orderBy` entry: a direction, or for an optional field where its empty values go. */
+export type PrismaOrderBy = Record<
+  string,
+  "asc" | "desc" | { sort: "asc" | "desc"; nulls: "first" | "last" }
+>;
 
 /** Subset of the Prisma model delegate methods FlowPanel invokes. */
 export interface PrismaDelegate {
   findMany: (args: {
     where?: Record<string, unknown>;
     select?: Record<string, boolean>;
-    orderBy?: Record<string, "asc" | "desc">;
+    orderBy?: PrismaOrderBy | PrismaOrderBy[];
     skip?: number;
     take?: number;
   }) => Promise<unknown[]>;
@@ -47,11 +50,7 @@ export interface PrismaClientLike {
 /** Apply a tenant predicate to a plain Prisma object, enforcing fail-closed scope. */
 export function applyScopeToWhere(
   where: Record<string, unknown>,
-  ctx: {
-    boundScope?: { apply(query: unknown): unknown };
-    applyScope?: (query: unknown) => unknown;
-    scopeRequired?: boolean;
-  },
+  ctx: { boundScope?: { apply(query: unknown): unknown } },
 ): Record<string, unknown> {
   const applyScope = resolveScopeApplier(ctx);
   if (!applyScope) return where;
@@ -76,9 +75,9 @@ export function applyScopeToWhere(
     result !== where ||
     Object.keys(result).length !== Object.keys(before).length ||
     Object.keys(before).some((key) => !Object.is(result[key], before[key]));
-  if (ctx.scopeRequired && !changed) {
+  if (!changed) {
     throw new FlowpanelAccessError(
-      "scope required but the bound Prisma predicate returned the input unchanged. " +
+      "the bound Prisma scope predicate returned the input unchanged. " +
         "Refusing to run an unscoped query.",
     );
   }
@@ -91,47 +90,132 @@ function isColumnValue(value: unknown): boolean {
   return typeof value !== "object" && typeof value !== "function";
 }
 
-/** Resolve insert data for a scoped create: only equality scope keys can supply a column value. */
-export function applyScopeToData(
+/** The single column values a scope pins, such as `{ companyId: "c1" }`; filter-shaped keys are left out. */
+function pinnedScopeValues(
   input: Record<string, unknown>,
-  ctx: {
-    boundScope?: { apply(query: unknown): unknown };
-    applyScope?: (query: unknown) => unknown;
-    scopeRequired?: boolean;
-  },
+  ctx: { boundScope?: { apply(query: unknown): unknown } },
+  onFilter: (key: string) => void,
 ): Record<string, unknown> {
   const scoped = applyScopeToWhere({ ...input }, ctx);
-  const data: Record<string, unknown> = { ...input };
+  const pinned: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(scoped)) {
     if (key in input && Object.is(input[key], value)) continue;
     if (!isColumnValue(value)) {
-      throw new FlowpanelAccessError(
-        `create refused: the bound Prisma scope predicate contributed "${key}" as a filter ` +
-          "rather than a single value, so it cannot be written into the new row. Use an equality " +
-          `scope (e.g. { ${key}: tenantId }) on resources that allow create, or keep the filter ` +
-          "scope and disable create for this resource.",
-      );
+      onFilter(key);
+      continue;
     }
-    data[key] = value;
+    pinned[key] = value;
   }
-  return data;
+  return pinned;
 }
 
-export const MIGRATIONS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS _flowpanel_migrations (
+/** Resolve insert data for a scoped create: only equality scope keys can supply a column value. */
+export function applyScopeToData(
+  input: Record<string, unknown>,
+  ctx: { boundScope?: { apply(query: unknown): unknown } },
+): Record<string, unknown> {
+  const pinned = pinnedScopeValues(input, ctx, (key) => {
+    throw new FlowpanelAccessError(
+      `create refused: the bound Prisma scope predicate contributed "${key}" as a filter ` +
+        "rather than a single value, so it cannot be written into the new row. Use an equality " +
+        `scope (e.g. { ${key}: tenantId }) on resources that allow create, or keep the filter ` +
+        "scope and disable create for this resource.",
+    );
+  });
+  return { ...input, ...pinned };
+}
+
+export const outOfScopeUpdate = (): FlowpanelAccessError =>
+  new FlowpanelAccessError(
+    "update refused: the changed row would fall outside the resource's tenant scope. " +
+      "Keep the tenant column at the current scope's value.",
+  );
+
+/** Refuses an update that sets a column the scope pins to a different value, before anything is written. */
+export function assertUpdateKeepsScope(
+  input: Record<string, unknown>,
+  ctx: { boundScope?: { apply(query: unknown): unknown } },
+): void {
+  const pinned = pinnedScopeValues(input, ctx, () => {});
+  if (Object.keys(pinned).some((key) => key in input)) throw outOfScopeUpdate();
+}
+
+/** Prisma's P2025 for the row itself (not a nested connect) means it is gone: `null`, as the adapter contract says. */
+function isGoneRow(err: unknown): boolean {
+  if (typeof err !== "object" || err === null || !("code" in err) || err.code !== "P2025") {
+    return false;
+  }
+  const cause =
+    "meta" in err && typeof err.meta === "object" && err.meta !== null && "cause" in err.meta
+      ? err.meta.cause
+      : undefined;
+  return typeof cause !== "string" || /^Record to (update|delete)/.test(cause);
+}
+
+export async function missingAsNull<T>(write: Promise<T>): Promise<T | null> {
+  try {
+    return await write;
+  } catch (err) {
+    if (isGoneRow(err)) return null;
+    throw err;
+  }
+}
+
+/** An interactive transaction when the client has one; a client already inside one runs as is. */
+export function inTransaction<T>(
+  db: PrismaClientLike,
+  run: (tx: PrismaClientLike) => Promise<T>,
+): Promise<T> {
+  return db.$transaction ? db.$transaction(run) : run(db);
+}
+
+const MIGRATIONS_TABLE = `_flowpanel_migrations (
   id varchar(255) NOT NULL PRIMARY KEY,
   applied_at timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 )`;
 
-export function loadDmmf(): PrismaDmmf {
-  try {
-    const { Prisma } = require("@prisma/client");
-    return Prisma.dmmf as PrismaDmmf;
-  } catch {
+/** The bookkeeping table's DDL; on PostgreSQL a guarded block, so an existing table raises no NOTICE. */
+export function migrationsTableDdl(provider: string): string {
+  if (provider !== "postgresql") return `CREATE TABLE IF NOT EXISTS ${MIGRATIONS_TABLE}`;
+  return `DO $$ BEGIN
+  IF to_regclass('_flowpanel_migrations') IS NULL THEN
+    CREATE TABLE ${MIGRATIONS_TABLE};
+  END IF;
+END $$`;
+}
+
+type RuntimeDataModel = { models?: Record<string, object>; enums?: Record<string, object> };
+
+const named = <T>(entries: Record<string, object>) =>
+  Object.entries(entries).map(([name, value]) => ({ name, ...value })) as T[];
+
+/** Every generated client, `prisma-client-js` or `prisma-client`, carries its schema as `_runtimeDataModel`. */
+export function loadDmmf(prisma: unknown): PrismaDmmf {
+  const model = (prisma as { _runtimeDataModel?: RuntimeDataModel } | null)?._runtimeDataModel;
+  return checkedDmmf(
+    model?.models && {
+      datamodel: { models: named(model.models), enums: named(model.enums ?? {}) },
+    },
+  );
+}
+
+/** Prisma 7 trims the data model to names and types; introspection needs ids, nullability and defaults. */
+export function checkedDmmf(dmmf: unknown): PrismaDmmf {
+  if (!Array.isArray((dmmf as PrismaDmmf | undefined)?.datamodel?.models)) {
     throw new Error(
-      "prismaAdapter: could not load DMMF from @prisma/client. " +
-        "Make sure @prisma/client is installed and `prisma generate` has been run.",
+      "prismaAdapter: found no Prisma schema. Run `prisma generate` and pass the client your app creates, " +
+        '`prisma: new PrismaClient()`, imported from "@prisma/client" with the prisma-client-js generator ' +
+        'or from the generator\'s `output` (such as "@/app/generated/prisma/client") with prisma-client.',
     );
   }
+  const field = (dmmf as PrismaDmmf).datamodel.models[0]?.fields?.[0];
+  if (field !== undefined && typeof field.isId !== "boolean") {
+    throw new Error(
+      "prismaAdapter: Prisma.dmmf has no field metadata (isId, isRequired, defaults). " +
+        "Prisma 7 removed it from the generated client; FlowPanel supports Prisma 5 and 6.",
+    );
+  }
+  return dmmf as PrismaDmmf;
 }
 
 export function getDelegate(prisma: PrismaClientLike, modelName: string): PrismaDelegate {
@@ -146,6 +230,9 @@ export function getDelegate(prisma: PrismaClientLike, modelName: string): Prisma
   return delegate as PrismaDelegate;
 }
 
+/** An id that cannot be the model's key, such as "abc" for an `Int @id`. */
+export class InvalidIdError extends Error {}
+
 /** Build the primary-key predicate, coercing numeric Prisma IDs. */
 export function pkWhere(id: string, modelName: string, dmmf: PrismaDmmf): Record<string, unknown> {
   const model = dmmf.datamodel.models.find((entry) => entry.name === modelName);
@@ -154,7 +241,7 @@ export function pkWhere(id: string, modelName: string, dmmf: PrismaDmmf): Record
   if (pkField && (pkField.type === "Int" || pkField.type === "BigInt")) {
     const value = parseInt(id, 10);
     if (Number.isNaN(value)) {
-      throw new Error(
+      throw new InvalidIdError(
         `prismaAdapter: cannot coerce id "${id}" to ${pkField.type} for model "${modelName}"`,
       );
     }

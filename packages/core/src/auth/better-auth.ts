@@ -1,5 +1,6 @@
-import type { AuthConfig } from "../types/config";
-import type { Session } from "../types/session";
+import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
+import { fromProvider } from "../auth-provider";
+import { assertNoAuthRequireRole } from "../compiler/validate/removed-keys";
 
 /** The part of a better-auth instance FlowPanel calls. */
 export interface BetterAuthLike {
@@ -9,8 +10,8 @@ export interface BetterAuthLike {
 export interface BetterAuthOptions {
   /** Your better-auth instance — whatever `betterAuth({ … })` returned. */
   auth: BetterAuthLike;
-  /** Roles allowed into the admin. */
-  requireRole?: string | string[] | ((s: Session | null) => boolean);
+  /** Who may enter the admin: a role, a role list, or a predicate. */
+  access?: AccessRule;
   signInUrl?: string;
   forbiddenUrl?: string;
   /**
@@ -24,10 +25,10 @@ export interface BetterAuthOptions {
 
 /** First-class better-auth integration. */
 export function withBetterAuth(opts: BetterAuthOptions): AuthConfig {
-  return {
+  assertNoAuthRequireRole("withBetterAuth", opts);
+  return fromProvider("better-auth", {
     async session(req: Request): Promise<Session | null> {
-      // A provider that cannot answer means "not signed in", never "signed in
-      // as something unreadable": both are denied, and only one is honest.
+      // A provider that cannot answer means "not signed in", never "signed in as something unreadable".
       const s = await opts.auth.api.getSession({ headers: req.headers }).catch(() => null);
       if (s === null || typeof s !== "object") return null;
       const user = (s as { user?: unknown }).user;
@@ -45,8 +46,8 @@ export function withBetterAuth(opts: BetterAuthOptions): AuthConfig {
         const id = (s as { user?: { id?: unknown } } | null)?.user?.id;
         return id === undefined || id === null ? null : String(id);
       }),
-    ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
+    ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),
     ...(opts.forbiddenUrl ? { forbiddenUrl: opts.forbiddenUrl } : {}),
-  };
+  });
 }

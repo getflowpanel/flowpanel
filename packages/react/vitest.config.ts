@@ -4,7 +4,7 @@ import { sharedTestConfig } from "../../vitest.shared";
 export default defineConfig({
   test: {
     ...sharedTestConfig,
-    setupFiles: ["../../vitest.browser-storage.ts"],
+    setupFiles: ["../../vitest.browser-storage.ts", "./vitest.setup-ui.ts"],
     environment: "happy-dom",
     include: ["src/**/__tests__/**/*.test.{ts,tsx}"],
   },

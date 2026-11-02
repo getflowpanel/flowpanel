@@ -63,7 +63,7 @@ function makeConfig(): ResolvedAdminConfig {
       ["orders", orders],
     ]),
     dashboardsByPath: new Map([["/", overview]]),
-    basePath: "/admin",
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
 }
@@ -138,28 +138,44 @@ describe("404 bodies never enumerate the registry", () => {
       params: Promise.resolve({ resource: "ghost", id: "u1", action: "ping" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "resource not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "resource not found",
+      code: "not_found",
+    });
   });
 
   it("row action: unknown action", async () => {
     const res = await rowActionRoute(makeConfig())(jsonReq("{}"), {
       params: Promise.resolve({ resource: "users", id: "u1", action: "nope" }),
     });
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "action not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "action not found",
+      code: "not_found",
+    });
   });
 
   it("bulk action: unknown action", async () => {
     const res = await bulkActionRoute(makeConfig())(jsonReq("{}"), {
       params: Promise.resolve({ resource: "users", action: "nope" }),
     });
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "action not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "action not found",
+      code: "not_found",
+    });
   });
 
   it("dashboard action: unknown dashboard", async () => {
     const res = await dashboardActionRoute(makeConfig())(jsonReq("{}"), {
       params: Promise.resolve({ dashboard: "pipeline", action: "rebuild" }),
     });
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "dashboard not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "dashboard not found",
+      code: "not_found",
+    });
   });
 
   it("stays terse in production too", async () => {
@@ -168,7 +184,11 @@ describe("404 bodies never enumerate the registry", () => {
       params: Promise.resolve({ resource: "ghost", id: "u1", action: "ping" }),
     });
     expect(res.status).toBe(404);
-    expect((await res.json()).error).toEqual({ code: "not_found", message: "resource not found" });
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      error: "resource not found",
+      code: "not_found",
+    });
   });
 });
 

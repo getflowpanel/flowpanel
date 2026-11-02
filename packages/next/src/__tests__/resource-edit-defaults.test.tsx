@@ -4,6 +4,7 @@ import { AutoForm } from "@flowpanel/react";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ResourceEditPage } from "../pages/resource-edit";
+import { withoutScope } from "./without-scope";
 
 function findElement(tree: ReactNode, type: unknown): Record<string, unknown> | null {
   if (tree === null || tree === undefined || typeof tree !== "object") return null;
@@ -77,6 +78,21 @@ const columns: ColumnMeta[] = [
   { name: "internalLock", type: "boolean", nullable: true, unique: false, primaryKey: false },
 ];
 
+describe("ResourceEditPage date defaults", () => {
+  it("fills a timestamp's control on the admin's wall clock", async () => {
+    const dated: ColumnMeta[] = [
+      { name: "id", type: "string", nullable: false, unique: true, primaryKey: true },
+      { name: "createdAt", type: "date", nullable: false, unique: false, primaryKey: false },
+    ];
+    const props = await autoFormProps(
+      { id: "c1", createdAt: new Date("2026-10-06T23:37:07.623Z") },
+      dated,
+      { columns: ["id", "createdAt"] },
+    );
+    expect(props.defaultValues).toEqual({ createdAt: "2026-10-06T23:37" });
+  });
+});
+
 describe("ResourceEditPage default values", () => {
   it("fails closed under global scope before loading an unscoped row", async () => {
     let getCalls = 0;
@@ -89,8 +105,9 @@ describe("ResourceEditPage default values", () => {
       adapter,
       auth: { session: async () => null, role: () => "editor" },
       scope: () => ({ tenantId: "t1" }),
-      resources: [resource({ __name: "customers" }, { columns: ["id", "title"] })],
+      resources: [resource({ __name: "customers" }, { columns: ["id", "title"], scope: "bypass" })],
     });
+    withoutScope(config, "customers");
     const resourceConfig = config.resourcesByName.get("customers");
     if (!resourceConfig) throw new Error("fixture: resource not registered");
 
@@ -149,13 +166,14 @@ describe("ResourceEditPage default values", () => {
                 return values.internalLock === true;
               },
             },
-            { name: "adminOnly", requireRole: "admin" },
+            { name: "adminOnly" },
           ],
         },
         fieldAccess: {
           writeOnly: { read: false, write: true },
           secret: { sensitive: true, write: true },
           readDenied: { read: "admin" },
+          adminOnly: { read: "admin", write: "admin" },
         },
       },
       (ctx) => {
@@ -214,6 +232,7 @@ describe("ResourceEditPage default values", () => {
           writeOnly: { read: false, write: true },
           secret: { sensitive: true, write: true },
           readDenied: { read: "admin" },
+          adminOnly: { read: "admin", write: "admin" },
         },
       },
       (ctx) => {
@@ -241,8 +260,7 @@ describe("ResourceEditPage default values", () => {
         _ref: unknown,
         _ctx: {
           select?: readonly string[];
-          scopeRequired?: boolean;
-          applyScope?: (query: unknown) => unknown;
+          boundScope?: { apply(query: unknown): unknown };
         },
       ) => ({ id: "c1", title: "Visible title", internalLock: true, token: "adapter leak" }),
     );
@@ -294,8 +312,7 @@ describe("ResourceEditPage default values", () => {
 
     expect(titlePolicyCalls).toBe(1);
     expect(get.mock.calls[0]?.[1].select).toEqual(["title", "internalLock"]);
-    expect(get.mock.calls[0]?.[1].scopeRequired).toBe(true);
-    expect(get.mock.calls[0]?.[1].applyScope?.("query")).toEqual({
+    expect(get.mock.calls[0]?.[1].boundScope?.apply("query")).toEqual({
       scope: { tenantId: "t1" },
       query: "query",
     });

@@ -1,13 +1,14 @@
 import type { ColumnDef, RequestContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { ReferenceCell } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { textRem, widestRem } from "./column-content";
 import { buildHref } from "./href";
 import type { PrerenderedColumn } from "./prerender-cells";
 import { resolveReferences } from "./resolve-references";
 
 /** Overlay resolved foreign-key labels on the server-prerendered cell matrix. */
 export function applyReferenceCells<Row extends Record<string, unknown>>(
-  config: ResolvedAdminConfig,
+  config: Pick<ResolvedAdminConfig, "paths">,
   columnDefs: ReadonlyArray<keyof Row | ColumnDef<Row>>,
   columns: ReadonlyArray<PrerenderedColumn<Row>>,
   rows: ReadonlyArray<Row>,
@@ -33,6 +34,14 @@ export function applyReferenceCells<Row extends Record<string, unknown>>(
     if (column.reference && field) references.set(field, column.reference);
   }
 
+  for (const [field, labels] of labelsByField) {
+    const column = columns[columnIndex.get(field) ?? -1];
+    const widest = widestRem(
+      rows.map((row) => textRem(String(labels.get(String(row[field])) ?? ""))),
+    );
+    if (column && widest !== undefined) column.textRem = widest;
+  }
+
   rows.forEach((row, rowIndex) => {
     const rowCells = cells[rowIndex];
     if (!rowCells) return;
@@ -43,14 +52,22 @@ export function applyReferenceCells<Row extends Record<string, unknown>>(
 
       const raw = row[field];
       if (raw === null || raw === undefined) {
-        rowCells[index] = <span className="text-fp-text-3">—</span>;
+        rowCells[index] = (
+          <span key={field} className="fp-text-faint">
+            —
+          </span>
+        );
         continue;
       }
       const id = String(raw);
       const label = labels.get(id);
       if (label === undefined) continue;
       rowCells[index] = (
-        <ReferenceCell label={String(label)} href={buildHref(config, reference.resource, id)} />
+        <ReferenceCell
+          key={field}
+          label={String(label)}
+          href={buildHref(config, reference.resource, id)}
+        />
       );
     }
   });

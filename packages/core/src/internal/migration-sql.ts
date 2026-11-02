@@ -155,10 +155,7 @@ export function tokenizeMigrationSql(
   return statements;
 }
 
-/**
- * Client-side directives no database driver interprets: DELIMITER, SOURCE,
- * psql backslash commands, sqlite dot commands, and GO batch separators.
- */
+/** Client-side directives no driver runs: DELIMITER, SOURCE, psql backslash and sqlite dot commands, GO. */
 export const SQL_CLIENT_DIRECTIVE =
   /(?:^|\n)\s*(?:DELIMITER\b|SOURCE\s+|\\[A-Za-z]+\b|\.(?:read|once|output)\b|GO\s*(?:\n|$))/i;
 

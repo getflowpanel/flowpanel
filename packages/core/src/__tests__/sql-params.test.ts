@@ -34,7 +34,7 @@ describe("parseSqlRows", () => {
 
   it("accepts the T separator and fractional seconds", () => {
     const [row] = parseSqlRows<{ at: Date }>([{ at: "2026-01-02T03:04:05.250" }]);
-    expect((row?.at as Date).toISOString()).toBe("2026-01-02T03:04:05.250Z");
+    expect((row!.at as Date).toISOString()).toBe("2026-01-02T03:04:05.250Z");
   });
 
   it("hands every value through untouched when parseDates is false", () => {

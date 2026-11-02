@@ -1,4 +1,4 @@
-/** The SSE frame body, `{channel, payload}` (ADR 0014), with `payload` omitted when there is none. */
+/** The SSE frame body, `{channel, payload}`, with `payload` omitted when there is none. */
 export function encodeEnvelope(channel: string, payload: unknown): string {
   return payload === undefined ? JSON.stringify({ channel }) : JSON.stringify({ channel, payload });
 }

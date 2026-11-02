@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 
+import { resolveFormatting } from "@flowpanel/core";
+import { FormattingProvider } from "@flowpanel/react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ActionFormDialog } from "../ActionFormDialog";
@@ -21,6 +23,61 @@ function renderDialog(fields: ActionFormField[], onSubmit = vi.fn().mockResolved
 }
 
 describe("ActionFormDialog — canonical controls", () => {
+  it("shows a money default in major units and sends the stored amount back untouched", async () => {
+    const onSubmit = renderDialog([
+      { name: "amount", label: "Amount", type: "money", required: true, defaultValue: 1999 },
+    ]);
+    expect(screen.getByRole("textbox", { name: "Amount" })).toHaveProperty("value", "19.99");
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual({ amount: 1999 });
+  });
+
+  it("writes a money default with the admin's decimal comma", () => {
+    render(
+      <FormattingProvider value={resolveFormatting({ locale: "de-DE", currency: "EUR" })}>
+        <ActionFormDialog
+          title="Refund"
+          submitLabel="Run"
+          fields={[{ name: "amount", label: "Amount", type: "money", defaultValue: 1999 }]}
+          onCancel={vi.fn()}
+          onSubmit={vi.fn()}
+        />
+      </FormattingProvider>,
+    );
+    expect(screen.getByRole("textbox", { name: "Amount" })).toHaveProperty("value", "19,99");
+  });
+
+  it("starts each control at its field's defaultValue and submits it untouched", async () => {
+    const onSubmit = renderDialog([
+      {
+        name: "channel",
+        label: "Channel",
+        type: "radio",
+        required: true,
+        defaultValue: "email",
+        options: [
+          { label: "Email", value: "email" },
+          { label: "SMS", value: "sms" },
+        ],
+      },
+      { name: "note", label: "Note", type: "text", defaultValue: "Second reminder" },
+      { name: "urgent", label: "Urgent", type: "checkbox", defaultValue: true },
+    ]);
+    expect(screen.getByRole("radio", { name: "Email" })).toHaveProperty("checked", true);
+    expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty(
+      "value",
+      "Second reminder",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Run" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
+      channel: "email",
+      note: "Second reminder",
+      urgent: true,
+    });
+  });
+
   it("does not emit a Radix accessibility warning when description is omitted", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     renderDialog([{ name: "note", label: "Note", type: "text" }]);
@@ -46,9 +103,9 @@ describe("ActionFormDialog — canonical controls", () => {
     expect(await screen.findByText("Alex Admin")).toBeTruthy();
   });
 
-  it("type=json renders the JSON editor seeded with an object, not a text box", () => {
+  it("type=json renders the JSON editor seeded with an object, not a text box", async () => {
     renderDialog([{ name: "meta", label: "Meta", type: "json" }]);
-    const editor = screen.getByRole("textbox", { name: "Meta" }) as HTMLTextAreaElement;
+    const editor = (await screen.findByRole("textbox", { name: "Meta" })) as HTMLTextAreaElement;
     expect(editor.tagName).toBe("TEXTAREA");
   });
 

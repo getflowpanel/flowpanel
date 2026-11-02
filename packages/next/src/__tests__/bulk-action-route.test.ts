@@ -57,6 +57,7 @@ function makeConfig(opts: {
     resources: [resource],
     resourcesByName: new Map([["items", resource]]),
     dashboardsByPath: new Map(),
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return config;
@@ -116,7 +117,12 @@ describe("bulkActionRoute", () => {
       params: Promise.resolve({ resource: "items", action: "verify" }),
     });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ ok: false, error: "input must be an object" });
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "input must be an object",
+      code: "bad_request",
+      requestId: expect.any(String),
+    });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -151,13 +157,13 @@ describe("bulkActionRoute", () => {
     expect(res.status).toBe(400);
   });
 
-  it("403 when per-action requireRole fails", async () => {
+  it("403 when per-action access fails", async () => {
     const config = makeConfig({
       role: "user",
       action: {
         key: "verify",
         label: "V",
-        requireRole: "admin",
+        access: "admin",
         run: async () => ({ ok: true }),
       },
     });
@@ -318,7 +324,7 @@ describe("bulkActionRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.ok).toBe(false);
-    expect(body.error).toMatch(/too many ids \(max 1000\)/);
+    expect(body.error).toBe("Select at most 1000 rows.");
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -334,7 +340,7 @@ describe("bulkActionRoute", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 422 with issues when input fails the action's required form field", async () => {
+  it("returns 422 with field errors when input fails the action's required form field", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig({
       action: {
@@ -351,7 +357,7 @@ describe("bulkActionRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toBe("validation failed");
-    expect(body.issues).toEqual([{ path: ["id"], message: "id is required" }]);
+    expect(body.fieldErrors).toEqual({ id: "ID is required" });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -400,6 +406,43 @@ describe("serializeBulkAction", () => {
       hasForm: false,
     });
     expect("run" in wire).toBe(false);
+  });
+
+  it("words the built-in delete from the labels and the resource's plural delete.confirm", async () => {
+    const { defineAdmin, resource, RU_LABELS } = await import("@flowpanel/core");
+    const config = defineAdmin({
+      adapter: {
+        kind: "drizzle",
+        db: {},
+        introspect: () => ({ name: "orders", columns: [], primaryKey: "id" }),
+        inferSchema: () => ({}) as never,
+        list: async () => ({ rows: [], total: 0, page: 1, pageSize: 20 }),
+        get: async () => null,
+        create: async () => ({}),
+        update: async () => ({}),
+        delete: async () => undefined,
+      },
+      auth: { session: async () => null, role: () => "admin" },
+      resources: [
+        resource("orders", {
+          columns: [],
+          delete: { confirm: { one: "The order goes.", other: "{n} orders go." } },
+        }),
+      ],
+    });
+    const orders = config.resourcesByName.get("orders");
+    const builtin = orders?.options.bulkActions?.at(-1);
+    if (!orders || !builtin) throw new Error("no built-in delete");
+    expect(serializeBulkAction(builtin as never, RU_LABELS, orders)).toEqual({
+      key: "delete",
+      label: "Удалить",
+      variant: "destructive",
+      hasForm: false,
+      confirm: {
+        title: RU_LABELS.confirm.deleteSelectedTitle,
+        description: { one: "The order goes.", other: "{n} orders go." },
+      },
+    });
   });
 
   it("normalizes confirm string to the object form", () => {

@@ -23,12 +23,25 @@ export interface FakeRoute {
   dom?: FakeNode[];
   /** What this route serves once a cookie has been added — the signed-in page. */
   signedIn?: FakeRoute;
+  /** Detail tab keys, rendered as `[data-fp-tab]` triggers inside `main`; the first is open. */
+  tabs?: string[];
+  /** Next's own error document with this text, in place of the admin. */
+  crash?: string;
+  /** Renders no `main`, as a page stuck before its shell would. */
+  noMain?: boolean;
+  /** Renders the rows as phone cards instead of a table. */
+  cards?: boolean;
+  /** The response body, as the server sent it. */
+  body?: string;
 }
 
 const ORIGIN = "http://localhost:3000";
 
 function documentOf(route: FakeRoute): FakeNode[] {
   if (route.dom) return route.dom;
+  if (route.crash !== undefined) {
+    return [element("html", { id: "__next_error__", "data-text": route.crash })];
+  }
   const nodes: FakeNode[] = [];
   if (route.navLinks) {
     const links = route.navLinks.map((href) => element("a", { href }));
@@ -36,12 +49,22 @@ function documentOf(route: FakeRoute): FakeNode[] {
     nodes.push(element("nav", { "aria-label": "Admin", ...attrs }, links));
   }
   const main: FakeNode[] = [];
-  if (route.rows !== undefined) {
-    const rows = Array.from({ length: route.rows }, () => element("tr", {}));
+  if (route.rows !== undefined && route.cards) {
+    const cards = Array.from({ length: route.rows }, () =>
+      element("li", { "data-fp-card": "" }, [element("button", { "data-fp-card-link": "" })]),
+    );
+    main.push(element("ul", {}, cards));
+  } else if (route.rows !== undefined) {
+    const rows = Array.from({ length: route.rows }, () => element("tr", { "data-fp-row": "" }));
     main.push(element("table", {}, [element("tbody", { tabindex: "0" }, rows)]));
   }
   if (route.errorSurface) main.push(element("div", { "data-fp-error": "" }));
-  nodes.push(element("main", { id: "main" }, main));
+  for (const [index, key] of (route.tabs ?? []).entries()) {
+    main.push(
+      element("button", { "data-fp-tab": key, "data-state": index === 0 ? "active" : "inactive" }),
+    );
+  }
+  if (!route.noMain) nodes.push(element("main", { id: "main" }, main));
   if (route.dialog) nodes.push(element("div", { role: "dialog" }));
   return nodes;
 }
@@ -75,7 +98,15 @@ class FakeLocator implements SmokeLocator {
     return this.page.query(this.selector)[this.index]?.attrs?.[name] ?? null;
   }
 
-  async click(): Promise<void> {
+  async isVisible(): Promise<boolean> {
+    return this.page.query(this.selector).length > this.index;
+  }
+
+  async innerText(): Promise<string> {
+    return this.page.query(this.selector)[this.index]?.attrs?.["data-text"] ?? "";
+  }
+
+  async press(): Promise<void> {
     const node = this.page.query(this.selector)[this.index];
     if (!node) throw new Error(`fake page: nothing matches ${this.selector}`);
     this.page.activateRow(this.index);
@@ -124,7 +155,8 @@ export class FakePage implements SmokePage {
       for (const handler of this.handlers) handler({ type: () => "error", text: () => text });
     }
     const status = this.current().status ?? 200;
-    return { status: () => status };
+    const body = this.current().body ?? "";
+    return { status: () => status, text: async () => body };
   }
 
   url(): string {

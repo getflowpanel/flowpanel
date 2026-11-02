@@ -17,6 +17,7 @@ function makeConfig(opts: {
   resourceAudit?: boolean;
   role?: string;
   rowNotFound?: boolean;
+  goneBeforeWrite?: boolean;
   updateThrows?: boolean;
   columns?: unknown[];
   session?: unknown;
@@ -49,7 +50,7 @@ function makeConfig(opts: {
         opts.capturedInput.value = (ctx as { input?: Record<string, unknown> }).input?.email;
       }
       if (opts.updateThrows) throw new Error("db failed");
-      return { id: "u1" };
+      return opts.goneBeforeWrite ? null : { id: "u1" };
     },
     delete: async () => undefined,
   };
@@ -88,6 +89,8 @@ function makeConfig(opts: {
     resources: [resource],
     resourcesByName: new Map([["users", resource]]),
     dashboardsByPath: new Map(),
+    paths: { admin: "/admin", api: "/api/flowpanel" },
+    security: { trustedProxies: 1 },
     __resolved: true,
   } as never;
   return config;
@@ -184,7 +187,25 @@ describe("inlineUpdateRoute", () => {
     });
     const res = await handler(req, { params: paramsFor("users", "u1") });
     expect(res.status).toBe(403);
-    expect((await res.json()).error).toMatch(/not editable/);
+    const body = await res.json();
+    expect(body.error).toMatch(/not editable/);
+    expect(body.requestId).toBe(res.headers.get("x-request-id"));
+    expect(body.requestId).toEqual(expect.any(String));
+  });
+
+  it("answers 404 without audit or publish when the row is gone by the time it is written", async () => {
+    const sink = vi.fn();
+    const handler = inlineUpdateRoute(
+      makeConfig({ goneBeforeWrite: true, audit: { enabled: true, sink } }),
+    );
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ field: "email", value: "new@x.com" }),
+    });
+    const res = await handler(req, { params: paramsFor("users", "u1") });
+    expect(res.status).toBe(404);
+    expect(sink).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the row does not exist", async () => {
@@ -196,6 +217,7 @@ describe("inlineUpdateRoute", () => {
     });
     const res = await handler(req, { params: paramsFor("users", "u1") });
     expect(res.status).toBe(404);
+    expect((await res.json()).requestId).toEqual(expect.any(String));
   });
 
   it("returns 500 with a generic message (not the raw adapter error) when update throws", async () => {
@@ -297,7 +319,7 @@ describe("inlineUpdateRoute", () => {
     expect(res.status).toBe(200);
   });
 
-  it("returns 422 with issues when the value fails the update schema", async () => {
+  it("returns 422 with field errors when the value fails the update schema", async () => {
     const handler = inlineUpdateRoute(
       makeConfig({
         updateSchema: z.object({ email: z.string().email() }).partial(),
@@ -312,9 +334,9 @@ describe("inlineUpdateRoute", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.ok).toBe(false);
-    expect(body.error).toBe("validation failed");
-    expect(Array.isArray(body.issues)).toBe(true);
-    expect(body.issues[0].path).toEqual(["email"]);
+    expect(body.error).toBe("Validation failed");
+    expect(body.code).toBe("validation_failed");
+    expect(Object.keys(body.fieldErrors)).toEqual(["email"]);
   });
 
   it("enforces the resource's declared schema over the adapter-inferred one", async () => {
@@ -366,7 +388,11 @@ describe("inlineUpdateRoute", () => {
 
   it("returns 403 when the field is role-gated and the session lacks the role", async () => {
     const handler = inlineUpdateRoute(
-      makeConfig({ role: "admin", updateFields: [{ name: "email", requireRole: "superadmin" }] }),
+      makeConfig({
+        role: "admin",
+        updateFields: [{ name: "email" }],
+        fieldAccess: { email: { write: "superadmin" } },
+      }),
     );
     const req = new Request("http://localhost/x", {
       method: "POST",
@@ -379,7 +405,11 @@ describe("inlineUpdateRoute", () => {
 
   it("allows a role-gated field when the session has the role", async () => {
     const handler = inlineUpdateRoute(
-      makeConfig({ role: "admin", updateFields: [{ name: "email", requireRole: "admin" }] }),
+      makeConfig({
+        role: "admin",
+        updateFields: [{ name: "email" }],
+        fieldAccess: { email: { write: "admin" } },
+      }),
     );
     const req = new Request("http://localhost/x", {
       method: "POST",

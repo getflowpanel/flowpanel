@@ -47,6 +47,13 @@ describe("introspect(drizzle pg table)", () => {
     expect(byName.name?.hasDefault).toBe(false);
   });
 
+  it("reports a plain default value, and none for an SQL default such as now()", () => {
+    const byName = Object.fromEntries(introspect(users).columns.map((c) => [c.name, c]));
+    expect(byName.role?.defaultValue).toBe("user");
+    expect(byName.active?.defaultValue).toBe(true);
+    expect(byName.createdAt?.defaultValue).toBeUndefined();
+  });
+
   it("memoizes per table ref: a repeated call does not re-scan the columns", () => {
     const other = pgTable("other", { id: uuid("id").primaryKey() });
 
@@ -60,5 +67,62 @@ describe("introspect(drizzle pg table)", () => {
     expect(Object.isFrozen(meta)).toBe(true);
     expect(Object.isFrozen(meta.columns)).toBe(true);
     expect(Object.isFrozen(meta.columns[0])).toBe(true);
+  });
+});
+
+describe("introspect: composite primary keys", () => {
+  it("reports every column of a table-level primaryKey, by property name", async () => {
+    const { primaryKey } = await import("drizzle-orm/pg-core");
+    const {
+      sqliteTable,
+      text: sqliteText,
+      primaryKey: sqlitePrimaryKey,
+    } = await import("drizzle-orm/sqlite-core");
+    const memberships = pgTable(
+      "memberships",
+      { orgId: text("org_id").notNull(), userId: text("user_id").notNull(), role: text("role") },
+      (t) => [primaryKey({ columns: [t.orgId, t.userId] })],
+    );
+    const tags = sqliteTable(
+      "tags",
+      { postId: sqliteText("post_id").notNull(), tag: sqliteText("tag").notNull() },
+      (t) => [sqlitePrimaryKey({ columns: [t.postId, t.tag] })],
+    );
+    expect(introspect(memberships).keyColumns).toEqual(["orgId", "userId"]);
+    expect(introspect(tags).keyColumns).toEqual(["postId", "tag"]);
+  });
+
+  it("reports none for a single-column key", () => {
+    const users = pgTable("users", { id: uuid("id").primaryKey(), email: text("email") });
+    expect(introspect(users).keyColumns).toBeUndefined();
+  });
+});
+
+describe("introspect: a SQL date column", () => {
+  it("is marked date-only on PostgreSQL and MySQL, and a timestamp is not", async () => {
+    const pg = await import("drizzle-orm/pg-core");
+    const mysql = await import("drizzle-orm/mysql-core");
+    const byName = (table: unknown) =>
+      Object.fromEntries(introspect(table).columns.map((column) => [column.name, column]));
+    const pgCols = byName(
+      pg.pgTable("events", {
+        id: pg.integer("id").primaryKey(),
+        day: pg.date("day", { mode: "date" }),
+        dayText: pg.date("day_text"),
+        at: pg.timestamp("at"),
+      }),
+    );
+    expect(pgCols.day).toMatchObject({ type: "date", dateOnly: true });
+    expect(pgCols.dayText?.type).toBe("string");
+    expect(pgCols.at?.dateOnly).toBeUndefined();
+    const myCols = byName(
+      mysql.mysqlTable("events", {
+        id: mysql.int("id").primaryKey(),
+        day: mysql.date("day"),
+        at: mysql.datetime("at"),
+      }),
+    );
+    expect(myCols.day).toMatchObject({ type: "date", dateOnly: true });
+    expect(myCols.at?.dateOnly).toBeUndefined();
   });
 });

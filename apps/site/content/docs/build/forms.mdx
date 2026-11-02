@@ -1,14 +1,17 @@
 ---
 title: Forms
-description: Configure safe create and edit forms with typed fields, validation, defaults, and relations.
+description: Configure create and edit forms with typed fields, validation, defaults and relations.
 kind: how-to
+metaTitle: Create and edit forms
 ---
 
-FlowPanel can generate forms from adapter metadata. Declare the field lists when you need a predictable write surface, different create and update behavior, or controls the adapter cannot infer.
+Create and edit forms are generated from the table. Declare `create.fields` and `update.fields` to choose exactly what each form writes; the server rejects any other field.
 
-## Start with explicit fields
+A generated form follows the list's columns, a column's `secondary` line included: a column's `label` names its control, a `reference` column is a picker, and a column whose `format` is money, such as `{ kind: "money", minorUnits: 2 }` on `totalCents`, takes the amount in major units, `74.35`, and stores `7435`. A column the database needs a value for is marked required, a column with a plain default such as an enum's `draft` starts there, and the create form leaves out a record timestamp the database fills, such as `created_at default now()` or `updated_at`. A defaulted date the user sets, such as `due_on default current_date`, stays as an optional field.
 
-```ts excerpt
+## Declare the fields
+
+```ts
 resource(schema.users, {
   columns: ["email", "name", "role", "createdAt"],
   create: {
@@ -27,49 +30,65 @@ resource(schema.users, {
 })
 ```
 
-The create form can collect fields that should never be editable later. Omitted fields remain outside that form; they are not silently accepted by the write route.
+## Controls
 
-## Choose controls
+`type` picks the input: text, textarea, number, money, email, password, url, date, datetime, time, boolean, switch, checkbox, select, multiselect, radio, json, markdown, tags, reference, hidden or color. Add `label`, `help` or `placeholder` when the name is not enough.
 
-Use `type` for the intended input: text, textarea, number, email, password, URL, date/time, boolean controls, select variants, JSON, Markdown, tags, reference, hidden, or color. Add `label`, `help`, and `placeholder` only when the field name and control do not explain the task.
+A `markdown` field edits plain text. The record page and the drawer show it formatted: headings, paragraphs, `-` lists, `**bold**`, `*italic*`, `` `code` `` and links to `https://`, `mailto:` or a path. HTML in the text stays text.
 
-`options` accepts static strings, `{ label, value }` pairs, or a server-side function. Dynamic options receive the typed query context and are resolved per request.
+The server checks the value against the type wherever it comes from: the form, the JSON API, a CSV import or an action form. An `email` must be an address the browser's email input accepts, a `url` a full address that starts with `http://` or `https://`, such as `https://example.com`, a `color` a `#rrggbb` value, a `time` a time of day such as `09:30`, and a `number`, `date` or `datetime` field a number or a date. On an edit, a value the row already holds is kept.
+
+`options` takes strings, `{ label, value }` pairs, or a function resolved on the server per request. A `select`, `multiselect` or `radio` field whose column has an `enumOf` format lists the enum's labels without `options`.
+
+## Money fields
+
+A `money` field edits an amount stored in minor units, such as cents, the way the `money` column format shows it:
+
+```ts as="FieldDef<RowOf<'invoices'>>"
+{ name: "amountCents", label: "Amount", type: "money", currency: "EUR" }
+```
+
+The form shows `399.99` with the currency's sign beside it, in the admin's decimal separator, and the server stores `39999`. `currency` defaults to `formatting.currency`, and `minorUnits`, the digits after the decimal point (0 to 8), to the currency's own: 2 for USD, 0 for JPY, 3 for KWD.
+
+`storage` says what the column holds. `"minor"`, the default for an integer column, stores whole minor units. `"major"`, the default for a `numeric`, `decimal` or float column, stores the amount itself, `399.99`. Saving a form without touching a valid amount keeps the stored value exactly. A stored value the currency cannot hold, such as `1999.5` minor units, shows unrounded as `19.995`, and the form will not save until someone corrects it.
+
+A comma works as the decimal separator. Text that is not an amount is rejected with `invalidMoney`, and an amount with more decimals than `minorUnits` with `moneyTooPrecise`. The JSON API takes and returns the column's own value. Pair a minor-unit field with `format: { kind: "money", minorUnits: 2 }` on the column, so the list and record show the same amount, and a range filter on that column takes the same amount.
 
 ## Relation fields
 
-A reference field stores the foreign key while showing a searchable label from another registered resource:
+A reference field stores the foreign key and shows a searchable label from another resource:
 
-```ts excerpt
+```ts as="FieldDef<RowOf<'monitors'>>"
 {
   name: "customerId",
   label: "Customer",
-  reference: {
-    resource: "customers",
-    valueField: "id",
-    labelField: "email",
-  },
+  reference: { resource: "customers", labelField: "email" },
   required: true,
 }
 ```
 
-The target resource's access, tenant scope, and searchable label field apply to the lookup. Register string-named resources in `FlowpanelResources` so the names and fields are checked.
+The stored value is the target's primary key. The lookup applies the target resource's access and tenant scope.
 
-## Validate on the server
+## Validation and defaults
 
-Adapter or resource schema validation is authoritative. A field `validate` rule runs afterward and can use a Zod schema or return a message. `required` also improves browser feedback, but a handcrafted request still passes through the same server checks.
+The resource schema, `required` and each field's `validate`, a Zod schema or a function returning a message, run in one round, so a submit shows every field's problem at once. A field the schema already refused keeps the schema's message and its `validate` does not run. `required` marks the control required and the server rejects a missing value. A NOT NULL column without `required` is checked too: a create that leaves it empty, or an edit that clears it, fails with its "is required" message.
 
-Use a server `defaultValue` for trusted values such as the current tenant or initial status. Do not render sensitive defaults into the client just to post them back.
+A timestamp column gets a `datetime-local` control that shows the stored time on the admin's clock, `formatting.timeZone` (UTC when unset), and the server reads the posted time in that zone. Saving without touching it keeps the stored seconds. A `type: "date"` field shows the day.
 
-### What a rejection says
+`defaultValue` fills a key the submission left empty, on the server. On a visible field it also pre-fills the control, so the browser sees it. A create field without `defaultValue` starts on its column's literal database default, such as `draft` for `status text default 'draft'`, as a generated form does. Put trusted values such as the tenant on a `hidden: true` field, or in `create.defaultValues`, to keep them off the page. When both name a key the submission left empty, `create.defaultValues` wins. A fixed default of a `select`, `radio` or `multiselect` field must be one of its fixed `options`; `defineAdmin` refuses one that is not and names the options, since the form would start empty.
 
-A rejected write answers with one message per field, and every message a reader can see comes from `labels.form`. A value the write needs but did not get reads as `required` — `"{label} is required"` — under the field's own `label`, or the humanized column name when the form declares no fields, so a cleared input no longer reports a type mismatch it did not cause. A value that cannot be read as its column's type reads as `invalidNumber`, `invalidBoolean` or `invalidDate` under the same label. Every other message is the one your schema or your `validate` rule wrote, passed through unchanged — including on an empty value: only the schema's own "expected a value" and "at least one character" rejections become `required`, so `z.string().min(3, "Pick a longer slug")` still says what you wrote. Translate all of them by setting `labels.form` (`RU_LABELS` already does).
+### Rejection messages
+
+A rejected write returns one message per field, from `labels.form`. A missing value reads `required` (`"{label} is required"`). A value that is not its column's type reads `invalidNumber`, `invalidBoolean` or `invalidDate`; one that does not fit its field's `type` reads `invalidEmail`, `invalidUrl`, `invalidColor` or `invalidTime`; and a money amount reads `invalidMoney`, or `moneyTooPrecise` when it has too many decimals. A value the database refuses reads `taken` (`"{label} is already taken"`) for a unique column and `missingReference` for a foreign key. A value outside a select's choices or a schema enum reads `invalidOption`, whatever message the enum carries, so it is in the admin's language; see [database constraint violations](/docs/reference/errors#database-constraint-violations). Any other message is the one your schema or `validate` wrote: `z.string().min(3, "Pick a longer slug")` shows as written. The [language presets](/docs/reference/define-config#language-presets) translate the built-in ones, and `{label}` is the field's [one label](/docs/build/resources#field-labels).
 
 ## Restrict fields
 
-`readOnly`, `hidden`, and `requireRole` affect rendering and writes. A submitted read-only or unauthorized field is rejected by the server rather than silently applied. Use field policies when the rule depends on the operation or session.
+`readOnly` and the resource's `fieldAccess` apply to rendering and to writes. The form shows a field the user may not write as read-only, leaves out one they may neither read nor write, and its route drops both from what it saves; an API or programmatic write that carries such a field is rejected. `readOnly` wins over `fieldAccess.write`. A `readOnly` or `hidden` function is called on the server with the stored row on edit, and on create with the values the form starts with: `create.defaultValues`, each field's `defaultValue`, then the column's database default. So `hidden: (row) => row.status === "draft"` hides the field on a new record whose status starts as `draft`. On an import row or a JSON create, `hidden` and `required` are judged on those values with the row's own on top, and a field is read-only when its `readOnly` is true for the starting values or for the row's, so a client cannot unlock a field by sending the value its predicate checks. It runs once per page, not as the user types. `hidden` only removes the control. See [Roles and permissions](/docs/guides/permissions).
 
-## Understand submission
+## Submission
 
-Generated forms post to FlowPanel route handlers. A successful create returns to the resource list; a successful update returns to the row. Writes pass through auth, resource access, scope, field policy, validation, the adapter, then post-commit audit/realtime/revalidation.
+Forms post to FlowPanel's route handlers. A create returns to the list with the new row highlighted for two seconds and a "Customer created" toast (`labels.saving.created`); an update returns to the row with "Changes saved" (`labels.saving.saved`). The form sends one request at a time: a double click or Enter during a save does nothing, and the form stays locked until the next page opens.
 
-Use a custom page when the operation needs a multi-step transaction, several resources, or client state that does not fit a resource form. See [Request and mutation lifecycle](/docs/understand/request-lifecycle) and the generated [Resources reference](/docs/reference/resources).
+A rejected submit keeps the button enabled; submitting again moves focus to the first field in error. Each error shows under its field, and the banner above the button appears only for an error no field on the form can show.
+
+While a form has unsaved changes, leaving it asks first: reloading or closing the tab shows the browser's prompt, and Cancel or any link in the admin opens a "Discard unsaved changes?" dialog (`labels.saving`). For a multi-step transaction or several resources at once, build a custom page. Every option: [FieldDef](/docs/reference/resources#fielddef).

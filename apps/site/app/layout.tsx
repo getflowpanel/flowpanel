@@ -5,26 +5,28 @@ import { GeistSans } from "geist/font/sans";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { AdapterScript, DEFAULT_ADAPTER } from "@/features/adapter-switcher";
+import { ogImages } from "@/shared/lib/og-image";
 import { siteConfig } from "@/shared/lib/site-config";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: `${siteConfig.name} — ${siteConfig.description}`,
-    template: `%s · ${siteConfig.name}`,
+    default: siteConfig.seo.title,
+    template: "%s · FlowPanel",
   },
-  description: siteConfig.description,
+  description: siteConfig.seo.description,
   openGraph: {
-    title: siteConfig.name,
-    description: siteConfig.description,
-    url: siteConfig.url,
-    siteName: siteConfig.name,
+    title: siteConfig.seo.title,
+    description: siteConfig.seo.description,
+    siteName: "FlowPanel",
     type: "website",
+    images: ogImages,
   },
   twitter: {
     card: "summary_large_image",
-    title: siteConfig.name,
-    description: siteConfig.description,
+    title: siteConfig.seo.title,
+    description: siteConfig.seo.description,
+    images: ogImages,
   },
 };
 

@@ -1,0 +1,163 @@
+import { execSync } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import { MySqlContainer, type StartedMySqlContainer } from "@testcontainers/mysql";
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
+import Database from "better-sqlite3";
+import { drizzle as drizzleSqlite } from "drizzle-orm/better-sqlite3";
+import { mysqlTable, varchar as mysqlVarchar } from "drizzle-orm/mysql-core";
+import { drizzle as drizzleMysql } from "drizzle-orm/mysql2";
+import { pgTable, text as pgText } from "drizzle-orm/pg-core";
+import { drizzle as drizzlePg } from "drizzle-orm/postgres-js";
+import { sqliteTable, text as sqliteText } from "drizzle-orm/sqlite-core";
+import * as mysql from "mysql2/promise";
+import postgres from "postgres";
+import { afterAll, describe, expect, it } from "vitest";
+import { drizzleAdapter } from "../index";
+import {
+  expectAuditLogRoundTrip,
+  expectOldRowsAfterUpgrade,
+  oldAuditRows,
+} from "./audit-log-round-trip";
+
+const TEMPLATES = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../cli/src/templates",
+);
+
+function initSql(dialect: Dialect): string {
+  return fs.readFileSync(path.join(TEMPLATES, `migration.${dialect}.sql.txt`), "utf8");
+}
+
+type Dialect = "postgresql" | "mysql" | "sqlite";
+
+/** A 0.3 audit table, then the 0002 that `flowpanel migrate` writes beside a 0.3 0001. */
+function upgradeSql(dialect: Dialect): { before: string; upgrade: string } {
+  return {
+    before: fs.readFileSync(
+      path.join(
+        path.dirname(fileURLToPath(import.meta.url)),
+        `fixtures/audit-log-0-3.${dialect}.sql`,
+      ),
+      "utf8",
+    ),
+    upgrade: fs.readFileSync(path.join(TEMPLATES, `migration-audit.${dialect}.sql.txt`), "utf8"),
+  };
+}
+
+function isDockerAvailable(): boolean {
+  try {
+    execSync("docker info", { stdio: "ignore", timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const dockerAvailable = isDockerAvailable();
+
+describe("the 0001_init.sql that flowpanel init writes", () => {
+  it("applies on SQLite and accepts an audit row", async () => {
+    const sqlite = new Database(":memory:");
+    const probe = sqliteTable("probe", { id: sqliteText("id").primaryKey() });
+    const adapter = drizzleAdapter({ db: drizzleSqlite(sqlite), schema: { probe } });
+    await adapter.applyMigration?.("0001_init", initSql("sqlite"));
+    sqlite.prepare("INSERT INTO flowpanel_audit_log (action) VALUES ('create')").run();
+    const row = sqlite.prepare("SELECT id, at FROM flowpanel_audit_log").get() as {
+      id: string;
+      at: string;
+    };
+    expect(row.id).toMatch(/^[0-9a-f]{32}$/);
+    expect(row.at).toBeTruthy();
+    expect(await adapter.listAppliedMigrations?.()).toEqual(new Set(["0001_init"]));
+    sqlite.prepare("DELETE FROM flowpanel_audit_log").run();
+    await expectAuditLogRoundTrip(adapter.auditLog);
+    sqlite.close();
+  });
+
+  it("upgrades a 0.3 audit table on SQLite, keeping its rows", async () => {
+    const sqlite = new Database(":memory:");
+    const probe = sqliteTable("probe", { id: sqliteText("id").primaryKey() });
+    const adapter = drizzleAdapter({ db: drizzleSqlite(sqlite), schema: { probe } });
+    const { before, upgrade } = upgradeSql("sqlite");
+    await adapter.applyMigration?.("0001_init", before);
+    sqlite.prepare("INSERT INTO flowpanel_audit_log (action) VALUES ('orders.update')").run();
+    for (const insert of oldAuditRows("sqlite")) sqlite.prepare(insert).run();
+    await adapter.applyMigration?.("0002_audit_log_0_4", upgrade);
+    expect(
+      sqlite
+        .prepare("SELECT action, actor_name FROM flowpanel_audit_log WHERE target_id IS NULL")
+        .all(),
+    ).toEqual([{ action: "orders.update", actor_name: null }]);
+    await expectOldRowsAfterUpgrade(adapter.auditLog);
+    sqlite.prepare("DELETE FROM flowpanel_audit_log").run();
+    await expectAuditLogRoundTrip(adapter.auditLog);
+    sqlite.close();
+  });
+
+  describe.skipIf(!dockerAvailable)("on servers", () => {
+    let pg: StartedPostgreSqlContainer | undefined;
+    let my: StartedMySqlContainer | undefined;
+    afterAll(async () => {
+      await pg?.stop();
+      await my?.stop();
+    }, 120_000);
+
+    it("applies on PostgreSQL", async () => {
+      pg = await new PostgreSqlContainer("postgres:16-alpine").start();
+      const client = postgres(pg.getConnectionUri(), { onnotice: () => {} });
+      const probe = pgTable("probe", { id: pgText("id").primaryKey() });
+      const adapter = drizzleAdapter({ db: drizzlePg(client), schema: { probe } });
+      await adapter.applyMigration?.("0001_init", initSql("postgresql"));
+      await client`INSERT INTO flowpanel_audit_log (action) VALUES ('create')`;
+      const [row] = await client`SELECT id FROM flowpanel_audit_log`;
+      expect(String(row?.id)).toMatch(/^[0-9a-f-]{36}$/);
+      await client`DELETE FROM flowpanel_audit_log`;
+      await expectAuditLogRoundTrip(adapter.auditLog);
+      await client`DROP TABLE flowpanel_audit_log`;
+      await client`DELETE FROM _flowpanel_migrations`;
+      const { before, upgrade } = upgradeSql("postgresql");
+      await adapter.applyMigration?.("0001_init", before);
+      await client`INSERT INTO flowpanel_audit_log (action) VALUES ('orders.update')`;
+      for (const insert of oldAuditRows("postgresql")) await client.unsafe(insert);
+      await adapter.applyMigration?.("0002_audit_log_0_4", upgrade);
+      await client.unsafe(upgrade);
+      expect(
+        await client`SELECT action, actor_name FROM flowpanel_audit_log WHERE target_id IS NULL`,
+      ).toEqual([{ action: "orders.update", actor_name: null }]);
+      await expectOldRowsAfterUpgrade(adapter.auditLog);
+      await client`DELETE FROM flowpanel_audit_log`;
+      await expectAuditLogRoundTrip(adapter.auditLog);
+      await client.end();
+    }, 120_000);
+
+    it("applies on MySQL", async () => {
+      my = await new MySqlContainer("mysql:8").start();
+      const pool = mysql.createPool(my.getConnectionUri());
+      const probe = mysqlTable("probe", { id: mysqlVarchar("id", { length: 36 }).primaryKey() });
+      const adapter = drizzleAdapter({ db: drizzleMysql(pool), schema: { probe } });
+      await adapter.applyMigration?.("0001_init", initSql("mysql"));
+      await pool.query("INSERT INTO flowpanel_audit_log (action) VALUES ('create')");
+      const [rows] = await pool.query("SELECT id FROM flowpanel_audit_log");
+      expect(JSON.stringify(rows)).toMatch(/"id":"[0-9a-f-]{36}"/);
+      await pool.query("DELETE FROM flowpanel_audit_log");
+      await expectAuditLogRoundTrip(adapter.auditLog);
+      await pool.query("DROP TABLE flowpanel_audit_log");
+      await pool.query("DELETE FROM _flowpanel_migrations");
+      const { before, upgrade } = upgradeSql("mysql");
+      await adapter.applyMigration?.("0001_init", before);
+      await pool.query("INSERT INTO flowpanel_audit_log (action) VALUES ('orders.update')");
+      for (const insert of oldAuditRows("mysql")) await pool.query(insert);
+      await adapter.applyMigration?.("0002_audit_log_0_4", upgrade);
+      const [kept] = await pool.query(
+        "SELECT action, actor_name FROM flowpanel_audit_log WHERE target_id IS NULL",
+      );
+      expect(kept).toEqual([{ action: "orders.update", actor_name: null }]);
+      await expectOldRowsAfterUpgrade(adapter.auditLog);
+      await pool.query("DELETE FROM flowpanel_audit_log");
+      await expectAuditLogRoundTrip(adapter.auditLog);
+      await pool.end();
+    }, 180_000);
+  });
+});

@@ -1,4 +1,5 @@
 import type { FlowpanelResult, ListResult } from "@flowpanel/core";
+import { clientMetadata as protocolMetadata } from "@flowpanel/core/paths";
 import {
   type FlowpanelClient,
   type FlowpanelClientMetadata,
@@ -10,6 +11,18 @@ import {
 
 export interface CreateFlowpanelClientOptions {
   fetch?: typeof globalThis.fetch;
+  /** The app's origin with its `http://` or `https://`, plus its `basePath` if it has one, for a client outside the browser: `"http://localhost:3000"`. */
+  baseUrl?: string;
+  /** Sent with every request under each call's own headers, such as a session `cookie` from a script. */
+  headers?: HeadersInit;
+}
+
+/** The metadata `createFlowpanelClient` takes, from a `defineAdmin` result, for a script or test that cannot use `createFlowpanel(config).client`. */
+export function clientMetadata(admin: {
+  id?: string;
+  paths: { admin: string; api: string };
+}): FlowpanelClientMetadata {
+  return protocolMetadata(admin);
 }
 
 function safeSegment(value: string): string {
@@ -19,6 +32,15 @@ function safeSegment(value: string): string {
 
 function internal(message = "Unexpected response from Flowpanel."): FlowpanelResult<never> {
   return { ok: false, error: { code: "internal", message } };
+}
+
+/** Where a request went, without any credentials a base URL carries. */
+function address(base: string): string {
+  if (!URL.canParse(base)) return base;
+  const url = new URL(base);
+  url.username = "";
+  url.password = "";
+  return url.href;
 }
 
 function isResult(value: unknown): value is FlowpanelResult<unknown> {
@@ -54,6 +76,12 @@ export function createFlowpanelClient(
     throw new Error(`Unsupported Flowpanel protocol version: ${metadata.protocol.version}`);
   }
   const fetcher = options.fetch ?? globalThis.fetch;
+  if (options.baseUrl && !/^https?:\/\//i.test(options.baseUrl)) {
+    throw new Error(
+      "createFlowpanelClient: baseUrl must start with http:// or https://, such as http://localhost:3000.",
+    );
+  }
+  const base = `${(options.baseUrl ?? "").replace(/\/+$/, "")}${metadata.paths.api}`;
 
   async function request<T>(
     path: string,
@@ -62,7 +90,8 @@ export function createFlowpanelClient(
   ): Promise<FlowpanelResult<T>> {
     let response: Response;
     try {
-      const headers = new Headers(requestOptions.headers);
+      const headers = new Headers(options.headers);
+      for (const [name, value] of new Headers(requestOptions.headers)) headers.set(name, value);
       if (init.body !== undefined) headers.set("content-type", "application/json");
       const fetchInit: RequestInit = {
         ...init,
@@ -70,10 +99,10 @@ export function createFlowpanelClient(
         headers,
         ...(requestOptions.signal ? { signal: requestOptions.signal } : {}),
       };
-      response = await fetcher(`${metadata.paths.api}/${path}`, fetchInit);
+      response = await fetcher(`${base}/${path}`, fetchInit);
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") throw error;
-      return internal("Unable to reach Flowpanel.") as FlowpanelResult<T>;
+      return internal(`Unable to reach Flowpanel at ${address(base)}.`) as FlowpanelResult<T>;
     }
 
     let payload: unknown;

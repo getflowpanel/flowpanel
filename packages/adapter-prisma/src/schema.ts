@@ -1,7 +1,12 @@
 import { z } from "zod";
-import type { PrismaDmmf, PrismaDmmfField } from "./introspect";
+import { fillsItself, type PrismaDmmf, type PrismaDmmfField } from "./introspect";
 
 export type { PrismaDmmf } from "./introspect";
+
+/** A `Date`, ISO 8601 text with an offset or `YYYY-MM-DD`: never `null`, a number or text without a zone. */
+const jsonDate = z
+  .union([z.date(), z.iso.datetime({ offset: true }), z.iso.date()])
+  .pipe(z.coerce.date());
 
 function fieldToZod(field: PrismaDmmfField, dmmf: PrismaDmmf): z.ZodTypeAny {
   if (field.isList) return z.array(z.unknown());
@@ -22,7 +27,7 @@ function fieldToZod(field: PrismaDmmfField, dmmf: PrismaDmmf): z.ZodTypeAny {
     case "Decimal":
       return z.number();
     case "DateTime":
-      return z.coerce.date();
+      return jsonDate;
     case "Json":
       return z.unknown();
     default:
@@ -52,10 +57,18 @@ export function inferSchema(
     const base = fieldToZod(field, dmmf);
     const nullable = !field.isRequired;
 
+    const filled = fillsItself(field);
+
     selectShape[field.name] = nullable ? base.optional().nullable() : base;
 
+    if (!field.isId || !filled) {
+      createShape[field.name] = nullable
+        ? base.optional().nullable()
+        : filled
+          ? base.optional()
+          : base;
+    }
     if (!field.isId) {
-      createShape[field.name] = nullable ? base.optional().nullable() : base;
       updateShape[field.name] = nullable ? base.optional().nullable() : base;
     }
   }

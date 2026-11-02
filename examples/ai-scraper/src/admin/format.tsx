@@ -1,35 +1,10 @@
-import type { ColumnFormat, Tone } from "@flowpanel/kit";
+import type { ColumnFormat } from "@flowpanel/kit";
 import { StatusBadge } from "@flowpanel/kit/react";
 import type { CSSProperties } from "react";
 import { modelLabel } from "@/src/lib/ai-models";
 
-// Shared column formats for domain values FlowPanel cannot infer.
-// The framework's `format: "badge"` auto-tones generic statuses (active →
-// ok, failed → err). This map covers only the domain values it can't know.
-const STATUS_TONES: Record<string, Tone> = {
-  trialing: "warn", // customers.status
-  past_due: "err",
-  starter: "info", // customers.plan
-  pro: "ok",
-  business: "ok",
-  paused: "warn", // monitors.status
-  queued: "muted", // runs.status — nothing is happening yet
-  running: "info", // …and this one is, so it must not look the same
-  open: "warn", // invoices.status
-  paid: "ok",
-  void: "err",
-  refunded: "muted",
-  in_stock: "ok", // listings.stock
-  low_stock: "warn",
-  out_of_stock: "err",
-  confirmed: "ok", // matches.status
-  needs_review: "warn",
-};
-
-/** `format: badge` on any status column — a themed pill, toned per value. */
-export const badge: ColumnFormat = { kind: "badge", tones: STATUS_TONES };
 /** `format: money` on any integer-cents column — renders "$12.34". */
-export const money: ColumnFormat = { kind: "money", scale: 100 };
+export const money: ColumnFormat = { kind: "money", minorUnits: 2 };
 
 // Cell renderers for the app-specific shapes the framework doesn't cover --
 const monthYear = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" });
@@ -47,7 +22,7 @@ export const urlCell = (url: string | null | undefined) => {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="truncate text-fp-text-1 underline decoration-fp-border-2 underline-offset-2 hover:decoration-fp-text-3"
+      className="text-fp-text-1 underline decoration-fp-border-2 underline-offset-2 hover:decoration-fp-text-3"
     >
       {url}
     </a>
@@ -58,10 +33,15 @@ export const urlCell = (url: string | null | undefined) => {
 export const modelBadge = (model: string | null | undefined) =>
   model == null ? "—" : <StatusBadge status={modelLabel(model)} />;
 
-/** Milliseconds → "820 ms" / "1.4 s". */
+/** Milliseconds → "820 ms", "1.4 s", "28 min" or "1 h 5 min". */
 export const formatDuration = (ms: number | null | undefined) => {
   if (ms == null) return "—";
-  return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+  if (ms < 1000) return `${ms} ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`;
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  return minutes % 60 === 0 ? `${hours} h` : `${hours} h ${minutes % 60} min`;
 };
 
 /** Star rating like "★ 4.8" (warn-toned star + tabular number). */
@@ -69,7 +49,7 @@ export const ratingCell = (rating: number | null | undefined) => {
   if (rating == null) return "—";
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-      <span style={{ color: "hsl(var(--fp-warn))" }}>★</span>
+      <span style={{ color: "hsl(var(--fp-warn-text))" }}>★</span>
       <span style={tabularNums}>{rating.toFixed(1)}</span>
     </span>
   );

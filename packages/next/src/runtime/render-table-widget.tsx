@@ -7,14 +7,21 @@ import type {
   WidgetColumn,
   WidgetContext,
 } from "@flowpanel/core";
+import { resolveFormatting } from "@flowpanel/core";
 import { TableWidget as TableWidgetRenderer } from "@flowpanel/react";
 import type { ReactNode } from "react";
+import { filterHref } from "./dashboard-filters";
 import { DEFAULT_RESOURCE_ROW_KEY } from "./defaults";
+import { filteredEmptyState } from "./filtered-empty";
 import { buildHref } from "./href";
 import { type PrerenderedColumn, prerenderResourceCells } from "./prerender-cells";
+import { realtimeProp } from "./realtime-channels";
 import { withReferenceCells } from "./reference-cells";
 import { readRelatedRows } from "./require-authorized";
-import { rowIdentity } from "./row-identity";
+import { resolveLink } from "./resolve-link";
+import { rowIdentity, rowKeyOf } from "./row-identity";
+import { tableFilters } from "./table-filters";
+import { type CaptionPromise, NO_CAPTION } from "./widget-caption";
 
 type WidgetRow = Record<string, unknown>;
 type ColumnSpec = string | WidgetColumn;
@@ -46,6 +53,8 @@ function toWidgetColumn(c: PrerenderedColumn<WidgetRow>): PrerenderedColumn<Widg
   if (c.className !== undefined) out.className = c.className;
   if (c.type !== undefined) out.type = c.type;
   if (c.format !== undefined) out.format = c.format;
+  if (c.content !== undefined) out.content = c.content;
+  if (c.textRem !== undefined) out.textRem = c.textRem;
   return out;
 }
 
@@ -70,10 +79,15 @@ function applySpecs(
   });
 }
 
-function seeAllHref(config: ResolvedAdminConfig, options: TableWidgetOptions): string | undefined {
-  if (typeof options.seeAll === "string") return options.seeAll;
-  if (options.seeAll === true && options.resource) return buildHref(config, options.resource);
-  return undefined;
+function seeAllHref(
+  config: ResolvedAdminConfig,
+  options: TableWidgetOptions,
+  ctx: WidgetContext,
+): string | undefined {
+  if (options.seeAll === true)
+    return options.resource ? buildHref(config, options.resource) : undefined;
+  if (options.seeAll === false || options.seeAll === undefined) return undefined;
+  return resolveLink(config, ctx, options.seeAll);
 }
 
 /** Render a `table()` widget on the server. */
@@ -82,13 +96,13 @@ export async function renderTableWidget(
   ctx: WidgetContext,
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
+  caption: CaptionPromise = NO_CAPTION,
 ): Promise<ReactNode> {
   const options = widget.options;
   const specs = options.columns as ColumnSpec[] | undefined;
   const wanted = specs?.map(specField);
   const resource = options.resource ? config.resourcesByName.get(options.resource) : undefined;
-  const rowKey =
-    options.rowKey ?? (resource?.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = options.rowKey ?? (resource ? rowKeyOf(resource) : DEFAULT_RESOURCE_ROW_KEY);
 
   let rows: WidgetRow[] = [];
   let columns: PrerenderedColumn<WidgetRow>[] = [];
@@ -98,11 +112,16 @@ export async function renderTableWidget(
     const produced = (await options.query(ctx)) as WidgetRow[];
     rows = options.limit === undefined ? produced : produced.slice(0, options.limit);
   } else if (resource) {
-    const related = await readRelatedRows(config, resource, reqCtx, {
-      dateRange: ctx.dateRange,
-      pageSize: widget.options.limit ?? 10,
-      extraFields: [...(wanted ?? []), rowKey],
-    });
+    const filters = tableFilters(options, ctx, config, resource);
+    const related =
+      filters === null
+        ? []
+        : await readRelatedRows(config, resource, reqCtx, {
+            filters,
+            dateRange: ctx.dateRange,
+            pageSize: widget.options.limit ?? 10,
+            extraFields: [...(wanted ?? []), rowKey],
+          });
     rows = (related ?? []) as WidgetRow[];
     if (related) {
       const defs = pickWidgetColumns(
@@ -115,6 +134,7 @@ export async function renderTableWidget(
       const prerendered = prerenderResourceCells<WidgetRow>(defs, rows, reqCtx, {
         dropHidden: !wanted || wanted.length === 0,
         metaByField,
+        formatting: resolveFormatting(config.formatting),
       });
       columns = prerendered.columns.map(toWidgetColumn);
       prerenderedCells = await withReferenceCells<WidgetRow>(
@@ -135,11 +155,22 @@ export async function renderTableWidget(
   }
   columns = applySpecs(columns, specs);
 
+  const filter = options.filterOnClick;
   const rowHref = options.rowHref;
-  const hrefs = rowHref
-    ? rows.map((row) => (rowIdentity(row, rowKey) === null ? null : (rowHref(row, ctx) ?? null)))
-    : undefined;
-  const seeAll = seeAllHref(config, options);
+  const hrefs = filter
+    ? rows.map((row) => {
+        const id = rowIdentity(row, rowKey);
+        return id === null ? null : filterHref(ctx, filter, id);
+      })
+    : rowHref
+      ? rows.map((row) =>
+          rowIdentity(row, rowKey) === null
+            ? null
+            : (resolveLink(config, ctx, rowHref(row, ctx)) ?? null),
+        )
+      : undefined;
+  const seeAll = seeAllHref(config, options, ctx);
+  const captionLine = await caption;
 
   return (
     <TableWidgetRenderer
@@ -148,10 +179,12 @@ export async function renderTableWidget(
       columns={columns}
       rowKey={rowKey}
       {...(prerenderedCells ? { prerenderedCells } : {})}
-      {...(options.realtime ? { realtime: options.realtime } : {})}
-      emptyState={options.emptyState ?? ctx.labels.widget.empty}
+      {...realtimeProp(options.realtime)}
+      emptyState={filteredEmptyState(ctx) ?? options.emptyState ?? ctx.labels.widget.empty}
       {...(hrefs ? { hrefs } : {})}
       {...(seeAll ? { seeAllHref: seeAll, seeAllLabel: ctx.labels.widget.seeAll } : {})}
+      {...(captionLine ? { caption: captionLine } : {})}
+      {...(options.density ? { density: options.density } : {})}
     />
   );
 }

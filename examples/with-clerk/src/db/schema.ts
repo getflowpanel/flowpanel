@@ -2,7 +2,7 @@
  * Minimal Drizzle schema for the `with-clerk` example.
  *
  * Two tables — `users` and `posts` — are enough to demonstrate that
- * `withClerk({ requireRole: "admin" })` gates a real CRUD admin without
+ * `withClerk({ access: "admin" })` gates a real CRUD admin without
  * pulling in the SaaS-shaped complexity of `ai-scraper`.
  *
  * `users.clerkId` is the Clerk user id (`auth().userId`). The seed assigns

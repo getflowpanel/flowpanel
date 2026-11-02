@@ -1,22 +1,20 @@
 "use client";
-import { Button } from "@flowpanel/react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Button, useLabels } from "@flowpanel/react";
+import { useListNavigation } from "./list-navigation";
 
 const PARAM = "deleted";
 
 export function ResourceListDeletedToggle() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const sp = useSearchParams();
+  const { navigate, params: sp } = useListNavigation();
   const active = sp.get(PARAM) === "1";
+  const { table } = useLabels();
 
   function toggle(): void {
-    const next = new URLSearchParams(sp.toString());
-    if (active) next.delete(PARAM);
-    else next.set(PARAM, "1");
-    next.delete("page");
-    const q = next.toString();
-    router.push(q ? `${pathname}?${q}` : pathname, { scroll: false });
+    navigate((next) => {
+      if (active) next.delete(PARAM);
+      else next.set(PARAM, "1");
+      next.delete("page");
+    }, "push");
   }
 
   return (
@@ -24,9 +22,9 @@ export function ResourceListDeletedToggle() {
       variant={active ? "default" : "outline"}
       onClick={toggle}
       aria-pressed={active}
-      className="rounded-full"
+      className="fp-rounded-full"
     >
-      {active ? "Hide deleted" : "Show deleted"}
+      {active ? table.hideDeleted : table.showDeleted}
     </Button>
   );
 }

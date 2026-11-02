@@ -35,6 +35,9 @@ export function DrawerCard({ widget }: { widget: SerializedCardWidget }): ReactN
           {...(widget.label ? { label: widget.label } : {})}
           rows={widget.rows}
           {...(widget.format ? { format: widget.format } : {})}
+          {...(widget.max !== undefined ? { max: widget.max } : {})}
+          {...(widget.share ? { share: true } : {})}
+          {...(widget.goodWhen ? { goodWhen: widget.goodWhen } : {})}
           emptyState={widget.emptyState}
         />
       );
@@ -44,17 +47,14 @@ export function DrawerCard({ widget }: { widget: SerializedCardWidget }): ReactN
           {...(widget.label ? { label: widget.label } : {})}
           steps={widget.steps}
           {...(widget.format ? { format: widget.format } : {})}
+          {...(widget.alertDrop !== undefined ? { alertDrop: widget.alertDrop } : {})}
           emptyState={widget.emptyState}
         />
       );
-    case "list":
-      return (
-        <ListCard
-          {...(widget.label ? { label: widget.label } : {})}
-          rows={widget.rows}
-          emptyState={widget.emptyState}
-        />
-      );
+    case "list": {
+      const { kind: _kind, span: _span, realtime: _realtime, ...data } = widget;
+      return <ListCard {...data} />;
+    }
   }
 }
 

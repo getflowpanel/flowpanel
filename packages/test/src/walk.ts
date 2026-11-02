@@ -1,12 +1,18 @@
-import type { SmokeLocator, SmokePage } from "./page";
+import { consoleText } from "./console-text";
+import type { SmokeLocator, SmokePage, SmokeResponse } from "./page";
+import { serverErrorText } from "./server-error";
 import type { A11yViolation, SmokeAdminOptions, SmokeAdminReport } from "./types";
 
 const NAV = "nav[data-flowpanel-nav]";
 const MAIN = "main";
 const ERROR_SURFACE = "[data-fp-error]";
-const ROWS = "main table tbody tr";
+const ROWS = "main table tbody tr[data-fp-row]";
+const CARDS = "main [data-fp-card-link]";
 const DIALOG = '[role="dialog"]';
+const TAB = "[data-fp-tab]";
+const NEXT_ERROR = '[id="__next_error__"]';
 const ACTIVATION_TIMEOUT = 5_000;
+const MAIN_TIMEOUT = 15_000;
 
 /** One axe finding before the walk attributes it to a route. */
 export type A11yFinding = Omit<A11yViolation, "route">;
@@ -15,13 +21,14 @@ export type A11yScanner = () => Promise<A11yFinding[]>;
 
 interface Walk {
   page: SmokePage;
-  basePath: string;
+  adminPath: string;
   scan: A11yScanner | null;
   report: SmokeAdminReport;
   failures: string[];
+  tabs: boolean;
 }
 
-export function normalizeBasePath(value: string): string {
+export function normalizeAdminPath(value: string): string {
   const trimmed = value.trim().replace(/\/+$/, "");
   if (trimmed === "") return "/";
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
@@ -42,15 +49,22 @@ function currentRoute(page: SmokePage): string {
   return `${url.pathname}${url.search}`;
 }
 
-/** `/admin` and `/admin/orders` are under the admin; `/administrators` is not. */
-export function isUnderBasePath(route: string, basePath: string): boolean {
-  if (basePath === "/") return route.startsWith("/");
-  const path = route.split("?")[0] ?? "";
-  return path === basePath || path.startsWith(`${basePath}/`);
+/** A route with its `tab` query set to `key`, keeping every other query key. */
+export function withTab(route: string, key: string): string {
+  const url = new URL(route, "http://flowpanel.invalid");
+  url.searchParams.set("tab", key);
+  return `${url.pathname}${url.search}`;
 }
 
-function segmentOf(route: string, basePath: string): string {
-  const rest = route.slice(basePath === "/" ? 0 : basePath.length).split("?")[0] ?? "";
+/** `/admin` and `/admin/orders` are under the admin; `/administrators` is not. */
+export function isUnderAdminPath(route: string, adminPath: string): boolean {
+  if (adminPath === "/") return route.startsWith("/");
+  const path = route.split("?")[0] ?? "";
+  return path === adminPath || path.startsWith(`${adminPath}/`);
+}
+
+function segmentOf(route: string, adminPath: string): string {
+  const rest = route.slice(adminPath === "/" ? 0 : adminPath.length).split("?")[0] ?? "";
   const segment = rest.replace(/^\/+/, "").split("/")[0] ?? "";
   return segment === "" ? "/" : segment;
 }
@@ -61,17 +75,28 @@ async function navRoutes(walk: Walk, resources: string[] | undefined): Promise<s
   for (const link of await walk.page.locator(`${NAV} a`).all()) {
     const href = await link.getAttribute("href");
     const route = href === null ? null : sameOriginRoute(href, origin);
-    if (route === null || !isUnderBasePath(route, walk.basePath)) continue;
+    if (route === null || !isUnderAdminPath(route, walk.adminPath)) continue;
     if (routes.includes(route)) continue;
-    if (resources && !resources.includes(segmentOf(route, walk.basePath))) continue;
+    if (resources && !resources.includes(segmentOf(route, walk.adminPath))) continue;
     routes.push(route);
   }
   return routes;
 }
 
+/** The text of Next's own error document, which replaces the admin when a render throws past every boundary. */
+async function nextErrorText(page: SmokePage): Promise<string | null> {
+  const document = page.locator(NEXT_ERROR).first();
+  if ((await document.count()) === 0) return null;
+  return (await document.innerText()).replace(/\s+/g, " ").trim().slice(0, 300);
+}
+
 async function inspect(walk: Walk, route: string): Promise<void> {
-  walk.report.visited.push(route);
-  await walk.page.locator(MAIN).first().waitFor({ state: "visible" });
+  try {
+    await walk.page.locator(MAIN).first().waitFor({ state: "visible", timeout: MAIN_TIMEOUT });
+  } catch {
+    walk.failures.push(`${route}: rendered no <main> within ${MAIN_TIMEOUT / 1000} s`);
+    return;
+  }
   if ((await walk.page.locator(ERROR_SURFACE).count()) > 0) {
     walk.failures.push(`${route}: rendered a FlowPanel error surface`);
   }
@@ -79,15 +104,32 @@ async function inspect(walk: Walk, route: string): Promise<void> {
   for (const found of await walk.scan()) walk.report.a11yViolations.push({ ...found, route });
 }
 
-async function open(walk: Walk, route: string): Promise<void> {
-  const status = (await walk.page.goto(route))?.status();
-  if (status !== undefined && status >= 400) walk.failures.push(`${route}: responded ${status}`);
-  await inspect(walk, route);
+async function bodyError(response: SmokeResponse | null, status: number | undefined) {
+  if (!response || status === undefined || status < 500) return null;
+  return serverErrorText(await response.text().catch(() => ""));
 }
 
-/** A row acts by navigating to its page or by opening the drawer; both count. */
+/** Opens `route` and checks it; `false` when the server failed it before the admin rendered. */
+async function open(walk: Walk, route: string): Promise<boolean> {
+  const response = await walk.page.goto(route);
+  const status = response?.status();
+  walk.report.visited.push(route);
+  const shown = await nextErrorText(walk.page);
+  const fromBody = shown ? null : await bodyError(response, status);
+  const crash = fromBody ?? shown;
+  const failed = status !== undefined && status >= 400;
+  if (failed || crash !== null) {
+    const what = failed ? `responded ${status}` : "rendered Next's error page instead of the admin";
+    walk.failures.push(`${route}: ${what}${crash ? `: ${crash}` : ""}`);
+  }
+  if (crash !== null || (status !== undefined && status >= 500)) return false;
+  await inspect(walk, route);
+  return true;
+}
+
+/** A row opens as a keyboard user opens it, so a link inside one of its cells is never what gets followed. */
 async function activate(walk: Walk, row: SmokeLocator, from: string): Promise<boolean> {
-  await row.click({ timeout: ACTIVATION_TIMEOUT });
+  await row.press("Enter", { timeout: ACTIVATION_TIMEOUT });
   try {
     await walk.page.waitForURL((url) => `${url.pathname}${url.search}` !== from, {
       timeout: ACTIVATION_TIMEOUT,
@@ -98,26 +140,53 @@ async function activate(walk: Walk, row: SmokeLocator, from: string): Promise<bo
   }
 }
 
+async function tabKeys(walk: Walk): Promise<string[]> {
+  const keys: string[] = [];
+  for (const trigger of await walk.page.locator(TAB).all()) {
+    const key = await trigger.getAttribute("data-fp-tab");
+    const open = (await trigger.getAttribute("data-state")) === "active";
+    if (key && !open && !keys.includes(key)) keys.push(key);
+  }
+  return keys;
+}
+
+async function openTabs(walk: Walk, route: string): Promise<void> {
+  if (!walk.tabs) return;
+  for (const key of await tabKeys(walk)) await open(walk, withTab(route, key));
+}
+
+/** The table's rows, or on a phone, where the list is cards, each card's open button. */
+async function listRows(page: SmokePage): Promise<SmokeLocator> {
+  const table = page.locator(ROWS);
+  if ((await table.count()) > 0 && (await table.first().isVisible())) return table;
+  return page.locator(CARDS);
+}
+
 async function openRows(walk: Walk, route: string, maxRows: number): Promise<void> {
   for (let index = 0; index < maxRows; index += 1) {
     if (index > 0) await open(walk, route);
-    const rows = walk.page.locator(ROWS);
+    const rows = await listRows(walk.page);
     if ((await rows.count()) <= index) return;
     if (!(await activate(walk, rows.nth(index), route))) return;
-    await open(walk, currentRoute(walk.page));
+    const record = currentRoute(walk.page);
+    await open(walk, record);
+    await openTabs(walk, record);
   }
 }
 
 /** A walk that found nothing to walk is the failure it looks most like a pass. */
-export function noNavigation(basePath: string): string {
-  return `smokeAdmin found no navigation under ${basePath} — is the admin mounted there, and is the session signed in?`;
+export function noNavigation(adminPath: string): string {
+  return `smokeAdmin found no navigation under ${adminPath} — is the admin mounted there, and is the session signed in?`;
 }
 
 export function smokeFailure(report: SmokeAdminReport, failures: string[]): Error {
   const lines = [
     ...failures,
     ...report.consoleErrors.map((text) => `console.error: ${text}`),
-    ...report.a11yViolations.map((v) => `${v.route}: axe ${v.id} (${v.impact ?? "unknown"})`),
+    ...report.a11yViolations.map(
+      (v) =>
+        `${v.route}: axe ${v.id} (${v.impact ?? "unknown"})${v.targets ? ` at ${v.targets.join(", ")}` : ""}`,
+    ),
   ];
   const detail = JSON.stringify(report, null, 2);
   return new Error(
@@ -125,15 +194,10 @@ export function smokeFailure(report: SmokeAdminReport, failures: string[]): Erro
   );
 }
 
-/**
- * The session has to be there before the first page the walk inspects, or the
- * report describes the sign-in screen: its console errors and its axe violations
- * would be attributed to the admin. Without an explicit `domain` the cookie needs
- * an origin, so the walk loads `basePath` once without looking at it.
- */
+// The session must exist before the first page inspected, or errors get attributed to the sign-in screen instead.
 async function applyCookie(
   page: SmokePage,
-  basePath: string,
+  adminPath: string,
   cookie: NonNullable<SmokeAdminOptions["cookie"]>,
 ): Promise<void> {
   const { name, value, domain } = cookie;
@@ -141,7 +205,7 @@ async function applyCookie(
     await page.context().addCookies([{ name, value, domain, path: "/" }]);
     return;
   }
-  await page.goto(basePath);
+  await page.goto(adminPath);
   await page.context().addCookies([{ name, value, url: new URL(page.url()).origin }]);
 }
 
@@ -152,24 +216,32 @@ export async function runSmoke(
 ): Promise<SmokeAdminReport> {
   const report: SmokeAdminReport = { visited: [], consoleErrors: [], a11yViolations: [] };
   const failures: string[] = [];
-  const basePath = normalizeBasePath(options.basePath ?? "/admin");
-  const walk: Walk = { page, basePath, scan, report, failures };
+  const adminPath = normalizeAdminPath(options.paths?.admin ?? "/admin");
+  const walk: Walk = { page, adminPath, scan, report, failures, tabs: options.tabs ?? true };
   const maxRows = Math.max(0, options.maxRows ?? 1);
 
-  if (options.cookie) await applyCookie(page, basePath, options.cookie);
+  if (options.cookie) await applyCookie(page, adminPath, options.cookie);
+  const reading: Promise<void>[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error") report.consoleErrors.push(message.text());
+    if (message.type() !== "error") return;
+    const index = report.consoleErrors.push(message.text()) - 1;
+    reading.push(
+      consoleText(message).then((text) => {
+        report.consoleErrors[index] = text;
+      }),
+    );
   });
 
-  await open(walk, basePath);
+  const rendered = await open(walk, adminPath);
   const routes = await navRoutes(walk, options.resources);
-  if (routes.length === 0) failures.push(noNavigation(basePath));
+  if (routes.length === 0 && rendered) failures.push(noNavigation(adminPath));
 
   for (const route of routes) {
-    if (route !== basePath) await open(walk, route);
+    if (route !== adminPath) await open(walk, route);
     await openRows(walk, route, maxRows);
   }
 
+  await Promise.all(reading);
   if (failures.length + report.consoleErrors.length + report.a11yViolations.length > 0) {
     throw smokeFailure(report, failures);
   }

@@ -1,11 +1,12 @@
-import type { AuthConfig } from "../types/config";
-import type { Session } from "../types/session";
+import type { AccessRule, AuthConfig, Session } from "@flowpanel/core";
+import { fromProvider } from "../auth-provider";
+import { assertNoAuthRequireRole } from "../compiler/validate/removed-keys";
 
 export interface NextAuthOptions {
   /** Your NextAuth (Auth.js) `auth()` function — typically from `@/auth`. */
   auth: () => Promise<unknown>;
-  /** Roles allowed into the admin. */
-  requireRole?: string | string[] | ((s: Session | null) => boolean);
+  /** Who may enter the admin: a role, a role list, or a predicate. */
+  access?: AccessRule;
   signInUrl?: string;
   forbiddenUrl?: string;
   /** Extract the role from the NextAuth session. */
@@ -16,7 +17,8 @@ export interface NextAuthOptions {
 
 /** First-class NextAuth (Auth.js v5) integration. */
 export function withNextAuth(opts: NextAuthOptions): AuthConfig {
-  return {
+  assertNoAuthRequireRole("withNextAuth", opts);
+  return fromProvider("Auth.js", {
     async session(): Promise<Session | null> {
       const s = await opts.auth();
       return (s ?? null) as Session | null;
@@ -33,8 +35,8 @@ export function withNextAuth(opts: NextAuthOptions): AuthConfig {
         const id = (s as { user?: { id?: unknown } } | null)?.user?.id;
         return id === undefined || id === null ? null : String(id);
       }),
-    ...(opts.requireRole !== undefined ? { requireRole: opts.requireRole } : {}),
+    ...(opts.access !== undefined ? { access: opts.access } : {}),
     ...(opts.signInUrl ? { signInUrl: opts.signInUrl } : {}),
     ...(opts.forbiddenUrl ? { forbiddenUrl: opts.forbiddenUrl } : {}),
-  };
+  });
 }

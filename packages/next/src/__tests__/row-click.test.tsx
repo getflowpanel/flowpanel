@@ -61,7 +61,7 @@ function findAll(tree: ReactNode, type: unknown, out: Record<string, unknown>[] 
 async function tableProps(options: Record<string, unknown>) {
   const config = defineAdmin({
     adapter,
-    auth: { session: async () => null, role: () => "admin", requireRole: "admin" },
+    auth: { session: async () => null, role: () => "admin", access: "admin" },
     resources: [resource({ __name: "users" }, options as never)],
   });
   const users = config.resourcesByName.get("users");
@@ -88,8 +88,14 @@ describe("what a row click does, by configuration", () => {
     expect(props?.rowHrefs).toBeUndefined();
   });
 
-  it("leaves rows inert when the resource configures neither", async () => {
+  it("opens the record page when the resource configures neither", async () => {
     const props = await tableProps({ columns: ["id", "email"] });
+    expect(props?.rowHrefs).toEqual(["/admin/users/u1", "/admin/users/u2"]);
+    expect(props?.openDrawerOnRowClick).toBeUndefined();
+  });
+
+  it("leaves rows inert when the resource sets rowClick: false", async () => {
+    const props = await tableProps({ columns: ["id", "email"], rowClick: false });
     expect(props?.rowHrefs).toBeUndefined();
     expect(props?.openDrawerOnRowClick).toBeUndefined();
   });
@@ -123,7 +129,7 @@ describe("what a row click does, by configuration", () => {
     };
     const config = defineAdmin({
       adapter: wild,
-      auth: { session: async () => null, role: () => "admin", requireRole: "admin" },
+      auth: { session: async () => null, role: () => "admin", access: "admin" },
       resources: [
         resource({ __name: "users" }, { columns: ["id", "email"], detail: { fields: ["email"] } }),
       ],

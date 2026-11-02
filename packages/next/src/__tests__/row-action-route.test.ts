@@ -65,6 +65,7 @@ function makeConfig(opts: {
     resources: [resource],
     resourcesByName: new Map([["users", resource]]),
     dashboardsByPath: new Map(),
+    paths: { admin: "/admin", api: "/api/flowpanel" },
     __resolved: true,
   } as never;
   return config;
@@ -124,13 +125,13 @@ describe("rowActionRoute", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 403 when per-action requireRole fails", async () => {
+  it("returns 403 when per-action access fails", async () => {
     const config = makeConfig({
       role: "user",
       action: {
         key: "ping",
         label: "Ping",
-        requireRole: "admin",
+        access: "admin",
         run: async () => ({ ok: true }),
       },
     });
@@ -235,7 +236,12 @@ describe("rowActionRoute", () => {
     });
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ ok: false, error: "JSON body must be an object" });
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "JSON body must be an object",
+      code: "bad_request",
+      requestId: expect.any(String),
+    });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -255,7 +261,12 @@ describe("rowActionRoute", () => {
     });
 
     expect(res.status).toBe(413);
-    expect(await res.json()).toEqual({ ok: false, error: "request body is too large" });
+    expect(await res.json()).toEqual({
+      ok: false,
+      error: "request body is too large",
+      code: "payload_too_large",
+      requestId: expect.any(String),
+    });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -320,7 +331,7 @@ describe("rowActionRoute", () => {
     expect(body.error).not.toContain("secret");
   });
 
-  it("returns 422 with issues when input fails the action's required form field", async () => {
+  it("returns 422 with field errors when input fails the action's required form field", async () => {
     const run = vi.fn(async () => ({ ok: true as const }));
     const config = makeConfig({
       action: {
@@ -343,7 +354,7 @@ describe("rowActionRoute", () => {
     const body = await res.json();
     expect(body.ok).toBe(false);
     expect(body.error).toBe("validation failed");
-    expect(body.issues).toEqual([{ path: ["status"], message: "status is required" }]);
+    expect(body.fieldErrors).toEqual({ status: "Status is required" });
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -374,7 +385,27 @@ describe("rowActionRoute", () => {
     });
     expect(res.status).toBe(422);
     const body = await res.json();
-    expect(body.issues).toEqual([{ path: ["status"], message: "status cannot be banned" }]);
+    expect(body.fieldErrors).toEqual({ status: "status cannot be banned" });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 when a typed form field gets a value of another kind", async () => {
+    const run = vi.fn(async () => ({ ok: true as const }));
+    const config = makeConfig({
+      action: { key: "note", label: "Note", form: [{ name: "contact", type: "email" }], run },
+    });
+    const req = new Request("http://localhost/x", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contact: "nope" }),
+    });
+    const res = await rowActionRoute(config)(req, {
+      params: Promise.resolve({ resource: "users", id: "u1", action: "note" }),
+    });
+    expect(res.status).toBe(422);
+    expect((await res.json()).fieldErrors).toEqual({
+      contact: "Contact must be an email address like name@example.com",
+    });
     expect(run).not.toHaveBeenCalled();
   });
 

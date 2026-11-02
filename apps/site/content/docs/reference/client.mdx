@@ -4,13 +4,12 @@ description: Call the protected FlowPanel HTTP API from custom React UI, then ad
 kind: reference
 ---
 
-`@flowpanel/client` is the framework-neutral browser client. Use it when the
-generated admin is mostly right, but one screen needs custom UI. Calls still go
-through the same auth, resource access, field policy, tenant scope, validation,
-audit and adapter pipeline as generated pages.
+`@flowpanel/kit/client` calls the admin's HTTP API from custom browser UI. Calls go
+through the same auth, access, scope, validation and audit as generated pages.
 
-```ts excerpt
+```ts
 import {
+  clientMetadata,
   createFlowpanelClient,
   isFlowpanelErrorCode,
   isFlowpanelErrorResult,
@@ -20,57 +19,90 @@ import {
   type FlowpanelFetchOptions,
   type FlowpanelListOptions,
   type FlowpanelResourceClient,
-} from "@flowpanel/client";
+} from "@flowpanel/kit/client";
 ```
-
-The same surface is available from `@flowpanel/kit/client` when your project
-installs the umbrella package.
 
 ## Create a client
 
 <ApiSignature path="../../packages/client/src/client.ts" name="createFlowpanelClient" />
 
-The server runtime exposes serializable metadata; pass it to the browser
-client instead of duplicating API paths.
+The client needs the runtime's metadata: `createFlowpanel(config).client`. Read it in a Server Component and pass it to the client component as a prop, so the config, adapter and database client stay on the server:
 
-```ts excerpt
-// server module
+```tsx
+// src/app/orders/page.tsx
 import { createFlowpanel } from "@flowpanel/kit/next";
-import config from "@/flowpanel.config";
+import config from "../../../flowpanel.config";
+import { OrdersPanel } from "./orders-panel";
 
-export const flowpanel = createFlowpanel(config);
-export const flowpanelMetadata = flowpanel.client;
-```
+const flowpanel = createFlowpanel(config);
 
-```tsx excerpt
-"use client";
-
-import { createFlowpanelClient } from "@flowpanel/kit/client";
-import { flowpanelMetadata } from "./runtime";
-
-const client = createFlowpanelClient(flowpanelMetadata);
-const orders = client.resource<Order>("orders");
-const result = await orders.list({
-  page: 1,
-  pageSize: 25,
-  search: "acme",
-  filters: { status: "open" },
-});
-
-if (!result.ok) {
-  console.error(result.error.code, result.error.message);
+export default function OrdersPage() {
+  return <OrdersPanel metadata={flowpanel.client} />;
 }
 ```
 
-`createFlowpanelClient(metadata, options?)` returns a frozen
-`FlowpanelClient`. `CreateFlowpanelClientOptions.fetch` lets tests, React
-Native shells or instrumented apps provide their own fetch implementation.
-Every request uses `credentials: "same-origin"` and validates the response
-envelope before returning it.
+```tsx
+// src/app/orders/orders-panel.tsx
+"use client";
 
-`FlowpanelClientMetadata` contains the runtime id, admin/API paths and protocol
-version. Treat it as public configuration, not a secret. The client rejects an
-unsupported protocol version immediately.
+import { createFlowpanelClient, type FlowpanelClientMetadata } from "@flowpanel/kit/client";
+import type { orders } from "@/db/schema";
+
+type Order = typeof orders.$inferSelect;
+
+export function OrdersPanel({ metadata }: { metadata: FlowpanelClientMetadata }) {
+  async function loadOpenOrders() {
+    const orders = createFlowpanelClient(metadata).resource<Order>("orders");
+    const result = await orders.list({
+      page: 1,
+      pageSize: 25,
+      search: "acme",
+      filters: { status: "open" },
+    });
+    if (!result.ok) console.error(result.error.code, result.error.message);
+  }
+  return (
+    <button type="button" onClick={loadOpenOrders}>
+      Load open orders
+    </button>
+  );
+}
+```
+
+`options.fetch` replaces the fetch implementation, `options.baseUrl` puts an origin, with its
+`http://` or `https://`, in front of `paths.api`, and `options.headers` go with every request. Requests use
+`credentials: "same-origin"`. `FlowpanelClientMetadata` holds the runtime id, paths
+and protocol version; it is not secret.
+
+## From a script
+
+A Node script, a cron job or a test reaches the API with the same client.
+`clientMetadata(config)` builds the metadata from your config, `baseUrl` says where the
+app runs (with its `basePath`, if any) and `headers` carries the session, such as a
+cookie your auth issued:
+
+```ts
+// scripts/open-orders.ts
+import { clientMetadata, createFlowpanelClient } from "@flowpanel/kit/client";
+import config from "../flowpanel.config";
+
+const client = createFlowpanelClient(clientMetadata(config), {
+  baseUrl: process.env.APP_URL ?? "http://localhost:3000",
+  headers: { cookie: process.env.ADMIN_COOKIE ?? "" },
+});
+
+async function main() {
+  const result = await client.resource("orders").list({ filters: { status: "open" } });
+  console.log(result.ok ? result.data.total : result.error.message);
+}
+
+void main();
+```
+
+Run it with `pnpm tsx --env-file=.env scripts/open-orders.ts`. Every kit subpath a
+config can import loads from a CommonJS script too, which is what a project without
+`"type": "module"`, such as one `create-next-app` makes, runs; it needs Node.js 20.19
+or 22.12 and newer, which load the kit's ES modules from `require`.
 
 ## Resource methods
 
@@ -84,26 +116,37 @@ unsupported protocol version immediately.
 | `update(id, input, options?)` | `PATCH /<resource>/<id>` | Updated row |
 | `delete(id, options?)` | `DELETE /<resource>/<id>` | `null` on success |
 
-`FlowpanelListOptions` accepts `page`, `pageSize`, `search`, and a flat
-`filters` record. It extends `FlowpanelFetchOptions`, so list calls and item
-calls both accept `signal` and extra `headers`. IDs and resource names are
-encoded as individual URL segments; empty, `.` and `..` segments are rejected.
+`create` and `update` write the fields the resource's form declares, and `update`
+also writes every `editable: true` column, as the list's inline edit does, under the
+same access. Any other key fails with `unknown_field`. A timestamp is ISO 8601 text with
+seconds and an offset, such as `2026-10-18T22:30:00Z` or `…+03:00` (`JSON.stringify` of a
+`Date` gives this; `22:30Z` and `+0300` are refused), and a SQL `date` column also takes
+`YYYY-MM-DD`; `null` clears a nullable column only, and text without a zone, a number or
+a boolean fails validation.
 
-Network errors and malformed responses become a typed `internal` failure.
-An `AbortError` is rethrown so your component can distinguish cancellation
-from a failed request.
+`FlowpanelListOptions` takes `page`, `pageSize`, `search` and `filters`; every call
+takes `signal` and `headers`. Network errors and malformed responses become an
+`internal` failure; an `AbortError` is rethrown.
 
 ## Narrowing errors
 
-`isFlowpanelErrorResult(result)` narrows a `FlowpanelResult<T>` to its error
-branch. `isFlowpanelErrorCode(value)` validates unknown data against the stable
-error-code union.
+`isFlowpanelErrorResult(result)` narrows to the error branch;
+`isFlowpanelErrorCode(value)` checks a code.
 
-```ts excerpt
-import { isFlowpanelErrorCode, isFlowpanelErrorResult } from "@flowpanel/kit/client";
+```ts
+import {
+  createFlowpanelClient,
+  type FlowpanelClientMetadata,
+  isFlowpanelErrorCode,
+  isFlowpanelErrorResult,
+} from "@flowpanel/kit/client";
 
-if (isFlowpanelErrorResult(result) && result.error.code === "field_forbidden") {
-  // Hide or disable the corresponding control.
+export async function shipOrder(metadata: FlowpanelClientMetadata, id: string): Promise<void> {
+  const orders = createFlowpanelClient(metadata).resource("orders");
+  const result = await orders.update(id, { status: "shipped" });
+  if (isFlowpanelErrorResult(result) && result.error.code === "field_forbidden") {
+    // Hide or disable the corresponding control.
+  }
 }
 
 isFlowpanelErrorCode("rate_limited"); // true
@@ -112,10 +155,10 @@ isFlowpanelErrorCode("anything"); // false
 
 ## Mutation state hook
 
-`useAdminMutation` remains available for custom UI that calls a Server Action
-rather than the HTTP client.
+`useAdminMutation` tracks pending and error state for an async function that resolves to an `ActionResult` (`{ ok: true, ... }` or `{ ok: false, error }`).
 
-```tsx excerpt
+```tsx
+// src/app/orders/archive-button.tsx
 "use client";
 import { useAdminMutation } from "@flowpanel/kit/client";
 import { archiveOrder } from "./actions";
@@ -137,7 +180,5 @@ export function ArchiveButton({ id }: { id: string }) {
 
 <AutoTypeTable path="../../packages/client/src/mutation.ts" name="UseAdminMutationOptions" />
 
-`run` never throws: rejected actions and `{ ok: false }` results both become a
-failure result and update `error`. `reset()` clears local pending/error state.
-For optimistic values, use
-[`useOptimisticAction`](/docs/reference/react-components#hooks).
+`run` never throws: a rejection sets `error` to its message, and `{ ok: false, error }` sets `error` to that string. `reset()` clears
+it. For optimistic values, see [`useOptimisticAction`](/docs/reference/react-components#hooks).

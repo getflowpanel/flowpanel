@@ -4,12 +4,6 @@ import { useSearchContext } from "fumadocs-ui/contexts/search";
 import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
-/**
- * Search trigger for the docs header. Opens the shared Fumadocs search
- * dialog (Orama-backed) and surfaces the ⌘K / Ctrl K hint.
- *
- * The dialog itself is mounted by `RootProvider` in the root layout.
- */
 export function SearchTrigger() {
   const { setOpenSearch } = useSearchContext();
   const [isMac, setIsMac] = useState(true);

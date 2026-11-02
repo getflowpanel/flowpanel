@@ -1,10 +1,11 @@
-import { resource, rowAction } from "@flowpanel/kit";
-import { badge, formatMonth, money } from "@/src/admin/format";
+import { type RowOf, resource, rowAction } from "@flowpanel/kit";
+import { formatMonth, money } from "@/src/admin/format";
 import { refundPaidInvoice } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
+import { InvoiceStatus } from "../enums";
 
-type Invoice = typeof schema.invoices.$inferSelect;
+type Invoice = RowOf<"invoices">;
 type RefundInput = { reason: string };
 
 const refund = rowAction<Invoice, RefundInput>({
@@ -25,15 +26,12 @@ const refund = rowAction<Invoice, RefundInput>({
       required: true,
     },
   ],
-  hidden: (row) => row.status !== "paid",
+  when: ({ current }) => current?.status === "paid",
   run: refundPaidInvoice,
 });
 
 export const invoices = resource(schema.invoices, {
   ...sandboxResourcePolicy(schema.invoices.sandboxId),
-  name: "invoices",
-  label: "Invoices",
-  labelOne: "Invoice",
   icon: "credit-card",
   hidden: true,
   columns: [
@@ -43,21 +41,13 @@ export const invoices = resource(schema.invoices, {
       reference: { resource: "customers", labelField: "company" },
     },
     { field: "amountCents", label: "Amount", align: "right", format: money },
-    { field: "status", format: badge },
+    { field: "status", format: InvoiceStatus.format },
     { field: "periodStart", label: "Period", render: (i) => formatMonth(i.periodStart) },
     { field: "createdAt", label: "Created" },
   ],
   filters: [
-    {
-      field: "status",
-      type: "select",
-      options: [
-        { label: "Open", value: "open" },
-        { label: "Paid", value: "paid" },
-        { label: "Void", value: "void" },
-        { label: "Refunded", value: "refunded" },
-      ],
-    },
+    { field: "status", type: "select" },
+    { field: "paidAt", type: "daterange", label: "Paid" },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
   create: { disabled: true },
@@ -66,7 +56,7 @@ export const invoices = resource(schema.invoices, {
   rowClick: "drawer",
   drawer: {
     width: "md",
-    header: (row) => `Invoice #${row.id}`,
+    title: (row) => `Invoice #${row.id}`,
     tabs: [
       {
         key: "detail",

@@ -1,0 +1,220 @@
+import { filterShapeProblem } from "../../internal/filter-shape";
+import { declaredListFields } from "../../internal/list-fields";
+import { checkColumn, missing } from "../../internal/validate-shared";
+import { didYouMean } from "../../suggest";
+import { FlowpanelConfigError } from "../../types/config-error";
+import type { DashboardConfig } from "../../types/dashboard";
+import type { MetricCountSource } from "../../types/metric-count";
+import type { ResourceConfig } from "../../types/resource";
+import type { TableWidgetOptions, WidgetConfig } from "../../types/widget";
+import { normalizeRoutePath } from "../route-graph";
+
+/** What the boot-time link checks read from a compiled admin. */
+export interface LinkCheck {
+  resourcesByName: ReadonlyMap<string, ResourceConfig>;
+  /** A resource's introspected column names; empty when the adapter reports none. */
+  columnsOf: (resource: string) => readonly string[];
+  /** Every dashboard and page path, normalised. */
+  paths: ReadonlySet<string>;
+  /** Every dashboard's declared filter keys, by normalised path. */
+  dashboardFilters: ReadonlyMap<string, readonly string[]>;
+}
+
+interface StaticLink {
+  resource?: unknown;
+  dashboard?: unknown;
+  view?: unknown;
+  tab?: unknown;
+  filter?: unknown;
+  range?: unknown;
+}
+
+function checkListField(site: string, resource: string, field: string, check: LinkCheck): void {
+  if (!checkColumn(site, resource, field, check)) return;
+  const target = check.resourcesByName.get(resource);
+  if (!target || declaredListFields(target.options).has(field)) return;
+  throw new FlowpanelConfigError(
+    site,
+    `it filters "${resource}" by "${field}", which its list does not declare, so the list ` +
+      `would drop it and show every row. Add "${field}" to that resource's filters or columns.`,
+  );
+}
+
+function checkListValue(
+  site: string,
+  resource: string,
+  field: string,
+  value: unknown,
+  check: LinkCheck,
+): void {
+  checkListField(site, resource, field, check);
+  const target = check.resourcesByName.get(resource);
+  if (!target || check.columnsOf(resource).length === 0) return;
+  const problem = filterShapeProblem(target, field, value);
+  if (!problem) return;
+  throw new FlowpanelConfigError(
+    site,
+    `it filters "${resource}" by "${field}" = ${JSON.stringify(value)}, but ${problem}, so ` +
+      "the list would show other rows than it names. Pass a value the list's filter accepts.",
+  );
+}
+
+function rangeFilters(resource: string, check: LinkCheck): string[] {
+  const filters = (check.resourcesByName.get(resource)?.options.filters ?? []) as unknown[];
+  return filters.flatMap((filter) => {
+    const def = filter as { field?: unknown; type?: unknown };
+    return def.type === "daterange" && typeof def.field === "string" ? [def.field] : [];
+  });
+}
+
+function checkRangeFilter(site: string, resource: string, field: string, check: LinkCheck): void {
+  const ranges = rangeFilters(resource, check);
+  if (!ranges.includes(field)) missing(site, "daterange filter", field, ranges, resource);
+}
+
+/** A count card links to the rows it counts, so its `range` must be a range the list can filter by. */
+function checkCountRange(site: string, resource: string, field: string, check: LinkCheck): void {
+  const ranges = rangeFilters(resource, check);
+  if (ranges.includes(field)) return;
+  throw new FlowpanelConfigError(
+    site,
+    `it counts "${resource}" rows by "${field}", and the card links to those rows, but the ` +
+      `"${resource}" list has no daterange filter on "${field}".${didYouMean(field, ranges)} ` +
+      `Add { field: "${field}", type: "daterange" } to its filters, or give the card its own drilldown.`,
+  );
+}
+
+function checkTarget(site: string, target: unknown, check: LinkCheck): void {
+  if (typeof target !== "object" || target === null) return;
+  const link = target as StaticLink;
+  if (typeof link.dashboard === "string") {
+    if (!check.paths.has(normalizeRoutePath(link.dashboard, site))) {
+      missing(site, "dashboard", link.dashboard, [...check.paths]);
+    }
+    if (typeof link.filter === "object" && link.filter !== null) {
+      const declared = check.dashboardFilters.get(normalizeRoutePath(link.dashboard, site)) ?? [];
+      for (const key of Object.keys(link.filter)) {
+        if (!declared.includes(key)) {
+          missing(`${site}.filter`, "dashboard filter", key, declared, link.dashboard);
+        }
+      }
+    }
+    return;
+  }
+  if (typeof link.resource !== "string") return;
+  const name = link.resource;
+  const resource = check.resourcesByName.get(name);
+  if (!resource) missing(site, "resource", name, [...check.resourcesByName.keys()]);
+  if (typeof link.view === "string") {
+    const views = (resource.options.views ?? []).map((view) => view.name);
+    if (!views.includes(link.view)) missing(site, "view", link.view, views, name);
+  }
+  if (typeof link.tab === "string") {
+    const tabs = (resource.options.detail?.tabs ?? []).map((tab) => tab.key);
+    if (!tabs.includes(link.tab)) missing(site, "tab", link.tab, tabs, name);
+  }
+  if (typeof link.filter === "object" && link.filter !== null) {
+    for (const [field, value] of Object.entries(link.filter)) {
+      checkListValue(`${site}.filter`, name, field, value, check);
+    }
+  }
+  if (typeof link.range === "string") checkRangeFilter(`${site}.range`, name, link.range, check);
+}
+
+function checkCountSource(site: string, source: MetricCountSource, check: LinkCheck): void {
+  if (!check.resourcesByName.has(source.resource)) {
+    missing(`${site}.count`, "resource", source.resource, [...check.resourcesByName.keys()]);
+  }
+  if (typeof source.where === "object") {
+    for (const [field, value] of Object.entries(source.where)) {
+      if (source.linked) checkListValue(`${site}.where`, source.resource, field, value, check);
+      else checkColumn(`${site}.where`, source.resource, field, check);
+    }
+  }
+  if (source.range === undefined) return;
+  if (source.linked) checkCountRange(`${site}.range`, source.resource, source.range, check);
+  else checkColumn(`${site}.range`, source.resource, source.range, check);
+}
+
+function checkTableScope(site: string, options: TableWidgetOptions, check: LinkCheck): void {
+  if (options.where === undefined && options.range === undefined) return;
+  if (typeof options.resource !== "string") {
+    throw new FlowpanelConfigError(
+      `${site}.options`,
+      "where and range narrow a resource read, and this table runs its own query. Filter " +
+        "the rows in the query instead.",
+    );
+  }
+  if (typeof options.where === "object") {
+    for (const field of Object.keys(options.where)) {
+      checkColumn(`${site}.options.where`, options.resource, field, check);
+    }
+  }
+  if (options.range !== undefined) {
+    checkColumn(`${site}.options.range`, options.resource, options.range, check);
+  }
+}
+
+function checkWidgets(site: string, widgets: readonly WidgetConfig[], check: LinkCheck): void {
+  widgets.forEach((widget, index) => {
+    const at = `${site}[${index}]`;
+    const options = widget.options as {
+      drilldown?: unknown;
+      href?: unknown;
+      seeAll?: unknown;
+      more?: unknown;
+      items?: unknown;
+    };
+    checkTarget(`${at}.options.drilldown`, options.drilldown, check);
+    checkTarget(`${at}.options.href`, options.href, check);
+    checkTarget(`${at}.options.seeAll`, options.seeAll, check);
+    checkTarget(`${at}.options.more`, options.more, check);
+    if (Array.isArray(options.items)) {
+      options.items.forEach((item, i) => {
+        const href = (item as { href?: unknown } | null)?.href;
+        checkTarget(`${at}.options.items[${i}].href`, href, check);
+      });
+    }
+    if (widget.kind === "metric" && widget.source) checkCountSource(at, widget.source, check);
+    if (widget.kind === "table") checkTableScope(at, widget.options, check);
+  });
+}
+
+function checkResource(name: string, resource: ResourceConfig, check: LinkCheck): void {
+  (resource.options.filters ?? []).forEach((filter, i) => {
+    if (typeof filter !== "object" || filter.defaultValue === undefined) return;
+    const site = `resource "${name}" filters[${i}].defaultValue`;
+    checkListValue(site, name, filter.field, filter.defaultValue, check);
+  });
+  (resource.options.views ?? []).forEach((view, i) => {
+    const site = `resource "${name}" views[${i}]`;
+    for (const [field, value] of Object.entries(view.filters ?? {})) {
+      checkListValue(`${site}.filters`, name, field, value, check);
+    }
+    if (view.sort) checkColumn(`${site}.sort.field`, name, view.sort.field, check);
+  });
+  checkWidgets(`resource "${name}" detail.stats`, resource.options.detail?.stats ?? [], check);
+  checkWidgets(`resource "${name}" detail.aside`, resource.options.detail?.aside ?? [], check);
+  (resource.options.detail?.tabs ?? []).forEach((tab, i) => {
+    const site = `resource "${name}" detail.tabs[${i}]`;
+    checkWidgets(`${site}.widgets`, tab.widgets ?? [], check);
+    if (typeof tab.resource !== "string") return;
+    if (tab.by !== undefined) checkColumn(`${site}.by`, tab.resource, tab.by, check);
+    for (const field of tab.hide ?? []) checkColumn(`${site}.hide`, tab.resource, field, check);
+    if (tab.sort) checkColumn(`${site}.sort.field`, tab.resource, tab.sort.field, check);
+  });
+  (resource.options.drawer?.tabs ?? []).forEach((tab, i) => {
+    if ("widgets" in tab)
+      checkWidgets(`resource "${name}" drawer.tabs[${i}].widgets`, tab.widgets, check);
+  });
+}
+
+/** Throws when a static link, count, saved view or related tab names a target that does not exist. */
+export function validateLinks(check: LinkCheck, dashboards: readonly DashboardConfig[]): void {
+  for (const board of dashboards) {
+    (board.sections ?? []).forEach((section, s) => {
+      checkWidgets(`dashboard "${board.path}" sections[${s}].widgets`, section.widgets, check);
+    });
+  }
+  for (const [name, resource] of check.resourcesByName) checkResource(name, resource, check);
+}

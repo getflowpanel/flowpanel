@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@flowpanel/core", async () => {
   const actual = await vi.importActual<typeof import("@flowpanel/core")>("@flowpanel/core");
-  return { ...actual, createPublisher: vi.fn(actual.createPublisher) };
+  return { ...actual, createRealtimeTransport: vi.fn(actual.createRealtimeTransport) };
 });
 
-import { createPublisher, type Publisher, type ResolvedAdminConfig } from "@flowpanel/core";
-import { bindPublisher, resetPublisherForTests } from "../runtime/publish";
+import { createRealtimeTransport, type Publisher, type ResolvedAdminConfig } from "@flowpanel/core";
+import { bindPublisher, publish, resetPublisherForTests, subscribe } from "../runtime/publish";
 
 type Closeable = Publisher & { close(): Promise<void> };
 
@@ -15,11 +15,11 @@ function fakeConfig(realtime?: unknown): ResolvedAdminConfig {
 }
 
 function publisherAt(index: number): Closeable {
-  return vi.mocked(createPublisher).mock.results[index]?.value as Closeable;
+  return vi.mocked(createRealtimeTransport).mock.results[index]?.value as Closeable;
 }
 
 beforeEach(() => {
-  vi.mocked(createPublisher).mockClear();
+  vi.mocked(createRealtimeTransport).mockClear();
   resetPublisherForTests();
   vi.unstubAllEnvs();
 });
@@ -37,7 +37,7 @@ describe("bindPublisher — rebinding", () => {
 
     bindPublisher(fakeConfig({ driver: "redis", url: "redis://a:6379" }));
 
-    expect(createPublisher).toHaveBeenCalledTimes(2);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(2);
     expect(close).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => {
       expect(close.mock.settledResults[0]?.type).toBe("fulfilled");
@@ -48,7 +48,7 @@ describe("bindPublisher — rebinding", () => {
     bindPublisher(fakeConfig({ driver: "redis", url: "redis://a:6379" }));
     bindPublisher(fakeConfig({ driver: "redis", url: "redis://a:6379", keyPrefix: "acme" }));
 
-    expect(createPublisher).toHaveBeenCalledTimes(2);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(2);
   });
 
   it("does not rebind when a different config object carries identical options", () => {
@@ -57,7 +57,7 @@ describe("bindPublisher — rebinding", () => {
     const close = vi.spyOn(publisherAt(0), "close");
     bindPublisher(fakeConfig({ ...options }));
 
-    expect(createPublisher).toHaveBeenCalledTimes(1);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(1);
     expect(close).not.toHaveBeenCalled();
   });
 
@@ -66,7 +66,7 @@ describe("bindPublisher — rebinding", () => {
     bindPublisher(fakeConfig({ driver: "redis", client }));
     bindPublisher(fakeConfig({ driver: "redis", client }));
 
-    expect(createPublisher).toHaveBeenCalledTimes(1);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(1);
   });
 
   it("rebinds for a host client that is a different instance", () => {
@@ -78,18 +78,21 @@ describe("bindPublisher — rebinding", () => {
       fakeConfig({ driver: "redis", client: { publish: async () => 1, on: () => {} } }),
     );
 
-    expect(createPublisher).toHaveBeenCalledTimes(2);
+    expect(createRealtimeTransport).toHaveBeenCalledTimes(2);
     expect(close).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("bindPublisher — memory driver diagnostic", () => {
-  it("warns once per process when the driver is memory while REDIS_URL is set", () => {
+  it("warns once per process when the driver is memory while REDIS_URL is set", async () => {
     vi.stubEnv("REDIS_URL", "redis://a:6379");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     bindPublisher(fakeConfig(undefined));
     bindPublisher(fakeConfig({ driver: "memory", keyPrefix: "ignored" }));
+    subscribe("orders", () => {})();
+    await publish("orders");
+    await publish("orders");
 
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String(warn.mock.calls[0]?.[0]);
@@ -98,12 +101,39 @@ describe("bindPublisher — memory driver diagnostic", () => {
     warn.mockRestore();
   });
 
-  it("names FLOWPANEL_REDIS_URL when that is the variable that is set", () => {
+  it("stays quiet in a process that binds and never publishes, as next dev's static-params pass", () => {
+    vi.stubEnv("REDIS_URL", "redis://a:6379");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    bindPublisher(fakeConfig(undefined));
+    bindPublisher(fakeConfig(undefined));
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("stays quiet in a second copy of the runtime that the same process loads", async () => {
+    vi.stubEnv("REDIS_URL", "redis://a:6379");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    bindPublisher(fakeConfig(undefined));
+    await publish("orders");
+
+    Reflect.deleteProperty(globalThis, Symbol.for("@flowpanel/next.publisherStore"));
+    vi.resetModules();
+    const fresh = await import("../runtime/publish");
+    fresh.bindPublisher(fakeConfig(undefined));
+    await fresh.publish("orders");
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    fresh.resetPublisherForTests();
+    warn.mockRestore();
+  });
+
+  it("names FLOWPANEL_REDIS_URL when that is the variable that is set", async () => {
     vi.stubEnv("REDIS_URL", "");
     vi.stubEnv("FLOWPANEL_REDIS_URL", "redis://a:6379");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     bindPublisher(fakeConfig(undefined));
+    await publish("orders");
 
     expect(warn).toHaveBeenCalledTimes(1);
     const message = String(warn.mock.calls[0]?.[0]);
@@ -113,14 +143,16 @@ describe("bindPublisher — memory driver diagnostic", () => {
     warn.mockRestore();
   });
 
-  it("stays quiet when the redis driver is configured, or when no url is in the environment", () => {
+  it("stays quiet when the redis driver is configured, or when no url is in the environment", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     bindPublisher(fakeConfig(undefined));
+    await publish("orders");
     expect(warn).not.toHaveBeenCalled();
 
     vi.stubEnv("REDIS_URL", "redis://a:6379");
     bindPublisher(fakeConfig({ driver: "redis", url: process.env.REDIS_URL }));
+    subscribe("orders", () => {})();
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });

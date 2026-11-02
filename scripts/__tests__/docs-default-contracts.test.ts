@@ -45,7 +45,7 @@ describe("documented defaults", () => {
       "packages/next/src/pages/resource-detail.tsx",
       "packages/next/src/controllers/resource-controller.ts",
       "packages/next/src/runtime/project-row.ts",
-      "packages/next/src/drawer/drawer-route.ts",
+      "packages/next/src/drawer/drawer-payload.ts",
     ]
       .map((file) => readFileSync(join(root, file), "utf8"))
       .join("\n");
@@ -54,7 +54,7 @@ describe("documented defaults", () => {
       .join("\n");
 
     expect(nextSource.match(/DEFAULT_RESOURCE_PAGE_SIZE/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
-    expect(nextSource.match(/DEFAULT_RESOURCE_ROW_KEY/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(nextSource.match(/rowKeyOf\(/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
     expect(chartSource.match(/\?\? DEFAULT_CHART_HEIGHT/g)?.length ?? 0).toBe(4);
   });
 });

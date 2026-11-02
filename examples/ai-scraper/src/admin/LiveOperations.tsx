@@ -1,6 +1,6 @@
 "use client";
 
-import { AreaChart } from "@flowpanel/kit/charts/runtime";
+import { AreaChart } from "@flowpanel/kit/charts";
 import { LiveIndicator, TimeAgo, useLiveChannel } from "@flowpanel/kit/react";
 import { useMemo, useState } from "react";
 import {
@@ -22,8 +22,15 @@ const eventLabel = {
   price_drop: "Price drop",
   price_rise: "Price rise",
   stock_change: "Stock change",
-  crawl_completed: "Crawl complete",
+  crawl_progress: "Crawl progress",
 } as const;
+
+const isSnapshot = (payload: unknown): payload is LiveOperationsSnapshot =>
+  typeof payload === "object" &&
+  payload !== null &&
+  "events" in payload &&
+  Array.isArray(payload.events) &&
+  "pageRateHistory" in payload;
 
 function LiveStat({ label, value }: { label: string; value: string }) {
   return (
@@ -36,27 +43,26 @@ function LiveStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function LiveOperations({
-  initial,
-  queueHref,
-}: LiveOperationsProps & { queueHref?: string }) {
+export function LiveOperations({ initial, running, tracked }: LiveOperationsProps) {
   const [activity, setActivity] = useState(initial);
   const status = useLiveChannel(LIVE_OPERATIONS_CHANNEL, (payload) => {
-    const next = payload as LiveOperationsSnapshot | undefined;
-    if (next?.events) setActivity(next);
+    if (isSnapshot(payload)) setActivity(payload);
   });
   const chartData = useMemo(() => {
-    const latest = activity.throughputHistory.length - 1;
-    return activity.throughputHistory.map((rate, index) => {
+    const latest = activity.pageRateHistory.length - 1;
+    return activity.pageRateHistory.map((tenths, index) => {
       const secondsAgo = (latest - index) * (LIVE_OPERATIONS_INTERVAL_MS / 1_000);
-      return { time: secondsAgo === 0 ? "now" : `−${secondsAgo}s`, rate };
+      return {
+        time: secondsAgo === 0 ? "now" : `−${secondsAgo}s`,
+        rate: Math.round((tenths * running) / 10),
+      };
     });
-  }, [activity.throughputHistory]);
+  }, [activity.pageRateHistory, running]);
 
   return (
     <section
       aria-labelledby="live-operations-title"
-      className="overflow-hidden rounded-fp-xl border border-fp-border-1 bg-fp-bg-1 shadow-fp-sm"
+      className="overflow-hidden rounded-fp-lg border border-fp-border-1 bg-fp-bg-1 shadow-fp-sm"
     >
       <header className="flex items-start justify-between gap-4 px-5 pt-5 pb-4">
         <div>
@@ -67,17 +73,7 @@ export function LiveOperations({
             Crawl throughput and marketplace changes as they happen
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          {queueHref ? (
-            <a
-              href={queueHref}
-              className="inline-flex min-h-9 items-center text-xs font-medium text-fp-text-2 hover:text-fp-text-1"
-            >
-              Queue boards
-            </a>
-          ) : null}
-          <LiveIndicator status={status} className="shrink-0" />
-        </div>
+        <LiveIndicator status={status} className="shrink-0" />
       </header>
 
       <div className="grid gap-5 px-5 pb-5 lg:grid-cols-[minmax(0,2fr)_minmax(19rem,0.9fr)]">
@@ -87,19 +83,16 @@ export function LiveOperations({
             <span className="text-xs tabular-nums text-fp-text-3">Last 70 seconds</span>
           </div>
           <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <LiveStat label="Offers / min" value={number.format(activity.offersPerMinute)} />
-            <LiveStat
-              label="Price changes today"
-              value={number.format(activity.priceChangesToday)}
-            />
-            <LiveStat label="Concurrent crawls" value={number.format(activity.concurrentCrawls)} />
+            <LiveStat label="Pages / min" value={number.format(chartData.at(-1)?.rate ?? 0)} />
+            <LiveStat label="Crawls running" value={number.format(running)} />
+            <LiveStat label="Listings tracked" value={number.format(tracked)} />
             <LiveStat
               label="Avg match latency"
               value={`${(activity.avgMatchLatencyMs / 1_000).toFixed(1)} s`}
             />
           </dl>
           <div className="mt-2 rounded-fp-lg bg-fp-bg-2 px-2 pt-3 pb-1">
-            <p className="px-2 text-xs text-fp-text-3">Crawl rate · offers / min</p>
+            <p className="px-2 text-xs text-fp-text-3">Crawl rate · pages / min</p>
             <AreaChart data={chartData} options={chartOptions} />
           </div>
         </div>

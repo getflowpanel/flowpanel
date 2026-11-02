@@ -1,4 +1,3 @@
-import type { RequireRole } from "../runtime/auth";
 import { FlowpanelAccessError } from "../types/error";
 import type { AccessContext, AccessRule, ResourceAccess, ResourceOperation } from "../types/policy";
 
@@ -13,27 +12,26 @@ export async function accessAllows(
   return roles.includes(context.role);
 }
 
-export async function authorizeOperation(
-  rule: AccessRule | undefined,
-  context: AccessContext,
-): Promise<void> {
-  if (!(await accessAllows(rule, context))) throw new FlowpanelAccessError();
+/** Throws `FlowpanelAccessError` unless `rule` admits the caller. A missing rule denies. */
+export async function requireAccess(rule: AccessRule, context: AccessContext): Promise<void> {
+  if (rule === undefined || !(await accessAllows(rule, context))) throw new FlowpanelAccessError();
 }
 
-/** Resolve the canonical rule while keeping `requireRole` as a 0.2 compatibility alias. */
+function isOperationMap<Row>(
+  access: ResourceAccess<Row> | AccessRule,
+): access is ResourceAccess<Row> {
+  return typeof access === "object" && access !== null && !Array.isArray(access);
+}
+
+/** The rule a resource's `access` sets for one operation; a single rule covers all four, and `undefined` allows it. */
 export function resolveOperationAccess<Row>(
-  access: ResourceAccess<Row> | undefined,
-  requireRole: RequireRole,
+  access: ResourceAccess<Row> | AccessRule | undefined,
   operation: ResourceOperation,
 ): AccessRule | undefined {
-  if (access !== undefined && requireRole !== undefined) {
-    throw new Error(
-      "A resource cannot declare both access and requireRole. Move the role rule into access.",
-    );
-  }
-  if (access !== undefined) return access[operation];
-  if (typeof requireRole === "function") {
-    return ({ session }) => requireRole(session);
-  }
-  return requireRole;
+  if (!OPERATIONS.has(operation))
+    throw new Error(`Unknown resource operation: ${String(operation)}`);
+  if (access === undefined) return undefined;
+  return isOperationMap(access) ? access[operation] : access;
 }
+
+const OPERATIONS = new Set<unknown>(["read", "create", "update", "delete"]);

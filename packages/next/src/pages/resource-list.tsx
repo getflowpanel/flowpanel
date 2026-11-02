@@ -1,47 +1,43 @@
-import type {
-  FilterDef,
-  ListQueryContext,
-  RequestContext,
-  ResolvedAdminConfig,
-  ResourceConfig,
-} from "@flowpanel/core";
+import type { RequestContext, ResolvedAdminConfig, ResourceConfig } from "@flowpanel/core";
 import {
   assertResourceScope,
-  authorizeOperation,
-  checkRequireRole,
-  DEFAULT_LABELS,
-  formatLabel,
+  mergeLabels,
+  resolveFormatting,
   resolveOperationAccess,
-  runWithRequestContext,
 } from "@flowpanel/core";
+import { withDeploymentBasePath } from "@flowpanel/core/paths";
 import {
   DataTableWithDrawerRows,
+  ListNavigationProvider,
+  ResourceListClearFilters,
   ResourceListDeletedToggle,
   ResourceListFilters,
   ResourceListSearch,
   SavedViewsDropdown,
 } from "@flowpanel/next/client";
-import { Button, FlowpanelIcon, PageHeader } from "@flowpanel/react";
-import { DEFAULT_RESOURCE_PAGE_SIZE, DEFAULT_RESOURCE_ROW_KEY } from "../runtime/defaults";
+import { FilterSheet, PageHeader } from "@flowpanel/react";
+import { importHeaders } from "../actions/resource-import";
+import { fitColumnPrefs, readColumnPrefs } from "../drawer/column-prefs-cookie";
+import { exportTarget, targetAllows } from "../runtime/action-gate";
+import { DEFAULT_RESOURCE_PAGE_SIZE } from "../runtime/defaults";
+import { fieldLabels, namedFields } from "../runtime/field-labels";
+import { buildHref } from "../runtime/href";
+import { listRequestFromParams } from "../runtime/list-request";
+import { listRows } from "../runtime/list-rows";
 import { resourceNavName } from "../runtime/nav";
-import {
-  parseListParams,
-  resolveFilterSpecs,
-  sanitizeFilterValues,
-} from "../runtime/parse-list-params";
 import { prerenderResourceCells } from "../runtime/prerender-cells";
-import { projectRowFields, selectKnownFields } from "../runtime/project-row";
 import { readOrCard } from "../runtime/query-error";
-import { resolveReadableListSurface } from "../runtime/readable-list";
 import { applyReferenceCells } from "../runtime/reference-cells";
 import { buildRequestContext } from "../runtime/request-setup";
+import { requireAccessIfSet } from "../runtime/require-access";
 import { resolveReferences } from "../runtime/resolve-references";
-import { pluralLabel } from "../runtime/resource-title";
+import { fillLabel, labelInSentence, pluralLabel, singularLabel } from "../runtime/resource-title";
 import { detailRowHrefs, resolveRowClick } from "../runtime/row-click";
-import { rowIdentity } from "../runtime/row-identity";
-import { scopeBinding } from "../runtime/scope-binding";
+import { rowIdentity, rowKeyOf } from "../runtime/row-identity";
+import { wireViews } from "../runtime/saved-views";
 import { resolveResourceListActions } from "./resource-list-actions";
-import { buildResourceListCreateAction } from "./resource-list-create-action";
+import { buildResourceListCreateAction, mayCreate } from "./resource-list-create-action";
+import { listEmptyProps } from "./resource-list-empty";
 
 export interface ResourceListPageProps {
   config: ResolvedAdminConfig;
@@ -52,6 +48,19 @@ export interface ResourceListPageProps {
 }
 
 type Row = Record<string, unknown>;
+
+/** What the list shows with nothing in its URL: each filter's default and the resource's sort. */
+function listDefaults(
+  specs: ReadonlyArray<{ field: string; defaultValue?: string; hidden?: boolean }>,
+  resource: ResourceConfig,
+): { filters: Record<string, string>; sort?: { field: string; dir: "asc" | "desc" } } {
+  const filters: Record<string, string> = {};
+  for (const spec of specs) {
+    if (spec.defaultValue !== undefined && !spec.hidden) filters[spec.field] = spec.defaultValue;
+  }
+  const sort = resource.options.defaultSort;
+  return { filters, ...(sort ? { sort: { field: String(sort.field), dir: sort.dir } } : {}) };
+}
 
 /** The sizes the pager may offer, with the resource's own always among them. */
 function pageSizeChoices(configured: number): number[] {
@@ -66,81 +75,79 @@ export async function ResourceListPage({
   reqCtx: providedReqCtx,
 }: ResourceListPageProps) {
   const reqCtx = providedReqCtx ?? (await buildRequestContext({ req, config }));
-  checkRequireRole(resource.options.requireRole, reqCtx.role, reqCtx.session);
-  await authorizeOperation(
-    resolveOperationAccess(resource.options.access, resource.options.requireRole, "read"),
-    reqCtx,
-  );
+  await requireAccessIfSet(resolveOperationAccess(resource.options.access, "read"), reqCtx);
   assertResourceScope({
     hasGlobal: !!config.scope,
-    resourceScope: resource.options.scope as "bypass" | ((...a: unknown[]) => unknown) | undefined,
+    resourceScope: resource.options.scope,
   });
 
   const name = resourceNavName(resource);
   const configuredPageSize = resource.options.pageSize ?? DEFAULT_RESOURCE_PAGE_SIZE;
-  // Match attacker-controlled `?perPage=` to the offered bounded options.
+  // Match attacker-controlled `?pageSize=` to the offered bounded options.
   const pageSizeOptions = pageSizeChoices(configuredPageSize);
-  const requestedPageSize = Number(searchParams.get("perPage"));
+  const requestedPageSize = Number(searchParams.get("pageSize"));
   const pageSize = pageSizeOptions.includes(requestedPageSize)
     ? requestedPageSize
     : configuredPageSize;
   const softDelete = resource.options.delete?.softDelete;
-  const readable = await resolveReadableListSurface(
-    resource,
-    reqCtx,
-    searchParams,
-    softDelete ? [String(softDelete)] : [],
-  );
-  const {
-    page,
-    search,
-    sort,
-    filters: rawFilters,
-  } = parseListParams(searchParams, readable.defaultSort, readable.fields);
+  const listing = await listRequestFromParams(config, resource, reqCtx, searchParams);
+  const { surface: readable, filterSpecs, filters, sort } = listing;
+  const effectiveSearch = listing.search;
+  const timeZone = resolveFormatting(config.formatting).timeZone;
+  const labels = mergeLabels(config.labels);
 
-  const filterSpecs = await resolveFilterSpecs(
-    readable.filters as Array<keyof Row | FilterDef<Row>>,
-    {
-      db: config.adapter.db,
-      session: reqCtx.session,
-    },
+  const displayPlural = pluralLabel(resource, name);
+  const createAction = await buildResourceListCreateAction({ config, resource, name, reqCtx });
+  const header = (
+    <>
+      <PageHeader title={displayPlural} {...(createAction ? { actions: createAction } : {})} />
+      {/* Search sits in the filter row, not above it — one band of chrome. */}
+      <div className="fp-mb-4 fp-flex fp-flex-wrap fp-items-start fp-gap-2">
+        {readable.searchFields.length > 0 ? (
+          <ResourceListSearch
+            placeholder={fillLabel(
+              labels.table.searchPlaceholder,
+              displayPlural,
+              labels.dateRange.locale,
+            )}
+          />
+        ) : null}
+        <FilterSheet active={Object.keys(filters).length + (listing.query.includeDeleted ? 1 : 0)}>
+          <div className="fp-flex-1">
+            <ResourceListFilters filters={filterSpecs} />
+          </div>
+          <ResourceListClearFilters filters={filterSpecs} />
+          {listing.deletedToggle ? <ResourceListDeletedToggle /> : null}
+          <SavedViewsDropdown
+            resource={name}
+            staticViews={wireViews(resource, timeZone)}
+            defaults={listDefaults(filterSpecs, resource)}
+          />
+        </FilterSheet>
+      </div>
+    </>
   );
-  const filters = sanitizeFilterValues(rawFilters, filterSpecs);
-  const effectiveSearch = readable.searchFields.length > 0 ? search : "";
-
-  const includeDeleted = !!softDelete && searchParams.get("deleted") === "1";
-  const ctx: ListQueryContext<unknown> = {
-    ...reqCtx,
-    db: config.adapter.db,
-    dateRange: { from: new Date(0), to: new Date() },
-    searchParams: readable.searchParams,
-    signal: new AbortController().signal,
-    filters,
-    sort: sort as ListQueryContext<unknown>["sort"],
-    page,
-    pageSize,
-    search: effectiveSearch,
-    select: selectKnownFields(
-      [...readable.rowFields, ...readable.operationalFields],
-      config.adapter.introspect(resource.ref).columns,
-    ),
-    ...(readable.searchFields.length > 0 ? { searchFields: readable.searchFields } : {}),
-    ...(softDelete ? { softDelete: { column: String(softDelete) }, includeDeleted } : {}),
-    ...scopeBinding(config, resource, reqCtx),
-  };
 
   const listed = await readOrCard(
     {
       config,
       resource: name,
       operation: "list",
+      label: displayPlural,
       ...(reqCtx.requestId ? { requestId: reqCtx.requestId } : {}),
     },
-    async () => runWithRequestContext(reqCtx, () => config.adapter.list(resource.ref, ctx)),
+    () => listRows(config, resource, reqCtx, { ...listing.query, pageSize }),
   );
-  if (listed.failed) return listed.card;
+  if (listed.failed) {
+    return (
+      <ListNavigationProvider>
+        {header}
+        {listed.card}
+      </ListNavigationProvider>
+    );
+  }
   const result = listed.value;
-  const clientRows = (result.rows as Row[]).map((row) => projectRowFields(row, readable.rowFields));
+  const clientRows = result.rows;
 
   const intro = config.adapter.introspect(resource.ref);
   const metaByField = new Map(intro.columns.map((c) => [c.name, c]));
@@ -153,7 +160,12 @@ export async function ResourceListPage({
     columnDefs,
     clientRows,
     reqCtx,
-    { defaultSortable: true, metaByField },
+    {
+      defaultSortable: true,
+      metaByField,
+      formatting: resolveFormatting(config.formatting),
+      labelOf: fieldLabels(resource, [], namedFields(config)),
+    },
   );
 
   const cellsWithRefs = applyReferenceCells(
@@ -165,82 +177,92 @@ export async function ResourceListPage({
     fkLabels,
   );
 
-  const rowKey = (resource.options.rowKey as string | undefined) ?? DEFAULT_RESOURCE_ROW_KEY;
+  const rowKey = rowKeyOf(resource);
   const rowClick = resolveRowClick(resource);
+  // A list empty under its own default filters may be empty everywhere, as for a new tenant: then it says so.
+  const userFiltered = filterSpecs.some(
+    (f) =>
+      !f.hidden &&
+      searchParams.has(`f_${f.field}`) &&
+      searchParams.get(`f_${f.field}`) !== (f.defaultValue ?? ""),
+  );
+  const hiddenFilters = new Set(filterSpecs.filter((f) => f.hidden).map((f) => f.field));
+  const underDefaults =
+    clientRows.length === 0 &&
+    effectiveSearch === "" &&
+    !userFiltered &&
+    Object.keys(filters).length > 0;
+  const emptyEverywhere =
+    underDefaults &&
+    (
+      await listRows(config, resource, reqCtx, {
+        ...listing.query,
+        filters: Object.fromEntries(
+          Object.entries(filters).filter(([field]) => hiddenFilters.has(field)),
+        ),
+        countOnly: true,
+      })
+    ).total === 0;
   const rowHrefs =
     rowClick === "detail" ? detailRowHrefs(config, name, clientRows, rowKey) : undefined;
 
   const deletedRowKeys: string[] | undefined =
     softDelete && readable.operationalFields.includes(String(softDelete))
-      ? (result.rows as Row[])
-          .filter((row) => row[String(softDelete)] != null)
-          .flatMap((row) => {
-            const id = rowIdentity(row, rowKey);
-            return id === null ? [] : [id];
-          })
+      ? clientRows.flatMap((row, index) => {
+          const id = rowIdentity(row, rowKey);
+          return id !== null && result.operational[index]?.[String(softDelete)] != null ? [id] : [];
+        })
       : undefined;
 
+  const exportOptions = resource.options.export;
+  const exportable =
+    exportOptions && (await targetAllows(exportTarget(resource), reqCtx))
+      ? {
+          ...(exportOptions.formats ? { formats: exportOptions.formats } : {}),
+          ...(exportOptions.fields ? { fields: exportOptions.fields.map(String) } : {}),
+        }
+      : undefined;
   const { rowActions, rowActionsById, bulkActions } = await resolveResourceListActions<Row>(
     resource,
     clientRows,
     rowKey,
     reqCtx,
+    labels,
+    new Set(deletedRowKeys),
   );
-  const displayPlural = pluralLabel(resource, name);
+  const importOptions = resource.options.import;
+  const importHeaderKeys = importOptions ? await importHeaders(config, resource, reqCtx) : null;
+  const importable =
+    importOptions && (await mayCreate(config, resource, reqCtx))
+      ? {
+          resource: name,
+          formats: importOptions.formats ?? ["csv", "json"],
+          ...(importHeaderKeys ? { headers: importHeaderKeys } : {}),
+        }
+      : undefined;
   const createdRowKeyParam = searchParams.get("fp_created");
   const createdRowKey =
     createdRowKeyParam && createdRowKeyParam.length <= 512 ? createdRowKeyParam : undefined;
 
-  const createAction = await buildResourceListCreateAction({ config, resource, name, reqCtx });
-
   return (
-    <>
-      <PageHeader title={displayPlural} {...(createAction ? { actions: createAction } : {})} />
-      {/* Search sits in the filter row, not above it — one band of chrome. */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {readable.searchFields.length > 0 ? (
-          <ResourceListSearch
-            placeholder={formatLabel(
-              config.labels?.searchPlaceholder ?? DEFAULT_LABELS.searchPlaceholder,
-              {
-                label: displayPlural,
-              },
-            )}
-          />
-        ) : null}
-        <div className="flex-1">
-          <ResourceListFilters filters={filterSpecs} />
-        </div>
-        {softDelete ? <ResourceListDeletedToggle /> : null}
-        <SavedViewsDropdown
-          resource={name}
-          staticViews={
-            (resource.options.views as ReadonlyArray<
-              Parameters<typeof SavedViewsDropdown>[0]["staticViews"][number]
-            >) ?? []
-          }
-        />
-      </div>
+    <ListNavigationProvider>
+      {header}
       <DataTableWithDrawerRows
         resource={name}
         columns={columns}
+        columnPrefs={fitColumnPrefs(readColumnPrefs(req.headers.get("cookie"), name), columns)}
+        columnPrefsPath={withDeploymentBasePath(buildHref(config, name))}
         rows={clientRows}
         total={result.total}
         page={result.page}
         pageSize={result.pageSize}
         pageSizeOptions={pageSizeOptions}
         rowKey={rowKey as keyof Row & string}
+        rowLabel={labelInSentence(singularLabel(resource, name), labels.dateRange.locale)}
         {...(createdRowKey ? { enteringRowKeys: [createdRowKey], createdRowKey } : {})}
         {...(resource.options.density ? { density: resource.options.density } : {})}
-        {...(resource.options.export ? { exportable: resource.options.export } : {})}
-        {...(resource.options.import
-          ? {
-              importable: {
-                resource: name,
-                formats: resource.options.import.formats ?? ["csv", "json"],
-              },
-            }
-          : {})}
+        {...(exportable ? { exportable } : {})}
+        {...(importable ? { importable } : {})}
         {...(sort ? { sort: sort as { field: keyof Row & string; dir: "asc" | "desc" } } : {})}
         {...(cellsWithRefs ? { prerenderedCells: cellsWithRefs } : {})}
         {...(rowActions.length > 0 ? { rowActions } : {})}
@@ -255,27 +277,16 @@ export async function ResourceListPage({
                 resource.options.realtime === true ? `resource.${name}` : resource.options.realtime,
             }
           : {})}
-        emptyTitle={resource.options.empty?.title ?? `No ${displayPlural}`}
-        {...(resource.options.empty?.description
-          ? { emptyDescription: resource.options.empty.description }
-          : {})}
-        {...(resource.options.empty?.icon
-          ? {
-              emptyIcon: <FlowpanelIcon name={resource.options.empty.icon} className="h-6 w-6" />,
-            }
-          : {})}
-        {...(resource.options.empty?.action
-          ? {
-              emptyAction: (
-                <Button asChild>
-                  <a href={resource.options.empty.action.href}>
-                    {resource.options.empty.action.label}
-                  </a>
-                </Button>
-              ),
-            }
-          : {})}
+        {...listEmptyProps(config, resource, name, displayPlural, {
+          filtered: !emptyEverywhere && (effectiveSearch !== "" || Object.keys(filters).length > 0),
+          resettable: userFiltered || effectiveSearch !== "",
+          searchOnly: Object.keys(filters).length === 0,
+          params: searchParams,
+          search: effectiveSearch,
+          defaulted: filterSpecs.filter((f) => f.defaultValue !== undefined && !f.hidden),
+          creatable: createAction !== undefined,
+        })}
       />
-    </>
+    </ListNavigationProvider>
   );
 }

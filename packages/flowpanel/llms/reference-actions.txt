@@ -1,0 +1,198 @@
+# FlowPanel — Reference — Actions
+
+## Actions
+
+Every option of row, bulk, dashboard and drawer actions, and what they return.
+
+Docs: https://flowpanel.tech/docs/reference/actions
+
+Documented types: rowAction, RowAction, bulkAction, BulkAction, dashboardAction, DashboardAction, DrawerAction, ActionResult, ActionContext
+
+Row, bulk, dashboard and drawer actions share one result type and one guard
+order: the admin role gate, the resource gate, then the action's own
+`access`, all before `run`. Each is a POST route under `/api/flowpanel/…`.
+Guide: [Add actions](/docs/build/actions).
+
+An action's own `access` replaces the resource's rule rather than narrowing it: a
+row or drawer action with `access` runs for whoever it admits, even a role the
+resource's `read` or `update` rule refuses, and its `run` receives the full row,
+fields that role cannot read included. Without `access`, the action needs the
+resource's `update` rule.
+
+### RowAction
+
+Offered on a single row, inline or in the row menu. `rowAction<Row, Input>()` types
+both `run` arguments and checks every `form[].name` against `Input`; it returns the
+object unchanged. Add it to a resource's `actions`.
+
+```ts
+import { rowAction } from "@flowpanel/kit";
+
+type User = { id: string; status: "active" | "suspended" };
+type SuspendInput = { reason: string; notify: boolean };
+
+export const suspendUser = rowAction<User, SuspendInput>({
+  key: "suspend",
+  label: "Suspend",
+  icon: "ban",
+  form: [
+    { name: "reason", type: "textarea", required: true },
+    { name: "notify", type: "checkbox" },
+  ],
+  run: async (user, input) => ({
+    ok: true,
+    message: `${user.id}: ${input.reason}`,
+  }),
+});
+```
+
+`RowAction`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` | Stable identifier, used in the action's URL. |
+| `label` | `string` |  |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `variant?` | `ActionVariant` | Button styling. |
+| `placement?` | `"inline" \| "menu"` | `"inline"` renders a button in the row; `"menu"` puts it in the row menu. |
+| `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
+| `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
+| `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
+| `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
+| `hidden?` | `(row: Row, ctx: RequestContext) => boolean \| Promise<boolean>` |  |
+| `disabled?` | `(row: Row) => boolean \| string` | Disable with a reason. A string is shown to the operator. |
+| `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
+| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. |
+| `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
+| `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
+
+`when` runs on the server per row: the menus offer the action only where it
+returns true, and the route returns `404` for any other row. Menus call it with no
+`input`; the route passes the posted input. `hidden` is deprecated: use `when` with
+the condition reversed.
+
+### BulkAction
+
+Runs on the selection. `run` receives the IDs. `max` caps the selection, 1000 by
+default and at most 10000; over it the route answers `422 too many ids (max N)` and
+`run` does not execute.
+
+`BulkAction`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` | Stable identifier, used in the action's URL. |
+| `label` | `string` |  |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `variant?` | `ActionVariant` | Button styling. |
+| `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
+| `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
+| `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
+| `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
+| `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
+| `max?` | `number` | Maximum selected ids accepted by this action, from 1 to 10000. Default: `1000`. |
+| `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
+| `run` | `(ids: string[], input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler, given every selected id, never more than `max`. |
+
+`bulkAction<Row, Input>()` types the form input. With delete enabled, a default bulk
+delete follows your own bulk actions; `delete: { bulk: false }` removes it.
+
+### DashboardAction
+
+Rendered in the dashboard header. It gets only the form input.
+
+`DashboardAction`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` | Stable identifier, used in the action's URL. |
+| `label` | `string` |  |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `variant?` | `ActionVariant` | Button styling. |
+| `emphasis?` | `ActionEmphasis` | `"primary"` fills the button with the accent; keep one per dashboard, as more warn in development. Default: `"secondary"`. |
+| `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
+| `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
+| `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
+| `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
+| `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
+| `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
+| `run` | `(input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
+
+Actions are secondary buttons, destructive ones in the error colour.
+`emphasis: "primary"` fills one with the accent; more than one primary on a
+dashboard warns in development.
+
+```ts
+dashboardAction({ key: "retry", label: "Retry failed runs", emphasis: "primary", run: retryFailed });
+```
+
+`hideActionsBar: true` on the dashboard hides the bar.
+
+### DrawerAction
+
+Rendered in the drawer's menu, like a row action, and takes the same options
+except `hidden` and `disabled`. Its `form` is a list of fields, as on a row action.
+
+`DrawerAction`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `key` | `string` | Stable identifier, used in the action's URL. |
+| `label` | `string` |  |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `variant?` | `ActionVariant` | Button styling. |
+| `placement?` | `"inline" \| "menu"` | `"inline"` renders a button in the row; `"menu"` puts it in the row menu. |
+| `confirm?` | `ActionConfirm` | Ask for confirmation before running. |
+| `form?` | `FieldDef<Input>[]` | Inputs collected before `run`, passed to it as `input`. |
+| `inputSchema?` | `z.ZodType<Input>` | Cross-field input validation for trusted action code. |
+| `outputSchema?` | `z.ZodType<Output>` | Required before arbitrary `data` may cross the client boundary. |
+| `access?` | `AccessRule` | Restrict the action to a role. Enforced before `run`. |
+| `when?` | `(context: FieldWriteContext<Row>) => boolean \| Promise<boolean>` | Offer and run the action only on rows where this holds; menus check it with no `input`, the route with it. |
+| `unsafe?` | `readonly "db"[]` | Explicitly opt trusted code into raw database access. |
+| `run` | `(row: Row, input: Input, ctx: ActionContext<InferDB>) => Promise<ActionResult<Output>>` | Server-side handler. Runs only after every guard has passed. |
+
+### ActionResult
+
+What every `run` returns.
+
+`ActionResult`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `ok` | `true` |  |
+| `message?` | `string` | Toast shown to the operator. |
+| `refresh?` | `boolean \| string \| string[]` | Revalidate after the action. `true` refreshes the current resource; a string publishes that one channel. |
+| `redirect?` | `string` | Send the operator to this path once the action succeeds. |
+| `download?` | `{ filename: string; data: string \| Blob \| Uint8Array; mime?: string }` | Hand the operator a generated file. |
+| `filename` | `string` |  |
+| `data` | `string \| Blob \| Uint8Array` |  |
+| `mime?` | `string` |  |
+| `data?` | `never` |  |
+| `data?` | `Data` |  |
+| `ok` | `false` |  |
+| `error` | `string` | Message shown to the operator. Safe to display — never include internals. |
+| `fieldErrors?` | `Record<string, string>` | Per-field messages, keyed by `FieldDef.name`, for actions with a `form`. |
+
+`ActionInput` defaults to `Record<string, unknown>`. `{ ok: false, error }` shows
+`error` to the operator as written. A thrown `FlowpanelError` keeps its status;
+anything else becomes a `500` and goes to `hooks.onError`, or, without a hook, to one
+`console.error` line with its request id.
+
+### ActionContext
+
+The last argument to every `run`.
+
+`ActionContext`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `unsafe?` | `{ db: Db }` | Explicit escape hatch for trusted action implementations. |
+| `actorId` | `string \| null` | Caller identity — same derivation the audit trail uses (`auth.userId`, then `session.id`, then `session.user.id`). |
+| `publish` | `(channel: string, payload?: unknown) => Promise<void>` | Push a realtime message to every connected admin. |
+
+`ctx.unsafe.db` is the adapter's client, present only when the action declares `unsafe: ["db"]`. `ctx.publish` sends a realtime event.
+
+### Validation
+
+A `form` is validated on the server before `run`: `required`, then each field's
+`validate`. A failure returns `422` with `fieldErrors`, one message per field.

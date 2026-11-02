@@ -1,0 +1,544 @@
+# FlowPanel — Reference — defineAdmin
+
+## defineAdmin
+
+The config entry point and every option it accepts.
+
+Docs: https://flowpanel.tech/docs/reference/define-config
+
+Documented types: defineAdmin, AdminDefinition, AuthConfig, ThemeConfig, ShellConfig, AuditConfig, AuditEvent, SecurityConfig, PluralLabel, LabelsConfig, CommandPaletteConfig, CommandGroup, CommandItem, ResolvedAdminConfig
+
+`defineAdmin` takes the config object, validates it, fills defaults, and returns
+the `ResolvedAdminConfig` that `createFlowpanel` serves. It does no I/O, so a page,
+script or test can import the config freely, a CommonJS `tsx` script on Node.js 20.19
+or 22.12 and newer included.
+
+### AdminDefinition
+
+`adapter` and `auth` are required. Without the rest you get no resources, the
+sidebar shell, English labels, no audit log, in-process realtime and no rate limit.
+
+`AdminDefinition`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `id?` | `string` | Stable id surfaced in the wire client metadata (`client.id`, default `"local"`) to tell multi-admin deployments apart. |
+| `adapter` | `Adapter` | Database binding — `drizzleAdapter`, `prismaAdapter`, or your own. |
+| `auth` | `AuthConfig` | How the admin reads sessions and roles. |
+| `scope?` | `(ctx: ScopeContext) => Promise<Scope> \| Scope` | Tenant scope resolved per request, then applied to every query. |
+| `theme?` | `ThemeConfig` | Branding, color scheme, design tokens and component overrides. |
+| `shell?` | `ShellConfig \| ShellMode` | Chrome around the content area — sidebar, tabs, or none. |
+| `labels?` | `LabelsConfig` | Override built-in UI strings. |
+| `formatting?` | `FormattingConfig` | Locale, timezone and currency for numbers, money and timestamps. |
+| `resources?` | `Resources` | Tables the admin manages. |
+| `dashboards?` | `(DashboardConfig \| MisplacedPage)[]` | Widget dashboards. A `page()` goes in `pages`. |
+| `pages?` | `PageConfig[]` | Custom pages rendered inside the shell: `pages: [page({ path, label, component })]`. |
+| `queues?` | `QueueConfig[]` | BullMQ queues surfaced in the admin. |
+| `commandPalette?` | `CommandPaletteConfig` | What ⌘K offers. |
+| `audit?` | `AuditConfig` | Audit trail for every mutation. |
+| `realtime?` | `RealtimeConfig` | Cross-instance realtime transport. Redis in production. |
+| `rateLimit?` | `RateLimitConfig` | Throttle requests per user or per IP. |
+| `security?` | `SecurityConfig` | Browser request protections. Same-origin mutation checks are enabled by default. |
+| `readOnly?` | `boolean` | Put the whole admin in read-only mode. |
+| `paths?` | `AdminPathsInput` | Mount points for the generated admin UI and HTTP API. |
+| `hooks?` | `{ onError?: (err: Error, ctx: ErrorContext) => void \| Promise<void>; }` | Cross-cutting callbacks. |
+
+### AuthConfig
+
+`session` and `role` run on every request, so keep them cheap. `session` receives
+the request being served.
+
+`AuthConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `session` | `(req: Request) => Promise<Session \| null>` | Reads the current session. Called on every request and page render, handed the request being served. Lets a provider inspect headers, cookies or the host without forging one. |
+| `role` | `(session: Session \| null) => string \| Promise<string>` | Maps a session to a role string, which every role-name `access` rule compares against. |
+| `access?` | `AccessRule` | Who may enter the admin at all. Checked on every route and page before anything else runs, so a predicate sees `scope` as `null`. |
+| `signInUrl?` | `string` | Where to send an unauthenticated visitor. Without it they get an inline notice. |
+| `forbiddenUrl?` | `string` | Where to send a signed-in visitor `access` keeps out of the whole admin; a page one role may not open shows its own screen. |
+| `userId?` | `(session: Session \| null) => string \| null` | Extracts the actor id for audit rows and per-user rate limiting. |
+| `allowUnauthenticated?` | `boolean` | Declares this admin reachable without a role gate — fronted by a VPN or authenticating proxy instead. Production refuses to start without `access` unless this is `true` AND the admin is `readOnly`. |
+
+`access` is the admin-wide gate, the same `AccessRule` a resource, dashboard, page or
+queue takes. It runs before `scope` resolves, so a function rule sees `scope` as `null`.
+A config with no `auth.access`, no resource `access` and no global `scope` serves every page to anonymous visitors, and `defineAdmin` warns
+in development; `allowUnauthenticated: true` marks that as intended. In
+production, a config without `auth.access` refuses to start unless it sets
+both `allowUnauthenticated: true` and `readOnly: true`.
+
+The presets `withBetterAuth`, `withClerk`, `withNextAuth`, `withLucia` and
+`devAuth`, imported from `@flowpanel/kit/auth`, build an `AuthConfig`; see [Authentication](/docs/guides/authentication).
+
+### ThemeConfig
+
+`ThemeConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `brand?` | `{ name?: string; logo?: string; href?: string }` | Product name, logo and home link shown in the shell header. |
+| `accent?` | `string` | Accent color: any CSS colour as hex or a colour function, `oklch(…)` included, or an HSL triplet such as `"220 90% 50%"`. Data fills take it too unless `cssVars` sets `--fp-data`. |
+| `accentDark?` | `string` | Dark-mode accent override, same format as `accent`; a light-tuned accent usually fails WCAG contrast on dark. Dark data fills take it too unless `cssVarsDark` sets `--fp-data`. |
+| `mode?` | `"light" \| "dark" \| "auto" \| "host"` | Initial color scheme. `"auto"` follows the operating system. `"host"` follows the host app instead: the admin is dark while `<html>` has the class `dark`, as shadcn and next-themes set it, and the palette's theme switch is left out because the host's own switch drives it. |
+| `cssVars?` | `ThemeTokens` | Override any `--fp-*` design token, e.g. `{ "--fp-radius": "0.25rem" }`. |
+| `cssVarsDark?` | `ThemeTokens` | Dark-mode token overrides, scoped to FlowPanel's dark roots and portals. Choose foreground tokens for contrast against the actual dark background. |
+| `components?` | `Partial<FlowpanelComponentSlots>` | Replace built-in components. See the styling guide. |
+| `user?` | `(s: Session \| null) => \| { /** `null` or `undefined` shows nothing, so an auth library's nullable fields pass straight through. */ name?: string \| null \| undefined; email?: string \| null \| undefined; avatar?: string \| null \| undefined; items?: Array<{ label: string; href?: string; variant?: "default" \| "destructive" }>; signOut?: string; } \| undefined` | What the account menu shows for the current session. Return `undefined` to render no menu at all — the usual choice when there is no session. |
+
+`components` is `Partial<FlowpanelComponentSlots>`; see
+[theme slots](/docs/customization/styling#replace-a-shared-component).
+
+`accent` and `cssVars` apply to `[data-flowpanel-root]` and
+`[data-flowpanel-portal]` only, so the host's tokens are untouched.
+`accentDark` and `cssVarsDark` apply in dark mode. Every `--fp-*` token can be
+overridden:
+
+```ts
+theme: {
+  brand: { name: "Acme", logo: "/logo.svg", href: "/" },
+  accent: "262 83% 58%",
+  accentDark: "262 90% 72%",
+  cssVars: { "--fp-radius": "0.25rem" },
+  cssVarsDark: { "--fp-text-1": "0 0% 98%" },
+}
+```
+
+Colours are HSL triplets. `accent` and `accentDark` may also be written as `hsl(...)`, and the wrapper is removed for you; `cssVars` and `cssVarsDark` are written as given.
+
+`user` fills the account menu at the foot of the sidebar, or the end of the tab
+strip. Return nothing and no menu renders:
+
+```ts
+theme: {
+  user: (session) => ({
+    name: session?.user?.name,
+    email: session?.user?.email,
+    avatar: session?.user?.image ?? undefined,
+    items: [{ label: "Settings", href: "/settings" }],
+    signOut: "/api/auth/signout",
+  }),
+}
+```
+
+### ShellConfig
+
+`shell: "tabs"` is shorthand for `shell: { mode: "tabs" }`.
+
+`ShellConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `mode?` | `ShellMode` |  |
+| `brand?` | `{ name?: string; logo?: string; href?: string } \| false` | Overrides `theme.brand`. `false` hides brand even in sidebar/tabs. |
+| `skipLink?` | `boolean` | Disable when the host application layout already renders a skip-to-content link. |
+
+`ShellMode` is `"sidebar" | "tabs" | "bare"`:
+
+- `"sidebar"`: left navigation and brand. The default.
+- `"tabs"`: a tab strip above the content, for an admin under the host's own header.
+- `"bare"`: no chrome; your layout supplies it. Toasts, the drawer, the command
+  palette and realtime still mount.
+
+`skipLink: false` removes the skip-to-content link when the host layout already
+renders one.
+
+#### Navigation groups
+
+`navGroup` on a dashboard, page, resource or queue moves its entry from its kind's
+group into a named one. Groups appear in the order of their first entry. A
+`{ label, collapsed: true }` group stays folded until it holds the current page.
+
+```ts
+const journals = { label: "Journals", collapsed: true } as const;
+
+resource(schema.scraperRun, { plural: "Scraper runs", navGroup: journals });
+resource(schema.aiRun, { plural: "AI runs", navGroup: journals });
+resource(schema.categories, { plural: "Categories", navGroup: "Reference data" });
+```
+
+With `shell: "tabs"` the groups flatten into one row of tabs, so a group's label
+and `collapsed` do not show there.
+
+### AuditConfig
+
+`audit: { enabled: true }` writes every event to `flowpanel_audit_log`, which `flowpanel migrate` creates, and adds the record History tab and the Audit log page. A `sink` sends events elsewhere instead, and the admin then shows neither. An adapter without `auditLog` needs a `sink`, or `defineAdmin` throws. `access` defaults to everyone `auth.access` admits. See [Audit log](/docs/guides/audit-log).
+
+`AuditConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `enabled?` | `boolean` | Turn auditing on. Individual resources can opt out with `audit: false`. Default: `true once `audit` is set`. |
+| `sink?` | `(event: AuditEvent) => Promise<void>` | Sends events somewhere else instead of the `flowpanel_audit_log` table. The admin cannot read them back, so it shows no History tab and no Audit log page. |
+| `access?` | `AccessRule` | Who sees the Audit log page and the History tab on records. Default: `everyone `auth.access` lets into the admin`. |
+
+#### AuditEvent
+
+What the audit table or `audit.sink` receives.
+
+`AuditEvent`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `actorId` | `string \| null` | Who acted, from `AuthConfig.userId`. Null when unresolvable. |
+| `actorName?` | `string` | The actor's display name or email, from `theme.user`, when the admin shows one. |
+| `action` | `string` | What ran, e.g. `"orders.action.refund"` or `"orders.inline-update"`. |
+| `resource?` | `string` | Resource name the action targeted. |
+| `targetId?` | `string` | Id of the affected row. Bulk actions carry the first ten, comma-joined. |
+| `targetIds?` | `readonly string[]` | Every affected id of a bulk action. |
+| `diff?` | `{ before: unknown; after: unknown }` | Before/after values of the changed, readable, non-sensitive fields. |
+| `scope?` | `Exclude<Scope, null>` | The tenant the request was scoped to, when the admin has a `scope`. |
+| `ip?` | `string` |  |
+| `userAgent?` | `string` |  |
+| `at` | `Date` |  |
+
+### SecurityConfig
+
+Cross-origin writes are blocked by default. `trustedOrigins` allows exact
+origins. Requests without browser `Origin` or Fetch Metadata headers, such as
+server-to-server calls, pass this check.
+
+`trustedProxies` says how many proxies in front of the app append to
+`X-Forwarded-For`. FlowPanel takes `ctx.ip` from the entry the outermost of them
+wrote and ignores anything to its left, which the client could have sent.
+
+| Deployment | `trustedProxies` |
+| --- | --- |
+| Vercel | `1` |
+| One nginx with `proxy_add_x_forwarded_for` | `1` |
+| Cloudflare straight to the app | `1` |
+| Cloudflare in front of nginx | `2` |
+| No proxy, or you are not sure | `0` (the default): `ctx.ip` is `null` |
+
+`ctx.ip` feeds the audit trail, `rateLimit` with `per: "ip"` and your rules. It
+is not an authentication signal: an IP allow-list belongs in the proxy, not in
+an `access` rule.
+
+`SecurityConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `sameOrigin?` | `boolean` | Reject cross-origin write requests using Origin and Fetch Metadata headers. Enabled by default. Disable only when an upstream gateway enforces an equivalent policy. |
+| `trustedOrigins?` | `string[]` | Additional exact origins allowed to submit writes, for example `https://ops.example.com`. |
+| `trustedProxies?` | `number` | How many proxies in front of the app append to `X-Forwarded-For`; `ctx.ip` is the entry the outermost one wrote. `1` for Vercel, a single nginx, or Cloudflare straight to the app; `2` for Cloudflare in front of nginx. With `0`, `ctx.ip` is `null`, because every header could come from the client. `ctx.ip` is for logs and rate limits, not for deciding who may sign in. Default: `0`. |
+
+### RateLimitConfig
+
+`RateLimitConfig` is `RateLimitOptions` plus `per` (`"user"` or `"ip"`,
+defaulting to `"user"`) and `enabled`.
+
+```ts
+type RateLimitOptions =
+  | { driver: "memory"; limit: number; windowMs: number }
+  | { driver: "redis"; url: string; limit: number; windowMs: number; keyPrefix?: string };
+```
+
+The memory driver counts per process and keeps at most 10,000 keys, dropping
+expired and then the oldest buckets; use Redis with more than one instance. A
+caller over the limit gets `429` with `Retry-After`, the window in seconds. `per: "ip"` keys by `ctx.ip`, so it needs
+`security.trustedProxies`; without it `defineAdmin` refuses to start in
+production and warns in development. An app with no proxy in front uses
+`per: "user"` for signed-in operators, or `enabled: false`. A caller with neither
+an IP nor a user id is not limited rather than sharing one bucket with everyone
+else, so a public admin (`auth.allowUnauthenticated`) without `trustedProxies`
+leaves signed-out visitors unlimited and gets a warning saying so.
+
+### RealtimeConfig
+
+`PublisherOptions` plus `channels`: the channels of your own the stream may
+serve, each with an optional `access` rule and `tenantSafe` flag. The stream
+refuses an undeclared channel, and `defineAdmin` refuses a widget, dashboard or
+list that subscribes to one. Without `realtime`, events reach only the process
+that published them. See [Declare your own channels](/docs/guides/realtime#declare-your-own-channels)
+and [Publisher](/docs/reference/scope-realtime#publisher).
+
+### LabelsConfig
+
+Text for the built-in UI. Groups merge over the English defaults; an undefined
+value keeps its default and an empty string is used as given. A component's own
+placeholder or label prop wins.
+
+`pagination.page`, `pagination.pageSize` and `bulkBar.selected` take `{n}`.
+
+`plurals` holds count templates for languages whose count words change with the
+number: a `PluralLabel` has one template per `Intl.PluralRules` category of
+`formatting.locale`, with `other` as the fallback. `plurals.results` wins over
+`table.result` and `table.results`, and `plurals.selected` over `bulkBar.selected`:
+
+```ts
+labels: {
+  plurals: {
+    results: { one: "{n} запись", few: "{n} записи", many: "{n} записей", other: "{n} записи" },
+    selected: { one: "Выбрана {n}", few: "Выбраны {n}", other: "Выбрано {n}" },
+  },
+},
+```
+
+`formatCount(label, count, locale)` from `@flowpanel/kit` picks the form in your
+own server code. A preset's plural gives way to a string template you set
+for the same count.
+
+`PluralLabel`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `zero?` | `string` | Its locale's `zero` category, and also any count of exactly 0: "Nenhum resultado". |
+| `one?` | `string` |  |
+| `two?` | `string` |  |
+| `few?` | `string` |  |
+| `many?` | `string` |  |
+| `other` | `string` |  |
+
+`dateRange.locale` sets the calendar and count formatting, falling back to
+`en-US`. `form.createTitle` and `form.editTitle` take `{label}`. `access` holds the
+sign-in and access-denied screens shown when `auth.signInUrl` or
+`auth.forbiddenUrl` is not set.
+
+`LabelsConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `navigation?` | `{ /** The breadcrumb trail above a page heading. */ breadcrumb?: string; /** The tab row of queue boards. */ queueBoards?: string; /** A queue board frame. Use `{label}` for the queue. */ queueBoard?: string; /** The region toasts appear in. */ notifications?: string; /** A toast's close button. */ closeNotification?: string; skipToContent?: string; admin?: string; open?: string; title?: string; accountMenu?: string; account?: string; signOut?: string; dashboards?: string; resources?: string; pages?: string; queues?: string; theme?: string; toggleTheme?: string; /** The menu holding the nav tabs that do not fit. */ more?: string; }` |  |
+| `table?` | `TableLabels` |  |
+| `dateRange?` | `{ /** The labels' language: the calendar's locale, and whether a label mid-sentence keeps its capital (German does). */ locale?: string; label?: string; fieldLabel?: string; any?: string; clear?: string; clearAction?: string; from?: string; until?: string; previousMonth?: string; nextMonth?: string; firstMonth?: string; secondMonth?: string; pickEnd?: string; noSelection?: string; today?: string; yesterday?: string; last7d?: string; last30d?: string; last12m?: string; thisMonth?: string; lastMonth?: string; MTD?: string; QTD?: string; YTD?: string; }` |  |
+| `savedViews?` | `{ save?: string; saveTrigger?: string; name?: string; current?: string; label?: string; yours?: string; saveCurrent?: string; saved?: string; deleted?: string; delete?: string; storageError?: string; }` |  |
+| `pagination?` | `{ label?: string; previous?: string; next?: string; of?: string; rowsPerPage?: string; /** Accessible page button name. Use `{n}` for the page number. */ page?: string; /** Page-size option. Use `{n}` for the row count. */ pageSize?: string; }` | Pagination chrome. |
+| `filters?` | `{ /** A select or boolean filter's "any value" choice. */ allOption?: string; /** A tag filter's example input. */ tagsPlaceholder?: string; /** A number range filter's lower bound. */ min?: string; max?: string; /** Empties the list search. */ clearSearch?: string; label?: string; clear?: string; yes?: string; no?: string; searchPlaceholder?: string; /** The phone button that opens the filters. Use `{n}` for the active ones; `open` when none are. */ open?: string; openCount?: string; /** Closes the phone filter sheet. */ done?: string; }` |  |
+| `bulkBar?` | `{ /** The bulk action toolbar. */ label?: string; /** The bulk action picker before a choice. */ choose?: string; /** Clears the selection. */ clearSelection?: string; /** Use `{n}` for the selection count. Default: `"{n} selected"`. */ selected?: string; clear?: string; }` | Bulk action bar. |
+| `plurals?` | `{ /** The table's row count, every count `1` included. */ results?: PluralLabel; /** The bulk bar's and a multi-select filter's selection count. */ selected?: PluralLabel; /** A timeline day's event count; wins over `timeline.event`/`timeline.events`. */ events?: PluralLabel; }` | Count templates per `Intl.PluralRules` category; when set, they win over `table.result`/`results` and `bulkBar.selected`. |
+| `actions?` | `{ /** A bulk action's confirm title when it names none. Use `{label}`. */ runConfirm?: string; /** A bulk action that succeeded. Use `{label}` and `{n}`. */ ranOn?: string; /** An action that succeeded without a message of its own. Use `{label}`. */ ran?: string; edit?: string; save?: string; cancel?: string; delete?: string; restore?: string; new?: string; create?: string; export?: string; import?: string; /** The menu holding a record's actions on its page and in its drawer. */ more?: string; /** A bulk delete that stopped part way. Use `{done}` and `{total}`. */ deletedSome?: string; }` | Generic action buttons. |
+| `form?` | `FormLabels` | Generated create and edit form chrome. |
+| `drawer?` | `{ close?: string; viewDetails?: string; /** While the record loads. */ loading?: string; /** A resource tab with no rows. Use `{resource}`. */ noRows?: string; /** A widgets tab that declares none. */ noWidgets?: string; /** A chart, which only a dashboard or a record page draws. Use `{n}` for its points. */ chartElsewhere?: string; /** A widget kind a drawer does not draw. Use `{kind}`. */ unsupported?: string; /** The dialog's name before the record loads. */ title?: string; /** The record could not be loaded. */ loadFailed?: string; /** The record is gone, or the reader may not see it. */ missing?: string; }` | Drawer chrome. |
+| `detail?` | `{ /** The fields tab a record gets beside History when it declares no tabs of its own. */ details?: string; /** A fields tab with nothing the reader is allowed to see. */ noFields?: string; /** A tab naming a resource that is not registered. Use `{resource}`. */ unknownResource?: string; /** A counted tab's label. Use `{label}` and `{count}`. */ tabCount?: string; /** A soft-deleted record opened by someone who may restore it. Use `{label}` for the singular label. */ deleted?: string; deletedDescription?: string; }` | Full-page detail chrome. |
+| `related?` | `{ /** Link from a related tab to the target resource's own list. */ openList?: string; }` | Related detail-tab chrome. |
+| `notFound?` | `NotFoundLabels` | The admin's own not-found page, for a URL no resource or dashboard matches. |
+| `access?` | `AccessLabels` | The screens shown in place of a page when `auth.signInUrl` or `auth.forbiddenUrl` is not set, or the rate limit refuses it. |
+| `confirm?` | `{ /** The built-in bulk delete's confirm title. */ deleteSelectedTitle?: string; title?: string; ok?: string; cancel?: string; /** Deleting one record. Use `{label}` for the resource's singular label. */ deleteTitle?: string; /** Under `deleteTitle` when the delete is permanent and `delete.confirm` is not set. */ deleteDescription?: string; /** Under `deleteTitle` when the resource soft-deletes and `delete.confirm` is not set. */ softDeleteDescription?: string; }` | Confirm dialog. |
+| `widget?` | `WidgetLabels` | Dashboard and detail-tab widget chrome. |
+| `timeline?` | `TimelineLabels` | `timeline()` chrome. |
+| `heatmap?` | `HeatmapLabels` | `heatmap()` chrome. |
+| `checklist?` | `ChecklistLabels` | `checklist()` chrome. |
+| `errors?` | `ErrorLabels` | FlowPanel's own failure surfaces, shown in place of the data that did not load. |
+| `palette?` | `{ /** The palette's result list. */ suggestions?: string; placeholder?: string; noResults?: string; title?: string; description?: string; loading?: string; }` | ⌘K palette. |
+| `saving?` | `SavingLabels` | What a create or edit form says after it saves, and when it would lose typed changes. |
+| `importer?` | `ImporterLabels` | The list's file import. |
+| `shortcuts?` | `ShortcutsLabels` | The `?` keyboard cheat sheet. |
+| `realtime?` | `RealtimeLabels` | A live list's or widget's connection badge. |
+| `audit?` | `AuditLabels` | The record History tab and the Audit log page. |
+| `fields?` | `Record<string, string>` | Labels for fields no column, form or view labels, by field name. The presets name `id`, `createdAt`, `updatedAt` and `deletedAt`, and their snake_case forms. |
+
+#### Language presets
+
+`@flowpanel/kit` exports the whole built-in UI in five languages beside English:
+`DE_LABELS` (German), `FR_LABELS` (French), `ES_LABELS` (Spanish), `PT_BR_LABELS`
+(Brazilian Portuguese) and `RU_LABELS` (Russian). Pass one as `labels`, merged
+with the strings you want different, and set `formatting.locale` to the same
+language so numbers, money and dates follow it:
+
+```ts
+labels: mergeLabels({ actions: { new: "Hinzufügen" } }, DE_LABELS),
+formatting: { locale: "de-DE" },
+```
+
+Each preset's counts take the plural forms its language has. A preset is plain
+data, not code: an admin that imports none ships none of them. A preset sets
+`dateRange.locale` to its language, which also decides whether a resource label
+keeps its capital mid-sentence (German does); set it yourself when you write a
+whole language by hand. Counts pick their plural form by `formatting.locale`.
+A Russian `formatting.locale` (`"ru"`, `"ru-RU"`) makes `RU_LABELS` the
+base by itself, so there `labels` holds only the strings you want different;
+`labels: DEFAULT_LABELS` keeps English under a Russian locale. Field and resource
+labels stay yours: write them in the admin's language, and each field label
+reaches every surface, as [Field labels](/docs/build/resources#field-labels)
+describes. The one exception is `labels.fields`, which names the system columns
+`id`, `createdAt`, `updatedAt` and `deletedAt` (and `created_at` and the other
+snake_case forms) in the preset's language wherever nothing else labels them; add
+your own keys there for other columns every resource shares.
+
+### CommandPaletteConfig
+
+Your own commands. The palette also searches records through each resource's
+`search` fields; see [Search, filters and sorting](/docs/build/resources#search-filters-and-sorting).
+
+`CommandPaletteConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `groups?` | `CommandGroup[]` | Your own groups, listed after the built-in ones. |
+| `placeholder?` | `string` | Placeholder text for the input. Defaults to `labels.palette.placeholder`. Default: `"Search resources, actions…"`. |
+| `disableNavigation?` | `boolean` | Drop the built-in group that links to every resource. |
+| `disableTheme?` | `boolean` | Drop the built-in light/dark toggle. |
+
+#### CommandGroup
+
+`CommandGroup`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label` | `string` |  |
+| `items` | `CommandItem[]` |  |
+
+#### CommandItem
+
+`CommandItem`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `label` | `string` |  |
+| `icon?` | `IconName` | Serializable Lucide icon rendered beside the label. |
+| `shortcut?` | `string` | Shortcut hint shown on the right, e.g. `"⌘J"`. Display only — bind it yourself. |
+| `keywords?` | `string[]` | Extra terms that should match this item in search. |
+| `action` | `{ type: "navigate"; href: string }` | What running the item does. Only `navigate` is supported. |
+
+`CommandItem.icon` uses the same `IconName` registry as resources and actions;
+see [resource icons](/docs/reference/resources#icons).
+
+### ResolvedAdminConfig
+
+What `defineAdmin` returns.
+
+`ResolvedAdminConfig`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `__resolved` | `true` |  |
+| `resources` | `Resources` |  |
+| `dashboards?` | `DashboardConfig[]` |  |
+| `resourcesByName` | `Map<string, ResourceConfig>` |  |
+| `dashboardsByPath` | `Map<string, DashboardConfig>` |  |
+| `pagesByPath` | `Map<string, PageConfig>` |  |
+| `queuesByKey` | `Map<string, QueueConfig>` |  |
+| `paths` | `AdminPaths` | Normalized mount points with leading slashes and no trailing slash. |
+| `auditLog` | `AuditLogStore \| null` | The table History tabs and the Audit log page read; null when audit is off or a `sink` replaces it. |
+| `warnings` | `readonly string[]` | Config problems that do not stop the admin from booting. `flowpanel doctor` prints them; development prints each once. |
+
+`defineAdmin` throws if two resources share a name, two dashboards or pages
+share a path, or two queues share a key.
+
+It also throws when a config points at a resource name nothing resolves to:
+`reference.resource` on a column or field, a drawer or detail tab's `resource`,
+or a `table()` widget's `resource`. The names it checks against are the
+*resolved* ones, so a Drizzle table declared as `pgTable("ai_usage", …)` is
+`"ai_usage"` even when the exported variable is `aiUsage`. The error names the
+config path and suggests the near match.
+
+Bind the definition with `createFlowpanel(config)`, then mount its page and
+handlers. The runtime comes from `@flowpanel/kit/next`:
+
+```ts
+// src/app/admin/[[...slug]]/page.tsx
+import { createFlowpanel } from "@flowpanel/kit/next";
+import config from "../../../../flowpanel.config";
+
+const flowpanel = createFlowpanel(config);
+
+export default flowpanel.page;
+```
+
+```ts
+// src/app/api/flowpanel/[...route]/route.ts
+import { createFlowpanel } from "@flowpanel/kit/next";
+import config from "../../../../../flowpanel.config";
+
+const flowpanel = createFlowpanel(config);
+
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
+```
+
+### Default bulk delete
+
+When a resource has delete enabled, `defineAdmin` adds a default `delete` bulk
+action after the resource's own `bulkActions`. Its label and confirm come from
+`labels.actions.delete` and `labels.confirm`. Set `delete.confirm` to replace the
+confirmation text, for this menu and for one record's Delete alike. Give it plural
+forms to word it by how many rows go, `{n}` being the count:
+
+```ts
+delete: {
+  confirm: {
+    one: "The order and its items are deleted for good.",
+    other: "{n} orders and their items are deleted for good.",
+  },
+},
+```
+
+Opt out with `delete: { bulk: false }` or
+`delete: { disabled: true }`; a bulk action of your own with the key `delete`
+replaces it.
+
+`readOnly: true` short-circuits the whole rule: a read-only admin rewrites
+every resource to `bulkActions: []` (and empties `actions` and the drawer's
+actions, disables create/update/delete, drops `import`, and clears every
+column's `editable`), so no default delete is injected for any resource.
+
+### Reserved names
+
+`defineAdmin` throws when a resource name or queue key is `audit-log`, `dashboards`,
+`drawer`, `export`, `palette` or `queues`: the admin's own routes use those URL segments.
+Change `options.name` on the resource or `options.key` on the queue. With the audit log
+on, a dashboard or page at `/audit-log` throws too.
+
+### Behavior beyond validation
+
+1. **Fills `columns`** from `adapter.introspect(ref)` for any resource that
+   omitted them, in introspection order. If the adapter cannot introspect the
+   ref, or reports zero columns, that throws.
+2. **Injects the default bulk delete** (above).
+3. **Normalizes `paths.admin`** and every dashboard and page `path`: a missing
+   leading `/` is added, a trailing one stripped.
+
+`introspect` reads the table object or DMMF; it does not query the database.
+
+#### `paths` and a Next.js deployment `basePath`
+
+`paths.admin` and `paths.api` are app-relative: they say where the admin sits inside
+your app, not where the app sits under a domain. If `next.config` sets its own
+`basePath`, leave both alone. Next serves and links everything under that prefix
+already.
+
+FlowPanel adds the deployment prefix for you to the requests the browser issues
+by itself: the client fetches built from `paths.api`, the generated form actions
+and the SSE endpoint. `Link`, router navigation and `revalidatePath` are prefixed
+by Next and are left untouched. Only a fetch you write yourself in a client
+component against `paths.api` needs the helper. Server code calls the runtime
+through `createFlowpanel(config).request()` instead of fetching its own routes.
+
+```ts
+"use client";
+import { withDeploymentBasePath } from "@flowpanel/kit/react";
+
+export async function verifyUser(id: string): Promise<Response> {
+  return fetch(`${withDeploymentBasePath("/api/flowpanel")}/user/${id}/actions/verify`, {
+    method: "POST",
+  });
+}
+```
+
+#### Formatting
+
+`formatting` decides how the admin renders values, on the server and in the
+browser alike:
+
+```ts
+formatting: { locale: "ru-RU", timeZone: "Europe/Moscow", currency: "RUB" },
+```
+
+`locale` governs the `number` and `money` column formats and the date shape;
+`currency` is the default for a `money` column that names none, and a column's own
+`currency` still wins. `timeZone` is the one clock of the admin: server strings,
+chart ticks, forms, exports and every `LocalTime` render in it, before and after
+hydration. Left unset, it is UTC. A `LocalTime` given its own `fallbackTimeZone`
+renders in that zone first and switches to the reader's own zone after hydration.
+
+With no `locale`, dates print as `YYYY-MM-DD HH:mm` and numbers use `en-US` grouping.
+
+#### Identifiers in URLs
+
+Record identifiers are percent-encoded into the URL and decoded once when the page
+route reads them back, so an id containing `/`, `%`, `?`, `#` or a space addresses
+the record it names. Configured dashboard and page paths keep their separators:
+`/reports/weekly` stays two segments.
+
+A row whose projection did not include the key column is displayed but not treated
+as addressable: no selection, no inline editing, no row activation. Keep the key
+column in `columns`, or in `detail.tabs[].fields`, wherever the table has to act
+on rows.

@@ -1,4 +1,5 @@
 "use client";
+import { textWidthEm } from "@flowpanel/core/format";
 import {
   DataTable,
   type DataTableColumn,
@@ -7,8 +8,7 @@ import {
   type RealtimeChannels,
   RealtimeRefresh,
   useAdminDrawer,
-  useAdminTable,
-  useRowNavigation,
+  useRowHrefClick,
 } from "@flowpanel/react";
 import type { ReactNode } from "react";
 import * as React from "react";
@@ -17,7 +17,28 @@ import type { SerializedBulkAction } from "../actions/bulk-action";
 import { RestoreButton } from "../actions/RestoreButton";
 import { RowActionsMenu } from "../actions/RowActionsMenu";
 import type { SerializedRowAction } from "../actions/row-action";
+import { useListNavigation } from "../pages/list-navigation";
 import { rowIdentity } from "../runtime/row-identity";
+import { useColumnPrefs } from "./column-prefs";
+import type { ColumnPrefs } from "./column-prefs-cookie";
+import { rememberRowCells } from "./table-cells";
+
+/** The trailing column's rem when a row shows actions inline: its padding, each button, and the menu beside them. */
+export function rowEndRem(
+  lists: ReadonlyArray<ReadonlyArray<SerializedRowAction> | undefined>,
+): number {
+  let widest = 0;
+  for (const actions of lists) {
+    const inline = actions?.filter((action) => action.placement === "inline") ?? [];
+    const menu = inline.length < (actions?.length ?? 0) ? 2 : 0;
+    const rem = inline.reduce(
+      (sum, action) => sum + (textWidthEm(action.label) * 14) / 16 + (action.icon ? 3.25 : 1.75),
+      2 + menu,
+    );
+    if (inline.length > 0) widest = Math.max(widest, rem);
+  }
+  return widest;
+}
 
 /** Thin wrapper around `<DataTable>` that wires realtime refresh and row-click drawer interaction. */
 export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown>> {
@@ -27,16 +48,16 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   total: number;
   page: number;
   pageSize: number;
-  /** Sizes offered by the pager; the server clamps `?perPage=` to this set. */
+  /** Sizes offered by the pager; the server clamps `?pageSize=` to this set. */
   pageSizeOptions?: number[];
   rowKey: keyof Row & string;
   sort?: DataTableSort<Row> | null;
   /** Initial row density from `resource.options.density`. Forwarded to `DataTable`. */
   density?: DataTableDensity;
-  /** Export affordance, forwarded verbatim from `resource.options.export`. */
+  /** Export affordance from `resource.options.export`; the export runs on the server for `resource`. */
   exportable?: boolean | { formats?: ("csv" | "json")[]; fields?: string[] };
   /** Show the import button (from `resource.options.import`). */
-  importable?: { resource: string; formats: ("csv" | "json")[] };
+  importable?: { resource: string; formats: ("csv" | "json")[]; headers?: string[] };
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: ReactNode;
@@ -60,6 +81,12 @@ export interface DataTableWithDrawerRowsProps<Row extends Record<string, unknown
   enteringRowKeys?: string[];
   /** Marker copied from `fp_created`; consumed from the visible URL after paint. */
   createdRowKey?: string;
+  /** What one row is, mid-sentence, for the phone card's link: "Open customer Ann". */
+  rowLabel?: string;
+  /** The widths and hidden columns the reader left, read from their cookie on the server. */
+  columnPrefs?: ColumnPrefs;
+  /** The URL path the prefs cookie is scoped to: the list's own page. */
+  columnPrefsPath?: string;
 }
 
 export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
@@ -83,31 +110,33 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
     rowHrefs,
     realtime,
     createdRowKey,
+    columnPrefs: initialPrefs,
+    columnPrefsPath,
     ...rest
   } = props;
   const { open } = useAdminDrawer();
-  const table = useAdminTable();
-  const navigate = useRowNavigation();
-  const hrefByRow = React.useMemo(
-    () => new Map(rowHrefs ? rows.map((row, index) => [row, rowHrefs[index] ?? null]) : []),
-    [rows, rowHrefs],
-  );
+  const { navigate, pending } = useListNavigation();
+  const columnPrefs = useColumnPrefs(resource, initialPrefs, columnPrefsPath);
+  const hrefClick = useRowHrefClick(rows, rowHrefs);
   const onRowClick = openDrawerOnRowClick
     ? (row: Row) => {
         const id = rowIdentity(row, rowKey);
-        if (id !== null) open({ resource, id });
+        if (id === null) return;
+        const cells = prerenderedCells?.[rows.indexOf(row)] ?? [];
+        rememberRowCells(
+          resource,
+          id,
+          Object.fromEntries(rest.columns.map((column, index) => [column.field, cells[index]])),
+        );
+        open({ resource, id });
       }
-    : rowHrefs
-      ? (row: Row) => {
-          const href = hrefByRow.get(row);
-          if (href) navigate(href);
-        }
-      : undefined;
+    : hrefClick;
 
   const hasRowActions = rowActions && rowActions.length > 0;
   const hasBulkActions = bulkActions && bulkActions.length > 0;
   const deletedRowKeySet = deletedRowKeys && deletedRowKeys.length > 0 ? deletedRowKeys : undefined;
   const hasRestore = !!deletedRowKeySet;
+  const inlineRem = rowEndRem([rowActions, ...Object.values(rowActionsById ?? {})]);
 
   const [selection, setSelection] = React.useState<string[]>([]);
 
@@ -126,14 +155,11 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
   return (
     <>
       {realtime ? <RealtimeRefresh channels={realtime} /> : null}
-      {hasBulkActions ? (
-        <BulkActionsBar
-          resource={resource}
-          selection={selection}
-          onClear={() => setSelection([])}
-          actions={bulkActions as SerializedBulkAction[]}
-        />
-      ) : null}
+      <div aria-hidden className="fp-relative fp-h-0">
+        {pending ? (
+          <span className="fp-pending-bar fp-absolute fp-inset-x-2 fp-top-0 fp-z-10 fp-h-[2px] fp-rounded-full" />
+        ) : null}
+      </div>
       <DataTable
         {...rest}
         rows={rows}
@@ -144,12 +170,40 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
         {...(emptyAction ? { emptyAction } : {})}
         {...(emptyIcon ? { emptyIcon } : {})}
         {...(prerenderedCells ? { prerenderedCells } : {})}
-        onSortChange={(s) => table.setSort(s as { field: string; dir: "asc" | "desc" })}
-        onPageChange={(p) => table.setPage(p)}
-        onPageSizeChange={(n) => table.setPageSize(n)}
+        onSortChange={(s) =>
+          navigate((q) => {
+            if (s) q.set("sort", `${String(s.field)}:${s.dir}`);
+            else q.delete("sort");
+          }, "push")
+        }
+        onPageChange={(p) => navigate((q) => q.set("page", String(p)), "push", { scroll: true })}
+        onPageSizeChange={(n) =>
+          navigate(
+            (q) => {
+              if (n == null) q.delete("pageSize");
+              else q.set("pageSize", String(n));
+              q.delete("page");
+            },
+            "push",
+            { scroll: true },
+          )
+        }
         inlineEditResource={resource}
+        columnWidths={columnPrefs.widths}
+        onColumnWidthsChange={columnPrefs.setWidths}
+        columnVisibility={columnPrefs.visibility}
+        onColumnVisibilityChange={columnPrefs.setVisibility}
+        {...(rest.exportable
+          ? {
+              exportable: {
+                ...(rest.exportable === true ? {} : rest.exportable),
+                resource,
+              },
+            }
+          : {})}
         {...(hasBulkActions ? { selection, onSelectionChange: setSelection } : {})}
         {...(onRowClick ? { onRowClick } : {})}
+        {...(inlineRem > 0 ? { rowEndCellRem: inlineRem } : {})}
         {...(hasRowActions || hasRestore
           ? {
               rowEndCell: (row: Row) => {
@@ -164,7 +218,7 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
                   return <RowActionsMenu resource={resource} id={idStr} actions={acts} />;
                 }
                 return (
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="-fp-my-1.5 fp-flex fp-items-center fp-justify-end fp-gap-1">
                     <RestoreButton resource={resource} id={idStr} />
                     {acts.length > 0 ? (
                       <RowActionsMenu resource={resource} id={idStr} actions={acts} />
@@ -175,6 +229,16 @@ export function DataTableWithDrawerRows<Row extends Record<string, unknown>>(
             }
           : {})}
       />
+      {hasBulkActions ? (
+        <BulkActionsBar
+          resource={resource}
+          selection={
+            deletedRowKeySet ? selection.filter((id) => !deletedRowKeySet.includes(id)) : selection
+          }
+          onClear={() => setSelection([])}
+          actions={bulkActions as SerializedBulkAction[]}
+        />
+      ) : null}
     </>
   );
 }

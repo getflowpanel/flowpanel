@@ -1,0 +1,20 @@
+-- The audit log the admin writes when `audit` is on without a `sink`; migrate keeps its own bookkeeping table.
+
+CREATE TABLE IF NOT EXISTS flowpanel_audit_log (
+  id char(36) NOT NULL PRIMARY KEY DEFAULT (UUID()),
+  actor_id varchar(255),
+  actor_name varchar(255),
+  action varchar(255) NOT NULL,
+  resource varchar(255),
+  target_id varchar(255),
+  diff json,
+  diff_preview json,
+  ip varchar(45),
+  user_agent text,
+  scope_key text,
+  at datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  INDEX flowpanel_audit_log_at_idx (at DESC),
+  INDEX flowpanel_audit_log_actor_idx (actor_id, at DESC),
+  INDEX flowpanel_audit_log_target_idx (resource, target_id, at DESC),
+  INDEX flowpanel_audit_log_scope_idx (scope_key(255), at DESC)
+);

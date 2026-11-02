@@ -1,22 +1,95 @@
 "use client";
-import { FilterBar, type FilterBarSpec, useAdminTable } from "@flowpanel/react";
+import { cn, FilterBar, type FilterBarSpec, useLabels } from "@flowpanel/react";
+import * as React from "react";
+import { type ListHistory, useListNavigation } from "./list-navigation";
+
+/** Filters typed key by key: one history entry per burst of typing, not one per keystroke. */
+const TYPED = new Set<FilterBarSpec["type"]>(["text", "numeric-range", "tag"]);
+const BURST_MS = 1000;
+
+export interface ResourceListFilterSpec extends FilterBarSpec {
+  defaultValue?: string;
+  hidden?: boolean;
+}
 
 export interface ResourceListFiltersProps {
-  filters: FilterBarSpec[];
+  filters: ResourceListFilterSpec[];
+}
+
+/** The list's filter values, defaults filled in, and the URL changes that set and clear them. */
+function useListFilters(filters: ResourceListFilterSpec[]) {
+  const { navigate: go, params } = useListNavigation();
+  const typing = React.useRef<{ field: string; at: number } | null>(null);
+  const shown = filters.filter((f) => !f.hidden);
+  const hidden = new Set(filters.filter((f) => f.hidden).map((f) => f.field));
+  const defaulted = new Set(shown.filter((f) => f.defaultValue !== undefined).map((f) => f.field));
+  const values: Record<string, string> = {};
+  for (const [key, value] of params) {
+    const field = key.slice(2);
+    if (key.startsWith("f_") && value !== "" && !hidden.has(field)) values[field] = value;
+  }
+  for (const f of shown) {
+    if (f.defaultValue !== undefined && !params.has(`f_${f.field}`))
+      values[f.field] = f.defaultValue;
+  }
+  const changed = shown.some(
+    (f) => params.has(`f_${f.field}`) && params.get(`f_${f.field}`) !== (f.defaultValue ?? ""),
+  );
+
+  const types = new Map(shown.map((f) => [f.field, f.type]));
+  const navigate = (mutate: (next: URLSearchParams) => void, history: ListHistory) =>
+    go((next) => {
+      mutate(next);
+      next.delete("page");
+    }, history);
+  const historyFor = (field: string): ListHistory => {
+    const type = types.get(field);
+    if (!type || !TYPED.has(type)) {
+      typing.current = null;
+      return "push";
+    }
+    const now = Date.now();
+    const last = typing.current;
+    typing.current = { field, at: now };
+    return last && last.field === field && now - last.at < BURST_MS ? "replace" : "push";
+  };
+  const setFilter = (field: string, value: string | null) =>
+    navigate((next) => {
+      if (value) next.set(`f_${field}`, value);
+      else if (defaulted.has(field)) next.set(`f_${field}`, "");
+      else next.delete(`f_${field}`);
+    }, historyFor(field));
+  const clear = () =>
+    navigate((next) => {
+      for (const key of [...next.keys()]) if (key.startsWith("f_")) next.delete(key);
+      for (const field of defaulted) next.set(`f_${field}`, "");
+    }, "push");
+  return { shown, values, setFilter, clear, clearable: changed && Object.keys(values).length > 0 };
 }
 
 export function ResourceListFilters({ filters }: ResourceListFiltersProps) {
-  const table = useAdminTable();
-  if (filters.length === 0) return null;
+  const { shown, values, setFilter } = useListFilters(filters);
+  if (shown.length === 0) return null;
+  // No margin: the parent `items-center` row owns the spacing.
+  return <FilterBar filters={shown} values={values} onChange={setFilter} />;
+}
+
+/** "Clear filters", once the reader has moved the filters off the list's defaults; its place is kept, so it never moves the row. */
+export function ResourceListClearFilters({ filters }: ResourceListFiltersProps) {
+  const labels = useLabels();
+  const { shown, clear, clearable } = useListFilters(filters);
+  if (shown.length === 0) return null;
   return (
-    // No margin here: this sits inside an `items-center` row, where a bottom
-    // margin centres the margin box and lifts the pills off the baseline the
-    // search field and buttons share. The row owns the spacing.
-    <FilterBar
-      filters={filters}
-      values={table.filters}
-      onChange={table.setFilter}
-      onClear={table.clearFilters}
-    />
+    <button
+      type="button"
+      onClick={clear}
+      {...(clearable ? {} : { "aria-hidden": true, tabIndex: -1 })}
+      className={cn(
+        !clearable && "fp-invisible",
+        "fp-press fp-h-8 fp-shrink-0 fp-rounded-sm fp-px-1 fp-text-sm fp-text-soft fp-underline fp-underline-offset-4 fp-transition-colors hover:fp-text-ink focus-visible:fp-outline-none focus-visible:fp-ring-2 focus-visible:fp-ring-focus/60",
+      )}
+    >
+      {labels.filters.clear}
+    </button>
   );
 }

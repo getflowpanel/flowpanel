@@ -1,24 +1,9 @@
 {
   "name": "@flowpanel/react",
   "version": "0.3.0",
-  "description": "Admin UI components for FlowPanel — shell, data table, forms, widgets and realtime hooks built on Radix UI + Tailwind v4 + design tokens",
-  "keywords": [
-    "flowpanel",
-    "admin",
-    "admin-panel",
-    "react",
-    "ui-components",
-    "radix-ui",
-    "tailwindcss",
-    "design-tokens"
-  ],
+  "private": true,
+  "description": "Admin UI components for FlowPanel: shell, data table, forms, widgets and realtime hooks",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/getflowpanel/flowpanel.git",
-    "directory": "packages/react"
-  },
-  "homepage": "https://github.com/getflowpanel/flowpanel",
   "type": "module",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -32,8 +17,6 @@
   },
   "scripts": {
     "build": "tsup",
-    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./styles/admin.css",
-    "lint:publish": "publint --strict",
     "test:types": "tsd",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -60,50 +43,45 @@
     "**/*.css"
   ],
   "peerDependencies": {
-    "next": "^16.3.0",
+    "next": ">=15.5.0 <17.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^4.0.0"
   },
-  "files": [
-    "dist",
-    "src/styles/admin.css",
-    "README.md"
-  ],
   "dependencies": {
     "@conform-to/react": "^1.21.1",
     "@conform-to/zod": "^1.21.1",
     "@flowpanel/core": "workspace:*",
-    "@radix-ui/react-alert-dialog": "^1.1.15",
-    "@radix-ui/react-checkbox": "^1.3.3",
-    "@radix-ui/react-dialog": "^1.1.0",
-    "@radix-ui/react-dropdown-menu": "^2.1.0",
-    "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-popover": "^1.1.0",
-    "@radix-ui/react-select": "^2.1.0",
-    "@radix-ui/react-slot": "^1.2.4",
-    "@radix-ui/react-switch": "^1.1.0",
-    "@radix-ui/react-tabs": "^1.1.0",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.0",
+    "@radix-ui/react-alert-dialog": "^1.1.24",
+    "@radix-ui/react-checkbox": "^1.3.12",
+    "@radix-ui/react-dialog": "^1.2.0",
+    "@radix-ui/react-dropdown-menu": "^2.1.25",
+    "@radix-ui/react-label": "^2.1.16",
+    "@radix-ui/react-popover": "^1.2.0",
+    "@radix-ui/react-select": "^2.3.8",
+    "@radix-ui/react-slot": "^1.4.0",
+    "@radix-ui/react-switch": "^1.3.8",
+    "@radix-ui/react-tabs": "^1.1.22",
+    "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
-    "lucide-react": "^0.400.0",
-    "sonner": "^2.0.7",
-    "tailwind-merge": "^2.3.0"
+    "lucide-react": "^1.52.0",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.6.1",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "happy-dom": "^15.11.7",
-    "jsdom": "^29.0.2",
-    "next": "^16.3.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "happy-dom": "catalog:",
+    "jsdom": "^30.1.2",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "tsd": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

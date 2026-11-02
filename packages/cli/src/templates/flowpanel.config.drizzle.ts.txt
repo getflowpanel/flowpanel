@@ -4,16 +4,11 @@ import { db } from "{{DB}}";
 import * as schema from "{{SCHEMA}}";
 import { getSession } from "{{AUTH}}";
 
-// Augment "@flowpanel/kit": it is the package you installed, and the
-// interfaces below merge into the same declarations "@flowpanel/core" owns.
 declare module "@flowpanel/kit" {
   interface FlowpanelTypes {
     db: typeof db;
-  }
-  // resource name -> row type. Fill one entry per resource to get
-  // compile-checked columns, filters and cross-resource references.
-  interface FlowpanelResources {
-    // users: typeof schema.users.$inferSelect;
+    schema: typeof schema;
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>;
   }
 }
 
@@ -23,26 +18,18 @@ export default defineAdmin({
 
   auth: {
     session: getSession,
-    role: (s) =>
-      (s as { user?: { role?: string } } | null | undefined)?.user?.role ?? "guest",
-    requireRole: "admin",
+{{ROLE}}
+    access: "admin",
   },
 
   realtime: { driver: "memory" },
 
   theme: {
     brand: { name: "{{APP_NAME}}" },
-    accent: "220 90% 50%",
     mode: "auto",
   },
 
   resources: [
-    // Add `resource` to the "@flowpanel/kit" import above, then:
-    // resource(schema.users, {
-    //   label: "Users",
-    //   columns: ["email", "name", "createdAt"],
-    //   search: ["email", "name"],
-    //   defaultSort: { field: "createdAt", dir: "desc" },
-    // }),
+    // {{CLI}} new <table>  adds an entry; or write resource(schema.users, { columns: ["email", "createdAt"] })
   ],
 });

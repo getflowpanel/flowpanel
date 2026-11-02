@@ -7,9 +7,10 @@ vi.mock("../runtime/publish", () => ({
   bindPublisher: vi.fn(),
 }));
 
-import type { Adapter, MutationContext } from "@flowpanel/core";
+import type { Adapter, MutationContext, ResolvedAdminConfig } from "@flowpanel/core";
 import { defineAdmin, resource } from "@flowpanel/core";
 import { bulkActionRoute } from "../actions/bulk-action";
+import { publishResource } from "../runtime/publish";
 
 const deleted: { id: unknown; softDelete: unknown }[] = [];
 
@@ -66,6 +67,32 @@ const params = Promise.resolve({ resource: "items", action: "delete" });
 describe("the compiler-injected bulk delete", () => {
   beforeEach(() => {
     deleted.length = 0;
+    vi.mocked(publishResource).mockReset();
+  });
+
+  it("tells realtime subscribers the rows are gone, as a single delete does", async () => {
+    const res = await bulkActionRoute(makeConfig())(deleteReq(["a", "b"]), { params });
+    expect(res.status).toBe(200);
+    expect(publishResource).toHaveBeenCalledWith("items", { action: "delete" });
+  });
+
+  it("checks that the selected rows exist a few at a time, not all at once", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const config: ResolvedAdminConfig = makeConfig();
+    config.adapter.get = async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight -= 1;
+      return { id: "a", title: "A" };
+    };
+    const ids = Array.from({ length: 60 }, (_, i) => `id-${i}`);
+    const res = await bulkActionRoute(config)(deleteReq(ids), { params });
+    expect(res.status).toBe(200);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(16);
+    expect(deleted).toHaveLength(60);
   });
 
   it("deletes every selected row instead of returning a sentinel", async () => {
@@ -97,5 +124,36 @@ describe("the compiler-injected bulk delete", () => {
 
     expect(res.status).toBe(403);
     expect(deleted).toHaveLength(0);
+  });
+});
+
+describe("declared bulk actions keep the built-in delete", () => {
+  const archive = { key: "archive", label: "Archive", run: async () => ({ ok: true }) };
+  const keys = (options: Record<string, unknown>): string[] => {
+    const config: ResolvedAdminConfig = makeConfig(options);
+    const items = config.resourcesByName.get("items");
+    return (items?.options.bulkActions ?? []).map((action) => action.key);
+  };
+
+  it("appends Delete after the host's own bulk actions", () => {
+    expect(keys({ bulkActions: [archive] })).toEqual(["archive", "delete"]);
+  });
+
+  it("leaves it out when delete is disabled or bulk delete is turned off", () => {
+    expect(keys({ bulkActions: [archive], delete: { disabled: true } })).toEqual(["archive"]);
+    expect(keys({ bulkActions: [archive], delete: { bulk: false } })).toEqual(["archive"]);
+  });
+
+  it("lets a host's own delete bulk action stand in for it", () => {
+    expect(keys({ bulkActions: [{ ...archive, key: "delete" }] })).toEqual(["delete"]);
+  });
+
+  it("keeps quiet about a confirm with bulk delete off: the record page and drawer show it", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    makeConfig({ delete: { bulk: false, confirm: "Delete for good?" } });
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining("delete.confirm"));
+    warn.mockRestore();
+    vi.unstubAllEnvs();
   });
 });

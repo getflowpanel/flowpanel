@@ -1,0 +1,414 @@
+# FlowPanel — Reference — Next.js runtime
+
+## Next.js runtime
+
+createFlowpanel, generated pages, route handlers, protected controllers and realtime helpers.
+
+Docs: https://flowpanel.tech/docs/reference/next-runtime
+
+Documented types: createFlowpanel, Flowpanel, FlowpanelOptions, flowpanelMetadata, handlers, stream, ApplyActionResultOptions, ResourceActions, MakeActionsOptions, FormActionResult, requestWidgetContext, RequestWidgetContextOptions, resolveWidget
+
+`@flowpanel/kit/next` binds a config to the admin page, HTTP handlers, protected
+controllers, client metadata and realtime publisher.
+
+### createFlowpanel
+
+Create one module-level runtime and reuse it from your route files:
+
+```ts
+// src/flowpanel.ts
+import { createFlowpanel } from "@flowpanel/kit/next";
+import config from "../flowpanel.config";
+
+export const flowpanel = createFlowpanel(config);
+```
+
+```ts
+// src/app/admin/[[...slug]]/page.tsx
+import { flowpanel } from "@/flowpanel";
+
+export const generateMetadata = flowpanel.metadata;
+export default flowpanel.page;
+```
+
+```ts
+// src/app/api/flowpanel/[...route]/route.ts
+import { flowpanel } from "@/flowpanel";
+
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = flowpanel.handlers;
+```
+
+`createFlowpanel(definition)` returns a frozen `FlowpanelRuntime`:
+
+| Member | Purpose |
+| --- | --- |
+| `page` | Generated catch-all page component. |
+| `metadata` | The page's `generateMetadata`: a `title` per dashboard, list, record (named by the record itself) and form ("New user", "Edit user"), or the sign-in or access-denied wall's, and `noindex`. |
+| `notFound` | The admin's not-found page, titled "Page not found": `export default flowpanel.notFound;` in `not-found.tsx`. It keeps the admin's navigation; a missing record says "This customer doesn't exist or was deleted" and links back to its list. It answers 404, or 200 under `cacheComponents`, where Next has already streamed the static shell. |
+| `notFoundMetadata` | The not-found page's metadata, "Page not found" and `noindex`: `export const metadata = flowpanel.notFoundMetadata;` in `not-found.tsx` titles the server's HTML, not only the page after it loads. |
+| `handlers` | `FlowpanelHandlers` for REST and generated-UI routes. |
+| `request()` | Current request's protected `FlowpanelRequest`. |
+| `client` | Serializable `FlowpanelClientMetadata` for `@flowpanel/kit/client`. |
+| `events.publish(channel, payload?)` | Namespaced, validated realtime event. |
+| `dispose()` | Stops this runtime's `events.publish`. Idempotent. The process-wide publisher stays open for other runtimes. |
+
+`events.publish` payloads must serialize to `WireValue` and stay under 64 KiB.
+`FlowpanelClientMetadata` holds only paths and protocol data.
+
+#### Protected request controllers
+
+`await flowpanel.request()` authenticates once and returns a `FlowpanelRequest`
+with a typed `ResourceController<Row>` per resource (`resource(name)` for a
+dynamic name), `dashboard(path).action(key, input?)` for a dashboard action, and
+the `requestId`. `ResourceListOptions<Row>` takes page, page size, search, filters,
+sort, projection and soft-delete visibility. `includeDeleted` shows deleted rows
+only to a user the resource's `update` rule admits, as the list's toggle does. A
+deleted row read by its id (`get`, the record page, the drawer) follows the same
+rule: that user sees it marked deleted, with Restore, and anyone else gets not
+found.
+
+```ts
+import { flowpanel } from "@/flowpanel";
+
+const request = await flowpanel.request();
+const result = await request.resources.orders.list({
+  pageSize: 25,
+  select: ["id", "status", "total"],
+  sort: { field: "createdAt", dir: "desc" },
+});
+```
+
+Controllers return a `FlowpanelResult` for access, validation and not-found
+failures, and apply the same policies, projection, scope and write pipeline as the
+generated UI. Do not reuse a `FlowpanelRequest` across requests.
+
+### Flowpanel
+
+`Flowpanel(config)` is the page factory behind `createFlowpanel(config).page`. A
+wrapper must forward both `params` and `searchParams`. The catch-all is the `slug`
+param, else `rest`, else the first array-valued param, whatever the folder is named.
+
+```ts
+// src/app/admin/[[...slug]]/page.tsx
+import { Flowpanel } from "@flowpanel/kit/next";
+import config from "../../../../flowpanel.config";
+
+export default Flowpanel(config);
+```
+
+`FlowpanelOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `shell?` | `ShellConfig \| ShellMode` | Override `config.shell` at render time. |
+
+#### flowpanelMetadata
+
+`flowpanelMetadata(config)` is the page's `generateMetadata`: a title per
+dashboard, list and record, and `robots: noindex`. Leave `viewport.themeColor`
+unset on the admin layout; the page renders its own.
+
+```ts
+// src/app/admin/[[...slug]]/page.tsx
+import { Flowpanel, flowpanelMetadata } from "@flowpanel/kit/next";
+import config from "../../../../flowpanel.config";
+
+export const generateMetadata = flowpanelMetadata(config);
+export default Flowpanel(config);
+```
+
+`FlowpanelContent(config, opts?)` is `Flowpanel(config, { ...opts, shell: "bare" })`,
+for embedding the admin in your own chrome.
+
+### handlers
+
+`handlers(config)` is the handler factory behind `createFlowpanel(config).handlers`:
+
+```ts
+// src/app/api/flowpanel/[...route]/route.ts
+import { handlers } from "@flowpanel/kit/next";
+import config from "../../../../../flowpanel.config";
+
+export const { GET, POST, PUT, PATCH, DELETE, OPTIONS } = handlers(config);
+```
+
+Each method is a `RouteHandler`, `(request, context) => Promise<Response>`.
+
+#### The routes it mounts
+
+All paths are relative to `/api/flowpanel`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/<resource>` | Typed list result for custom clients |
+| `GET` | `/<resource>/<id>` | One projected row |
+| `POST` | `/<resource>` | Create (JSON API), with dates as for `PATCH` |
+| `PATCH` / `PUT` | `/<resource>/<id>` | Update (JSON API); a date is ISO 8601 text with seconds and an offset, such as `2026-10-18T22:30:00Z`, or `YYYY-MM-DD` for a SQL `date` column |
+| `DELETE` | `/<resource>/<id>` | Delete (JSON API) |
+| `GET` | `/drawer/<resource>/<id>` | Drawer payload for one row |
+| `GET` | `/<resource>/reference/<field>` | Options for a reference picker |
+| `GET` | `/palette/search?q=` | ⌘K record search across the resources with `search` fields ([Search](/docs/build/resources#search-filters-and-sorting)) |
+| `GET` | `/export/<resource>?format=csv` | Every row the list would show for its query string, as CSV or JSON ([Import and export](/docs/build/import-export#export)) |
+| `POST` | `/<resource>/create` | Create form submit |
+| `POST` | `/<resource>/<id>/edit` | Edit form submit |
+| `POST` | `/<resource>/<id>/update` | Inline cell edit |
+| `POST` | `/<resource>/<id>/restore` | Undo a soft delete |
+| `POST` | `/<resource>/import` | CSV / JSON import |
+| `POST` | `/<resource>/<id>/actions/<action>` | Row action |
+| `POST` | `/<resource>/bulk-actions/<action>` | Bulk action |
+| `POST` | `/drawer/<resource>/<id>/actions/<action>` | Drawer action |
+| `POST` | `/dashboards/<path>/actions/<action>` | Dashboard action |
+
+Each runs, in order: the same-origin check for writes, the admin role gate and
+rate limit, read-only mode for writes, the lookup of what the URL names, the
+resource gate and its `access`, a dashboard's `access`, and the action's `access`.
+Nothing is looked up before the caller is identified, so a refused caller gets
+the same answer for a name that exists and one that does not. Every write then
+takes the same path: the row read through the tenant scope, the field rules,
+the write, one audit event and the realtime publish.
+
+### stream
+
+The SSE endpoint for realtime, on its own route.
+
+```ts
+export function stream(
+  config: ResolvedAdminConfig,
+  opts?: StreamOptions,
+): (req: Request) => Promise<Response>;
+```
+
+`StreamOptions.heartbeatMs` sets the keep-alive interval, 15 s by default.
+`maxPerActor` caps the streams one user holds at once, 10 by default, and
+`maxAgeMs` ends a stream after 15 minutes so the browser reconnects through
+`auth.access` again.
+
+```ts
+// src/app/api/flowpanel/stream/route.ts
+import { stream } from "@flowpanel/kit/next";
+import config from "../../../../../flowpanel.config";
+
+export const GET = stream(config);
+```
+
+`flowpanel init` writes this file.
+
+#### What the stream checks
+
+Like every route, the stream is gated by `auth.access`; without it, it is
+open ([AuthConfig](/docs/reference/define-config#authconfig)). A failed role check
+answers `403`. Per connection:
+
+| Limit | Value | Behavior when exceeded |
+| --- | --- | --- |
+| Channels per connection | 25 | Extra `?channel=` values are dropped, not rejected |
+| Channel name charset | `/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/` | Non-matching names are silently ignored |
+| Per-resource role gate | `resource.<name>` channels | Dropped when the resource is not registered or its `access.read` rejects the caller |
+| Your own channels | any other name | Dropped unless `realtime.channels` declares it and its `access` admits the caller; development logs the name |
+| Access rule that throws | any channel | That channel is dropped, the error goes to `hooks.onError`, and the stream stays open for the rest |
+| Tenant scope | `resource.<name>` of a resource with `scope` | Each event carries only its `action`, never a row id or row data |
+| Tenant scope | your own channel, under an admin-wide `scope` | Each event carries `{}` unless the channel is `tenantSafe` |
+| Streams per user | 10 (`maxPerActor`) | The next one answers `429`; keyed by user id, else IP |
+| Stream age | 15 min (`maxAgeMs`) | The response ends and the browser reconnects through auth |
+| Heartbeat | 15s (`heartbeatMs`) | A `: keep-alive` comment keeps proxies from closing the response |
+
+A channel that never receives events was probably dropped by one of the first
+five rows. Right after `ready`, the stream sends `event: refused` with
+`{ "channels": [...] }`, naming every channel it dropped.
+
+### Realtime helpers
+
+```ts
+function publish(channel: string, payload?: unknown): Promise<void>;
+function publishResource(
+  name: string,
+  event: { action: "create" | "update" | "delete"; id?: string },
+): Promise<void>;
+function subscribe(channel: string, handler: (payload: unknown) => void): () => void;
+function bindPublisher(config: ResolvedAdminConfig): void;
+```
+
+`publishResource(name, event)` publishes on `resource.<name>`, the channel a
+`realtime: true` resource listens on:
+
+```ts
+import { publishResource } from "@flowpanel/kit/next";
+
+export async function orderShipped(order: { id: number }): Promise<void> {
+  await publishResource("orders", { action: "update", id: String(order.id) });
+}
+```
+
+In an action, use `ctx.publish`. `handlers`, `Flowpanel` and `stream` call
+`bindPublisher` for you; call it in your own route handlers. A worker uses
+[`@flowpanel/kit/publish`](/docs/guides/realtime#publish-from-a-worker).
+
+`publish`, `publishResource`, `bindPublisher` and `emitAudit` come from
+`@flowpanel/kit/next`; `requireAccess` and the request-context accessors from
+`@flowpanel/kit`. Publishing before `bindPublisher` runs uses an in-memory
+publisher and warns once. `emitAudit(config, event)` records an event wherever
+the admin's audit log writes.
+
+`requireAccess(rule, ctx)` throws `FlowpanelAccessError` when an `AccessRule`
+rejects the context, and a missing rule denies, so a server action can reuse the
+admin's rules:
+
+```ts
+import { getRequestContext, requireAccess } from "@flowpanel/kit";
+
+await requireAccess(["admin", "support"], getRequestContext());
+```
+
+### Route handlers
+
+Factories for single [routes](#the-routes-it-mounts), for mounting one on your
+own path. Each takes `ResolvedAdminConfig` and returns a handler.
+
+| Factory | Route |
+| --- | --- |
+| `resourceCreateRoute` | `POST /<resource>/create` |
+| `resourceUpdateRoute` | `POST /<resource>/<id>/edit` |
+| `rowActionRoute` | `POST /<resource>/<id>/actions/<action>` |
+| `bulkActionRoute` | `POST /<resource>/bulk-actions/<action>` |
+| `dashboardActionRoute` | `POST /dashboards/<path>/actions/<action>` |
+| `drawerActionRoute` | `POST /drawer/<resource>/<id>/actions/<action>` |
+| `drawerRoute` | `GET /drawer/<resource>/<id>` |
+| `inlineUpdateRoute` | `POST /<resource>/<id>/update`, for `editable: true` columns |
+
+Reference search, import and restore have no factory; they come only with
+`handlers(config)`.
+
+#### Serialization pairs
+
+Action routes serialize actions for the client without server-only fields:
+
+| Config type | Serializer | Wire type |
+| --- | --- | --- |
+| `RowAction` | `serializeRowAction` | `SerializedRowAction` |
+| `BulkAction` | `serializeBulkAction` | `SerializedBulkAction` |
+| `DashboardAction` | `serializeDashboardAction` | `SerializedDashboardAction` |
+| Drawer action | none, inline in `drawerRoute` | `SerializedDrawerAction` |
+| Drawer tab | none, inline in `drawerRoute` | `SerializedDrawerTab` |
+
+`SerializedDashboardAction.form` is a `SerializedDashboardActionField[]`.
+
+### applyActionResult
+
+Applies a successful `ActionResult`: publishes to the channels `refresh` names (or
+the resource's channel for `refresh: true`), then revalidates `pathname` unless
+`refresh` is `false`. Action routes call it; call it from your own route.
+
+`ApplyActionResultOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `resourceName?` | `string` |  |
+| `pathname?` | `string \| readonly string[]` | The page, or pages, whose cache the change makes stale. |
+| `change?` | `{ action: "create" \| "update" \| "delete"; id?: string }` | A change FlowPanel made itself, published on `resource.<resourceName>` whatever `refresh` says. |
+
+### Dashboard path encoding
+
+```ts
+function encodeDashboardPath(path: string): string;
+function decodeDashboardPath(encoded: string): string;
+```
+
+Encodes a dashboard `path` as the one URL segment `dashboardActionRoute` expects.
+
+### makeActions
+
+The create, update and delete pipeline the form routes use, with the resource's
+schema, field rules, scope and audit.
+
+```ts
+function makeActions(
+  config: ResolvedAdminConfig,
+  resource: ResourceConfig,
+  opts?: MakeActionsOptions,
+): ResourceActions;
+```
+
+`ResourceActions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `create` | `(input: unknown, options?: CreateOptions) => Promise<unknown>` |  |
+| `update` | `(id: string, input: unknown, options?: UpdateOptions) => Promise<unknown>` |  |
+| `delete` | `(id: string) => Promise<void>` |  |
+
+`MakeActionsOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `reqCtx?` | `RequestContext` | Reuse a caller-built `RequestContext` instead of building one per call. |
+| `publish?` | `boolean` | Publish + revalidate per call. Default `true`; set `false` to batch-notify once yourself. |
+| `fromForm?` | `boolean` | The input is a posted form, which also carries the fields it showed read-only. |
+
+The create and edit form routes answer with a `FormActionResult`:
+
+`FormActionResult`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `ok` | `boolean` |  |
+| `createdKey?` | `string` | Stable row key returned by create routes so the destination list can animate that row. |
+| `error?` | `string` |  |
+| `fieldErrors?` | `Record<string, string>` |  |
+
+Pass `reqCtx` to reuse a request context you already built.
+
+### buildRequestContext
+
+Builds the `RequestContext`. It enforces `auth.access` and the rate limit, so
+it throws `FlowpanelAccessError` or `FlowpanelRateLimitError`:
+
+```ts
+// src/app/api/me/route.ts
+import { FlowpanelError, type RequestContext } from "@flowpanel/kit";
+import { buildRequestContext } from "@flowpanel/kit/next";
+import config from "../../../../flowpanel.config";
+
+export async function GET(req: Request): Promise<Response> {
+  let reqCtx: RequestContext;
+  try {
+    reqCtx = await buildRequestContext({ req, config });
+  } catch (err) {
+    if (!(err instanceof FlowpanelError)) throw err;
+    return Response.json({ ok: false, error: err.safeMessage }, { status: err.status });
+  }
+  return Response.json({ ok: true, requestId: reqCtx.requestId });
+}
+```
+
+### Widget contexts
+
+`RequestWidgetContextOptions`
+
+| Property | Type | Notes |
+| --- | --- | --- |
+| `range?` | `{ from: Date; to: Date; preset?: DateRangePreset }` | The picked period; its previous period follows. Default: `the whole history until now`. |
+| `row?` | `Record<string, unknown>` | The viewed record, for a record-page widget. |
+| `resource?` | `string` | The resource `row` belongs to: its `rowKey` names `ctx.id`, and `ctx.rowOf` checks it. |
+| `filters?` | `Readonly<Record<string, string>>` | The dashboard filters widgets read as `ctx.filters`. Default: `{}`. |
+
+The context a widget receives for one request, under that request's session, role
+and scope, for running a widget outside a page.
+
+Runs a widget as a dashboard does and returns its `kind` and props.
+
+For tests, `adminWidgetContext(config, options)` and `widgetContext()` from
+`@flowpanel/kit/test/widgets` build a context with no request and no tenant scope,
+with the role `"admin"` unless you pass another. They are not exported from
+`@flowpanel/kit/next`, so a page cannot use them by mistake; see
+[Testing](/docs/reference/testing#unit-test-a-widget).
+
+### Navigation
+
+```ts
+function buildNav(config: ResolvedAdminConfig, reqCtx?: RequestContext): Promise<NavGroup[]>;
+function resourceNavName(resource: ResourceConfig): string;
+```
+
+`buildNav` resolves to the sidebar entries, for your own chrome around a `"bare"`
+shell. Pass `reqCtx` to apply each entry's `access`, or a resource's `access.read`. `resourceNavName` returns
+a resource's resolved name and throws if it cannot.

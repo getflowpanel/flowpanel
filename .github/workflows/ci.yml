@@ -50,12 +50,15 @@ jobs:
       - name: Packed CLI clean-room install
         run: pnpm check:cli-package
 
-      # ── Publish-readiness gates (scripts added by package owners) ──────────
-      - name: publint (package.json export correctness)
-        run: pnpm -r --filter "./packages/*" --filter "!@flowpanel/e2e" run lint:publish
+      - name: Packed kit installs alone and loads every subpath
+        run: pnpm check:kit-package
 
-      - name: attw (are-the-types-wrong)
-        run: pnpm -r --filter "./packages/*" --filter "!@flowpanel/e2e" run lint:attw
+      # ── Publish-readiness gates (scripts added by package owners) ──────────
+      - name: publint (package.json export correctness of the published packages)
+        run: pnpm -r --filter "./packages/*" run lint:publish
+
+      - name: attw (are-the-types-wrong, every published entry point)
+        run: pnpm -r --filter "./packages/*" run lint:attw
 
       - name: Type tests (tsd)
         run: pnpm -r test:types
@@ -66,7 +69,7 @@ jobs:
         run: |
           pattern=':[[:space:]]*any\b|\bas[[:space:]]+any\b'
           found=0
-          for idx in packages/*/src/index.ts; do
+          for idx in packages/*/src/index.ts packages/*/src/index.tsx; do
             if grep -qnE "$pattern" "$idx" 2>/dev/null; then
               echo "❌ $idx contains \`any\` in public exports"
               grep -nE "$pattern" "$idx"
@@ -77,10 +80,12 @@ jobs:
           echo "✔ No \`any\` in public exports"
 
       - name: No inline styles in packages/react
+        # Allowed only where the value is computed: column widths, the table's min width and CSS variables.
         run: |
-          if grep -rqnE 'style=\{[[:space:]]*\{' packages/react/src 2>/dev/null; then
+          found=$(grep -rnE 'style=\{' packages/react/src --include='*.tsx' | grep -v '/__tests__/' | grep -vE 'feedback/SkeletonCard.tsx|shell/AdminShell.tsx|data/DataTable(Header|Skeleton)?.tsx' || true)
+          if [ -n "$found" ]; then
             echo "❌ inline styles found — use Tailwind classes + design tokens"
-            grep -rnE 'style=\{[[:space:]]*\{' packages/react/src
+            echo "$found"
             exit 1
           fi
           echo "✔ No inline styles found"
@@ -109,15 +114,20 @@ jobs:
       - name: No circular package imports
         run: pnpm check:cycles
 
+      - name: No unused files, exports or dependencies
+        run: pnpm check:unused
+
       - name: Aggregated changelog is current
         run: |
           pnpm --filter @flowpanel/site changelog
           git diff --exit-code -- apps/site/content/changelog/index.mdx
 
-      - name: Bundle-size budgets (.size-limit.json)
-        run: |
-          pnpm --filter @flowpanel/kit exec size-limit
-          pnpm --filter @flowpanel/charts exec size-limit
+      - name: Bundle-size budgets (.size-limit.js)
+        run: pnpm --filter @flowpanel/kit exec size-limit
+
+      # `pnpm build` above already built the demo with its own `next build --webpack`.
+      - name: Admin first-load JavaScript under webpack (the demo's own build)
+        run: pnpm check:webpack-budget --no-build
 
       - name: Changesets name real workspace packages
         # The version PR consumes every changeset by design, so "each change
@@ -157,6 +167,13 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
+      # Before the install: pnpm links a workspace bin such as `flowpanel` only when its target in dist exists.
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: packages/*/dist
+          key: dist-${{ github.sha }}
+          fail-on-cache-miss: true
+
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -165,11 +182,6 @@ jobs:
           cache: "pnpm"
 
       - run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0 pnpm install --frozen-lockfile
-
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: packages/*/dist
-          key: dist-${{ github.sha }}
 
       - name: Cache Playwright browsers
         id: pw-cache
@@ -191,6 +203,7 @@ jobs:
       - name: Verify demo sandbox lifecycle against PostgreSQL
         run: |
           pnpm --filter ai-scraper db:push
+          pnpm --filter ai-scraper db:migrate
           pnpm --filter ai-scraper test:integration
 
       - name: Verify scoped admin presentation
@@ -204,6 +217,14 @@ jobs:
       - name: Verify public demo is read-only at the UI and HTTP boundaries
         working-directory: packages/e2e
         run: pnpm test:e2e:demo-readonly
+
+      - name: Verify the admin chrome is fully translated under the ru locale
+        working-directory: packages/e2e
+        run: pnpm test:e2e:demo-ru
+
+      - name: Verify the admin chrome is fully translated under the de preset
+        working-directory: packages/e2e
+        run: pnpm test:e2e:demo-de
 
       - name: Verify the documentation site in a real browser
         working-directory: packages/e2e
@@ -242,24 +263,43 @@ jobs:
       - run: pnpm check:cli-package
 
   next-onboarding:
-    name: Packed Next onboarding (${{ matrix.package-manager }}, Tailwind ${{ matrix.tailwind }})
+    name: Packed Next onboarding (${{ matrix.package-manager }}, ${{ matrix.mode }}, Next ${{ matrix.next }})
     needs: check
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         package-manager: [npm, pnpm]
-        tailwind: [none, 4]
+        mode: [none, "4"]
+        next: ["16.4.4"]
+        include:
+          - { package-manager: pnpm, mode: none, next: "15.5.28" }
+          - { package-manager: pnpm, mode: create-next-app, next: "15" }
+          - { package-manager: pnpm, mode: create-next-app, next: "16" }
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fp
+          POSTGRES_PASSWORD: fp
+        ports: ["54330:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      FLOWPANEL_ONBOARDING_DATABASE_URL: postgres://fp:fp@localhost:54330/fp
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
-      - uses: ./.github/actions/setup
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: packages/*/dist
           key: dist-${{ github.sha }}
           fail-on-cache-miss: true
-      - run: pnpm check:next-onboarding ${{ matrix.package-manager }} ${{ matrix.tailwind }}
+      - uses: ./.github/actions/setup
+      - run: pnpm check:next-onboarding ${{ matrix.package-manager }} ${{ matrix.mode }} ${{ matrix.next }}
 
   # ── Aggregate gate: a single required status for branch protection ───────
   ci-success:

@@ -14,6 +14,12 @@ describe("the detail heading as configuration", () => {
     expect((await header({ label: "Customer", columns: ["id"] }))?.title).toBe("Customer · u1");
   });
 
+  it("falls back to the row's name, title or email before the key", async () => {
+    expect((await header({ label: "Customer", columns: ["id", "email"] }))?.title).toBe(
+      "ada@example.com",
+    );
+  });
+
   it("uses title for the heading, subtitle for the line under it", async () => {
     const props = await header({
       label: "Customer",
@@ -25,27 +31,6 @@ describe("the detail heading as configuration", () => {
     });
     expect(props?.title).toBe("ada@example.com");
     expect(props?.description).toBe("id u1");
-  });
-
-  it("prefers title over the deprecated header when both are declared", async () => {
-    const props = await header({
-      label: "Customer",
-      columns: ["id", "email"],
-      detail: {
-        header: (row: Row) => `old ${String(row.email)}`,
-        title: (row: Row) => `new ${String(row.email)}`,
-      },
-    });
-    expect(props?.title).toBe("new ada@example.com");
-  });
-
-  it("keeps the deprecated header working on its own", async () => {
-    const props = await header({
-      label: "Customer",
-      columns: ["id", "email"],
-      detail: { header: (row: Row) => `old ${String(row.email)}` },
-    });
-    expect(props?.title).toBe("old ada@example.com");
   });
 
   it("falls back when title returns nothing", async () => {

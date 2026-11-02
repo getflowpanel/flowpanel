@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
-import { basename, join } from "node:path";
-import type { Project } from "ts-morph";
+import { basename, dirname, join, resolve } from "node:path";
+import { type Project, SyntaxKind } from "ts-morph";
+import { readCompatibility } from "../../apps/site/src/shared/lib/compatibility";
 import { siteConfig } from "../../apps/site/src/shared/lib/site-config";
 import { createProgram } from "../../packages/cli/src/program";
 import { buildCliReference, type CliCommandDoc } from "./cli-metadata";
@@ -11,7 +12,7 @@ import type { DocsProblem } from "./types";
 export const LLMS_FILE = "packages/flowpanel/llms.txt";
 
 const DOCS_ROOT = "apps/site/content/docs";
-const INSTALL = ["pnpm dlx @flowpanel/cli init", "pnpm flowpanel migrate", "pnpm flowpanel dev"];
+const INSTALL = ["pnpm dlx @flowpanel/cli init", "pnpm dev"];
 const FENCE = /^[ \t]*(```+|~~~+)[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm;
 const CODE_SPAN = /(`+)(?:(?!\1)[\s\S])+?\1/g;
 const IMPORT_STATEMENT =
@@ -21,9 +22,14 @@ const HOLD_PATTERN = /@@flowpanel-block-(\d+)@@/g;
 const TYPED_COMPONENT = /<(?:AutoTypeTable|ApiSignature)\b[^<>]*?\bname="([^"]+)"[^<>]*?\/>/g;
 const TYPE_TABLE = /<AutoTypeTable\b([^<>]*?)\/>/g;
 const CLI_REFERENCE = /<CliReference\b([^<>]*?)\/>/g;
+const COMPATIBILITY = /<Compatibility\s*\/>/g;
+const THEME_SLOTS = /<ThemeSlots\s*\/>/g;
+const INCLUDE = /^[ \t]*<include(?:\s[^>]*)?>([^<]+\.(tsx?))<\/include>[ \t]*$/gm;
+const ADAPTER_TAB = /^[ \t]*<AdapterTab\s+adapter="([^"]+)">[ \t]*$/gm;
+const THEME_SLOTS_FILE = "packages/react/src/provider/ComponentsContext.tsx";
 const ATTRIBUTE = /([A-Za-z][\w-]*)="([^"]*)"/g;
 
-interface DocsPage {
+export interface DocsPage {
   title: string;
   description: string;
   route: string;
@@ -34,7 +40,7 @@ interface DocsPage {
 function fenceLanguage(line: string): string {
   const match = /^([ \t]*)(```+|~~~+)[ \t]*([A-Za-z0-9]+)?([^\n]*)$/.exec(line);
   if (!match) return line;
-  const marker = /\b(twoslash|excerpt)\b/.exec(match[4] ?? "")?.[1];
+  const marker = /(?:^|\s)(fragment)\b/.exec(match[4] ?? "")?.[1];
   return `${match[1] ?? ""}${match[2]}${match[3] ?? ""}${marker ? ` ${marker}` : ""}`;
 }
 
@@ -72,6 +78,7 @@ function stripProse(prose: string): string {
 }
 
 export interface ExpansionContext {
+  root: string;
   siteRoot: string;
   project: Project;
   cli: CliCommandDoc[];
@@ -100,13 +107,53 @@ function renderCliReference(cli: CliCommandDoc[], name: string | undefined): str
   return commands.map(renderCliCommand).join("\n\n");
 }
 
+function renderCompatibility(root: string): string {
+  const rows = readCompatibility(root).map(
+    (item) => `| ${item.requirement} | \`${item.range}\` | ${item.note} |`,
+  );
+  return ["| Requirement | Supported range | Note |", "| --- | --- | --- |", ...rows].join("\n");
+}
+
+function renderThemeSlots(context: ExpansionContext): string {
+  const file = join(context.root, THEME_SLOTS_FILE);
+  const source = context.project.getSourceFile(file) ?? context.project.addSourceFileAtPath(file);
+  const rows = source
+    .getDescendantsOfKind(SyntaxKind.InterfaceDeclaration)
+    .filter((declaration) => declaration.getName() === "FlowpanelComponentSlots")
+    .flatMap((declaration) => declaration.getProperties())
+    .map((property) => ({
+      name: property.getName(),
+      type: property.getTypeNode()?.getText() ?? property.getType().getText(property),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(
+      (slot) =>
+        `| \`${slot.name}\` | \`${slot.type.replace(/\s+/g, " ").replaceAll("|", "\\|")}\` |`,
+    );
+  return ["| Slot | Component contract |", "| --- | --- |", ...rows].join("\n");
+}
+
+/** Inlines `<include>` snippets as fenced code, the way the site's raw docs do. */
+export function expandIncludes(body: string, directory: string): string {
+  return body.replace(INCLUDE, (_match, target: string, language: string) => {
+    const code = readFileSync(resolve(directory, target.trim()), "utf8");
+    return `\`\`\`${language}\n${code.trimEnd()}\n\`\`\``;
+  });
+}
+
 function expandComponents(
   masked: string,
   context: ExpansionContext | undefined,
   hold: (text: string) => string,
 ): string {
-  if (!context) return masked;
-  return masked
+  const tabbed = masked.replace(
+    ADAPTER_TAB,
+    (_match, adapter: string) => `#### ${adapter.charAt(0).toUpperCase()}${adapter.slice(1)}\n`,
+  );
+  if (!context) return tabbed;
+  return tabbed
+    .replace(COMPATIBILITY, () => hold(renderCompatibility(context.root)))
+    .replace(THEME_SLOTS, () => hold(renderThemeSlots(context)))
     .replace(TYPE_TABLE, (_match, attrs: string) => {
       const { path, name } = attributes(attrs);
       if (!path || !name) return "";
@@ -148,7 +195,7 @@ function pageOrder(directory: string): string[] {
     : [];
 }
 
-function readPages(root: string, section: string, context: ExpansionContext): DocsPage[] {
+export function readPages(root: string, section: string, context: ExpansionContext): DocsPage[] {
   const directory = join(root, DOCS_ROOT, section);
   if (!existsSync(directory)) return [];
   const order = pageOrder(directory);
@@ -161,7 +208,7 @@ function readPages(root: string, section: string, context: ExpansionContext): Do
   });
   return files.map((file) => {
     const { data, body } = parseFrontmatter(readFileSync(file, "utf8"));
-    const { text, types } = stripMdx(body, context);
+    const { text, types } = stripMdx(expandIncludes(body, dirname(file)), context);
     return {
       title: data.title ?? basename(file, ".mdx"),
       description: data.description ?? "",
@@ -172,7 +219,7 @@ function readPages(root: string, section: string, context: ExpansionContext): Do
   });
 }
 
-function renderPage(page: DocsPage): string {
+export function renderPage(page: DocsPage): string {
   const lines = [`## ${page.title}`, ""];
   if (page.description) lines.push(page.description, "");
   lines.push(`Docs: ${siteConfig.url}${page.route}`, "");
@@ -192,51 +239,75 @@ function kitDescription(root: string): string {
   return typeof description === "string" ? description : "";
 }
 
-function header(root: string): string {
+export function header(root: string, source = "the reference documentation"): string {
   const description = kitDescription(root);
   return [
     `# ${siteConfig.name}`,
     "",
-    `> ${siteConfig.description}`,
-    ...(description ? [`> ${description}.`] : []),
+    `> ${siteConfig.seo.description}`,
     "",
+    ...(description ? [`${description}.`, ""] : []),
     "```bash",
     ...INSTALL,
     "```",
     "",
     `Docs: ${siteConfig.url}/docs · Source: ${siteConfig.repo.url}`,
     "",
-    "Generated from the reference documentation. Property tables come from the",
-    "packages' own TypeScript declarations. Code blocks are excerpts from that",
-    "documentation: blocks the docs mark `twoslash` are type-checked in CI,",
-    "`excerpt` blocks are illustrative and may omit surrounding code.",
+    `Generated from ${source}. Property tables come from the`,
+    "packages' own TypeScript declarations. Every TypeScript code block compiles",
+    "against them in CI, and every block that builds a whole config also loads.",
+    "A block marked `fragment` is part of a larger file and does not compile alone.",
     "",
   ].join("\n");
 }
 
-export function generateLlmsText(root: string): string {
-  const context: ExpansionContext = {
+/** The type project and CLI reference that `<AutoTypeTable>` and CLI blocks expand against. */
+export function expansionContext(root: string): ExpansionContext {
+  return {
+    root,
     siteRoot: join(root, "apps/site"),
     project: createTypeProject(root),
     cli: buildCliReference(createProgram()),
   };
+}
+
+export function generateLlmsText(root: string, context = expansionContext(root)): string {
   const reference = readPages(root, "reference", context).map(renderPage).join("\n");
   return `${[header(root), reference].filter(Boolean).join("\n").trimEnd()}\n`;
 }
 
-function normalize(text: string): string {
+export function normalize(text: string): string {
   return text
     .replace(/\r\n/g, "\n")
     .replace(/[ \t]+$/gm, "")
     .trimEnd();
 }
 
-export function checkLlms(root: string): DocsProblem[] {
-  const file = join(root, LLMS_FILE);
-  const generated = generateLlmsText(root);
-  const current = existsSync(file) ? readFileSync(file, "utf8") : "";
-  if (normalize(current) === normalize(generated)) return [];
+const UNEXPANDED = /<include\b|<Compatibility\b|<ThemeSlots\b|^> undefined$/m;
+
+/** Flags MDX the generator copied through instead of expanding. */
+export function unexpanded(file: string, text: string): DocsProblem[] {
+  const match = UNEXPANDED.exec(text);
+  if (!match) return [];
   return [
+    {
+      code: "llms-unexpanded",
+      file,
+      line: text.slice(0, match.index).split("\n").length,
+      message: `${file} contains \`${match[0]}\` instead of the content it stands for.`,
+      suggestion: "Expand the component in scripts/docs/generate-llms.ts.",
+    },
+  ];
+}
+
+export function checkLlms(root: string, context?: ExpansionContext): DocsProblem[] {
+  const file = join(root, LLMS_FILE);
+  const generated = generateLlmsText(root, context);
+  const problems = unexpanded(LLMS_FILE, generated);
+  const current = existsSync(file) ? readFileSync(file, "utf8") : "";
+  if (normalize(current) === normalize(generated)) return problems;
+  return [
+    ...problems,
     {
       code: "llms-stale",
       file: LLMS_FILE,

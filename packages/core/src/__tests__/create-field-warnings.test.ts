@@ -35,12 +35,15 @@ function adapterWith(columns: ColumnMeta[]): Adapter {
   };
 }
 
-const auth = { session: async () => null, role: () => "admin" };
+const auth = {
+  session: async () => ({ id: "u1" }),
+  role: (session: unknown) => (session ? "admin" : "guest"),
+};
 
 function admin(options: Record<string, unknown>, columns = COLUMNS) {
   return defineAdmin({
     adapter: adapterWith(columns),
-    auth: { ...auth, requireRole: "admin" },
+    auth: { ...auth, access: "admin" },
     resources: [resource({ __name: "users" }, options as never)],
   });
 }
@@ -74,6 +77,10 @@ describe("a create form that cannot succeed", () => {
     ]);
   });
 
+  it("counts a column the list shows as a secondary line as offered", () => {
+    expect(admin({ columns: ["id", { field: "name", secondary: "email" }] }).warnings).toEqual([]);
+  });
+
   it("ignores generated, primary-key and nullable columns", () => {
     expect(admin({ columns: ["email"] }).warnings).toEqual([]);
   });
@@ -95,8 +102,46 @@ describe("a create form that cannot succeed", () => {
     expect(admin({ columns: ["id"] }, columns).warnings).toEqual([]);
   });
 
+  it("names a required primary key the create form cannot send, and the fix", () => {
+    const columns = [meta("id"), meta("email")];
+    expect(admin({ columns: ["id", "email"] }, columns).warnings).toEqual([
+      "resource users: create is enabled but primary key `id` has no default and no create field; " +
+        "creation will always fail. Give it a database default (such as `uuid().defaultRandom()`, " +
+        "`serial()` or Prisma's `@default(uuid())`) or a Drizzle `$defaultFn`, or add it to `create.fields`",
+    ]);
+  });
+
+  it("counts a primary key only when create declares it or fills it", () => {
+    const columns = [meta("id"), meta("email")];
+    expect(
+      admin(
+        { columns: ["email"], create: { fields: [{ name: "id" }, { name: "email" }] } },
+        columns,
+      ).warnings,
+    ).toEqual([]);
+    expect(
+      admin({ columns: ["email"], create: { defaultValues: { id: "x" } } }, columns).warnings,
+    ).toEqual([]);
+  });
+
+  it("says nothing about a primary key the database or ORM fills", () => {
+    for (const id of [
+      meta("id", { hasDefault: true }),
+      meta("id", { generated: true }),
+      meta("id", { writableOnCreate: false }),
+    ]) {
+      expect(admin({ columns: ["id", "email"] }, [id, meta("email")]).warnings).toEqual([]);
+    }
+  });
+
+  it("says nothing about a primary key when create is off", () => {
+    const columns = [meta("id"), meta("email")];
+    expect(admin({ columns: ["email"], create: { disabled: true } }, columns).warnings).toEqual([]);
+  });
+
   it("says nothing about a resource that cannot be created", () => {
     expect(admin({ columns: ["id"], create: { disabled: true } }).warnings).toEqual([]);
+    expect(admin({ columns: ["id"], access: { create: false } }).warnings).toEqual([]);
   });
 
   it("says nothing on a read-only admin", () => {

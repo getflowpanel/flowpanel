@@ -53,15 +53,20 @@ function makeAdapter(listSpy: (ctx: ListQueryContext<unknown>) => void): Adapter
   };
 }
 
-function mkConfig(listSpy: (ctx: ListQueryContext<unknown>) => void, withSoftDelete: boolean) {
+function mkConfig(
+  listSpy: (ctx: ListQueryContext<unknown>) => void,
+  withSoftDelete: boolean,
+  role = "admin",
+) {
   return defineAdmin({
     adapter: makeAdapter(listSpy),
-    auth: { session: async () => null, role: () => "admin" },
+    auth: { session: async () => null, role: () => role },
     resources: [
       resource(
         { __name: "users" },
         {
           columns: ["id", "email"],
+          access: { read: ["admin", "viewer"], update: "admin" },
           ...(withSoftDelete ? { delete: { softDelete: "deletedAt" } } : {}),
         },
       ),
@@ -128,6 +133,24 @@ describe("ResourceListPage — soft-delete wiring", () => {
     expect(ctx.includeDeleted).toBe(true);
   });
 
+  it("shows deleted rows only to a role that could restore them", async () => {
+    const listSpy = vi.fn();
+    const config = mkConfig(listSpy, true, "viewer");
+    const resourceCfg = config.resourcesByName.get("users");
+    if (!resourceCfg) throw new Error("users resource not registered");
+
+    const node = await ResourceListPage({
+      config,
+      resource: resourceCfg,
+      searchParams: new URLSearchParams("deleted=1"),
+      req: new Request("http://localhost/admin/users?deleted=1"),
+    });
+
+    const ctx = listSpy.mock.calls[0]?.[0] as ListQueryContext<unknown>;
+    expect(ctx.includeDeleted).toBe(false);
+    expect(findElement(node, ResourceListDeletedToggle)).toBeUndefined();
+  });
+
   it("computes deletedRowKeys from raw rows (pre-projection) and strips the soft-delete column from client rows", async () => {
     const listSpy = vi.fn();
     const config = mkConfig(listSpy, true);
@@ -148,5 +171,38 @@ describe("ResourceListPage — soft-delete wiring", () => {
     // `deletedAt` isn't a declared column — it must not cross into the client rows.
     expect(props?.rows[0]).not.toHaveProperty("deletedAt");
     expect(props?.rows[1]).not.toHaveProperty("deletedAt");
+  });
+});
+
+describe("ResourceListPage — import", () => {
+  it.each([
+    ["admin", true],
+    ["viewer", false],
+  ])("offers Import to %s only when the role may create", async (role, offered) => {
+    const config = defineAdmin({
+      adapter: makeAdapter(vi.fn()),
+      auth: { session: async () => null, role: () => role },
+      resources: [
+        resource(
+          { __name: "users" },
+          {
+            columns: ["id", "email"],
+            access: { read: ["admin", "viewer"], create: "admin" },
+            import: { fields: ["email"] },
+          },
+        ),
+      ],
+    });
+    const resourceCfg = config.resourcesByName.get("users");
+    if (!resourceCfg) throw new Error("users resource not registered");
+
+    const node = await ResourceListPage({
+      config,
+      resource: resourceCfg,
+      searchParams: new URLSearchParams(),
+      req: new Request("http://localhost/admin/users"),
+    });
+
+    expect(findElement(node, DataTableWithDrawerRows)?.importable !== undefined).toBe(offered);
   });
 });

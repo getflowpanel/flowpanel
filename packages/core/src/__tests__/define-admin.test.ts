@@ -15,22 +15,6 @@ const fakeAdapter: Adapter = {
 };
 
 describe("defineAdmin", () => {
-  it("rejects ambiguous resource access aliases", () => {
-    expect(() =>
-      defineAdmin({
-        adapter: fakeAdapter,
-        auth: { session: async () => null, role: () => "guest" },
-        resources: [
-          resource("users", {
-            columns: [],
-            requireRole: "operator",
-            access: { read: "operator" },
-          }),
-        ],
-      }),
-    ).toThrow(/cannot declare both access and requireRole/i);
-  });
-
   it("rejects invalid canonical field and bulk-action policies", () => {
     expect(() =>
       defineAdmin({
@@ -43,7 +27,7 @@ describe("defineAdmin", () => {
           }),
         ],
       }),
-    ).toThrow(/fieldAccess declares unknown field "missing"/);
+    ).toThrow(/resource "users" fieldAccess\.missing: the resource has no column "missing"/);
 
     expect(() =>
       defineAdmin({
@@ -56,7 +40,7 @@ describe("defineAdmin", () => {
           }),
         ],
       }),
-    ).toThrow(/sensitive field "secret".*cannot declare readable access/);
+    ).toThrow(/fieldAccess\.secret: a sensitive field cannot also declare read access/);
 
     expect(() =>
       defineAdmin({
@@ -76,7 +60,7 @@ describe("defineAdmin", () => {
           }),
         ],
       }),
-    ).toThrow(/max between 1 and 10000/);
+    ).toThrow(/bulkActions "oversized" max: it is 10001\. Set a whole number from 1 to 10000\./);
   });
 
   it("compiles the same definition only once", () => {
@@ -112,7 +96,7 @@ describe("defineAdmin", () => {
       admin: "/internal/admin",
       api: "/internal/flowpanel",
     });
-    expect(config.basePath).toBe("/internal/admin");
+    expect("basePath" in config).toBe(false);
   });
 
   it("resolves a minimal config", () => {
@@ -206,7 +190,7 @@ describe("defineAdmin", () => {
         auth: { session: async () => null, role: () => "guest" },
         resources: [resource("User", { columns: [] }), resource("User", { columns: [] })],
       }),
-    ).toThrow(/Duplicate resource name: "User"/);
+    ).toThrow(/resource "User": two resources have this name/);
   });
 
   it("throws on an empty string ref", () => {
@@ -248,7 +232,7 @@ describe("defineAdmin", () => {
     // import (a bulk create) is removed entirely — no toolbar Import button.
     expect(opts?.import).toBeUndefined();
     // editable column made static; the create.fields config is preserved.
-    expect((opts?.columns?.[1] as { editable?: boolean }).editable).toBe(false);
+    expect((opts!.columns![1] as { editable?: boolean }).editable).toBe(false);
     expect(opts?.create?.fields).toHaveLength(1);
   });
 
@@ -300,7 +284,7 @@ describe("defineAdmin cross-resource references", () => {
         ],
       }),
     ).toThrow(
-      /resource "runs" points at resource "aiUsage" via columns\[0\]\.reference\.resource.*Did you mean "ai_usage"\?.*Registered: "ai_usage", "runs"\./s,
+      /resource "runs" columns\[0\]\.reference\.resource: it points at resource "aiUsage".*Did you mean "ai_usage"\?.*Registered: "ai_usage", "runs"\./s,
     );
   });
 
@@ -369,7 +353,7 @@ describe("defineAdmin cross-resource references", () => {
           },
         ],
       }),
-    ).toThrow(/dashboard "\/" points at resource "user" via sections\[0\]\.widgets\[0\]\.resource/);
+    ).toThrow(/dashboard "\/" sections\[0\]\.widgets\[0\]\.resource: it points at resource "user"/);
   });
 
   it("throws on a table widget inside a drawer widget tab", () => {

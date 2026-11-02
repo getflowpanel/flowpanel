@@ -16,13 +16,13 @@ declare module "@flowpanel/kit" {
 }
 
 /**
- * `withClerk({ requireRole: "admin" })` is the only auth wiring needed:
+ * `withClerk({ access: "admin" })` is the only auth wiring needed:
  * `clerkMiddleware()` in `proxy.ts` populates `auth()`, and `withClerk` reads
  * `sessionClaims.publicMetadata.role`.
  */
 export default defineAdmin({
   adapter: drizzleAdapter({ db, schema }),
-  auth: withClerk({ requireRole: "admin" }),
+  auth: withClerk({ access: "admin" }),
   resources: [
     resource(schema.users, {
       label: "Users",
@@ -37,8 +37,8 @@ export default defineAdmin({
             title: "Promote this user to admin?",
             description: "The user will be able to access the admin panel.",
           },
-          hidden: (row) => row.role === "admin",
-          run: async (row, _input, { db }) => {
+          when: ({ current }) => current?.role !== "admin",
+          run: async (row) => {
             await db.update(schema.users).set({ role: "admin" }).where(eq(schema.users.id, row.id));
             return { ok: true, message: `Promoted ${row.email}`, refresh: true };
           },
@@ -51,8 +51,8 @@ export default defineAdmin({
             title: "Reset this user's role?",
             description: "They lose admin access immediately.",
           },
-          hidden: (row) => row.role !== "admin",
-          run: async (row, _input, { db }) => {
+          when: ({ current }) => current?.role === "admin",
+          run: async (row) => {
             await db
               .update(schema.users)
               .set({ role: "member" })
@@ -96,7 +96,7 @@ export default defineAdmin({
             title: "Publish selected posts?",
             description: "Sets `published = true`.",
           },
-          run: async (ids, _input, { db }) => {
+          run: async (ids) => {
             const numericIds = ids.map((id) => Number(id)).filter((n) => Number.isFinite(n));
             await db
               .update(schema.posts)
@@ -113,7 +113,7 @@ export default defineAdmin({
             title: "Unpublish selected posts?",
             description: "Sets `published = false`. Idempotent.",
           },
-          run: async (ids, _input, { db }) => {
+          run: async (ids) => {
             const numericIds = ids.map((id) => Number(id)).filter((n) => Number.isFinite(n));
             await db
               .update(schema.posts)

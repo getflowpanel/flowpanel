@@ -1,9 +1,9 @@
 import { execSync } from "node:child_process";
 import type { MutationContext } from "@flowpanel/core";
-import { FlowpanelAccessError } from "@flowpanel/core";
+import { bindAdapterScope, FlowpanelAccessError } from "@flowpanel/core";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { eq } from "drizzle-orm";
-import { pgTable, text } from "drizzle-orm/pg-core";
+import { pgEnum, pgTable, text } from "drizzle-orm/pg-core";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -20,6 +20,12 @@ function isDockerAvailable(): boolean {
 }
 
 const dockerAvailable = isDockerAvailable();
+
+const tenantKind = pgEnum("TenantKind", ["north", "south"]);
+const regions = pgTable("regions", {
+  id: text("id").primaryKey(),
+  kind: tenantKind("kind").notNull(),
+});
 
 const items = pgTable("items", {
   id: text("id").primaryKey(),
@@ -96,14 +102,17 @@ function mutCtx(
 }
 
 describe.skipIf(!dockerAvailable)(
-  "drizzleAdapter create scope — real transaction rollback (pg)",
+  "drizzleAdapter write scope — real transaction rollback (pg)",
   () => {
     const adapter = drizzleAdapter({ db: null as never, schema: { items }, dialect: "pg" });
 
     it("in-scope create succeeds and is durable, including the trigger side effect", async () => {
       const row = await adapter.create(
         items,
-        mutCtx({ id: "ok1", name: "OK", companyId: "c1" }, { applyScope: applyScopeC1 }),
+        mutCtx(
+          { id: "ok1", name: "OK", companyId: "c1" },
+          { boundScope: bindAdapterScope(applyScopeC1) },
+        ),
       );
       expect(row).toMatchObject({ id: "ok1", companyId: "c1" });
       const raw = await client`SELECT id FROM items WHERE id = 'ok1'`;
@@ -119,7 +128,7 @@ describe.skipIf(!dockerAvailable)(
           items,
           mutCtx(
             { id: "hacked1", name: "Cross-tenant", companyId: "c2" },
-            { applyScope: applyScopeC1 },
+            { boundScope: bindAdapterScope(applyScopeC1) },
           ),
         ),
       ).rejects.toBeInstanceOf(FlowpanelAccessError);
@@ -133,15 +142,91 @@ describe.skipIf(!dockerAvailable)(
       expect(audit).toHaveLength(0);
     });
 
-    it("FAIL-CLOSED: create throws when scopeRequired && no applyScope, before writing anything", async () => {
+    it("SECURITY: update that sets the tenant column to another tenant is refused and the row is unchanged", async () => {
+      await client`INSERT INTO items (id, name, company_id) VALUES ('move1', 'Before', 'c1')`;
       await expect(
-        adapter.create(
+        adapter.update(
           items,
-          mutCtx({ id: "shouldnotexist", name: "X", companyId: "c1" }, { scopeRequired: true }),
+          mutCtx(
+            { name: "After", companyId: "c2" },
+            { id: "move1", boundScope: bindAdapterScope(applyScopeC1) },
+          ),
         ),
       ).rejects.toBeInstanceOf(FlowpanelAccessError);
-      const raw = await client`SELECT id FROM items WHERE id = 'shouldnotexist'`;
-      expect(raw).toHaveLength(0);
+      const raw = await client`SELECT name, company_id FROM items WHERE id = 'move1'`;
+      expect(raw[0]).toEqual({ name: "Before", company_id: "c1" });
+    });
+
+    it("SECURITY: a driver without transactions, such as neon-http, still cannot move or misplace a row", async () => {
+      const noTx = Object.create(db) as typeof db;
+      Object.assign(noTx, {
+        transaction: async () => {
+          throw new Error("No transactions support in neon-http driver");
+        },
+      });
+      const scoped = { boundScope: bindAdapterScope(applyScopeC1), db: noTx };
+      await client`INSERT INTO items (id, name, company_id) VALUES ('notx1', 'Before', 'c1')`;
+      await expect(
+        adapter.update(items, mutCtx({ companyId: "c2" }, { id: "notx1", ...scoped })),
+      ).rejects.toBeInstanceOf(FlowpanelAccessError);
+      expect((await client`SELECT company_id FROM items WHERE id = 'notx1'`)[0]).toEqual({
+        company_id: "c1",
+      });
+      expect(
+        await adapter.update(items, mutCtx({ name: "After" }, { id: "notx1", ...scoped })),
+      ).toMatchObject({ id: "notx1", name: "After", companyId: "c1" });
+      await expect(
+        adapter.create(items, mutCtx({ id: "notx2", name: "X", companyId: "c2" }, scoped)),
+      ).rejects.toBeInstanceOf(FlowpanelAccessError);
+      expect(await client`SELECT id FROM items WHERE id = 'notx2'`).toHaveLength(0);
+      expect(
+        await adapter.create(items, mutCtx({ id: "notx3", name: "Y", companyId: "c1" }, scoped)),
+      ).toMatchObject({ id: "notx3", companyId: "c1" });
+    });
+
+    it("checks a mixed-case enum scope column on a driver without transactions", async () => {
+      await client.unsafe(`CREATE TYPE "TenantKind" AS ENUM ('north', 'south')`);
+      await client.unsafe(`CREATE TABLE regions (id text PRIMARY KEY, kind "TenantKind" NOT NULL)`);
+      await client.unsafe(`INSERT INTO regions VALUES ('r1', 'north')`);
+      const noTx = Object.create(db) as typeof db;
+      Object.assign(noTx, {
+        transaction: async () => {
+          throw new Error("No transactions support in neon-http driver");
+        },
+      });
+      const regionAdapter = drizzleAdapter({ db: noTx, schema: { regions }, dialect: "pg" });
+      const north = bindAdapterScope((q: unknown) =>
+        (q as { where: (c: unknown) => unknown }).where(eq(regions.kind, "north")),
+      );
+      const ctx = (id: string, input: Record<string, unknown>) =>
+        mutCtx(input, { id, db: noTx, boundScope: north });
+      await expect(
+        regionAdapter.update(regions, ctx("r1", { kind: "south" })),
+      ).rejects.toBeInstanceOf(FlowpanelAccessError);
+      expect(
+        await regionAdapter.create(regions, ctx("", { id: "r2", kind: "north" })),
+      ).toMatchObject({
+        id: "r2",
+        kind: "north",
+      });
+      expect((await client`SELECT kind FROM regions WHERE id = 'r1'`)[0]).toEqual({
+        kind: "north",
+      });
+    });
+
+    it("update inside the scope succeeds, and an out-of-scope id is not found", async () => {
+      await client`INSERT INTO items (id, name, company_id) VALUES ('keep1', 'Before', 'c1'), ('other1', 'Other', 'c2')`;
+      const scoped = { boundScope: bindAdapterScope(applyScopeC1) };
+      const row = await adapter.update(
+        items,
+        mutCtx({ name: "After", companyId: "c1" }, { id: "keep1", ...scoped }),
+      );
+      expect(row).toMatchObject({ id: "keep1", name: "After", companyId: "c1" });
+      expect(
+        await adapter.update(items, mutCtx({ name: "Hacked" }, { id: "other1", ...scoped })),
+      ).toBeUndefined();
+      const raw = await client`SELECT name FROM items WHERE id = 'other1'`;
+      expect(raw[0]?.name).toBe("Other");
     });
   },
 );

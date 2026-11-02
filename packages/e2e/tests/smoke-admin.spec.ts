@@ -1,15 +1,11 @@
-import { smokeAdmin } from "@flowpanel/test";
+import { smokeAdmin } from "@flowpanel/kit/test";
 import { expect, test } from "@playwright/test";
 
-/**
- * Dogfoods `@flowpanel/test` against the ai-scraper example: one call walks the
- * nav, every dashboard and list it links to, and the first row of each list.
- * Prereqs mirror m1-smoke.spec.ts (ai-scraper + Postgres, db:push + db:seed).
- */
-test.describe("@flowpanel/test", () => {
+/** Dogfoods `@flowpanel/kit/test`: one call walks the nav, every list it links to and each list's first row. */
+test.describe("@flowpanel/kit/test", () => {
   test("smokeAdmin walks the whole demo admin without an error", async ({ page }) => {
     test.setTimeout(180_000);
-    const report = await smokeAdmin(page, { basePath: "/admin", a11y: true });
+    const report = await smokeAdmin(page, { paths: { admin: "/admin" }, a11y: true });
 
     expect(report.consoleErrors).toEqual([]);
     expect(report.a11yViolations).toEqual([]);

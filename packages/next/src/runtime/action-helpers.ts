@@ -1,13 +1,13 @@
 import type {
-  AccessRule,
   ActionResult,
-  AuditConfig,
   AuditEvent,
   RequestContext,
-  RequireRole,
   ResolvedAdminConfig,
 } from "@flowpanel/core";
-import { accessAllows, checkRequireRole, emitAudit } from "@flowpanel/core";
+import { isAllTenants } from "@flowpanel/core";
+import { emitAudit } from "@flowpanel/core/internal";
+import { accountUser } from "./account-user";
+import { actionFailure } from "./action-failure";
 import { publish } from "./publish";
 import { type RequestBodyError, readActionObject, requestBodyErrorResponse } from "./request-body";
 
@@ -39,10 +39,7 @@ export function notFoundResponse(
     const known = registered.length > 0 ? registered.map((n) => `"${n}"`).join(", ") : "(none)";
     console.warn(`[flowpanel] ${kind} not found: "${requested}". Registered ${kind}s: ${known}.`);
   }
-  return Response.json(
-    { ok: false, error: { code: "not_found", message: `${kind} not found` } },
-    { status: 404 },
-  );
+  return actionFailure("not_found", `${kind} not found`);
 }
 
 function idString(id: unknown): string | null {
@@ -70,7 +67,7 @@ export function actorIdFromSession(
   return null;
 }
 
-/** The context every action's `run` receives: request, database, actor, publisher. */
+/** The context every action's `run` receives: request, actor, publisher, and `unsafe.db` when declared. */
 export function buildActionContext(
   config: ResolvedAdminConfig,
   reqCtx: RequestContext,
@@ -78,7 +75,6 @@ export function buildActionContext(
 ) {
   return {
     ...reqCtx,
-    db: config.adapter.db,
     ...(action.unsafe?.includes("db") ? { unsafe: { db: config.adapter.db } } : {}),
     actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
     publish: async (channel: string, payload?: unknown) => {
@@ -87,45 +83,34 @@ export function buildActionContext(
   };
 }
 
-/** Non-throwing role check, used for field-level RBAC (`FieldDef.requireRole`). */
-export function roleAllows(requireRole: RequireRole | undefined, reqCtx: RequestContext): boolean {
-  if (requireRole === undefined) return true;
-  try {
-    checkRequireRole(requireRole, reqCtx.role, reqCtx.session);
-    return true;
-  } catch {
-    return false;
-  }
-}
+type AuditBase = Pick<AuditEvent, "action" | "resource" | "targetId" | "targetIds" | "diff">;
 
-/** Keep only actions allowed by canonical `access` or its `requireRole` alias. */
-export async function filterActionsByAccess<
-  Action extends { access?: AccessRule | undefined; requireRole?: RequireRole },
->(actions: readonly Action[] | undefined, reqCtx: RequestContext): Promise<Action[]> {
-  const visible: Action[] = [];
-  for (const action of actions ?? []) {
-    if (action.access !== undefined) {
-      if (await accessAllows(action.access, reqCtx)) visible.push(action);
-    } else if (roleAllows(action.requireRole, reqCtx)) {
-      visible.push(action);
-    }
+function actorName(config: ResolvedAdminConfig, session: RequestContext["session"]): string | null {
+  try {
+    const user = accountUser(config, session);
+    return user?.name ?? user?.email ?? null;
+  } catch {
+    return null;
   }
-  return visible;
 }
 
 /** Build the standard `AuditEvent` shape every action handler emits. */
 export function buildAuditEvent(
+  config: ResolvedAdminConfig,
   reqCtx: RequestContext,
-  base: { action: string; resource?: string; targetId?: string; diff?: AuditEvent["diff"] },
-  extractUserId?: (session: RequestContext["session"]) => string | null,
+  base: AuditBase,
 ): AuditEvent {
+  const name = actorName(config, reqCtx.session);
   return {
-    actorId: actorIdFromSession(reqCtx.session, extractUserId),
+    actorId: actorIdFromSession(reqCtx.session, config.auth.userId),
     action: base.action,
     at: new Date(),
+    ...(name ? { actorName: name } : {}),
     ...(base.resource !== undefined ? { resource: base.resource } : {}),
     ...(base.targetId !== undefined ? { targetId: base.targetId } : {}),
+    ...(base.targetIds !== undefined ? { targetIds: base.targetIds } : {}),
     ...(base.diff !== undefined ? { diff: base.diff } : {}),
+    ...(reqCtx.scope && !isAllTenants(reqCtx.scope) ? { scope: reqCtx.scope } : {}),
     ...(reqCtx.ip ? { ip: reqCtx.ip } : {}),
     ...(reqCtx.userAgent ? { userAgent: reqCtx.userAgent } : {}),
   };
@@ -134,24 +119,44 @@ export function buildAuditEvent(
 /** Wrap an action handler's success branch with the audit emit. */
 export async function maybeEmitAudit(
   result: ActionResult<unknown>,
-  auditConfig: AuditConfig | undefined,
+  config: ResolvedAdminConfig,
   resourceAudit: boolean | undefined,
   event: AuditEvent,
 ): Promise<void> {
-  if (!result.ok) return;
-  if (resourceAudit === false) return;
-  await emitAudit(auditConfig, event);
+  if (!result.ok || resourceAudit === false) return;
+  await emitAudit(config, event);
 }
 
-export function isAuditActive(
-  auditConfig: AuditConfig | undefined,
-  resourceAudit: boolean | undefined,
+function jsonOf(value: object): string | null {
+  try {
+    return JSON.stringify(value, (_key, inner: unknown) =>
+      typeof inner === "bigint" ? inner.toString() : inner,
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** A re-submitted form hands back equal values in new objects: a date or JSON value that reads the same is no change. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+  if (a && b && typeof a === "object" && typeof b === "object") {
+    const left = jsonOf(a);
+    return left !== null && left === jsonOf(b);
+  }
+  return false;
+}
+
+/** Whether a write sets any key to something other than what the stored row holds. */
+export function changesRow(
+  current: Record<string, unknown>,
+  values: Record<string, unknown>,
 ): boolean {
-  if (resourceAudit === false) return false;
-  return Boolean(auditConfig?.sink);
+  return Object.keys(values).some((key) => !sameValue(current[key], values[key]));
 }
 
-/** Shallow before/after diff for an auto-audited mutation. */
+/** Field-by-field before/after diff for an auto-audited mutation. */
 export function computeShallowDiff(
   before: Record<string, unknown> | null,
   after: Record<string, unknown> | null,
@@ -164,7 +169,7 @@ export function computeShallowDiff(
   const changedAfter: Record<string, unknown> = {};
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   for (const key of keys) {
-    if (!Object.is(before[key], after[key])) {
+    if (!sameValue(before[key], after[key])) {
       changedBefore[key] = before[key];
       changedAfter[key] = after[key];
     }

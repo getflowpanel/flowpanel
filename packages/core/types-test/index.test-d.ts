@@ -4,7 +4,7 @@
 import {
   type Adapter,
   type AdapterKind,
-  type AdminConfig,
+  type AdminDefinition,
   type BarChartOptions,
   type BoundAdapterScope,
   bindAdapterScope,
@@ -13,6 +13,7 @@ import {
   type DrawerConfig,
   type DrawerTabWidgets,
   defineAdmin,
+  type InferNamedRow,
   type InferRow,
   type LabelsConfig,
   metric,
@@ -42,14 +43,15 @@ expectError(buildThemeInitScript("system"));
 declare module "@flowpanel/core" {
   interface FlowpanelResources {
     users: { id: number; email: string };
+    visits: { id: number; userId: number; startedAt: Date };
   }
 }
 
 // ── defineAdmin returns ResolvedAdminConfig ──────────────────────────────
-declare const minimalConfig: AdminConfig;
+declare const minimalConfig: AdminDefinition;
 expectType<ResolvedAdminConfig>(defineAdmin(minimalConfig));
 
-// ── Adapter.kind is an open literal union (I-2, ADR 0016) ────────────────
+// ── Adapter.kind is an open literal union ─────────────────────────────────
 declare const adapter: Adapter;
 expectAssignable<string>(adapter.kind);
 expectAssignable<AdapterKind>("drizzle");
@@ -77,6 +79,12 @@ expectAssignable<{ __kind: "resource" }>(r);
 expectType<{ id: number; email: string }>({} as InferRow<"users">);
 expectType<Record<string, unknown>>({} as InferRow<"unknown_resource">);
 
+// ── a named Prisma-style resource checks its options against the row registered under its name ──
+resource("User", { name: "users", columns: ["email"] });
+expectError(resource("User", { name: "users", columns: ["nope"] }));
+expectType<{ id: number; email: string }>({} as InferNamedRow<"User", "users">);
+expectType<Record<string, unknown>>({} as InferNamedRow<"User", "people">);
+
 // ── metric builder produces a kind: "metric" widget ──────────────────────
 const m = metric("Users", async () => 0);
 expectAssignable<{ kind: "metric" }>(m);
@@ -87,7 +95,7 @@ expectAssignable<{ kind: "table" }>(
   table({ resource: "users", realtime: ["resource.users", "audit.users"] }),
 );
 
-// ── LabelsConfig nesting + string-template slot (I-12) ───────────────────
+// ── LabelsConfig nesting + string-template slot ──────────────────────────
 const validLabels: LabelsConfig = {
   actions: { save: "Сохранить" },
   bulkBar: { selected: "{n} выбрано" },
@@ -113,7 +121,7 @@ expectAssignable<RealtimeConfig>({
   client: { publish: async () => 1, on: () => undefined },
 });
 
-// url and client are both optional in the type; createPublisher requires one of them
+// url and client are both optional in the type; createRealtimeTransport requires one of them
 expectError<RealtimeConfig>({ driver: "redis", url: 6379 });
 expectError<RealtimeConfig>({ driver: "memory", url: "redis://localhost:6379" });
 

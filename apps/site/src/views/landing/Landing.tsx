@@ -1,23 +1,17 @@
-import { ConfigResult } from "./ui/ConfigResult";
-import { CustomizationLayers } from "./ui/CustomizationLayers";
-import { FeatureGrid } from "./ui/FeatureGrid";
+import { Config } from "./ui/Config";
+import { GetStarted } from "./ui/GetStarted";
 import { Hero } from "./ui/Hero";
-import { ProductionModel } from "./ui/ProductionModel";
-import { ReadyToShip } from "./ui/ReadyToShip";
-import { SeeItRunning } from "./ui/SeeItRunning";
-import { ThreeSteps } from "./ui/ThreeSteps";
+import { Included } from "./ui/Included";
+import { Screens } from "./ui/Screens";
 
 export function Landing() {
   return (
     <main id="main">
       <Hero />
-      <ProductionModel />
-      <ConfigResult />
-      <ThreeSteps />
-      <FeatureGrid />
-      <CustomizationLayers />
-      <SeeItRunning />
-      <ReadyToShip />
+      <Config />
+      <Screens />
+      <Included />
+      <GetStarted />
     </main>
   );
 }

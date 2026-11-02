@@ -1,13 +1,12 @@
-import { type FieldDef, type InferRow, resource } from "@flowpanel/kit";
-import { badge } from "@/src/admin/format";
+import { type FieldDef, type RowOf, resource } from "@flowpanel/kit";
 import { disableCustomer } from "@/src/admin/mutations";
 import * as schema from "@/src/db/schema";
 import { readSandboxConfig } from "@/src/demo/sandbox/config";
 import { sandboxField, sandboxImportConfig, sandboxResourcePolicy } from "@/src/demo/sandbox/scope";
-import { PLANS, STATUSES } from "./customer-enums";
-import { customerBadge, customerSubtitle, customerTabs, customerTitle } from "./customers-detail";
+import { AccountStatus, Plan } from "../enums";
+import { customerCard } from "./customer-card";
 
-const fields: FieldDef<InferRow<typeof schema.customers>>[] = [
+const fields: FieldDef<RowOf<"customers">>[] = [
   {
     name: "email",
     type: "email",
@@ -23,7 +22,7 @@ const fields: FieldDef<InferRow<typeof schema.customers>>[] = [
   {
     name: "plan",
     type: "select",
-    options: PLANS,
+    options: Plan.options,
     defaultValue: "starter",
     span: 6,
     group: "Subscription",
@@ -31,7 +30,7 @@ const fields: FieldDef<InferRow<typeof schema.customers>>[] = [
   {
     name: "status",
     type: "select",
-    options: STATUSES,
+    options: AccountStatus.options,
     defaultValue: "trialing",
     span: 6,
     group: "Subscription",
@@ -40,35 +39,26 @@ const fields: FieldDef<InferRow<typeof schema.customers>>[] = [
 
 export const customers = resource(schema.customers, {
   ...sandboxResourcePolicy(schema.customers.sandboxId),
-  name: "customers",
-  label: "Customers",
-  labelOne: "Customer",
   icon: "users",
   columns: [
     { field: "company", editable: true },
     { field: "name", label: "Contact" },
     "email",
-    { field: "plan", format: badge },
-    { field: "status", format: badge },
+    { field: "plan", format: Plan.format },
+    { field: "status", format: AccountStatus.format },
     { field: "createdAt", label: "Joined" },
   ],
   search: ["company", "name", "email"],
   filters: [
-    { field: "plan", type: "select", options: PLANS },
-    { field: "status", type: "select", options: STATUSES },
+    { field: "plan", type: "select" },
+    { field: "status", type: "select" },
     { field: "createdAt", type: "daterange", label: "Joined" },
   ],
   defaultSort: { field: "createdAt", dir: "desc" },
-  create: { fields: [...fields, sandboxField<InferRow<typeof schema.customers>>()] },
+  create: { fields: [...fields, sandboxField<RowOf<"customers">>()] },
   update: { fields },
   delete: { softDelete: "deletedAt" },
-  detail: {
-    expose: ["lastSeenAt"],
-    title: customerTitle,
-    subtitle: customerSubtitle,
-    badge: customerBadge,
-    tabs: customerTabs,
-  },
+  detail: { expose: ["lastSeenAt"], ...customerCard },
   rowClick: "drawer",
   realtime: true,
   export: {
@@ -86,11 +76,10 @@ export const customers = resource(schema.customers, {
     icon: "users",
     title: "No customers yet",
     description: "Create a customer or import a catalog account from CSV.",
-    action: { label: "Create customer", href: "/admin/customers/new" },
   },
   drawer: {
     width: "lg",
-    header: (row) => row.company ?? row.email,
+    title: (row) => row.company ?? row.email,
     tabs: [
       { key: "profile", label: "Profile", fields: "*" },
       {
@@ -117,7 +106,7 @@ export const customers = resource(schema.customers, {
         key: "disable",
         label: "Disable customer",
         variant: "destructive",
-        requireRole: "admin",
+        access: "admin",
         confirm: "Disable this customer? They will lose access immediately.",
         run: disableCustomer,
       },

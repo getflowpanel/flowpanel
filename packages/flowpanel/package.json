@@ -1,7 +1,7 @@
 {
   "name": "@flowpanel/kit",
   "version": "0.3.0",
-  "description": "Config-first admin panel framework for Next.js 16",
+  "description": "Admin panel for Next.js in one package: config builders, Drizzle and Prisma adapters, the App Router runtime, React UI and auth presets",
   "keywords": [
     "flowpanel",
     "admin",
@@ -25,112 +25,153 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./next": {
       "types": "./dist/next.d.ts",
-      "import": "./dist/next.js"
-    },
-    "./next/client": {
-      "types": "./dist/next-client.d.ts",
-      "import": "./dist/next-client.js"
+      "import": "./dist/next.js",
+      "default": "./dist/next.js"
     },
     "./drizzle": {
       "types": "./dist/drizzle.d.ts",
-      "import": "./dist/drizzle.js"
+      "import": "./dist/drizzle.js",
+      "default": "./dist/drizzle.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
+      "import": "./dist/react.js",
+      "default": "./dist/react.js"
     },
     "./client": {
       "types": "./dist/client.d.ts",
-      "import": "./dist/client.js"
+      "import": "./dist/client.js",
+      "default": "./dist/client.js"
     },
     "./bullmq": {
       "types": "./dist/bullmq.d.ts",
-      "import": "./dist/bullmq.js"
+      "import": "./dist/bullmq.js",
+      "default": "./dist/bullmq.js"
     },
     "./bullmq/board": {
       "types": "./dist/bullmq-board.d.ts",
-      "import": "./dist/bullmq-board.js"
+      "import": "./dist/bullmq-board.js",
+      "default": "./dist/bullmq-board.js"
     },
     "./publish": {
-      "types": "./dist/publish.d.ts",
-      "import": "./dist/publish.js"
-    },
-    "./server": {
-      "types": "./dist/server.d.ts",
-      "import": "./dist/server.js"
+      "import": {
+        "types": "./dist/publish.d.ts",
+        "default": "./dist/publish.js"
+      },
+      "require": {
+        "types": "./dist/core/publish.d.cts",
+        "default": "./dist/core/publish.cjs"
+      }
     },
     "./charts": {
       "types": "./dist/charts.d.ts",
-      "import": "./dist/charts.js"
-    },
-    "./charts/runtime": {
-      "types": "./dist/charts-runtime.d.ts",
-      "import": "./dist/charts-runtime.js"
+      "import": "./dist/charts.js",
+      "default": "./dist/charts.js"
     },
     "./prisma": {
       "types": "./dist/prisma.d.ts",
-      "import": "./dist/prisma.js"
+      "import": "./dist/prisma.js",
+      "default": "./dist/prisma.js"
     },
     "./auth": {
       "types": "./dist/auth.d.ts",
-      "import": "./dist/auth.js"
+      "import": "./dist/auth.js",
+      "default": "./dist/auth.js"
+    },
+    "./test": {
+      "import": {
+        "types": "./dist/test.d.ts",
+        "default": "./dist/test.js"
+      },
+      "require": {
+        "types": "./dist/test/index.d.cts",
+        "default": "./dist/test/index.cjs"
+      }
+    },
+    "./test/widgets": {
+      "types": "./dist/test-widgets.d.ts",
+      "import": "./dist/test-widgets.js",
+      "default": "./dist/test-widgets.js"
     },
     "./styles/admin.css": "./dist/styles/admin.css",
+    "./styles/tailwind.css": "./dist/styles/tailwind.css",
     "./package.json": "./package.json"
   },
   "sideEffects": [
-    "**/*.css"
+    "**/*.css",
+    "./dist/next/index.js"
   ],
   "files": [
     "dist",
     "README.md",
-    "llms.txt"
+    "llms.txt",
+    "llms"
   ],
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "build": "pnpm run build:js && pnpm run build:styles",
-    "build:js": "tsup",
-    "build:styles": "node scripts/build-styles.mjs",
-    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./styles/admin.css",
+    "build": "node scripts/build.mjs",
+    "lint:attw": "attw --pack . --profile esm-only --exclude-entrypoints ./test ./styles/admin.css ./styles/tailwind.css && attw --pack . --profile node16 --entrypoints ./test ./publish",
     "lint:publish": "publint --strict",
+    "postpack": "node scripts/pack-manifest.mjs restore",
+    "prepack": "node scripts/pack-manifest.mjs strip",
     "test:unit": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@flowpanel/adapter-bullmq": "workspace:*",
-    "@flowpanel/adapter-drizzle": "workspace:*",
-    "@flowpanel/adapter-prisma": "workspace:*",
-    "@flowpanel/charts": "workspace:*",
-    "@flowpanel/client": "workspace:*",
-    "@flowpanel/core": "workspace:*",
-    "@flowpanel/next": "workspace:*",
-    "@flowpanel/react": "workspace:*"
+    "@conform-to/react": "^1.21.1",
+    "@conform-to/zod": "^1.21.1",
+    "@radix-ui/react-alert-dialog": "^1.1.24",
+    "@radix-ui/react-checkbox": "^1.3.12",
+    "@radix-ui/react-dialog": "^1.2.0",
+    "@radix-ui/react-dropdown-menu": "^2.1.25",
+    "@radix-ui/react-label": "^2.1.16",
+    "@radix-ui/react-popover": "^1.2.0",
+    "@radix-ui/react-select": "^2.3.8",
+    "@radix-ui/react-slot": "^1.4.0",
+    "@radix-ui/react-switch": "^1.3.8",
+    "@radix-ui/react-tabs": "^1.1.22",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "catalog:",
+    "cmdk": "^1.1.1",
+    "drizzle-zod": "^0.8.3",
+    "lucide-react": "^1.52.0",
+    "recharts": "catalog:",
+    "sonner": "^2.0.8",
+    "tailwind-merge": "catalog:"
   },
   "peerDependencies": {
-    "@bull-board/api": "^6.0.0",
-    "@bull-board/express": "^6.0.0",
+    "@axe-core/playwright": "^4.10.0",
+    "@bull-board/api": ">=6.0.0 <10.0.0",
+    "@bull-board/express": ">=6.0.0 <10.0.0",
+    "@playwright/test": "^1.50.0",
     "@prisma/client": ">=5.0.0 <7.0.0",
-    "bullmq": "^5.0.0",
+    "bullmq": "^5.0.0 || ^6.0.0",
     "drizzle-orm": ">=0.45.2 <1.0.0",
-    "express": "^4.19.0",
-    "ioredis": "^5.10.0",
-    "next": "^16.3.0",
+    "express": "^4.19.0 || ^5.0.0",
+    "ioredis": "^5.10.0 || ^6.0.0",
+    "next": ">=15.5.0 <17.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^2.15.0 || ^3.0.0",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@axe-core/playwright": {
+      "optional": true
+    },
     "@bull-board/api": {
       "optional": true
     },
     "@bull-board/express": {
+      "optional": true
+    },
+    "@playwright/test": {
       "optional": true
     },
     "@prisma/client": {
@@ -147,18 +188,36 @@
     },
     "ioredis": {
       "optional": true
-    },
-    "recharts": {
-      "optional": true
     }
   },
   "devDependencies": {
-    "postcss": "^8.5.26",
-    "postcss-selector-parser": "^6.1.2",
+    "@bull-board/api": "^9.10.4",
+    "@bull-board/express": "^9.10.4",
+    "@flowpanel/adapter-bullmq": "workspace:*",
+    "@flowpanel/adapter-drizzle": "workspace:*",
+    "@flowpanel/adapter-prisma": "workspace:*",
+    "@flowpanel/charts": "workspace:*",
+    "@flowpanel/client": "workspace:*",
+    "@flowpanel/core": "workspace:*",
+    "@flowpanel/next": "workspace:*",
+    "@flowpanel/react": "workspace:*",
+    "@flowpanel/test": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@types/node": "catalog:",
+    "bullmq": "catalog:",
+    "drizzle-orm": "catalog:",
+    "express": "^5.2.1",
+    "ioredis": "^6.0.0",
+    "next": "catalog:",
+    "postcss": "catalog:",
+    "postcss-selector-parser": "^7.1.6",
     "postcss-value-parser": "^4.2.0",
-    "tailwindcss3": "npm:tailwindcss@^3.4.0",
-    "tsup": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "tailwindcss3": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

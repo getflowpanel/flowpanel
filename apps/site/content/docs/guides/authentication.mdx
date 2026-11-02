@@ -1,0 +1,111 @@
+---
+title: Authentication
+description: Connect better-auth, Clerk, NextAuth, Lucia or your own session to FlowPanel and require a role.
+kind: how-to
+metaTitle: Protect the admin panel with better-auth or Clerk
+---
+
+FlowPanel reads the session from your existing auth provider and checks a role on every page and API request. A preset from `@flowpanel/kit/auth` builds the `auth` config for common providers.
+
+| Preset | Session source | Role read from |
+| --- | --- | --- |
+| `withBetterAuth(opts)` | the better-auth instance you pass | `session.user.role` |
+| `withClerk(opts?)` | Clerk's `auth()` helper | `sessionClaims.publicMetadata.role` |
+| `withNextAuth(opts)` | the `auth` function you pass: Auth.js v5's `auth`, or `() => getServerSession(authOptions)` on NextAuth v4 | `session.user.role` |
+| `withLucia(opts)` | the Lucia instance you pass | `user.role` |
+| `devAuth(role?)` | a fixed `{ id: "dev" }` | the `role` argument, default `"admin"` |
+
+A missing role resolves to `guest`. `devAuth()` authenticates nobody, so it throws when `NODE_ENV` is `production`, whatever `auth.access` says. Use it only locally.
+
+## better-auth
+
+```ts
+import { defineAdmin } from "@flowpanel/kit";
+import { withBetterAuth } from "@flowpanel/kit/auth";
+import { auth } from "@/lib/auth";
+
+export default defineAdmin({
+  adapter,
+  auth: withBetterAuth({
+    auth,
+    access: "admin",
+    signInUrl: "/sign-in",
+    forbiddenUrl: "/",
+  }),
+  resources,
+});
+```
+
+`init` writes this wiring when it finds `better-auth`: the preset goes in `flowpanel-session.ts` beside your auth module, such as `lib/flowpanel-session.ts`, as `flowpanelAuth`, and the config uses `auth: flowpanelAuth`. Add `signInUrl` and `forbiddenUrl` there. The preset calls `auth.api.getSession` with the request being served, so cookie sessions work in pages and API routes. The audit actor is `session.user.id`.
+
+When the role lives in your own table, `role` can be async:
+
+```ts as="AdminDefinition"
+auth: withBetterAuth({
+  auth,
+  access: "admin",
+  role: async (session) => {
+    const id = session?.user.id;
+    if (!id) return "guest";
+    const member = await db.query.members.findFirst({
+      where: (m, { eq }) => eq(m.userId, id),
+      columns: { role: true },
+    });
+    return member?.role ?? "guest";
+  },
+}),
+```
+
+`session` has the type `init` registered for your session, so `session?.user.id` needs no cast. It runs on every request, so keep it to one indexed read. FlowPanel does not cache it. A resolver that throws fails the request closed.
+
+## Clerk
+
+Clerk must already protect the app: `clerkMiddleware()` covering the admin, API and stream paths, and `ClerkProvider` at the root. See [`examples/with-clerk`](https://github.com/getflowpanel/flowpanel/tree/main/examples/with-clerk).
+
+```ts
+import { defineAdmin } from "@flowpanel/kit";
+import { withClerk } from "@flowpanel/kit/auth";
+
+export default defineAdmin({
+  adapter,
+  auth: withClerk({
+    access: "admin",
+    signInUrl: "/sign-in",
+    forbiddenUrl: "/",
+  }),
+  resources,
+});
+```
+
+Set the user's `publicMetadata.role`, and add `"publicMetadata": "{{user.public_metadata}}"` to the Clerk session token; Clerk leaves it out by default. Refresh the session after changing a role. The audit actor is the Clerk user ID. `withClerk` throws when `@clerk/nextjs` is not installed.
+
+## Your own session
+
+```ts as="AdminDefinition"
+auth: {
+  session: getSession,
+  role: (session) => session?.user?.role ?? "guest",
+  userId: (session) => session?.user?.id ?? null,
+  access: ["admin", "support"],
+}
+```
+
+`session` receives the request. Both `session` and `role` run on every request. `access` takes the same rule as everywhere else: a role, a list of roles, or a function of `{ session, role }`. It runs before `scope`, so a function sees `scope` as `null`.
+
+## Status codes
+
+Without a `signInUrl` or `forbiddenUrl`, the sign-in and access-denied screens answer 200 inside the admin; [Limits](/docs/introduction/limits#sign-in-and-access-denied-status-on-pages) says why. If the session provider throws, the page shows "Something went wrong" with a request ID, and the server log has the error. A refusal FlowPanel wrote, such as the development stub `init` writes running in production, is shown in full on that screen.
+
+## Verify
+
+1. With no session, the page redirects to `signInUrl` and the API rejects the request.
+2. Signed in without the role, the page redirects to `forbiddenUrl` and the API returns 403. A role the admin lets in but one page refuses sees "You don't have access to …" inside the admin instead.
+3. Signed in with the role, pages and API calls succeed.
+
+Without a `signInUrl`, the page shows a sign-in screen instead of redirecting. In development it says that `auth.session` returned null and links to this guide.
+
+Call one action route as a non-admin as well, such as `POST /api/flowpanel/orders/1/actions/refund` with a non-admin session cookie, and check that it answers 403.
+
+In production, an admin without `auth.access` refuses to start unless it sets both `allowUnauthenticated: true` and `readOnly: true`.
+
+Every option: [AuthConfig](/docs/reference/define-config#authconfig).

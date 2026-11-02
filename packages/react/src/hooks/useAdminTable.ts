@@ -9,7 +9,7 @@ export interface TableSort {
 
 export interface UseAdminTable {
   page: number;
-  /** `?perPage=`, or null when the resource's configured size applies. */
+  /** `?pageSize=`, or null when the resource's configured size applies. */
   pageSize: number | null;
   search: string;
   sort: TableSort | null;
@@ -30,7 +30,7 @@ export function useAdminTable(): UseAdminTable {
 
   const pageRaw = Number(sp.get("page") ?? "1");
   const page = Number.isFinite(pageRaw) ? Math.max(1, Math.trunc(pageRaw)) : 1;
-  const pageSize = Number(sp.get("perPage")) || null;
+  const pageSize = Number(sp.get("pageSize")) || null;
   const search = sp.get("q") ?? "";
   const sortRaw = sp.get("sort");
   const sort: TableSort | null = sortRaw
@@ -42,8 +42,7 @@ export function useAdminTable(): UseAdminTable {
   const filters: Record<string, string> = {};
   for (const [k, v] of sp.entries()) if (k.startsWith("f_")) filters[k.slice(2)] = v;
 
-  // Replace, not push: list state changes on every keystroke of a filter, and a
-  // history stack of them means Back walks the filters instead of leaving.
+  // Replace, not push: list state changes on every keystroke, and a history stack means Back walks filters.
   const navigate = React.useCallback(
     (mutate: (p: URLSearchParams) => void, scroll = false) => {
       const next = new URLSearchParams(sp.toString());
@@ -62,8 +61,8 @@ export function useAdminTable(): UseAdminTable {
   const setPageSize = React.useCallback(
     (n: number | null) =>
       navigate((q) => {
-        if (n == null) q.delete("perPage");
-        else q.set("perPage", String(n));
+        if (n == null) q.delete("pageSize");
+        else q.set("pageSize", String(n));
         q.delete("page");
       }, true),
     [navigate],

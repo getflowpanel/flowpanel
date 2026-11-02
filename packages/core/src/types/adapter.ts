@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { AuditLogStore } from "./audit";
 import type { ItemQueryContext, ListQueryContext, MutationContext } from "./context";
 import type { InferDB } from "./registry";
 import type { ListResult } from "./resource";
@@ -11,6 +12,10 @@ export interface ColumnMeta {
   nullable: boolean;
   unique: boolean;
   primaryKey: boolean;
+  /** A `number` column that holds whole numbers only, such as `integer` or `bigint`; `false` for decimals and floats. */
+  integer?: boolean;
+  /** A SQL `date` column of `date` type: a calendar day, which reads as midnight UTC and has no time or zone. */
+  dateOnly?: boolean;
   /** Allowed values, for `enum` columns. */
   enumValues?: readonly string[];
   /** Foreign key target, when the column references another table. */
@@ -26,6 +31,8 @@ export interface ColumnMeta {
   generated?: boolean;
   /** The database or ORM fills the column when the insert omits it. */
   hasDefault?: boolean;
+  /** That default when it is a plain value, such as an enum's `"draft"`; a generated create form starts there. */
+  defaultValue?: string | number | boolean;
   /** Adapter-discovered secret. Always excluded from generated read projections. */
   sensitive?: boolean;
 }
@@ -36,7 +43,17 @@ export interface ResourceIntrospection {
   name: string;
   columns: ColumnMeta[];
   primaryKey: string;
+  /** Every column of a composite primary key, in order, when the adapter can see them. */
+  keyColumns?: readonly string[];
+  /**
+   * What the ref is. A view has no write path of its own; see `ResourceOptions.writeTo`.
+   * @defaultValue "table"
+   */
+  kind?: "table" | "view";
 }
+
+/** What a resource reads or writes: a Drizzle table or view, a Prisma model name, or a custom adapter's own handle. */
+export type AdapterRef = string | object;
 
 /** Adapter identity. The shipped kinds autocomplete; third-party kinds are free-form. */
 export type AdapterKind = "drizzle" | "prisma" | (string & {});
@@ -73,30 +90,24 @@ export interface Adapter<DB = InferDB, Ref = unknown> {
   /** Clear the soft-delete stamp. Without it, the admin hides the restore button. */
   restore?(ref: Ref, ctx: MutationContext<unknown>): Promise<void>;
   /**
-   * Run one read-only statement and return its rows, as a tagged template.
-   * Every value arrives as a bound parameter; an implementation must never
-   * interpolate one into the SQL text. Without it, `ctx.sql` throws.
+   * Runs one read-only statement and returns its rows, as a tagged template; every value arrives as a bound parameter.
+   * Without it, `ctx.sql` throws.
    */
   sql?<Row = Record<string, unknown>>(
     strings: TemplateStringsArray,
     ...values: unknown[]
   ): Promise<Row[]>;
   /**
-   * Count matching rows without reading them. `where` is the same filter shape
-   * `list` receives. Without it, FlowPanel counts through `list` with an empty
-   * projection, which is one more query but never wrong.
+   * Counts matching rows without reading them; `where` is the same filter shape `list` receives.
+   * Without it, FlowPanel counts through `list` with an empty projection instead.
    */
   count?(ref: Ref, where?: Record<string, unknown>): Promise<number>;
   /**
    * Optional migration support, used by `flowpanel migrate`.
-   * The CLI's earlier `listAppliedMigrations` result may be stale. Implementations
-   * that support concurrent migrators must serialize and recheck `id` at the
-   * database boundary.
+   * A concurrent-safe implementation must serialize and recheck `id` at the database boundary.
    */
   applyMigration?(id: string, sql: string): Promise<void>;
-  /** @deprecated Implement `applyMigration` for CLI migration support. */
-  runMigrationSql?(sql: string): Promise<void>;
   listAppliedMigrations?(): Promise<Set<string>>;
-  /** @deprecated Implement `applyMigration` for CLI migration support. */
-  markMigrationApplied?(id: string): Promise<void>;
+  /** The `flowpanel_audit_log` table that `flowpanel migrate` creates. Without it, `audit` needs a `sink`. */
+  auditLog?: AuditLogStore;
 }
